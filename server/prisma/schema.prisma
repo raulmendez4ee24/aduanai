@@ -1,0 +1,380 @@
+generator client {
+  provider = "prisma-client-js"
+  output   = "../node_modules/.prisma/client"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+// ============================================
+// MULTI-TENANT
+// ============================================
+
+enum Plan {
+  STARTER
+  PROFESSIONAL
+  ENTERPRISE
+  CUSTOM
+}
+
+model Tenant {
+  id        String   @id @default(cuid())
+  name      String
+  plan      Plan     @default(STARTER)
+  rfc       String?
+  active    Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relations
+  users           User[]
+  classifications Classification[]
+  quotes          Quote[]
+  copilotMessages CopilotMessage[]
+  alerts          Alert[]
+  auditLogs       AuditLog[]
+  operations      Operation[]
+
+  @@map("tenants")
+}
+
+enum UserRole {
+  ADMIN
+  USER
+  VIEWER
+}
+
+model User {
+  id        String   @id @default(cuid())
+  email     String   @unique
+  password  String
+  name      String
+  role      UserRole @default(USER)
+  phone     String?
+  active    Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  tenantId String
+  tenant   Tenant @relation(fields: [tenantId], references: [id])
+
+  classifications Classification[]
+  quotes          Quote[]
+  copilotMessages CopilotMessage[]
+  auditLogs       AuditLog[]
+  operations      Operation[]
+
+  @@index([tenantId])
+  @@map("users")
+}
+
+// ============================================
+// TIGIE — Fracciones Arancelarias
+// ============================================
+
+model Section {
+  id          String @id @default(cuid())
+  number      String @unique // "I", "II", etc.
+  title       String
+  description String?
+
+  chapters Chapter[]
+
+  @@map("sections")
+}
+
+model Chapter {
+  id          String  @id @default(cuid())
+  number      String  @unique // "01", "02", etc.
+  title       String
+  legalNotes  String? // Notas legales del capítulo
+
+  sectionId String
+  section   Section @relation(fields: [sectionId], references: [id])
+
+  headings Heading[]
+
+  @@index([sectionId])
+  @@map("chapters")
+}
+
+model Heading {
+  id          String @id @default(cuid())
+  code        String @unique // "0101", "0102"
+  description String
+
+  chapterId String
+  chapter   Chapter @relation(fields: [chapterId], references: [id])
+
+  subheadings Subheading[]
+
+  @@index([chapterId])
+  @@map("headings")
+}
+
+model Subheading {
+  id          String @id @default(cuid())
+  code        String @unique // "010121", "010129"
+  description String
+
+  headingId String
+  heading   Heading @relation(fields: [headingId], references: [id])
+
+  fractions Fraction[]
+
+  @@index([headingId])
+  @@map("subheadings")
+}
+
+model Fraction {
+  id          String   @id @default(cuid())
+  code        String   @unique // "01012101" (8 dígitos sin puntos)
+  codeFormatted String // "0101.21.01" (con puntos)
+  description String
+  nico        String?  // 2 dígitos NICO
+  unit        String?  // Unidad de medida (Kg, Pza, L, etc.)
+  keywords    String[] // Para búsqueda
+
+  // Aranceles
+  tariffNMF     Float?  // Arancel Nación Más Favorecida (%)
+  tariffTMEC    Float?  // Preferencial TMEC
+  tariffTLCUE   Float?  // Preferencial TLCUE
+  tariffCPTPP   Float?  // Preferencial CPTPP
+  iepsRate      Float?  // Tasa IEPS si aplica
+
+  // Regulaciones
+  requiresPermit     Boolean @default(false)
+  permitType         String? // "SEMARNAT", "COFEPRIS", etc.
+  noms               String[] // NOMs aplicables
+  sectoralRegistry   Boolean @default(false)
+  sectoralType       String? // Tipo de padrón sectorial
+
+  // Metadata
+  active    Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  subheadingId String
+  subheading   Subheading @relation(fields: [subheadingId], references: [id])
+
+  @@index([code])
+  @@index([description])
+  @@index([keywords])
+  @@map("fractions")
+}
+
+// ============================================
+// CLASIFICACIONES
+// ============================================
+
+model Classification {
+  id                 String   @id @default(cuid())
+  inputDescription   String
+  inputContext        String?
+  fractionCode       String
+  fractionDescription String?
+  confidence         Float
+  griApplied         String[]
+  alternatives       String?  // JSON
+  fullResponse       String?  // JSON completo de la IA
+  feedback           String?  // "correct", "incorrect", "partial"
+  feedbackNote       String?
+  createdAt          DateTime @default(now())
+
+  tenantId String
+  tenant   Tenant @relation(fields: [tenantId], references: [id])
+  userId   String
+  user     User   @relation(fields: [userId], references: [id])
+
+  @@index([tenantId])
+  @@index([userId])
+  @@index([fractionCode])
+  @@index([createdAt])
+  @@map("classifications")
+}
+
+// ============================================
+// COTIZACIONES
+// ============================================
+
+model Quote {
+  id           String   @id @default(cuid())
+  fractionCode String
+  customsValue Float
+  origin       String
+  incoterm     String   @default("CIF")
+  currency     String   @default("USD")
+  result       String   // JSON con el desglose completo
+  createdAt    DateTime @default(now())
+
+  tenantId String
+  tenant   Tenant @relation(fields: [tenantId], references: [id])
+  userId   String
+  user     User   @relation(fields: [userId], references: [id])
+
+  @@index([tenantId])
+  @@index([createdAt])
+  @@map("quotes")
+}
+
+// ============================================
+// COPILOT
+// ============================================
+
+model CopilotMessage {
+  id             String   @id @default(cuid())
+  conversationId String
+  role           String   // "user" | "assistant"
+  content        String
+  createdAt      DateTime @default(now())
+
+  tenantId String
+  tenant   Tenant @relation(fields: [tenantId], references: [id])
+  userId   String
+  user     User   @relation(fields: [userId], references: [id])
+
+  @@index([tenantId])
+  @@index([conversationId])
+  @@index([createdAt])
+  @@map("copilot_messages")
+}
+
+// ============================================
+// ALERTAS
+// ============================================
+
+enum AlertChannel {
+  WHATSAPP
+  EMAIL
+  IN_APP
+}
+
+model Alert {
+  id        String       @id @default(cuid())
+  channel   AlertChannel @default(IN_APP)
+  type      String       // "tariff_change", "new_regulation", "weekly_summary"
+  title     String
+  content   String
+  read      Boolean      @default(false)
+  sentAt    DateTime?
+  createdAt DateTime     @default(now())
+
+  tenantId String
+  tenant   Tenant @relation(fields: [tenantId], references: [id])
+
+  // Fracciones monitoreadas (opcional)
+  fractionCodes String[]
+
+  @@index([tenantId])
+  @@index([createdAt])
+  @@map("alerts")
+}
+
+// ============================================
+// AUDITORÍA — Trazabilidad obligatoria en comex
+// ============================================
+
+model AuditLog {
+  id        String   @id @default(cuid())
+  action    String   // "classify", "quote", "login", "export_pdf", etc.
+  entity    String   // "classification", "quote", "user", etc.
+  entityId  String?
+  details   String?  // JSON con detalles adicionales
+  ipAddress String?
+  createdAt DateTime @default(now())
+
+  tenantId String
+  tenant   Tenant @relation(fields: [tenantId], references: [id])
+  userId   String?
+  user     User?  @relation(fields: [userId], references: [id])
+
+  @@index([tenantId])
+  @@index([action])
+  @@index([createdAt])
+  @@map("audit_logs")
+}
+
+// ============================================
+// EXPEDIENTE ELECTRÓNICO
+// ============================================
+
+enum OperationStatus {
+  DRAFT
+  IN_PROGRESS
+  COMPLETE
+  ARCHIVED
+}
+
+enum OperationType {
+  IMPORT
+  EXPORT
+  TRANSIT
+}
+
+model Operation {
+  id              String          @id @default(cuid())
+  reference       String          // Número de referencia / pedimento
+  type            OperationType   @default(IMPORT)
+  status          OperationStatus @default(DRAFT)
+  fractionCode    String?
+  description     String?
+  origin          String?
+  destination     String?
+  customsValue    Float?
+  currency        String?         @default("USD")
+  customsBroker   String?         // Agente aduanal
+  completeness    Float           @default(0) // % de documentos completos
+  notes           String?
+  operationDate   DateTime?
+  createdAt       DateTime        @default(now())
+  updatedAt       DateTime        @updatedAt
+
+  tenantId String
+  tenant   Tenant @relation(fields: [tenantId], references: [id])
+  userId   String
+  user     User   @relation(fields: [userId], references: [id])
+
+  documents Document[]
+
+  @@index([tenantId])
+  @@index([reference])
+  @@index([status])
+  @@index([createdAt])
+  @@map("operations")
+}
+
+enum DocumentStatus {
+  PENDING
+  UPLOADED
+  VERIFIED
+  EXPIRED
+  REJECTED
+}
+
+model Document {
+  id          String         @id @default(cuid())
+  name        String         // Nombre del documento
+  type        String         // "pedimento", "factura", "bl", "certificado_origen", "nom", "packing_list", etc.
+  status      DocumentStatus @default(PENDING)
+  required    Boolean        @default(true)
+  fileName    String?        // Nombre del archivo subido
+  fileSize    Int?           // Tamaño en bytes
+  mimeType    String?
+  filePath    String?        // Ruta en storage
+  expiresAt   DateTime?      // Fecha de vencimiento
+  verifiedAt  DateTime?
+  verifiedBy  String?
+  notes       String?
+  createdAt   DateTime       @default(now())
+  updatedAt   DateTime       @updatedAt
+
+  operationId String
+  operation   Operation @relation(fields: [operationId], references: [id], onDelete: Cascade)
+
+  @@index([operationId])
+  @@index([type])
+  @@index([status])
+  @@index([expiresAt])
+  @@map("documents")
+}
