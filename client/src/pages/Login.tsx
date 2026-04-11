@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { api } from '../lib/api';
+import { ArrowRight } from 'lucide-react';
 
 export function LoginPage({ onLogin }: { onLogin: (token: string) => void }) {
   const [isRegister, setIsRegister] = useState(false);
@@ -14,15 +15,11 @@ export function LoginPage({ onLogin }: { onLogin: (token: string) => void }) {
     e.preventDefault();
     setError('');
     setLoading(true);
-
     try {
-      if (isRegister) {
-        const res = await api.register({ email, password, name, companyName });
-        onLogin(res.token);
-      } else {
-        const res = await api.login(email, password);
-        onLogin(res.token);
-      }
+      const res = isRegister
+        ? await api.register({ email, password, name, companyName })
+        : await api.login(email, password);
+      onLogin(res.token);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Error de conexión');
     } finally {
@@ -30,96 +27,93 @@ export function LoginPage({ onLogin }: { onLogin: (token: string) => void }) {
     }
   }
 
+  const inputStyle = {
+    background: 'var(--bg-surface)',
+    border: '1px solid var(--border)',
+    borderRadius: 'var(--radius)',
+    padding: '12px 16px',
+    color: 'var(--text-primary)',
+    fontFamily: 'var(--font-body)',
+    fontSize: '14px',
+    width: '100%',
+    outline: 'none',
+    transition: 'border-color 0.2s, box-shadow 0.2s',
+  };
+
   return (
-    <div className="min-h-screen bg-[#0A1628] flex items-center justify-center p-4">
-      <div className="w-full max-w-md">
+    <div className="min-h-screen flex items-center justify-center p-4 grid-bg" style={{ background: 'var(--bg-deep)' }}>
+      <div className="noise-overlay" />
+      {/* Background glows */}
+      <div className="fixed top-1/4 left-1/3 w-[500px] h-[500px] rounded-full blur-[150px]" style={{ background: 'rgba(6,182,212,0.06)' }} />
+      <div className="fixed bottom-1/4 right-1/3 w-[400px] h-[400px] rounded-full blur-[120px]" style={{ background: 'rgba(129,140,248,0.04)' }} />
+
+      <div className="w-full max-w-md relative z-10 animate-scale-in">
         {/* Logo */}
-        <div className="text-center mb-8">
-          <h1 className="text-4xl font-bold mb-2">
-            <span className="text-[#C9A84C]">ADUANA</span>
-            <span className="text-white">I</span>
+        <div className="text-center mb-10">
+          <div className="w-14 h-14 rounded-2xl flex items-center justify-center mx-auto mb-4 glow-cyan" style={{ background: 'linear-gradient(135deg, var(--cyan), var(--cyan-dim))' }}>
+            <span className="font-black text-xl" style={{ fontFamily: 'var(--font-display)', color: 'var(--bg-deep)' }}>A</span>
+          </div>
+          <h1 className="text-3xl font-bold mb-1" style={{ fontFamily: 'var(--font-display)' }}>
+            <span style={{ color: 'var(--cyan)' }}>ADUANA</span>I
           </h1>
-          <p className="text-slate-400">Comercio Exterior con Inteligencia Artificial</p>
+          <p className="text-xs tracking-[0.15em]" style={{ fontFamily: 'var(--font-mono)', color: 'var(--text-muted)' }}>COMMAND CENTER</p>
         </div>
 
         {/* Form */}
-        <form onSubmit={handleSubmit} className="bg-[#0D1B2A] rounded-2xl border border-[#1B2D45] p-8 space-y-5">
-          <h2 className="text-xl font-semibold text-white">
+        <form onSubmit={handleSubmit} className="glass rounded-2xl p-8 space-y-5">
+          <h2 className="text-lg font-semibold" style={{ fontFamily: 'var(--font-display)' }}>
             {isRegister ? 'Crear cuenta' : 'Iniciar sesión'}
           </h2>
 
           {isRegister && (
             <>
               <div>
-                <label className="block text-sm text-slate-400 mb-1.5">Nombre</label>
-                <input
-                  type="text"
-                  value={name}
-                  onChange={(e) => setName(e.target.value)}
-                  className="w-full bg-[#1B2D45] border border-[#243656] rounded-lg px-4 py-2.5 text-white placeholder-slate-500 focus:outline-none focus:border-[#C9A84C] transition-colors"
-                  placeholder="Tu nombre"
-                  required
-                />
+                <label className="block text-xs mb-1.5" style={{ color: 'var(--text-muted)', fontFamily: 'var(--font-mono)' }}>NOMBRE</label>
+                <input type="text" value={name} onChange={e => setName(e.target.value)} required placeholder="Tu nombre" style={inputStyle}
+                  onFocus={e => { e.target.style.borderColor = 'var(--cyan)'; e.target.style.boxShadow = '0 0 0 4px var(--cyan-glow)'; }}
+                  onBlur={e => { e.target.style.borderColor = 'var(--border)'; e.target.style.boxShadow = 'none'; }} />
               </div>
               <div>
-                <label className="block text-sm text-slate-400 mb-1.5">Empresa</label>
-                <input
-                  type="text"
-                  value={companyName}
-                  onChange={(e) => setCompanyName(e.target.value)}
-                  className="w-full bg-[#1B2D45] border border-[#243656] rounded-lg px-4 py-2.5 text-white placeholder-slate-500 focus:outline-none focus:border-[#C9A84C] transition-colors"
-                  placeholder="Nombre de tu empresa"
-                />
+                <label className="block text-xs mb-1.5" style={{ color: 'var(--text-muted)', fontFamily: 'var(--font-mono)' }}>EMPRESA</label>
+                <input type="text" value={companyName} onChange={e => setCompanyName(e.target.value)} placeholder="Nombre de tu empresa" style={inputStyle}
+                  onFocus={e => { e.target.style.borderColor = 'var(--cyan)'; e.target.style.boxShadow = '0 0 0 4px var(--cyan-glow)'; }}
+                  onBlur={e => { e.target.style.borderColor = 'var(--border)'; e.target.style.boxShadow = 'none'; }} />
               </div>
             </>
           )}
 
           <div>
-            <label className="block text-sm text-slate-400 mb-1.5">Email</label>
-            <input
-              type="email"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              className="w-full bg-[#1B2D45] border border-[#243656] rounded-lg px-4 py-2.5 text-white placeholder-slate-500 focus:outline-none focus:border-[#C9A84C] transition-colors"
-              placeholder="tu@empresa.com"
-              required
-            />
+            <label className="block text-xs mb-1.5" style={{ color: 'var(--text-muted)', fontFamily: 'var(--font-mono)' }}>EMAIL</label>
+            <input type="email" value={email} onChange={e => setEmail(e.target.value)} required placeholder="tu@empresa.com" style={inputStyle}
+              onFocus={e => { e.target.style.borderColor = 'var(--cyan)'; e.target.style.boxShadow = '0 0 0 4px var(--cyan-glow)'; }}
+              onBlur={e => { e.target.style.borderColor = 'var(--border)'; e.target.style.boxShadow = 'none'; }} />
           </div>
 
           <div>
-            <label className="block text-sm text-slate-400 mb-1.5">Contraseña</label>
-            <input
-              type="password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              className="w-full bg-[#1B2D45] border border-[#243656] rounded-lg px-4 py-2.5 text-white placeholder-slate-500 focus:outline-none focus:border-[#C9A84C] transition-colors"
-              placeholder="••••••••"
-              required
-              minLength={6}
-            />
+            <label className="block text-xs mb-1.5" style={{ color: 'var(--text-muted)', fontFamily: 'var(--font-mono)' }}>CONTRASEÑA</label>
+            <input type="password" value={password} onChange={e => setPassword(e.target.value)} required placeholder="••••••••" minLength={6} style={inputStyle}
+              onFocus={e => { e.target.style.borderColor = 'var(--cyan)'; e.target.style.boxShadow = '0 0 0 4px var(--cyan-glow)'; }}
+              onBlur={e => { e.target.style.borderColor = 'var(--border)'; e.target.style.boxShadow = 'none'; }} />
           </div>
 
           {error && (
-            <div className="bg-red-500/10 border border-red-500/20 text-red-400 text-sm rounded-lg px-4 py-3">
+            <div className="text-sm rounded-xl px-4 py-3" style={{ background: 'rgba(239,68,68,0.08)', border: '1px solid rgba(239,68,68,0.15)', color: 'var(--red)' }}>
               {error}
             </div>
           )}
 
-          <button
-            type="submit"
-            disabled={loading}
-            className="w-full bg-[#C9A84C] hover:bg-[#A68A3E] text-[#0A1628] font-semibold py-3 rounded-lg transition-colors disabled:opacity-50"
-          >
-            {loading ? 'Cargando...' : isRegister ? 'Crear cuenta' : 'Entrar'}
+          <button type="submit" disabled={loading} className="btn-primary w-full py-3.5 text-sm flex items-center justify-center gap-2 disabled:opacity-50">
+            {loading ? (
+              <svg className="animate-spin h-4 w-4" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="3" fill="none" strokeDasharray="60" strokeDashoffset="20" /></svg>
+            ) : (
+              <>{isRegister ? 'Crear cuenta' : 'Entrar'}<ArrowRight size={15} /></>
+            )}
           </button>
 
-          <p className="text-center text-sm text-slate-500">
+          <p className="text-center text-sm" style={{ color: 'var(--text-muted)' }}>
             {isRegister ? '¿Ya tienes cuenta?' : '¿No tienes cuenta?'}{' '}
-            <button
-              type="button"
-              onClick={() => { setIsRegister(!isRegister); setError(''); }}
-              className="text-[#C9A84C] hover:underline"
-            >
+            <button type="button" onClick={() => { setIsRegister(!isRegister); setError(''); }}
+              className="font-medium" style={{ color: 'var(--cyan)' }}>
               {isRegister ? 'Inicia sesión' : 'Regístrate'}
             </button>
           </p>
