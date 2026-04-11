@@ -1,5 +1,5 @@
 import { Link, useLocation } from 'react-router-dom';
-import { Search, Calculator, MessageSquare, LayoutDashboard, LogOut, History, Menu, X, Bell, FolderOpen } from 'lucide-react';
+import { Search, Calculator, MessageSquare, LayoutDashboard, LogOut, History, Menu, X, Bell, FolderOpen, BarChart3 } from 'lucide-react';
 import { type ReactNode, useState } from 'react';
 
 const NAV_ITEMS = [
@@ -8,6 +8,7 @@ const NAV_ITEMS = [
   { path: '/cotizador', label: 'Cotizador', icon: Calculator },
   { path: '/copilot', label: 'Copilot', icon: MessageSquare },
   { path: '/historial', label: 'Historial', icon: History },
+  { path: '/analytics', label: 'Analytics', icon: BarChart3 },
   { path: '/expediente', label: 'Expediente', icon: FolderOpen },
   { path: '/alertas', label: 'Alertas', icon: Bell },
 ];

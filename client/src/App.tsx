@@ -10,6 +10,7 @@ import { DashboardPage } from './pages/Dashboard';
 import { HistoryPage } from './pages/History';
 import { AlertsPage } from './pages/Alerts';
 import { OperationsPage } from './pages/Operations';
+import { AnalyticsPage } from './pages/Analytics';
 
 export function App() {
   const [token, setToken] = useState<string | null>(
@@ -73,6 +74,18 @@ export function App() {
           token ? (
             <Layout onLogout={() => setToken(null)}>
               <CopilotPage />
+            </Layout>
+          ) : (
+            <Navigate to="/login" replace />
+          )
+        }
+      />
+      <Route
+        path="/analytics"
+        element={
+          token ? (
+            <Layout onLogout={() => setToken(null)}>
+              <AnalyticsPage />
             </Layout>
           ) : (
             <Navigate to="/login" replace />

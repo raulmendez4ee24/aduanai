@@ -64,19 +64,61 @@ export async function classifyProduct(
   description: string,
   context?: string
 ): Promise<ClassificationResult> {
-  // Buscar fracciones relacionadas en la DB para dar contexto
-  const relatedFractions = await prisma.fraction.findMany({
-    where: {
-      OR: [
-        { description: { contains: description.split(' ')[0], mode: 'insensitive' } },
-        { keywords: { hasSome: description.toLowerCase().split(' ').filter(w => w.length > 3) } },
-      ],
-    },
-    take: 10,
-  });
+  // Buscar fracciones relacionadas en la DB para dar contexto al clasificador
+  const searchWords = description.toLowerCase().split(/\s+/).filter(w => w.length > 3);
+  const queries = [];
+
+  // Buscar por cada palabra significativa en la descripción
+  for (const word of searchWords.slice(0, 5)) {
+    queries.push(
+      prisma.fraction.findMany({
+        where: { description: { contains: word, mode: 'insensitive' } },
+        select: { codeFormatted: true, description: true, tariffNMF: true, noms: true, requiresPermit: true, permitType: true, sectoralRegistry: true },
+        take: 5,
+      })
+    );
+  }
+
+  // Buscar por keywords
+  if (searchWords.length > 0) {
+    queries.push(
+      prisma.fraction.findMany({
+        where: { keywords: { hasSome: searchWords } },
+        select: { codeFormatted: true, description: true, tariffNMF: true, noms: true, requiresPermit: true, permitType: true, sectoralRegistry: true },
+        take: 10,
+      })
+    );
+  }
+
+  const results = await Promise.all(queries);
+  const allMatches = results.flat();
+
+  // Deduplicar y rankear por relevancia (más palabras coincidentes = mejor)
+  const scored = new Map<string, { frac: typeof allMatches[0]; score: number }>();
+  for (const frac of allMatches) {
+    const key = frac.codeFormatted;
+    const existing = scored.get(key);
+    if (existing) {
+      existing.score++;
+    } else {
+      scored.set(key, { frac, score: 1 });
+    }
+  }
+
+  const relatedFractions = [...scored.values()]
+    .sort((a, b) => b.score - a.score)
+    .slice(0, 15)
+    .map(s => s.frac);
 
   const dbContext = relatedFractions.length > 0
-    ? `\n\nFracciones relacionadas en la TIGIE:\n${relatedFractions.map(f => `- ${f.code}: ${f.description}`).join('\n')}`
+    ? `\n\nFRACCIONES TIGIE RELACIONADAS (usa estas como referencia para tu clasificación):\n${relatedFractions.map(f => {
+        const extras = [];
+        if (f.tariffNMF !== null) extras.push(`IGI: ${f.tariffNMF}%`);
+        if (f.noms.length > 0) extras.push(`NOMs: ${f.noms.join(', ')}`);
+        if (f.requiresPermit) extras.push(`Permiso: ${f.permitType}`);
+        if (f.sectoralRegistry) extras.push('Padrón sectorial');
+        return `- ${f.codeFormatted}: ${f.description}${extras.length ? ` [${extras.join(' | ')}]` : ''}`;
+      }).join('\n')}`
     : '';
 
   const userMessage = `Clasifica el siguiente producto para importación a México:
@@ -84,6 +126,8 @@ export async function classifyProduct(
 PRODUCTO: ${description}
 ${context ? `CONTEXTO ADICIONAL: ${context}` : ''}
 ${dbContext}
+
+IMPORTANTE: Si alguna de las fracciones TIGIE relacionadas coincide exactamente con el producto, úsala. Si no, clasifica según las Reglas Generales Interpretativas del Sistema Armonizado.
 
 Responde en JSON válido.`;
 

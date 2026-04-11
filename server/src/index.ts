@@ -18,6 +18,7 @@ import { alertsRouter } from './routes/alerts';
 import { fractionsRouter } from './routes/fractions';
 import { operationsRouter } from './routes/operations';
 import { prevalidateRouter } from './routes/prevalidate';
+import { analyticsRouter } from './routes/analytics';
 
 const app = express();
 const PORT = process.env.PORT || 3001;
@@ -43,6 +44,7 @@ app.use('/api/alerts', alertsRouter);
 app.use('/api/fractions', fractionsRouter);
 app.use('/api/operations', operationsRouter);
 app.use('/api/prevalidate', prevalidateRouter);
+app.use('/api/analytics', analyticsRouter);
 
 // Error handler
 app.use(errorHandler);

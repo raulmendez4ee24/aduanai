@@ -1,6 +1,7 @@
 import { useState } from 'react';
-import { Search, AlertTriangle, ChevronDown, ChevronUp, ThumbsUp, ThumbsDown, AlertCircle } from 'lucide-react';
+import { Search, AlertTriangle, ChevronDown, ChevronUp, ThumbsUp, ThumbsDown, AlertCircle, Download } from 'lucide-react';
 import { api, type ClassificationResult } from '../lib/api';
+import { generateClassificationPDF } from '../lib/pdf-classify';
 
 export function ClassifierPage() {
   const [description, setDescription] = useState('');
@@ -225,6 +226,15 @@ export function ClassifierPage() {
               )}
             </div>
           )}
+
+          {/* Export PDF */}
+          <button
+            onClick={() => generateClassificationPDF(result, description)}
+            className="flex items-center gap-2 bg-[#1B2D45] hover:bg-[#243656] text-slate-300 hover:text-white px-4 py-2.5 rounded-lg text-sm transition-colors"
+          >
+            <Download size={16} />
+            Exportar PDF
+          </button>
 
           {/* Disclaimer */}
           <div className="bg-amber-500/5 border border-amber-500/10 rounded-xl px-5 py-4">
