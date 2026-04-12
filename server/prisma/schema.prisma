@@ -35,6 +35,18 @@ model Tenant {
   alerts          Alert[]
   auditLogs       AuditLog[]
   operations      Operation[]
+  temporaryImports    TemporaryImport[]
+  discharges          Discharge[]
+  annex24Reports      Annex24Report[]
+  annex30Accounts     Annex30Account[]
+  taxCredits          TaxCredit[]
+  creditUsages        CreditUsage[]
+  guarantees          Guarantee[]
+  certificationProfile CertificationProfile?
+  manifestaciones     ManifestacionValor[]
+  coves               COVE[]
+  loadPlans           LoadPlan[]
+  updateNotifications UpdateNotification[]
 
   @@map("tenants")
 }
@@ -64,6 +76,8 @@ model User {
   copilotMessages CopilotMessage[]
   auditLogs       AuditLog[]
   operations      Operation[]
+  temporaryImports TemporaryImport[]
+  discharges       Discharge[]
 
   @@index([tenantId])
   @@map("users")
@@ -377,4 +391,486 @@ model Document {
   @@index([status])
   @@index([expiresAt])
   @@map("documents")
+}
+
+// ============================================
+// INVENTARIO IMMEX — Control Anexo 24/30
+// ============================================
+
+enum ImportStatus {
+  ACTIVE
+  PARTIALLY_DISCHARGED
+  FULLY_DISCHARGED
+  EXPIRED
+  REGULARIZED
+}
+
+model TemporaryImport {
+  id              String       @id @default(cuid())
+  pedimento       String       // Número de pedimento (ej: "24 47 3461 4000123")
+  fractionCode    String       // Fracción arancelaria 8 dígitos
+  description     String       // Descripción de la mercancía
+  quantity        Float        // Cantidad importada
+  unit            String       // Unidad de medida (Kg, Pza, L, etc.)
+  customsValue    Float        // Valor en aduana USD
+  valueMXN        Float?       // Valor en MXN
+  supplier        String?      // Proveedor extranjero
+  originCountry   String?      // País de origen
+  entryDate       DateTime     // Fecha de entrada (pedimento)
+  expirationDate  DateTime     // Fecha de vencimiento (18 o 36 meses)
+  expirationMonths Int         @default(18) // 18 general, 36 con certificación
+  quantityDischarged Float     @default(0)  // Cantidad descargada acumulada
+  status          ImportStatus @default(ACTIVE)
+  notes           String?
+  createdAt       DateTime     @default(now())
+  updatedAt       DateTime     @updatedAt
+
+  tenantId String
+  tenant   Tenant @relation(fields: [tenantId], references: [id])
+  userId   String
+  user     User   @relation(fields: [userId], references: [id])
+
+  discharges Discharge[]
+
+  @@index([tenantId])
+  @@index([fractionCode])
+  @@index([pedimento])
+  @@index([status])
+  @@index([expirationDate])
+  @@index([entryDate])
+  @@map("temporary_imports")
+}
+
+enum DischargeType {
+  RETURN_EXPORT      // Retorno al extranjero
+  DOMESTIC_SALE      // Venta nacional (cambio a definitiva)
+  REGIME_CHANGE      // Cambio de régimen
+  WASTE              // Desperdicio
+  SCRAP              // Merma
+  DESTRUCTION        // Destrucción
+  DONATION           // Donación
+  TRANSFER           // Transferencia virtual entre IMMEX
+}
+
+model Discharge {
+  id                  String        @id @default(cuid())
+  type                DischargeType
+  pedimento           String?       // Pedimento de descargo/retorno
+  quantity            Float         // Cantidad descargada
+  unit                String        // Unidad de medida
+  customsValue        Float?        // Valor declarado
+  dischargeDate       DateTime      // Fecha de descargo
+  destinationCountry  String?       // País destino (para retornos)
+  buyerName           String?       // Comprador (para ventas nacionales)
+  taxesPaid           Float?        // Impuestos pagados (cambio régimen/venta)
+  notes               String?
+  createdAt           DateTime      @default(now())
+  updatedAt           DateTime      @updatedAt
+
+  temporaryImportId String
+  temporaryImport   TemporaryImport @relation(fields: [temporaryImportId], references: [id])
+
+  tenantId String
+  tenant   Tenant @relation(fields: [tenantId], references: [id])
+  userId   String
+  user     User   @relation(fields: [userId], references: [id])
+
+  @@index([tenantId])
+  @@index([temporaryImportId])
+  @@index([type])
+  @@index([dischargeDate])
+  @@map("discharges")
+}
+
+enum ReportStatus {
+  DRAFT
+  GENERATED
+  TRANSMITTED
+  ACCEPTED
+  REJECTED
+}
+
+model Annex24Report {
+  id                String       @id @default(cuid())
+  period            String       // "2026-Q1", "2026-01", etc.
+  periodStart       DateTime
+  periodEnd         DateTime
+  totalImports      Int          @default(0)
+  totalDischarges   Int          @default(0)
+  totalValueUSD     Float        @default(0)
+  reportData        String?      // JSON con el reporte completo
+  transmissionDate  DateTime?
+  transmissionRef   String?      // Referencia de transmisión al SAT
+  status            ReportStatus @default(DRAFT)
+  notes             String?
+  createdAt         DateTime     @default(now())
+  updatedAt         DateTime     @updatedAt
+
+  tenantId String
+  tenant   Tenant @relation(fields: [tenantId], references: [id])
+
+  @@index([tenantId])
+  @@index([period])
+  @@index([status])
+  @@map("annex24_reports")
+}
+
+model Annex30Account {
+  id                  String   @id @default(cuid())
+  period              String   // "2026-Q1"
+  totalCredits        Float    @default(0) // Créditos fiscales acumulados
+  totalGuarantees     Float    @default(0) // Garantías otorgadas
+  totalDebits         Float    @default(0) // Cargos / pagos realizados
+  balance             Float    @default(0) // Saldo actual
+  igiDeferred         Float    @default(0) // IGI diferido
+  dtaDeferred         Float    @default(0) // DTA diferido
+  ivaDeferred         Float    @default(0) // IVA diferido
+  accountData         String?  // JSON con detalle
+  notes               String?
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
+
+  tenantId String
+  tenant   Tenant @relation(fields: [tenantId], references: [id])
+
+  @@index([tenantId])
+  @@index([period])
+  @@map("annex30_accounts")
+}
+
+// ============================================
+// CONTROL 31 — Fiscal Guardian
+// ============================================
+
+enum CreditStatus {
+  ACTIVE
+  PARTIALLY_USED
+  FULLY_USED
+  EXPIRED
+  IRREGULAR
+}
+
+enum GuaranteeType {
+  FIANZA
+  CARTA_CREDITO
+  DEPOSITO
+  OTRO
+}
+
+enum GuaranteeStatus {
+  ACTIVE
+  EXPIRED
+  CANCELLED
+  RENEWED
+}
+
+enum CertStatus {
+  ACTIVE
+  RENEWAL_PENDING
+  AT_RISK
+  SUSPENDED
+  CANCELLED
+}
+
+model TaxCredit {
+  id                String       @id @default(cuid())
+  pedimento         String
+  fractionCode      String
+  ivaAmount         Float
+  iepsAmount        Float        @default(0)
+  creditDate        DateTime
+  status            CreditStatus @default(ACTIVE)
+  dischargeDeadline DateTime
+  discharged        Float        @default(0)
+  remaining         Float
+  relatedImportId   String?
+  notes             String?
+  createdAt         DateTime     @default(now())
+  updatedAt         DateTime     @updatedAt
+
+  tenantId String
+  tenant   Tenant @relation(fields: [tenantId], references: [id])
+
+  usages CreditUsage[]
+
+  @@index([tenantId])
+  @@index([status])
+  @@index([fractionCode])
+  @@index([dischargeDeadline])
+  @@index([pedimento])
+  @@map("tax_credits")
+}
+
+model CreditUsage {
+  id                String   @id @default(cuid())
+  pedimentoDescargo String
+  ivaApplied        Float
+  iepsApplied       Float    @default(0)
+  usageDate         DateTime
+  createdAt         DateTime @default(now())
+
+  creditId String
+  credit   TaxCredit @relation(fields: [creditId], references: [id])
+
+  tenantId String
+  tenant   Tenant @relation(fields: [tenantId], references: [id])
+
+  @@index([tenantId])
+  @@index([creditId])
+  @@index([usageDate])
+  @@map("credit_usages")
+}
+
+model Guarantee {
+  id              String          @id @default(cuid())
+  type            GuaranteeType
+  amount          Float
+  institution     String
+  referenceNumber String?
+  issueDate       DateTime
+  expiryDate      DateTime
+  status          GuaranteeStatus @default(ACTIVE)
+  notes           String?
+  createdAt       DateTime        @default(now())
+  updatedAt       DateTime        @updatedAt
+
+  tenantId String
+  tenant   Tenant @relation(fields: [tenantId], references: [id])
+
+  @@index([tenantId])
+  @@index([status])
+  @@index([expiryDate])
+  @@map("guarantees")
+}
+
+model CertificationProfile {
+  id              String     @id @default(cuid())
+  modality        String     // "A", "AA", "AAA", "Operador Económico Autorizado"
+  certNumber      String?
+  issueDate       DateTime?
+  expiryDate      DateTime?
+  renewalDeadline DateTime?
+  status          CertStatus @default(ACTIVE)
+  notes           String?
+  updatedAt       DateTime   @updatedAt
+
+  tenantId String @unique
+  tenant   Tenant @relation(fields: [tenantId], references: [id])
+
+  @@map("certification_profiles")
+}
+
+// ============================================
+// AUTO-MVE — Manifestación de Valor Electrónica
+// ============================================
+
+enum MVEStatus {
+  DRAFT
+  VALIDATED
+  SIGNED
+  TRANSMITTED
+  ERROR
+}
+
+model ManifestacionValor {
+  id              String    @id @default(cuid())
+  pedimento       String?
+  providerName    String
+  providerCountry String
+  invoiceNumber   String
+  invoiceDate     DateTime
+  incoterm        String
+  currency        String    @default("USD")
+  exchangeRate    Float?
+
+  // Valores
+  invoiceValue    Float
+  freightValue    Float     @default(0)
+  insuranceValue  Float     @default(0)
+  otherIncrements Float     @default(0)
+  customsValue    Float     // Valor en aduana calculado
+
+  // Vinculacion
+  hasVinculacion  Boolean   @default(false)
+  vinculacionDesc String?
+
+  // Formato E2
+  formatoE2       Json?     // El formato completo generado
+
+  // Validacion IA
+  aiValidation    Json?     // Warnings y sugerencias
+  riskLevel       String?   // LOW, MEDIUM, HIGH
+
+  // Status
+  status          MVEStatus @default(DRAFT)
+  signedAt        DateTime?
+  transmittedAt   DateTime?
+
+  // Documentos fuente
+  invoiceFileUrl  String?
+
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  tenantId String
+  tenant   Tenant @relation(fields: [tenantId], references: [id])
+
+  coves COVE[]
+
+  @@index([tenantId])
+  @@index([status])
+  @@index([invoiceDate])
+  @@index([providerName])
+  @@map("manifestaciones_valor")
+}
+
+model COVE {
+  id             String    @id @default(cuid())
+  eDocument      String    // Numero de e-document
+  invoiceNumber  String
+  providerTaxId  String?
+  value          Float
+  currency       String
+  validated      Boolean   @default(false)
+  validationDate DateTime?
+  createdAt      DateTime  @default(now())
+
+  mveId String
+  mve   ManifestacionValor @relation(fields: [mveId], references: [id])
+
+  tenantId String
+  tenant   Tenant @relation(fields: [tenantId], references: [id])
+
+  @@index([tenantId])
+  @@index([mveId])
+  @@map("coves")
+}
+
+// ============================================
+// LOGISTICS OPTIMIZER — Cubicaje inteligente
+// ============================================
+
+enum ContainerType {
+  CONTAINER_20FT
+  CONTAINER_40FT
+  CONTAINER_40FT_HC
+  TRUCK_53FT
+  TRUCK_48FT
+  VAN_CLOSED
+  CUSTOM
+}
+
+model LoadPlan {
+  id              String        @id @default(cuid())
+  name            String
+  containerType   ContainerType
+  containerLength Float         // cm
+  containerWidth  Float         // cm
+  containerHeight Float         // cm
+  maxWeight       Float         // kg
+  totalItems      Int           @default(0)
+  totalVolume     Float         @default(0)  // m³
+  totalWeight     Float         @default(0)  // kg
+  volumeUsed      Float         @default(0)  // porcentaje
+  weightUsed      Float         @default(0)  // porcentaje
+  aiOptimization  Json?
+  costAnalysis    Json?
+  status          String        @default("draft")
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+
+  tenantId String
+  tenant   Tenant @relation(fields: [tenantId], references: [id])
+
+  items LoadItem[]
+
+  @@index([tenantId])
+  @@index([status])
+  @@map("load_plans")
+}
+
+model LoadItem {
+  id          String   @id @default(cuid())
+  description String
+  quantity    Int
+  length      Float    // cm
+  width       Float    // cm
+  height      Float    // cm
+  weight      Float    // kg por pieza
+  stackable   Boolean  @default(true)
+  fragile     Boolean  @default(false)
+  createdAt   DateTime @default(now())
+
+  loadPlanId String
+  loadPlan   LoadPlan @relation(fields: [loadPlanId], references: [id], onDelete: Cascade)
+
+  @@index([loadPlanId])
+  @@map("load_items")
+}
+
+// ============================================
+// TIGIE AUTO-UPDATE AGENT
+// ============================================
+
+enum UpdateStatus {
+  DETECTED
+  ANALYZED
+  APPROVED
+  APPLIED
+  REJECTED
+}
+
+model TIGIEUpdate {
+  id                  String       @id @default(cuid())
+  source              String       // "DOF", "SAT", "SE", "manual"
+  decree              String?      // Nombre/referencia del decreto
+  publishDate         DateTime
+  effectiveDate       DateTime
+  summary             String
+  fractionsCreated    Int          @default(0)
+  fractionsModified   Int          @default(0)
+  fractionsSuppressed Int          @default(0)
+  nomsUpdated         Int          @default(0)
+  changes             Json         // Array de cambios individuales
+  status              UpdateStatus @default(DETECTED)
+  appliedAt           DateTime?
+  appliedBy           String?
+  usersNotified       Int          @default(0)
+  createdAt           DateTime     @default(now())
+
+  notifications UpdateNotification[]
+
+  @@index([status])
+  @@index([publishDate])
+  @@index([createdAt])
+  @@map("tigie_updates")
+}
+
+model UpdateNotification {
+  id           String   @id @default(cuid())
+  fractionCode String
+  changeType   String   // "arancel_change", "fraction_created", "fraction_suppressed", "nom_change"
+  oldValue     String?
+  newValue     String?
+  message      String
+  channel      String   // "app", "whatsapp", "email"
+  sent         Boolean  @default(false)
+  sentAt       DateTime?
+  read         Boolean  @default(false)
+  createdAt    DateTime @default(now())
+
+  updateId String
+  update   TIGIEUpdate @relation(fields: [updateId], references: [id])
+
+  tenantId String
+  tenant   Tenant @relation(fields: [tenantId], references: [id])
+
+  userId String
+
+  @@index([tenantId])
+  @@index([userId])
+  @@index([updateId])
+  @@index([read])
+  @@index([fractionCode])
+  @@map("update_notifications")
 }

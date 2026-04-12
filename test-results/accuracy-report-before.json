@@ -1,0 +1,2902 @@
+{
+  "timestamp": "2026-04-12T13:19:42.096Z",
+  "totalProducts": 100,
+  "tested": 100,
+  "errors": 0,
+  "accuracyTop1": 44,
+  "accuracyTop3": 55,
+  "accuracyChapter": 95,
+  "avgTimeMs": 15971,
+  "medianTimeMs": 15664,
+  "minTimeMs": 12342,
+  "maxTimeMs": 27165,
+  "byCategory": {
+    "Textiles": {
+      "total": 10,
+      "top1": 3,
+      "top3": 4,
+      "pctTop1": 30,
+      "pctTop3": 40
+    },
+    "Electrónica": {
+      "total": 15,
+      "top1": 7,
+      "top3": 8,
+      "pctTop1": 47,
+      "pctTop3": 53
+    },
+    "Alimentos": {
+      "total": 15,
+      "top1": 7,
+      "top3": 10,
+      "pctTop1": 47,
+      "pctTop3": 67
+    },
+    "Farmacéuticos": {
+      "total": 5,
+      "top1": 2,
+      "top3": 3,
+      "pctTop1": 40,
+      "pctTop3": 60
+    },
+    "Químicos": {
+      "total": 5,
+      "top1": 3,
+      "top3": 4,
+      "pctTop1": 60,
+      "pctTop3": 80
+    },
+    "Maquinaria": {
+      "total": 10,
+      "top1": 6,
+      "top3": 7,
+      "pctTop1": 60,
+      "pctTop3": 70
+    },
+    "Vehículos": {
+      "total": 10,
+      "top1": 2,
+      "top3": 3,
+      "pctTop1": 20,
+      "pctTop3": 30
+    },
+    "Plásticos": {
+      "total": 10,
+      "top1": 5,
+      "top3": 5,
+      "pctTop1": 50,
+      "pctTop3": 50
+    },
+    "Acero": {
+      "total": 10,
+      "top1": 5,
+      "top3": 7,
+      "pctTop1": 50,
+      "pctTop3": 70
+    },
+    "Calzado": {
+      "total": 5,
+      "top1": 1,
+      "top3": 1,
+      "pctTop1": 20,
+      "pctTop3": 20
+    },
+    "Varios": {
+      "total": 5,
+      "top1": 3,
+      "top3": 3,
+      "pctTop1": 60,
+      "pctTop3": 60
+    }
+  },
+  "byChapter": {
+    "10": {
+      "total": 1,
+      "top1": 0,
+      "top3": 0,
+      "pctTop1": 0
+    },
+    "15": {
+      "total": 1,
+      "top1": 0,
+      "top3": 0,
+      "pctTop1": 0
+    },
+    "16": {
+      "total": 1,
+      "top1": 0,
+      "top3": 0,
+      "pctTop1": 0
+    },
+    "18": {
+      "total": 1,
+      "top1": 0,
+      "top3": 0,
+      "pctTop1": 0
+    },
+    "21": {
+      "total": 2,
+      "top1": 0,
+      "top3": 1,
+      "pctTop1": 0
+    },
+    "22": {
+      "total": 4,
+      "top1": 2,
+      "top3": 4,
+      "pctTop1": 50
+    },
+    "28": {
+      "total": 3,
+      "top1": 2,
+      "top3": 2,
+      "pctTop1": 67
+    },
+    "30": {
+      "total": 4,
+      "top1": 2,
+      "top3": 2,
+      "pctTop1": 50
+    },
+    "38": {
+      "total": 1,
+      "top1": 1,
+      "top3": 1,
+      "pctTop1": 100
+    },
+    "39": {
+      "total": 10,
+      "top1": 5,
+      "top3": 5,
+      "pctTop1": 50
+    },
+    "40": {
+      "total": 1,
+      "top1": 0,
+      "top3": 1,
+      "pctTop1": 0
+    },
+    "48": {
+      "total": 1,
+      "top1": 1,
+      "top3": 1,
+      "pctTop1": 100
+    },
+    "61": {
+      "total": 5,
+      "top1": 3,
+      "top3": 3,
+      "pctTop1": 60
+    },
+    "62": {
+      "total": 3,
+      "top1": 0,
+      "top3": 1,
+      "pctTop1": 0
+    },
+    "63": {
+      "total": 2,
+      "top1": 0,
+      "top3": 0,
+      "pctTop1": 0
+    },
+    "64": {
+      "total": 5,
+      "top1": 1,
+      "top3": 1,
+      "pctTop1": 20
+    },
+    "68": {
+      "total": 1,
+      "top1": 0,
+      "top3": 0,
+      "pctTop1": 0
+    },
+    "70": {
+      "total": 1,
+      "top1": 0,
+      "top3": 0,
+      "pctTop1": 0
+    },
+    "72": {
+      "total": 4,
+      "top1": 2,
+      "top3": 3,
+      "pctTop1": 50
+    },
+    "73": {
+      "total": 4,
+      "top1": 2,
+      "top3": 2,
+      "pctTop1": 50
+    },
+    "74": {
+      "total": 1,
+      "top1": 1,
+      "top3": 1,
+      "pctTop1": 100
+    },
+    "76": {
+      "total": 1,
+      "top1": 0,
+      "top3": 1,
+      "pctTop1": 0
+    },
+    "84": {
+      "total": 16,
+      "top1": 11,
+      "top3": 13,
+      "pctTop1": 69
+    },
+    "85": {
+      "total": 11,
+      "top1": 3,
+      "top3": 3,
+      "pctTop1": 27
+    },
+    "87": {
+      "total": 5,
+      "top1": 1,
+      "top3": 1,
+      "pctTop1": 20
+    },
+    "90": {
+      "total": 1,
+      "top1": 1,
+      "top3": 1,
+      "pctTop1": 100
+    },
+    "91": {
+      "total": 1,
+      "top1": 0,
+      "top3": 0,
+      "pctTop1": 0
+    },
+    "94": {
+      "total": 1,
+      "top1": 1,
+      "top3": 1,
+      "pctTop1": 100
+    },
+    "95": {
+      "total": 1,
+      "top1": 0,
+      "top3": 0,
+      "pctTop1": 0
+    },
+    "08": {
+      "total": 2,
+      "top1": 1,
+      "top3": 2,
+      "pctTop1": 50
+    },
+    "09": {
+      "total": 1,
+      "top1": 1,
+      "top3": 1,
+      "pctTop1": 100
+    },
+    "02": {
+      "total": 1,
+      "top1": 1,
+      "top3": 1,
+      "pctTop1": 100
+    },
+    "03": {
+      "total": 1,
+      "top1": 1,
+      "top3": 1,
+      "pctTop1": 100
+    },
+    "04": {
+      "total": 2,
+      "top1": 1,
+      "top3": 2,
+      "pctTop1": 50
+    }
+  },
+  "worstChapters": [
+    {
+      "chapter": "21",
+      "total": 2,
+      "top1": 0,
+      "top3": 1,
+      "pctTop1": 0
+    },
+    {
+      "chapter": "62",
+      "total": 3,
+      "top1": 0,
+      "top3": 1,
+      "pctTop1": 0
+    },
+    {
+      "chapter": "63",
+      "total": 2,
+      "top1": 0,
+      "top3": 0,
+      "pctTop1": 0
+    },
+    {
+      "chapter": "64",
+      "total": 5,
+      "top1": 1,
+      "top3": 1,
+      "pctTop1": 20
+    },
+    {
+      "chapter": "87",
+      "total": 5,
+      "top1": 1,
+      "top3": 1,
+      "pctTop1": 20
+    },
+    {
+      "chapter": "85",
+      "total": 11,
+      "top1": 3,
+      "top3": 3,
+      "pctTop1": 27
+    },
+    {
+      "chapter": "22",
+      "total": 4,
+      "top1": 2,
+      "top3": 4,
+      "pctTop1": 50
+    },
+    {
+      "chapter": "30",
+      "total": 4,
+      "top1": 2,
+      "top3": 2,
+      "pctTop1": 50
+    },
+    {
+      "chapter": "39",
+      "total": 10,
+      "top1": 5,
+      "top3": 5,
+      "pctTop1": 50
+    },
+    {
+      "chapter": "72",
+      "total": 4,
+      "top1": 2,
+      "top3": 3,
+      "pctTop1": 50
+    }
+  ],
+  "failures": [
+    {
+      "id": 1,
+      "description": "Camiseta de algodón 100% para hombre, tejido de punto, cuello redondo",
+      "expected": "61091001",
+      "obtained": "61091000",
+      "alternatives": [
+        "62052000",
+        "61099000"
+      ],
+      "confidence": 95,
+      "chapter": "61",
+      "category": "Textiles"
+    },
+    {
+      "id": 2,
+      "description": "Pantalón de mezclilla (jeans) para mujer, algodón, tipo skinny",
+      "expected": "62043201",
+      "obtained": "62045201",
+      "alternatives": [
+        "62045999",
+        "61045201"
+      ],
+      "confidence": 95,
+      "chapter": "62",
+      "category": "Textiles"
+    },
+    {
+      "id": 4,
+      "description": "Vestido de fibra sintética (poliéster) para mujer, tejido plano",
+      "expected": "62044401",
+      "obtained": "62044201",
+      "alternatives": [
+        "62044999",
+        "62045201"
+      ],
+      "confidence": 95,
+      "chapter": "62",
+      "category": "Textiles"
+    },
+    {
+      "id": 5,
+      "description": "Calcetines de algodón para hombre, tejido de punto",
+      "expected": "61159201",
+      "obtained": "61159501",
+      "alternatives": [
+        "61159601",
+        "61159999"
+      ],
+      "confidence": 95,
+      "chapter": "61",
+      "category": "Textiles"
+    },
+    {
+      "id": 7,
+      "description": "Chamarra tipo bomber de nylon para hombre",
+      "expected": "62019301",
+      "obtained": "62019201",
+      "alternatives": [
+        "62019301",
+        "62019901"
+      ],
+      "confidence": 75,
+      "chapter": "62",
+      "category": "Textiles"
+    },
+    {
+      "id": 8,
+      "description": "Sábana de algodón 100%, tamaño queen, tejido plano",
+      "expected": "63021001",
+      "obtained": "63022101",
+      "alternatives": [
+        "63022901",
+        "63029101"
+      ],
+      "confidence": 95,
+      "chapter": "63",
+      "category": "Textiles"
+    },
+    {
+      "id": 9,
+      "description": "Toalla de baño de algodón tipo turco, tejido de rizo",
+      "expected": "63026001",
+      "obtained": "63026006",
+      "alternatives": [
+        "58022001",
+        "63026099"
+      ],
+      "confidence": 95,
+      "chapter": "63",
+      "category": "Textiles"
+    },
+    {
+      "id": 12,
+      "description": "Smartphone con pantalla OLED de 6.5 pulgadas, 128GB almacenamiento",
+      "expected": "85171401",
+      "obtained": "85171205",
+      "alternatives": [
+        "85287201",
+        "84713001"
+      ],
+      "confidence": 95,
+      "chapter": "85",
+      "category": "Electrónica"
+    },
+    {
+      "id": 13,
+      "description": "Televisor LED de 55 pulgadas, resolución 4K UHD, Smart TV",
+      "expected": "85287201",
+      "obtained": "85287299",
+      "alternatives": [
+        "85287202",
+        "85287203"
+      ],
+      "confidence": 95,
+      "chapter": "85",
+      "category": "Electrónica"
+    },
+    {
+      "id": 14,
+      "description": "Impresora láser monocromática para oficina",
+      "expected": "84433201",
+      "obtained": "84433101",
+      "alternatives": [
+        "84433201",
+        "84439999"
+      ],
+      "confidence": 90,
+      "chapter": "84",
+      "category": "Electrónica"
+    },
+    {
+      "id": 17,
+      "description": "Teclado mecánico USB para computadora, retroiluminado",
+      "expected": "84716001",
+      "obtained": "84716006",
+      "alternatives": [
+        "84717005",
+        "85176299"
+      ],
+      "confidence": 95,
+      "chapter": "84",
+      "category": "Electrónica"
+    },
+    {
+      "id": 18,
+      "description": "Monitor de computadora de 27 pulgadas, LED, resolución QHD",
+      "expected": "85285201",
+      "obtained": "85287299",
+      "alternatives": [
+        "85287201",
+        "84716001"
+      ],
+      "confidence": 90,
+      "chapter": "85",
+      "category": "Electrónica"
+    },
+    {
+      "id": 22,
+      "description": "Proyector de video tipo DLP para presentaciones",
+      "expected": "85286101",
+      "obtained": "85286201",
+      "alternatives": [
+        "90085001",
+        "85286999"
+      ],
+      "confidence": 90,
+      "chapter": "85",
+      "category": "Electrónica"
+    },
+    {
+      "id": 23,
+      "description": "Cargador de pared USB-C de 65W para laptop",
+      "expected": "85044001",
+      "obtained": "85044015",
+      "alternatives": [
+        "85044099",
+        "85049099"
+      ],
+      "confidence": 95,
+      "chapter": "85",
+      "category": "Electrónica"
+    },
+    {
+      "id": 24,
+      "description": "Cable HDMI de alta velocidad, 2 metros",
+      "expected": "85444901",
+      "obtained": "85444201",
+      "alternatives": [
+        "85444999",
+        "85176299"
+      ],
+      "confidence": 95,
+      "chapter": "85",
+      "category": "Electrónica"
+    },
+    {
+      "id": 27,
+      "description": "Tequila 100% agave añejo, botella de 750ml",
+      "expected": "22089001",
+      "obtained": "22089003",
+      "alternatives": [
+        "22089099",
+        "22089001"
+      ],
+      "confidence": 100,
+      "chapter": "22",
+      "category": "Alimentos"
+    },
+    {
+      "id": 30,
+      "description": "Chocolate con leche en tableta, cacao 35%",
+      "expected": "18069001",
+      "obtained": "18063201",
+      "alternatives": [
+        "18063101",
+        "18062001"
+      ],
+      "confidence": 75,
+      "chapter": "18",
+      "category": "Alimentos"
+    },
+    {
+      "id": 33,
+      "description": "Arroz blanco de grano largo, pulido, empacado",
+      "expected": "10063001",
+      "obtained": "10063099",
+      "alternatives": [
+        "10063003",
+        "10064099"
+      ],
+      "confidence": 92,
+      "chapter": "10",
+      "category": "Alimentos"
+    },
+    {
+      "id": 34,
+      "description": "Aceite de oliva extra virgen, botella de 1 litro",
+      "expected": "15091001",
+      "obtained": "15092001",
+      "alternatives": [
+        "15093001",
+        "15094091"
+      ],
+      "confidence": 95,
+      "chapter": "15",
+      "category": "Alimentos"
+    },
+    {
+      "id": 35,
+      "description": "Leche en polvo entera, sin azúcar",
+      "expected": "04022101",
+      "obtained": "04021001",
+      "alternatives": [
+        "04022101",
+        "04041001"
+      ],
+      "confidence": 95,
+      "chapter": "04",
+      "category": "Alimentos"
+    },
+    {
+      "id": 36,
+      "description": "Mango fresco tipo Ataulfo para exportación",
+      "expected": "08045001",
+      "obtained": "08045005",
+      "alternatives": [
+        "08045099",
+        "08045001"
+      ],
+      "confidence": 95,
+      "chapter": "08",
+      "category": "Alimentos"
+    },
+    {
+      "id": 37,
+      "description": "Salsa de soya fermentada, botella 500ml",
+      "expected": "21039001",
+      "obtained": "21031001",
+      "alternatives": [
+        "21039099",
+        "21069099"
+      ],
+      "confidence": 95,
+      "chapter": "21",
+      "category": "Alimentos"
+    },
+    {
+      "id": 40,
+      "description": "Atún aleta amarilla en conserva, en aceite, lata 170g",
+      "expected": "16041401",
+      "obtained": "16041499",
+      "alternatives": [
+        "16041404",
+        "16041999"
+      ],
+      "confidence": 95,
+      "chapter": "16",
+      "category": "Alimentos"
+    },
+    {
+      "id": 43,
+      "description": "Alcohol etílico desnaturalizado al 96%, uso industrial",
+      "expected": "22071001",
+      "obtained": "22072001",
+      "alternatives": [
+        "22089001",
+        "22071001"
+      ],
+      "confidence": 98,
+      "chapter": "22",
+      "category": "Químicos"
+    },
+    {
+      "id": 44,
+      "description": "Hidróxido de sodio (sosa cáustica) en escamas, grado industrial",
+      "expected": "28151101",
+      "obtained": "28151202",
+      "alternatives": [
+        "28151201",
+        "28152001"
+      ],
+      "confidence": 95,
+      "chapter": "28",
+      "category": "Químicos"
+    },
+    {
+      "id": 46,
+      "description": "Antibiótico amoxicilina cápsulas 500mg, uso humano",
+      "expected": "30041001",
+      "obtained": "30041099",
+      "alternatives": [
+        "30032001",
+        "29411012"
+      ],
+      "confidence": 90,
+      "chapter": "30",
+      "category": "Farmacéuticos"
+    },
+    {
+      "id": 48,
+      "description": "Insulina humana inyectable, 100 UI/ml",
+      "expected": "30043101",
+      "obtained": "30033102",
+      "alternatives": [
+        "30043102",
+        "29371202"
+      ],
+      "confidence": 95,
+      "chapter": "30",
+      "category": "Farmacéuticos"
+    },
+    {
+      "id": 50,
+      "description": "Vitamina C (ácido ascórbico) tabletas efervescentes 1000mg",
+      "expected": "21069099",
+      "obtained": "29362701",
+      "alternatives": [
+        "30049099",
+        "21069099"
+      ],
+      "confidence": 90,
+      "chapter": "21",
+      "category": "Farmacéuticos"
+    },
+    {
+      "id": 53,
+      "description": "Montacargas de contrapeso, motor diésel, capacidad 3 toneladas",
+      "expected": "84272001",
+      "obtained": "84272004",
+      "alternatives": [
+        "84271001",
+        "84253902"
+      ],
+      "confidence": 95,
+      "chapter": "84",
+      "category": "Maquinaria"
+    },
+    {
+      "id": 55,
+      "description": "Máquina de inyección de plástico, 200 toneladas de cierre",
+      "expected": "84771001",
+      "obtained": "84771099",
+      "alternatives": [
+        "84771001",
+        "84779099"
+      ],
+      "confidence": 95,
+      "chapter": "84",
+      "category": "Maquinaria"
+    },
+    {
+      "id": 56,
+      "description": "Generador eléctrico diésel de 500 KVA, trifásico",
+      "expected": "85021301",
+      "obtained": "85013301",
+      "alternatives": [
+        "85013201",
+        "85013101"
+      ],
+      "confidence": 95,
+      "chapter": "85",
+      "category": "Maquinaria"
+    },
+    {
+      "id": 57,
+      "description": "Banda transportadora de hule para línea de producción, 10 metros",
+      "expected": "84283301",
+      "obtained": "40101201",
+      "alternatives": [
+        "59100001",
+        "40101999"
+      ],
+      "confidence": 92,
+      "chapter": "84",
+      "category": "Maquinaria"
+    },
+    {
+      "id": 61,
+      "description": "Automóvil sedán nuevo, motor gasolina 2.0L, 4 cilindros",
+      "expected": "87032301",
+      "obtained": "87032101",
+      "alternatives": [
+        "87032201",
+        "87039001"
+      ],
+      "confidence": 95,
+      "chapter": "87",
+      "category": "Vehículos"
+    },
+    {
+      "id": 62,
+      "description": "Camioneta pickup doble cabina, motor diésel 2.8L",
+      "expected": "87043101",
+      "obtained": "87042101",
+      "alternatives": [
+        "87042201",
+        "87033304"
+      ],
+      "confidence": 95,
+      "chapter": "87",
+      "category": "Vehículos"
+    },
+    {
+      "id": 63,
+      "description": "Llanta radial para automóvil, medida 205/55 R16",
+      "expected": "40111001",
+      "obtained": "40111002",
+      "alternatives": [
+        "40112004",
+        "40111001"
+      ],
+      "confidence": 95,
+      "chapter": "40",
+      "category": "Vehículos"
+    },
+    {
+      "id": 64,
+      "description": "Batería de plomo-ácido para automóvil, 12V, 60 Ah",
+      "expected": "85071001",
+      "obtained": "85072099",
+      "alternatives": [
+        "85072004",
+        "85079001"
+      ],
+      "confidence": 95,
+      "chapter": "85",
+      "category": "Vehículos"
+    },
+    {
+      "id": 65,
+      "description": "Parabrisas de vidrio templado para automóvil sedán",
+      "expected": "70071101",
+      "obtained": "87082201",
+      "alternatives": [
+        "70072101",
+        "70072999"
+      ],
+      "confidence": 95,
+      "chapter": "70",
+      "category": "Vehículos"
+    },
+    {
+      "id": 66,
+      "description": "Amortiguador hidráulico trasero para automóvil",
+      "expected": "87083001",
+      "obtained": "87088099",
+      "alternatives": [
+        "87088004",
+        "87088011"
+      ],
+      "confidence": 92,
+      "chapter": "87",
+      "category": "Vehículos"
+    },
+    {
+      "id": 67,
+      "description": "Pastillas de freno delanteras para automóvil",
+      "expected": "68131001",
+      "obtained": "84879003",
+      "alternatives": [
+        "68132001",
+        "87083001"
+      ],
+      "confidence": 95,
+      "chapter": "68",
+      "category": "Vehículos"
+    },
+    {
+      "id": 69,
+      "description": "Motocicleta de 250cc, motor de combustión interna",
+      "expected": "87112001",
+      "obtained": "87113099",
+      "alternatives": [
+        "87112099",
+        "87114099"
+      ],
+      "confidence": 90,
+      "chapter": "87",
+      "category": "Vehículos"
+    },
+    {
+      "id": 72,
+      "description": "Botella de PET para agua, capacidad 500ml, desechable",
+      "expected": "39233001",
+      "obtained": "39233002",
+      "alternatives": [
+        "39239099",
+        "39241001"
+      ],
+      "confidence": 95,
+      "chapter": "39",
+      "category": "Plásticos"
+    },
+    {
+      "id": 77,
+      "description": "Lámina de policarbonato transparente, 6mm espesor",
+      "expected": "39206001",
+      "obtained": "39206101",
+      "alternatives": [
+        "39219099",
+        "39074004"
+      ],
+      "confidence": 95,
+      "chapter": "39",
+      "category": "Plásticos"
+    },
+    {
+      "id": 78,
+      "description": "Guantes desechables de nitrilo, talla M, caja 100 piezas",
+      "expected": "39262001",
+      "obtained": "62160001",
+      "alternatives": [
+        "40151999",
+        "39262099"
+      ],
+      "confidence": 95,
+      "chapter": "39",
+      "category": "Plásticos"
+    },
+    {
+      "id": 79,
+      "description": "Charola de poliestireno expandido (unicel) para alimentos",
+      "expected": "39231001",
+      "obtained": "39231002",
+      "alternatives": [
+        "39241001",
+        "39239099"
+      ],
+      "confidence": 95,
+      "chapter": "39",
+      "category": "Plásticos"
+    },
+    {
+      "id": 80,
+      "description": "Manguera flexible de PVC reforzada, 1 pulgada, para riego",
+      "expected": "39173901",
+      "obtained": "39173101",
+      "alternatives": [
+        "39173299",
+        "39173999"
+      ],
+      "confidence": 75,
+      "chapter": "39",
+      "category": "Plásticos"
+    },
+    {
+      "id": 81,
+      "description": "Tornillo de acero inoxidable, cabeza hexagonal, M10x50mm",
+      "expected": "73181501",
+      "obtained": "73181599",
+      "alternatives": [
+        "73181504",
+        "73181999"
+      ],
+      "confidence": 90,
+      "chapter": "73",
+      "category": "Acero"
+    },
+    {
+      "id": 85,
+      "description": "Alambre de acero galvanizado, calibre 14",
+      "expected": "72172001",
+      "obtained": "72171001",
+      "alternatives": [
+        "72172001",
+        "72139101"
+      ],
+      "confidence": 75,
+      "chapter": "72",
+      "category": "Acero"
+    },
+    {
+      "id": 86,
+      "description": "Perfil estructural de acero tipo IPR, 8 pulgadas",
+      "expected": "72163201",
+      "obtained": "72161001",
+      "alternatives": [
+        "72162101",
+        "72164001"
+      ],
+      "confidence": 95,
+      "chapter": "72",
+      "category": "Acero"
+    },
+    {
+      "id": 88,
+      "description": "Lámina de aluminio en rollo, 0.5mm espesor, aleación 3003",
+      "expected": "76061201",
+      "obtained": "76061101",
+      "alternatives": [
+        "76061201",
+        "76071101"
+      ],
+      "confidence": 75,
+      "chapter": "76",
+      "category": "Acero"
+    },
+    {
+      "id": 90,
+      "description": "Tuerca hexagonal de acero al carbón, rosca M12",
+      "expected": "73181601",
+      "obtained": "73181606",
+      "alternatives": [
+        "74153303",
+        "76161001"
+      ],
+      "confidence": 95,
+      "chapter": "73",
+      "category": "Acero"
+    },
+    {
+      "id": 91,
+      "description": "Zapato deportivo tipo tenis para hombre, suela de caucho, parte superior textil",
+      "expected": "64041901",
+      "obtained": "64029920",
+      "alternatives": [
+        "64039913",
+        "64039113"
+      ],
+      "confidence": 95,
+      "chapter": "64",
+      "category": "Calzado"
+    },
+    {
+      "id": 92,
+      "description": "Bota industrial de seguridad con casquillo de acero, piel",
+      "expected": "64035101",
+      "obtained": "64019201",
+      "alternatives": [
+        "64035999",
+        "64019999"
+      ],
+      "confidence": 75,
+      "chapter": "64",
+      "category": "Calzado"
+    },
+    {
+      "id": 93,
+      "description": "Sandalia de plástico para dama, tipo huarache",
+      "expected": "64029901",
+      "obtained": "64029919",
+      "alternatives": [
+        "64041908",
+        "64029101"
+      ],
+      "confidence": 95,
+      "chapter": "64",
+      "category": "Calzado"
+    },
+    {
+      "id": 95,
+      "description": "Pantufla de tela para uso doméstico",
+      "expected": "64041901",
+      "obtained": "64041999",
+      "alternatives": [
+        "64052001",
+        "64041101"
+      ],
+      "confidence": 90,
+      "chapter": "64",
+      "category": "Calzado"
+    },
+    {
+      "id": 96,
+      "description": "Juguete de plástico tipo figura de acción para niños",
+      "expected": "95030001",
+      "obtained": "95030099",
+      "alternatives": [
+        "95030012",
+        "95030013"
+      ],
+      "confidence": 90,
+      "chapter": "95",
+      "category": "Varios"
+    },
+    {
+      "id": 97,
+      "description": "Reloj de pulsera analógico con caja de acero inoxidable",
+      "expected": "91019901",
+      "obtained": "91021201",
+      "alternatives": [
+        "91021101",
+        "91022101"
+      ],
+      "confidence": 75,
+      "chapter": "91",
+      "category": "Varios"
+    }
+  ],
+  "results": [
+    {
+      "id": 1,
+      "description": "Camiseta de algodón 100% para hombre, tejido de punto, cuello redondo",
+      "category": "Textiles",
+      "chapter": "61",
+      "expectedFraction": "61091001",
+      "obtainedFraction": "61091000",
+      "alternatives": [
+        "62052000",
+        "61099000"
+      ],
+      "confidence": 95,
+      "matchTop1": false,
+      "matchTop3": false,
+      "matchChapter": true,
+      "timeMs": 14951,
+      "error": null
+    },
+    {
+      "id": 2,
+      "description": "Pantalón de mezclilla (jeans) para mujer, algodón, tipo skinny",
+      "category": "Textiles",
+      "chapter": "62",
+      "expectedFraction": "62043201",
+      "obtainedFraction": "62045201",
+      "alternatives": [
+        "62045999",
+        "61045201"
+      ],
+      "confidence": 95,
+      "matchTop1": false,
+      "matchTop3": false,
+      "matchChapter": true,
+      "timeMs": 15950,
+      "error": null
+    },
+    {
+      "id": 3,
+      "description": "Suéter de lana tejido de punto para hombre",
+      "category": "Textiles",
+      "chapter": "61",
+      "expectedFraction": "61101101",
+      "obtainedFraction": "61101101",
+      "alternatives": [
+        "61101901",
+        "61102001"
+      ],
+      "confidence": 95,
+      "matchTop1": true,
+      "matchTop3": true,
+      "matchChapter": true,
+      "timeMs": 16495,
+      "error": null
+    },
+    {
+      "id": 4,
+      "description": "Vestido de fibra sintética (poliéster) para mujer, tejido plano",
+      "category": "Textiles",
+      "chapter": "62",
+      "expectedFraction": "62044401",
+      "obtainedFraction": "62044201",
+      "alternatives": [
+        "62044999",
+        "62045201"
+      ],
+      "confidence": 95,
+      "matchTop1": false,
+      "matchTop3": false,
+      "matchChapter": true,
+      "timeMs": 14123,
+      "error": null
+    },
+    {
+      "id": 5,
+      "description": "Calcetines de algodón para hombre, tejido de punto",
+      "category": "Textiles",
+      "chapter": "61",
+      "expectedFraction": "61159201",
+      "obtainedFraction": "61159501",
+      "alternatives": [
+        "61159601",
+        "61159999"
+      ],
+      "confidence": 95,
+      "matchTop1": false,
+      "matchTop3": false,
+      "matchChapter": true,
+      "timeMs": 13989,
+      "error": null
+    },
+    {
+      "id": 6,
+      "description": "Ropa interior tipo boxer para hombre, algodón, tejido de punto",
+      "category": "Textiles",
+      "chapter": "61",
+      "expectedFraction": "61071101",
+      "obtainedFraction": "61071101",
+      "alternatives": [
+        "61071901",
+        "62071101"
+      ],
+      "confidence": 95,
+      "matchTop1": true,
+      "matchTop3": true,
+      "matchChapter": true,
+      "timeMs": 15293,
+      "error": null
+    },
+    {
+      "id": 7,
+      "description": "Chamarra tipo bomber de nylon para hombre",
+      "category": "Textiles",
+      "chapter": "62",
+      "expectedFraction": "62019301",
+      "obtainedFraction": "62019201",
+      "alternatives": [
+        "62019301",
+        "62019901"
+      ],
+      "confidence": 75,
+      "matchTop1": false,
+      "matchTop3": true,
+      "matchChapter": true,
+      "timeMs": 16083,
+      "error": null
+    },
+    {
+      "id": 8,
+      "description": "Sábana de algodón 100%, tamaño queen, tejido plano",
+      "category": "Textiles",
+      "chapter": "63",
+      "expectedFraction": "63021001",
+      "obtainedFraction": "63022101",
+      "alternatives": [
+        "63022901",
+        "63029101"
+      ],
+      "confidence": 95,
+      "matchTop1": false,
+      "matchTop3": false,
+      "matchChapter": true,
+      "timeMs": 15052,
+      "error": null
+    },
+    {
+      "id": 9,
+      "description": "Toalla de baño de algodón tipo turco, tejido de rizo",
+      "category": "Textiles",
+      "chapter": "63",
+      "expectedFraction": "63026001",
+      "obtainedFraction": "63026006",
+      "alternatives": [
+        "58022001",
+        "63026099"
+      ],
+      "confidence": 95,
+      "matchTop1": false,
+      "matchTop3": false,
+      "matchChapter": true,
+      "timeMs": 14585,
+      "error": null
+    },
+    {
+      "id": 10,
+      "description": "Corbata de seda para hombre",
+      "category": "Textiles",
+      "chapter": "61",
+      "expectedFraction": "61171001",
+      "obtainedFraction": "61171001",
+      "alternatives": [
+        "62141001",
+        "61179099"
+      ],
+      "confidence": 95,
+      "matchTop1": true,
+      "matchTop3": true,
+      "matchChapter": true,
+      "timeMs": 17497,
+      "error": null
+    },
+    {
+      "id": 11,
+      "description": "Laptop con pantalla de 15 pulgadas, procesador Intel Core i7, 16GB RAM",
+      "category": "Electrónica",
+      "chapter": "84",
+      "expectedFraction": "84713001",
+      "obtainedFraction": "84713001",
+      "alternatives": [
+        "84715001",
+        "85285902"
+      ],
+      "confidence": 95,
+      "matchTop1": true,
+      "matchTop3": true,
+      "matchChapter": true,
+      "timeMs": 17028,
+      "error": null
+    },
+    {
+      "id": 12,
+      "description": "Smartphone con pantalla OLED de 6.5 pulgadas, 128GB almacenamiento",
+      "category": "Electrónica",
+      "chapter": "85",
+      "expectedFraction": "85171401",
+      "obtainedFraction": "85171205",
+      "alternatives": [
+        "85287201",
+        "84713001"
+      ],
+      "confidence": 95,
+      "matchTop1": false,
+      "matchTop3": false,
+      "matchChapter": true,
+      "timeMs": 16052,
+      "error": null
+    },
+    {
+      "id": 13,
+      "description": "Televisor LED de 55 pulgadas, resolución 4K UHD, Smart TV",
+      "category": "Electrónica",
+      "chapter": "85",
+      "expectedFraction": "85287201",
+      "obtainedFraction": "85287299",
+      "alternatives": [
+        "85287202",
+        "85287203"
+      ],
+      "confidence": 95,
+      "matchTop1": false,
+      "matchTop3": false,
+      "matchChapter": true,
+      "timeMs": 18087,
+      "error": null
+    },
+    {
+      "id": 14,
+      "description": "Impresora láser monocromática para oficina",
+      "category": "Electrónica",
+      "chapter": "84",
+      "expectedFraction": "84433201",
+      "obtainedFraction": "84433101",
+      "alternatives": [
+        "84433201",
+        "84439999"
+      ],
+      "confidence": 90,
+      "matchTop1": false,
+      "matchTop3": true,
+      "matchChapter": true,
+      "timeMs": 16828,
+      "error": null
+    },
+    {
+      "id": 15,
+      "description": "Disco duro externo de 2TB, USB 3.0, portátil",
+      "category": "Electrónica",
+      "chapter": "84",
+      "expectedFraction": "84717001",
+      "obtainedFraction": "84717001",
+      "alternatives": [
+        "84719099",
+        "85235101"
+      ],
+      "confidence": 95,
+      "matchTop1": true,
+      "matchTop3": true,
+      "matchChapter": true,
+      "timeMs": 14601,
+      "error": null
+    },
+    {
+      "id": 16,
+      "description": "Mouse inalámbrico óptico para computadora",
+      "category": "Electrónica",
+      "chapter": "84",
+      "expectedFraction": "84716001",
+      "obtainedFraction": "84716001",
+      "alternatives": [
+        "85176299",
+        "90138099"
+      ],
+      "confidence": 95,
+      "matchTop1": true,
+      "matchTop3": true,
+      "matchChapter": true,
+      "timeMs": 15889,
+      "error": null
+    },
+    {
+      "id": 17,
+      "description": "Teclado mecánico USB para computadora, retroiluminado",
+      "category": "Electrónica",
+      "chapter": "84",
+      "expectedFraction": "84716001",
+      "obtainedFraction": "84716006",
+      "alternatives": [
+        "84717005",
+        "85176299"
+      ],
+      "confidence": 95,
+      "matchTop1": false,
+      "matchTop3": false,
+      "matchChapter": true,
+      "timeMs": 16189,
+      "error": null
+    },
+    {
+      "id": 18,
+      "description": "Monitor de computadora de 27 pulgadas, LED, resolución QHD",
+      "category": "Electrónica",
+      "chapter": "85",
+      "expectedFraction": "85285201",
+      "obtainedFraction": "85287299",
+      "alternatives": [
+        "85287201",
+        "84716001"
+      ],
+      "confidence": 90,
+      "matchTop1": false,
+      "matchTop3": false,
+      "matchChapter": true,
+      "timeMs": 16010,
+      "error": null
+    },
+    {
+      "id": 19,
+      "description": "Audífonos inalámbricos Bluetooth tipo over-ear con cancelación de ruido",
+      "category": "Electrónica",
+      "chapter": "85",
+      "expectedFraction": "85183001",
+      "obtainedFraction": "85183001",
+      "alternatives": [
+        "90214001",
+        "85181001"
+      ],
+      "confidence": 95,
+      "matchTop1": true,
+      "matchTop3": true,
+      "matchChapter": true,
+      "timeMs": 17383,
+      "error": null
+    },
+    {
+      "id": 20,
+      "description": "Cámara digital réflex (DSLR) con sensor de 24 megapíxeles",
+      "category": "Electrónica",
+      "chapter": "85",
+      "expectedFraction": "85258001",
+      "obtainedFraction": "85258001",
+      "alternatives": [
+        "90064001",
+        "90065301"
+      ],
+      "confidence": 95,
+      "matchTop1": true,
+      "matchTop3": true,
+      "matchChapter": true,
+      "timeMs": 16992,
+      "error": null
+    },
+    {
+      "id": 21,
+      "description": "Tableta electrónica con pantalla táctil de 10 pulgadas",
+      "category": "Electrónica",
+      "chapter": "84",
+      "expectedFraction": "84713001",
+      "obtainedFraction": "84713001",
+      "alternatives": [
+        "85285999",
+        "85176205"
+      ],
+      "confidence": 90,
+      "matchTop1": true,
+      "matchTop3": true,
+      "matchChapter": true,
+      "timeMs": 18998,
+      "error": null
+    },
+    {
+      "id": 22,
+      "description": "Proyector de video tipo DLP para presentaciones",
+      "category": "Electrónica",
+      "chapter": "85",
+      "expectedFraction": "85286101",
+      "obtainedFraction": "85286201",
+      "alternatives": [
+        "90085001",
+        "85286999"
+      ],
+      "confidence": 90,
+      "matchTop1": false,
+      "matchTop3": false,
+      "matchChapter": true,
+      "timeMs": 14130,
+      "error": null
+    },
+    {
+      "id": 23,
+      "description": "Cargador de pared USB-C de 65W para laptop",
+      "category": "Electrónica",
+      "chapter": "85",
+      "expectedFraction": "85044001",
+      "obtainedFraction": "85044015",
+      "alternatives": [
+        "85044099",
+        "85049099"
+      ],
+      "confidence": 95,
+      "matchTop1": false,
+      "matchTop3": false,
+      "matchChapter": true,
+      "timeMs": 13875,
+      "error": null
+    },
+    {
+      "id": 24,
+      "description": "Cable HDMI de alta velocidad, 2 metros",
+      "category": "Electrónica",
+      "chapter": "85",
+      "expectedFraction": "85444901",
+      "obtainedFraction": "85444201",
+      "alternatives": [
+        "85444999",
+        "85176299"
+      ],
+      "confidence": 95,
+      "matchTop1": false,
+      "matchTop3": false,
+      "matchChapter": true,
+      "timeMs": 16163,
+      "error": null
+    },
+    {
+      "id": 25,
+      "description": "Memoria USB flash drive de 64GB, USB 3.0",
+      "category": "Electrónica",
+      "chapter": "85",
+      "expectedFraction": "85235101",
+      "obtainedFraction": "85235101",
+      "alternatives": [
+        "84717001",
+        "84716004"
+      ],
+      "confidence": 95,
+      "matchTop1": true,
+      "matchTop3": true,
+      "matchChapter": true,
+      "timeMs": 15091,
+      "error": null
+    },
+    {
+      "id": 26,
+      "description": "Aguacate Hass fresco para consumo",
+      "category": "Alimentos",
+      "chapter": "08",
+      "expectedFraction": "08044001",
+      "obtainedFraction": "08044001",
+      "alternatives": [
+        "08044099",
+        "08109099"
+      ],
+      "confidence": 98,
+      "matchTop1": true,
+      "matchTop3": true,
+      "matchChapter": true,
+      "timeMs": 16306,
+      "error": null
+    },
+    {
+      "id": 27,
+      "description": "Tequila 100% agave añejo, botella de 750ml",
+      "category": "Alimentos",
+      "chapter": "22",
+      "expectedFraction": "22089001",
+      "obtainedFraction": "22089003",
+      "alternatives": [
+        "22089099",
+        "22089001"
+      ],
+      "confidence": 100,
+      "matchTop1": false,
+      "matchTop3": true,
+      "matchChapter": true,
+      "timeMs": 17624,
+      "error": null
+    },
+    {
+      "id": 28,
+      "description": "Cerveza de malta en botella de vidrio de 355ml",
+      "category": "Alimentos",
+      "chapter": "22",
+      "expectedFraction": "22030001",
+      "obtainedFraction": "22030001",
+      "alternatives": [
+        "22029101",
+        "22060001"
+      ],
+      "confidence": 95,
+      "matchTop1": true,
+      "matchTop3": true,
+      "matchChapter": true,
+      "timeMs": 16259,
+      "error": null
+    },
+    {
+      "id": 29,
+      "description": "Café tostado en grano, 100% arábica, sin descafeinar",
+      "category": "Alimentos",
+      "chapter": "09",
+      "expectedFraction": "09012101",
+      "obtainedFraction": "09012101",
+      "alternatives": [
+        "09011199",
+        "09012201"
+      ],
+      "confidence": 95,
+      "matchTop1": true,
+      "matchTop3": true,
+      "matchChapter": true,
+      "timeMs": 14875,
+      "error": null
+    },
+    {
+      "id": 30,
+      "description": "Chocolate con leche en tableta, cacao 35%",
+      "category": "Alimentos",
+      "chapter": "18",
+      "expectedFraction": "18069001",
+      "obtainedFraction": "18063201",
+      "alternatives": [
+        "18063101",
+        "18062001"
+      ],
+      "confidence": 75,
+      "matchTop1": false,
+      "matchTop3": false,
+      "matchChapter": true,
+      "timeMs": 19449,
+      "error": null
+    },
+    {
+      "id": 31,
+      "description": "Carne de res deshuesada congelada, corte tipo ribeye",
+      "category": "Alimentos",
+      "chapter": "02",
+      "expectedFraction": "02023001",
+      "obtainedFraction": "02023001",
+      "alternatives": [
+        "02013001",
+        "02102001"
+      ],
+      "confidence": 95,
+      "matchTop1": true,
+      "matchTop3": true,
+      "matchChapter": true,
+      "timeMs": 16997,
+      "error": null
+    },
+    {
+      "id": 32,
+      "description": "Camarón congelado pelado y desvenado",
+      "category": "Alimentos",
+      "chapter": "03",
+      "expectedFraction": "03061701",
+      "obtainedFraction": "03061701",
+      "alternatives": [
+        "03063601",
+        "16052101"
+      ],
+      "confidence": 95,
+      "matchTop1": true,
+      "matchTop3": true,
+      "matchChapter": true,
+      "timeMs": 17568,
+      "error": null
+    },
+    {
+      "id": 33,
+      "description": "Arroz blanco de grano largo, pulido, empacado",
+      "category": "Alimentos",
+      "chapter": "10",
+      "expectedFraction": "10063001",
+      "obtainedFraction": "10063099",
+      "alternatives": [
+        "10063003",
+        "10064099"
+      ],
+      "confidence": 92,
+      "matchTop1": false,
+      "matchTop3": false,
+      "matchChapter": true,
+      "timeMs": 13610,
+      "error": null
+    },
+    {
+      "id": 34,
+      "description": "Aceite de oliva extra virgen, botella de 1 litro",
+      "category": "Alimentos",
+      "chapter": "15",
+      "expectedFraction": "15091001",
+      "obtainedFraction": "15092001",
+      "alternatives": [
+        "15093001",
+        "15094091"
+      ],
+      "confidence": 95,
+      "matchTop1": false,
+      "matchTop3": false,
+      "matchChapter": true,
+      "timeMs": 14501,
+      "error": null
+    },
+    {
+      "id": 35,
+      "description": "Leche en polvo entera, sin azúcar",
+      "category": "Alimentos",
+      "chapter": "04",
+      "expectedFraction": "04022101",
+      "obtainedFraction": "04021001",
+      "alternatives": [
+        "04022101",
+        "04041001"
+      ],
+      "confidence": 95,
+      "matchTop1": false,
+      "matchTop3": true,
+      "matchChapter": true,
+      "timeMs": 15762,
+      "error": null
+    },
+    {
+      "id": 36,
+      "description": "Mango fresco tipo Ataulfo para exportación",
+      "category": "Alimentos",
+      "chapter": "08",
+      "expectedFraction": "08045001",
+      "obtainedFraction": "08045005",
+      "alternatives": [
+        "08045099",
+        "08045001"
+      ],
+      "confidence": 95,
+      "matchTop1": false,
+      "matchTop3": true,
+      "matchChapter": true,
+      "timeMs": 14845,
+      "error": null
+    },
+    {
+      "id": 37,
+      "description": "Salsa de soya fermentada, botella 500ml",
+      "category": "Alimentos",
+      "chapter": "21",
+      "expectedFraction": "21039001",
+      "obtainedFraction": "21031001",
+      "alternatives": [
+        "21039099",
+        "21069099"
+      ],
+      "confidence": 95,
+      "matchTop1": false,
+      "matchTop3": false,
+      "matchChapter": true,
+      "timeMs": 14360,
+      "error": null
+    },
+    {
+      "id": 38,
+      "description": "Vino tinto de uva, Cabernet Sauvignon, botella 750ml",
+      "category": "Alimentos",
+      "chapter": "22",
+      "expectedFraction": "22042101",
+      "obtainedFraction": "22042101",
+      "alternatives": [
+        "22042999",
+        "22041002"
+      ],
+      "confidence": 95,
+      "matchTop1": true,
+      "matchTop3": true,
+      "matchChapter": true,
+      "timeMs": 17445,
+      "error": null
+    },
+    {
+      "id": 39,
+      "description": "Miel natural de abeja, pura, envase de 1kg",
+      "category": "Alimentos",
+      "chapter": "04",
+      "expectedFraction": "04090001",
+      "obtainedFraction": "04090001",
+      "alternatives": [
+        "21069099",
+        "17029099"
+      ],
+      "confidence": 100,
+      "matchTop1": true,
+      "matchTop3": true,
+      "matchChapter": true,
+      "timeMs": 14356,
+      "error": null
+    },
+    {
+      "id": 40,
+      "description": "Atún aleta amarilla en conserva, en aceite, lata 170g",
+      "category": "Alimentos",
+      "chapter": "16",
+      "expectedFraction": "16041401",
+      "obtainedFraction": "16041499",
+      "alternatives": [
+        "16041404",
+        "16041999"
+      ],
+      "confidence": 95,
+      "matchTop1": false,
+      "matchTop3": false,
+      "matchChapter": true,
+      "timeMs": 14679,
+      "error": null
+    },
+    {
+      "id": 41,
+      "description": "Ibuprofeno tabletas de 400mg, uso humano, venta libre",
+      "category": "Farmacéuticos",
+      "chapter": "30",
+      "expectedFraction": "30049099",
+      "obtainedFraction": "30049099",
+      "alternatives": [
+        "30042001",
+        "30045001"
+      ],
+      "confidence": 95,
+      "matchTop1": true,
+      "matchTop3": true,
+      "matchChapter": true,
+      "timeMs": 14564,
+      "error": null
+    },
+    {
+      "id": 42,
+      "description": "Paracetamol (acetaminofén) en tabletas de 500mg",
+      "category": "Farmacéuticos",
+      "chapter": "30",
+      "expectedFraction": "30049099",
+      "obtainedFraction": "30049099",
+      "alternatives": [
+        "30041001",
+        "29242999"
+      ],
+      "confidence": 95,
+      "matchTop1": true,
+      "matchTop3": true,
+      "matchChapter": true,
+      "timeMs": 16881,
+      "error": null
+    },
+    {
+      "id": 43,
+      "description": "Alcohol etílico desnaturalizado al 96%, uso industrial",
+      "category": "Químicos",
+      "chapter": "22",
+      "expectedFraction": "22071001",
+      "obtainedFraction": "22072001",
+      "alternatives": [
+        "22089001",
+        "22071001"
+      ],
+      "confidence": 98,
+      "matchTop1": false,
+      "matchTop3": true,
+      "matchChapter": true,
+      "timeMs": 15207,
+      "error": null
+    },
+    {
+      "id": 44,
+      "description": "Hidróxido de sodio (sosa cáustica) en escamas, grado industrial",
+      "category": "Químicos",
+      "chapter": "28",
+      "expectedFraction": "28151101",
+      "obtainedFraction": "28151202",
+      "alternatives": [
+        "28151201",
+        "28152001"
+      ],
+      "confidence": 95,
+      "matchTop1": false,
+      "matchTop3": false,
+      "matchChapter": true,
+      "timeMs": 14099,
+      "error": null
+    },
+    {
+      "id": 45,
+      "description": "Ácido sulfúrico concentrado, grado reactivo",
+      "category": "Químicos",
+      "chapter": "28",
+      "expectedFraction": "28070001",
+      "obtainedFraction": "28070001",
+      "alternatives": [
+        "38220099",
+        "28062001"
+      ],
+      "confidence": 95,
+      "matchTop1": true,
+      "matchTop3": true,
+      "matchChapter": true,
+      "timeMs": 18432,
+      "error": null
+    },
+    {
+      "id": 46,
+      "description": "Antibiótico amoxicilina cápsulas 500mg, uso humano",
+      "category": "Farmacéuticos",
+      "chapter": "30",
+      "expectedFraction": "30041001",
+      "obtainedFraction": "30041099",
+      "alternatives": [
+        "30032001",
+        "29411012"
+      ],
+      "confidence": 90,
+      "matchTop1": false,
+      "matchTop3": false,
+      "matchChapter": true,
+      "timeMs": 15378,
+      "error": null
+    },
+    {
+      "id": 47,
+      "description": "Gel antibacterial con alcohol al 70%, envase 500ml",
+      "category": "Químicos",
+      "chapter": "38",
+      "expectedFraction": "38089401",
+      "obtainedFraction": "38089401",
+      "alternatives": [
+        "30049099",
+        "34013001"
+      ],
+      "confidence": 92,
+      "matchTop1": true,
+      "matchTop3": true,
+      "matchChapter": true,
+      "timeMs": 16226,
+      "error": null
+    },
+    {
+      "id": 48,
+      "description": "Insulina humana inyectable, 100 UI/ml",
+      "category": "Farmacéuticos",
+      "chapter": "30",
+      "expectedFraction": "30043101",
+      "obtainedFraction": "30033102",
+      "alternatives": [
+        "30043102",
+        "29371202"
+      ],
+      "confidence": 95,
+      "matchTop1": false,
+      "matchTop3": false,
+      "matchChapter": true,
+      "timeMs": 18043,
+      "error": null
+    },
+    {
+      "id": 49,
+      "description": "Cloro líquido (hipoclorito de sodio) al 6%, uso doméstico",
+      "category": "Químicos",
+      "chapter": "28",
+      "expectedFraction": "28289001",
+      "obtainedFraction": "28289001",
+      "alternatives": [
+        "38089401",
+        "34022001"
+      ],
+      "confidence": 95,
+      "matchTop1": true,
+      "matchTop3": true,
+      "matchChapter": true,
+      "timeMs": 17970,
+      "error": null
+    },
+    {
+      "id": 50,
+      "description": "Vitamina C (ácido ascórbico) tabletas efervescentes 1000mg",
+      "category": "Farmacéuticos",
+      "chapter": "21",
+      "expectedFraction": "21069099",
+      "obtainedFraction": "29362701",
+      "alternatives": [
+        "30049099",
+        "21069099"
+      ],
+      "confidence": 90,
+      "matchTop1": false,
+      "matchTop3": true,
+      "matchChapter": false,
+      "timeMs": 15090,
+      "error": null
+    },
+    {
+      "id": 51,
+      "description": "Torno CNC horizontal para metales, control numérico",
+      "category": "Maquinaria",
+      "chapter": "84",
+      "expectedFraction": "84581101",
+      "obtainedFraction": "84581101",
+      "alternatives": [
+        "84581999",
+        "84589101"
+      ],
+      "confidence": 95,
+      "matchTop1": true,
+      "matchTop3": true,
+      "matchChapter": true,
+      "timeMs": 13861,
+      "error": null
+    },
+    {
+      "id": 52,
+      "description": "Compresor de aire de tornillo rotativo, 100 HP",
+      "category": "Maquinaria",
+      "chapter": "84",
+      "expectedFraction": "84143001",
+      "obtainedFraction": "84143001",
+      "alternatives": [
+        "84143004",
+        "84148099"
+      ],
+      "confidence": 95,
+      "matchTop1": true,
+      "matchTop3": true,
+      "matchChapter": true,
+      "timeMs": 18381,
+      "error": null
+    },
+    {
+      "id": 53,
+      "description": "Montacargas de contrapeso, motor diésel, capacidad 3 toneladas",
+      "category": "Maquinaria",
+      "chapter": "84",
+      "expectedFraction": "84272001",
+      "obtainedFraction": "84272004",
+      "alternatives": [
+        "84271001",
+        "84253902"
+      ],
+      "confidence": 95,
+      "matchTop1": false,
+      "matchTop3": false,
+      "matchChapter": true,
+      "timeMs": 15951,
+      "error": null
+    },
+    {
+      "id": 54,
+      "description": "Bomba centrífuga para agua, motor eléctrico, 5 HP",
+      "category": "Maquinaria",
+      "chapter": "84",
+      "expectedFraction": "84137001",
+      "obtainedFraction": "84137001",
+      "alternatives": [
+        "84138101",
+        "84136001"
+      ],
+      "confidence": 90,
+      "matchTop1": true,
+      "matchTop3": true,
+      "matchChapter": true,
+      "timeMs": 14721,
+      "error": null
+    },
+    {
+      "id": 55,
+      "description": "Máquina de inyección de plástico, 200 toneladas de cierre",
+      "category": "Maquinaria",
+      "chapter": "84",
+      "expectedFraction": "84771001",
+      "obtainedFraction": "84771099",
+      "alternatives": [
+        "84771001",
+        "84779099"
+      ],
+      "confidence": 95,
+      "matchTop1": false,
+      "matchTop3": true,
+      "matchChapter": true,
+      "timeMs": 16643,
+      "error": null
+    },
+    {
+      "id": 56,
+      "description": "Generador eléctrico diésel de 500 KVA, trifásico",
+      "category": "Maquinaria",
+      "chapter": "85",
+      "expectedFraction": "85021301",
+      "obtainedFraction": "85013301",
+      "alternatives": [
+        "85013201",
+        "85013101"
+      ],
+      "confidence": 95,
+      "matchTop1": false,
+      "matchTop3": false,
+      "matchChapter": true,
+      "timeMs": 20298,
+      "error": null
+    },
+    {
+      "id": 57,
+      "description": "Banda transportadora de hule para línea de producción, 10 metros",
+      "category": "Maquinaria",
+      "chapter": "84",
+      "expectedFraction": "84283301",
+      "obtainedFraction": "40101201",
+      "alternatives": [
+        "59100001",
+        "40101999"
+      ],
+      "confidence": 92,
+      "matchTop1": false,
+      "matchTop3": false,
+      "matchChapter": false,
+      "timeMs": 13912,
+      "error": null
+    },
+    {
+      "id": 58,
+      "description": "Robot industrial articulado de 6 ejes para soldadura",
+      "category": "Maquinaria",
+      "chapter": "84",
+      "expectedFraction": "84795001",
+      "obtainedFraction": "84795001",
+      "alternatives": [
+        "84287001",
+        "85158099"
+      ],
+      "confidence": 95,
+      "matchTop1": true,
+      "matchTop3": true,
+      "matchChapter": true,
+      "timeMs": 15107,
+      "error": null
+    },
+    {
+      "id": 59,
+      "description": "Aire acondicionado tipo split de 2 toneladas, uso residencial",
+      "category": "Maquinaria",
+      "chapter": "84",
+      "expectedFraction": "84151001",
+      "obtainedFraction": "84151001",
+      "alternatives": [
+        "84152001",
+        "84159099"
+      ],
+      "confidence": 95,
+      "matchTop1": true,
+      "matchTop3": true,
+      "matchChapter": true,
+      "timeMs": 19009,
+      "error": null
+    },
+    {
+      "id": 60,
+      "description": "Lavadora automática de ropa, carga frontal, 20 kg, uso doméstico",
+      "category": "Maquinaria",
+      "chapter": "84",
+      "expectedFraction": "84502001",
+      "obtainedFraction": "84502001",
+      "alternatives": [
+        "84501101",
+        "84509099"
+      ],
+      "confidence": 95,
+      "matchTop1": true,
+      "matchTop3": true,
+      "matchChapter": true,
+      "timeMs": 15984,
+      "error": null
+    },
+    {
+      "id": 61,
+      "description": "Automóvil sedán nuevo, motor gasolina 2.0L, 4 cilindros",
+      "category": "Vehículos",
+      "chapter": "87",
+      "expectedFraction": "87032301",
+      "obtainedFraction": "87032101",
+      "alternatives": [
+        "87032201",
+        "87039001"
+      ],
+      "confidence": 95,
+      "matchTop1": false,
+      "matchTop3": false,
+      "matchChapter": true,
+      "timeMs": 16176,
+      "error": null
+    },
+    {
+      "id": 62,
+      "description": "Camioneta pickup doble cabina, motor diésel 2.8L",
+      "category": "Vehículos",
+      "chapter": "87",
+      "expectedFraction": "87043101",
+      "obtainedFraction": "87042101",
+      "alternatives": [
+        "87042201",
+        "87033304"
+      ],
+      "confidence": 95,
+      "matchTop1": false,
+      "matchTop3": false,
+      "matchChapter": true,
+      "timeMs": 15867,
+      "error": null
+    },
+    {
+      "id": 63,
+      "description": "Llanta radial para automóvil, medida 205/55 R16",
+      "category": "Vehículos",
+      "chapter": "40",
+      "expectedFraction": "40111001",
+      "obtainedFraction": "40111002",
+      "alternatives": [
+        "40112004",
+        "40111001"
+      ],
+      "confidence": 95,
+      "matchTop1": false,
+      "matchTop3": true,
+      "matchChapter": true,
+      "timeMs": 17209,
+      "error": null
+    },
+    {
+      "id": 64,
+      "description": "Batería de plomo-ácido para automóvil, 12V, 60 Ah",
+      "category": "Vehículos",
+      "chapter": "85",
+      "expectedFraction": "85071001",
+      "obtainedFraction": "85072099",
+      "alternatives": [
+        "85072004",
+        "85079001"
+      ],
+      "confidence": 95,
+      "matchTop1": false,
+      "matchTop3": false,
+      "matchChapter": true,
+      "timeMs": 13918,
+      "error": null
+    },
+    {
+      "id": 65,
+      "description": "Parabrisas de vidrio templado para automóvil sedán",
+      "category": "Vehículos",
+      "chapter": "70",
+      "expectedFraction": "70071101",
+      "obtainedFraction": "87082201",
+      "alternatives": [
+        "70072101",
+        "70072999"
+      ],
+      "confidence": 95,
+      "matchTop1": false,
+      "matchTop3": false,
+      "matchChapter": false,
+      "timeMs": 14351,
+      "error": null
+    },
+    {
+      "id": 66,
+      "description": "Amortiguador hidráulico trasero para automóvil",
+      "category": "Vehículos",
+      "chapter": "87",
+      "expectedFraction": "87083001",
+      "obtainedFraction": "87088099",
+      "alternatives": [
+        "87088004",
+        "87088011"
+      ],
+      "confidence": 92,
+      "matchTop1": false,
+      "matchTop3": false,
+      "matchChapter": true,
+      "timeMs": 14790,
+      "error": null
+    },
+    {
+      "id": 67,
+      "description": "Pastillas de freno delanteras para automóvil",
+      "category": "Vehículos",
+      "chapter": "68",
+      "expectedFraction": "68131001",
+      "obtainedFraction": "84879003",
+      "alternatives": [
+        "68132001",
+        "87083001"
+      ],
+      "confidence": 95,
+      "matchTop1": false,
+      "matchTop3": false,
+      "matchChapter": false,
+      "timeMs": 14690,
+      "error": null
+    },
+    {
+      "id": 68,
+      "description": "Filtro de aceite para motor de automóvil",
+      "category": "Vehículos",
+      "chapter": "84",
+      "expectedFraction": "84212301",
+      "obtainedFraction": "84212301",
+      "alternatives": [
+        "84212999",
+        "48115104"
+      ],
+      "confidence": 95,
+      "matchTop1": true,
+      "matchTop3": true,
+      "matchChapter": true,
+      "timeMs": 13397,
+      "error": null
+    },
+    {
+      "id": 69,
+      "description": "Motocicleta de 250cc, motor de combustión interna",
+      "category": "Vehículos",
+      "chapter": "87",
+      "expectedFraction": "87112001",
+      "obtainedFraction": "87113099",
+      "alternatives": [
+        "87112099",
+        "87114099"
+      ],
+      "confidence": 90,
+      "matchTop1": false,
+      "matchTop3": false,
+      "matchChapter": true,
+      "timeMs": 18981,
+      "error": null
+    },
+    {
+      "id": 70,
+      "description": "Bicicleta de montaña para adulto, cuadro de aluminio, rodada 29",
+      "category": "Vehículos",
+      "chapter": "87",
+      "expectedFraction": "87120001",
+      "obtainedFraction": "87120001",
+      "alternatives": [
+        "95062101",
+        "87149999"
+      ],
+      "confidence": 95,
+      "matchTop1": true,
+      "matchTop3": true,
+      "matchChapter": true,
+      "timeMs": 15272,
+      "error": null
+    },
+    {
+      "id": 71,
+      "description": "Bolsa de polietileno de baja densidad para empaque, transparente",
+      "category": "Plásticos",
+      "chapter": "39",
+      "expectedFraction": "39232101",
+      "obtainedFraction": "39232101",
+      "alternatives": [
+        "39011003",
+        "48194091"
+      ],
+      "confidence": 95,
+      "matchTop1": true,
+      "matchTop3": true,
+      "matchChapter": true,
+      "timeMs": 15347,
+      "error": null
+    },
+    {
+      "id": 72,
+      "description": "Botella de PET para agua, capacidad 500ml, desechable",
+      "category": "Plásticos",
+      "chapter": "39",
+      "expectedFraction": "39233001",
+      "obtainedFraction": "39233002",
+      "alternatives": [
+        "39239099",
+        "39241001"
+      ],
+      "confidence": 95,
+      "matchTop1": false,
+      "matchTop3": false,
+      "matchChapter": true,
+      "timeMs": 15246,
+      "error": null
+    },
+    {
+      "id": 73,
+      "description": "Tubería de PVC de 4 pulgadas para drenaje",
+      "category": "Plásticos",
+      "chapter": "39",
+      "expectedFraction": "39172301",
+      "obtainedFraction": "39172301",
+      "alternatives": [
+        "39172999",
+        "39173399"
+      ],
+      "confidence": 95,
+      "matchTop1": true,
+      "matchTop3": true,
+      "matchChapter": true,
+      "timeMs": 14712,
+      "error": null
+    },
+    {
+      "id": 74,
+      "description": "Contenedor de plástico tipo Tupperware, polipropileno, con tapa",
+      "category": "Plásticos",
+      "chapter": "39",
+      "expectedFraction": "39241001",
+      "obtainedFraction": "39241001",
+      "alternatives": [
+        "39231001",
+        "39249099"
+      ],
+      "confidence": 95,
+      "matchTop1": true,
+      "matchTop3": true,
+      "matchChapter": true,
+      "timeMs": 15470,
+      "error": null
+    },
+    {
+      "id": 75,
+      "description": "Película stretch de polietileno para embalaje, rollo",
+      "category": "Plásticos",
+      "chapter": "39",
+      "expectedFraction": "39201001",
+      "obtainedFraction": "39201001",
+      "alternatives": [
+        "39232101",
+        "39209999"
+      ],
+      "confidence": 92,
+      "matchTop1": true,
+      "matchTop3": true,
+      "matchChapter": true,
+      "timeMs": 14598,
+      "error": null
+    },
+    {
+      "id": 76,
+      "description": "Resina de polipropileno en pellets, grado inyección",
+      "category": "Plásticos",
+      "chapter": "39",
+      "expectedFraction": "39021001",
+      "obtainedFraction": "39021001",
+      "alternatives": [
+        "39029099",
+        "39012001"
+      ],
+      "confidence": 95,
+      "matchTop1": true,
+      "matchTop3": true,
+      "matchChapter": true,
+      "timeMs": 14720,
+      "error": null
+    },
+    {
+      "id": 77,
+      "description": "Lámina de policarbonato transparente, 6mm espesor",
+      "category": "Plásticos",
+      "chapter": "39",
+      "expectedFraction": "39206001",
+      "obtainedFraction": "39206101",
+      "alternatives": [
+        "39219099",
+        "39074004"
+      ],
+      "confidence": 95,
+      "matchTop1": false,
+      "matchTop3": false,
+      "matchChapter": true,
+      "timeMs": 15007,
+      "error": null
+    },
+    {
+      "id": 78,
+      "description": "Guantes desechables de nitrilo, talla M, caja 100 piezas",
+      "category": "Plásticos",
+      "chapter": "39",
+      "expectedFraction": "39262001",
+      "obtainedFraction": "62160001",
+      "alternatives": [
+        "40151999",
+        "39262099"
+      ],
+      "confidence": 95,
+      "matchTop1": false,
+      "matchTop3": false,
+      "matchChapter": false,
+      "timeMs": 19012,
+      "error": null
+    },
+    {
+      "id": 79,
+      "description": "Charola de poliestireno expandido (unicel) para alimentos",
+      "category": "Plásticos",
+      "chapter": "39",
+      "expectedFraction": "39231001",
+      "obtainedFraction": "39231002",
+      "alternatives": [
+        "39241001",
+        "39239099"
+      ],
+      "confidence": 95,
+      "matchTop1": false,
+      "matchTop3": false,
+      "matchChapter": true,
+      "timeMs": 17184,
+      "error": null
+    },
+    {
+      "id": 80,
+      "description": "Manguera flexible de PVC reforzada, 1 pulgada, para riego",
+      "category": "Plásticos",
+      "chapter": "39",
+      "expectedFraction": "39173901",
+      "obtainedFraction": "39173101",
+      "alternatives": [
+        "39173299",
+        "39173999"
+      ],
+      "confidence": 75,
+      "matchTop1": false,
+      "matchTop3": false,
+      "matchChapter": true,
+      "timeMs": 13514,
+      "error": null
+    },
+    {
+      "id": 81,
+      "description": "Tornillo de acero inoxidable, cabeza hexagonal, M10x50mm",
+      "category": "Acero",
+      "chapter": "73",
+      "expectedFraction": "73181501",
+      "obtainedFraction": "73181599",
+      "alternatives": [
+        "73181504",
+        "73181999"
+      ],
+      "confidence": 90,
+      "matchTop1": false,
+      "matchTop3": false,
+      "matchChapter": true,
+      "timeMs": 16037,
+      "error": null
+    },
+    {
+      "id": 82,
+      "description": "Lámina de acero inoxidable 304, calibre 18, hoja 4x8 pies",
+      "category": "Acero",
+      "chapter": "72",
+      "expectedFraction": "72193401",
+      "obtainedFraction": "72193401",
+      "alternatives": [
+        "72193301",
+        "72202001"
+      ],
+      "confidence": 90,
+      "matchTop1": true,
+      "matchTop3": true,
+      "matchChapter": true,
+      "timeMs": 16035,
+      "error": null
+    },
+    {
+      "id": 83,
+      "description": "Varilla corrugada de acero para construcción, 3/8 pulgada",
+      "category": "Acero",
+      "chapter": "72",
+      "expectedFraction": "72142001",
+      "obtainedFraction": "72142001",
+      "alternatives": [
+        "72141001",
+        "72131001"
+      ],
+      "confidence": 95,
+      "matchTop1": true,
+      "matchTop3": true,
+      "matchChapter": true,
+      "timeMs": 15543,
+      "error": null
+    },
+    {
+      "id": 84,
+      "description": "Tubo de acero al carbón, soldado, 2 pulgadas, cédula 40",
+      "category": "Acero",
+      "chapter": "73",
+      "expectedFraction": "73063001",
+      "obtainedFraction": "73063001",
+      "alternatives": [
+        "73064001",
+        "73069099"
+      ],
+      "confidence": 90,
+      "matchTop1": true,
+      "matchTop3": true,
+      "matchChapter": true,
+      "timeMs": 14201,
+      "error": null
+    },
+    {
+      "id": 85,
+      "description": "Alambre de acero galvanizado, calibre 14",
+      "category": "Acero",
+      "chapter": "72",
+      "expectedFraction": "72172001",
+      "obtainedFraction": "72171001",
+      "alternatives": [
+        "72172001",
+        "72139101"
+      ],
+      "confidence": 75,
+      "matchTop1": false,
+      "matchTop3": true,
+      "matchChapter": true,
+      "timeMs": 14483,
+      "error": null
+    },
+    {
+      "id": 86,
+      "description": "Perfil estructural de acero tipo IPR, 8 pulgadas",
+      "category": "Acero",
+      "chapter": "72",
+      "expectedFraction": "72163201",
+      "obtainedFraction": "72161001",
+      "alternatives": [
+        "72162101",
+        "72164001"
+      ],
+      "confidence": 95,
+      "matchTop1": false,
+      "matchTop3": false,
+      "matchChapter": true,
+      "timeMs": 17167,
+      "error": null
+    },
+    {
+      "id": 87,
+      "description": "Clavo de acero sin cabeza, 2 pulgadas, para construcción",
+      "category": "Acero",
+      "chapter": "73",
+      "expectedFraction": "73170001",
+      "obtainedFraction": "73170001",
+      "alternatives": [
+        "74151002",
+        "76161001"
+      ],
+      "confidence": 95,
+      "matchTop1": true,
+      "matchTop3": true,
+      "matchChapter": true,
+      "timeMs": 14596,
+      "error": null
+    },
+    {
+      "id": 88,
+      "description": "Lámina de aluminio en rollo, 0.5mm espesor, aleación 3003",
+      "category": "Acero",
+      "chapter": "76",
+      "expectedFraction": "76061201",
+      "obtainedFraction": "76061101",
+      "alternatives": [
+        "76061201",
+        "76071101"
+      ],
+      "confidence": 75,
+      "matchTop1": false,
+      "matchTop3": true,
+      "matchChapter": true,
+      "timeMs": 16218,
+      "error": null
+    },
+    {
+      "id": 89,
+      "description": "Cable de cobre desnudo, calibre 10 AWG, temple suave",
+      "category": "Acero",
+      "chapter": "74",
+      "expectedFraction": "74081101",
+      "obtainedFraction": "74081101",
+      "alternatives": [
+        "74081999",
+        "74130001"
+      ],
+      "confidence": 92,
+      "matchTop1": true,
+      "matchTop3": true,
+      "matchChapter": true,
+      "timeMs": 14567,
+      "error": null
+    },
+    {
+      "id": 90,
+      "description": "Tuerca hexagonal de acero al carbón, rosca M12",
+      "category": "Acero",
+      "chapter": "73",
+      "expectedFraction": "73181601",
+      "obtainedFraction": "73181606",
+      "alternatives": [
+        "74153303",
+        "76161001"
+      ],
+      "confidence": 95,
+      "matchTop1": false,
+      "matchTop3": false,
+      "matchChapter": true,
+      "timeMs": 15526,
+      "error": null
+    },
+    {
+      "id": 91,
+      "description": "Zapato deportivo tipo tenis para hombre, suela de caucho, parte superior textil",
+      "category": "Calzado",
+      "chapter": "64",
+      "expectedFraction": "64041901",
+      "obtainedFraction": "64029920",
+      "alternatives": [
+        "64039913",
+        "64039113"
+      ],
+      "confidence": 95,
+      "matchTop1": false,
+      "matchTop3": false,
+      "matchChapter": true,
+      "timeMs": 13121,
+      "error": null
+    },
+    {
+      "id": 92,
+      "description": "Bota industrial de seguridad con casquillo de acero, piel",
+      "category": "Calzado",
+      "chapter": "64",
+      "expectedFraction": "64035101",
+      "obtainedFraction": "64019201",
+      "alternatives": [
+        "64035999",
+        "64019999"
+      ],
+      "confidence": 75,
+      "matchTop1": false,
+      "matchTop3": false,
+      "matchChapter": true,
+      "timeMs": 12342,
+      "error": null
+    },
+    {
+      "id": 93,
+      "description": "Sandalia de plástico para dama, tipo huarache",
+      "category": "Calzado",
+      "chapter": "64",
+      "expectedFraction": "64029901",
+      "obtainedFraction": "64029919",
+      "alternatives": [
+        "64041908",
+        "64029101"
+      ],
+      "confidence": 95,
+      "matchTop1": false,
+      "matchTop3": false,
+      "matchChapter": true,
+      "timeMs": 14795,
+      "error": null
+    },
+    {
+      "id": 94,
+      "description": "Zapato de vestir para hombre, piel genuina, suela de cuero",
+      "category": "Calzado",
+      "chapter": "64",
+      "expectedFraction": "64035101",
+      "obtainedFraction": "64035101",
+      "alternatives": [
+        "64035999",
+        "64039101"
+      ],
+      "confidence": 95,
+      "matchTop1": true,
+      "matchTop3": true,
+      "matchChapter": true,
+      "timeMs": 16960,
+      "error": null
+    },
+    {
+      "id": 95,
+      "description": "Pantufla de tela para uso doméstico",
+      "category": "Calzado",
+      "chapter": "64",
+      "expectedFraction": "64041901",
+      "obtainedFraction": "64041999",
+      "alternatives": [
+        "64052001",
+        "64041101"
+      ],
+      "confidence": 90,
+      "matchTop1": false,
+      "matchTop3": false,
+      "matchChapter": true,
+      "timeMs": 16559,
+      "error": null
+    },
+    {
+      "id": 96,
+      "description": "Juguete de plástico tipo figura de acción para niños",
+      "category": "Varios",
+      "chapter": "95",
+      "expectedFraction": "95030001",
+      "obtainedFraction": "95030099",
+      "alternatives": [
+        "95030012",
+        "95030013"
+      ],
+      "confidence": 90,
+      "matchTop1": false,
+      "matchTop3": false,
+      "matchChapter": true,
+      "timeMs": 15664,
+      "error": null
+    },
+    {
+      "id": 97,
+      "description": "Reloj de pulsera analógico con caja de acero inoxidable",
+      "category": "Varios",
+      "chapter": "91",
+      "expectedFraction": "91019901",
+      "obtainedFraction": "91021201",
+      "alternatives": [
+        "91021101",
+        "91022101"
+      ],
+      "confidence": 75,
+      "matchTop1": false,
+      "matchTop3": false,
+      "matchChapter": true,
+      "timeMs": 17128,
+      "error": null
+    },
+    {
+      "id": 98,
+      "description": "Mueble de madera tipo escritorio para oficina",
+      "category": "Varios",
+      "chapter": "94",
+      "expectedFraction": "94033001",
+      "obtainedFraction": "94033001",
+      "alternatives": [
+        "94036001",
+        "94039099"
+      ],
+      "confidence": 95,
+      "matchTop1": true,
+      "matchTop3": true,
+      "matchChapter": true,
+      "timeMs": 13893,
+      "error": null
+    },
+    {
+      "id": 99,
+      "description": "Papel bond blanco tamaño carta, 75g/m², resma 500 hojas",
+      "category": "Varios",
+      "chapter": "48",
+      "expectedFraction": "48025601",
+      "obtainedFraction": "48025601",
+      "alternatives": [
+        "48025501",
+        "48025801"
+      ],
+      "confidence": 95,
+      "matchTop1": true,
+      "matchTop3": true,
+      "matchChapter": true,
+      "timeMs": 23930,
+      "error": null
+    },
+    {
+      "id": 100,
+      "description": "Lentes de sol con armazón de plástico y lentes polarizados",
+      "category": "Varios",
+      "chapter": "90",
+      "expectedFraction": "90041001",
+      "obtainedFraction": "90041001",
+      "alternatives": [
+        "90015001",
+        "39269099"
+      ],
+      "confidence": 95,
+      "matchTop1": true,
+      "matchTop3": true,
+      "matchChapter": true,
+      "timeMs": 27165,
+      "error": null
+    }
+  ]
+}

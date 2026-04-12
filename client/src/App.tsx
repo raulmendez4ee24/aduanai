@@ -11,6 +11,11 @@ import { HistoryPage } from './pages/History';
 import { AlertsPage } from './pages/Alerts';
 import { OperationsPage } from './pages/Operations';
 import { AnalyticsPage } from './pages/Analytics';
+import { InventoryPage } from './pages/Inventory';
+import { FiscalGuardianPage } from './pages/FiscalGuardian';
+import { AutoMVEPage } from './pages/AutoMVE';
+import { LogisticsPage } from './pages/LogisticsOptimizer';
+import { TIGIEUpdaterPage } from './pages/TIGIEUpdater';
 
 export function App() {
   const [token, setToken] = useState<string | null>(
@@ -86,6 +91,66 @@ export function App() {
           token ? (
             <Layout onLogout={() => setToken(null)}>
               <AnalyticsPage />
+            </Layout>
+          ) : (
+            <Navigate to="/login" replace />
+          )
+        }
+      />
+      <Route
+        path="/inventario"
+        element={
+          token ? (
+            <Layout onLogout={() => setToken(null)}>
+              <InventoryPage />
+            </Layout>
+          ) : (
+            <Navigate to="/login" replace />
+          )
+        }
+      />
+      <Route
+        path="/updates"
+        element={
+          token ? (
+            <Layout onLogout={() => setToken(null)}>
+              <TIGIEUpdaterPage />
+            </Layout>
+          ) : (
+            <Navigate to="/login" replace />
+          )
+        }
+      />
+      <Route
+        path="/logistics"
+        element={
+          token ? (
+            <Layout onLogout={() => setToken(null)}>
+              <LogisticsPage />
+            </Layout>
+          ) : (
+            <Navigate to="/login" replace />
+          )
+        }
+      />
+      <Route
+        path="/mve"
+        element={
+          token ? (
+            <Layout onLogout={() => setToken(null)}>
+              <AutoMVEPage />
+            </Layout>
+          ) : (
+            <Navigate to="/login" replace />
+          )
+        }
+      />
+      <Route
+        path="/fiscal"
+        element={
+          token ? (
+            <Layout onLogout={() => setToken(null)}>
+              <FiscalGuardianPage />
             </Layout>
           ) : (
             <Navigate to="/login" replace />

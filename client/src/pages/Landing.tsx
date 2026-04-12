@@ -42,9 +42,9 @@ function LandingClassifier() {
     setLoading(true);
     setResult(null);
     try {
-      const res = await fetch('/api/classify', {
+      const res = await fetch('/api/classify/demo', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json', Authorization: `Bearer demo` },
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ description: input }),
       });
       if (res.ok) {
@@ -56,17 +56,20 @@ function LandingClassifier() {
           tariff: `${data.data.tariffs.nmf}%`,
           treaty: Object.entries(data.data.tariffs.preferential || {}).map(([k, v]) => `${k}: ${v}%`).join(', ') || 'N/A',
         });
-      }
-    } catch { /* demo mode */ }
-    if (!result) {
-      // Fallback demo result
-      setTimeout(() => {
-        setResult({ fraction: '8471.30.01', description: 'Máquinas automáticas para procesamiento de datos, portátiles', confidence: 95, tariff: '0%', treaty: 'TMEC: 0%, TLCUE: 0%' });
         setLoading(false);
-      }, 2000);
-      return;
-    }
-    setLoading(false);
+        return;
+      }
+      if (res.status === 429) {
+        setResult({ fraction: '—', description: 'Límite alcanzado (3/hora). Regístrate para uso ilimitado.', confidence: 0, tariff: '—', treaty: '—' });
+        setLoading(false);
+        return;
+      }
+    } catch { /* fallback */ }
+    // Fallback demo result si el backend no responde
+    setTimeout(() => {
+      setResult({ fraction: '8471.30.01', description: 'Máquinas automáticas para procesamiento de datos, portátiles', confidence: 95, tariff: '0%', treaty: 'TMEC: 0%, TLCUE: 0%' });
+      setLoading(false);
+    }, 2000);
   };
 
   return (

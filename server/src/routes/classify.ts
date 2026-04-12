@@ -1,10 +1,48 @@
 import { Router } from 'express';
+import rateLimit from 'express-rate-limit';
 import { authenticate, AuthRequest } from '../middlewares/auth';
 import { classifyProduct } from '../services/classifier';
 import { prisma } from '../lib/prisma';
 
 export const classifyRouter = Router();
 
+// POST /api/classify/demo — sin auth, 3 por IP por hora
+const demoClassifyLimit = rateLimit({
+  windowMs: 60 * 60 * 1000, // 1 hora
+  max: 3,
+  standardHeaders: true,
+  legacyHeaders: false,
+  keyGenerator: (req) => req.ip || req.socket.remoteAddress || 'unknown',
+  message: { status: 'error', message: 'Límite de 3 clasificaciones demo por hora. Regístrate para uso ilimitado.' },
+});
+
+classifyRouter.post('/demo', demoClassifyLimit, async (req, res, next) => {
+  try {
+    const { description } = req.body;
+
+    if (!description || description.trim().length < 3) {
+      return res.status(400).json({
+        status: 'error',
+        message: 'Descripción del producto requerida (mínimo 3 caracteres)',
+      });
+    }
+
+    if (description.length > 200) {
+      return res.status(400).json({
+        status: 'error',
+        message: 'Descripción demasiado larga para demo (máximo 200 caracteres)',
+      });
+    }
+
+    const result = await classifyProduct(description);
+
+    res.json({ status: 'ok', data: result });
+  } catch (err) {
+    next(err);
+  }
+});
+
+// POST /api/classify — con auth
 classifyRouter.post('/', authenticate, async (req: AuthRequest, res, next) => {
   try {
     const { description, context } = req.body;

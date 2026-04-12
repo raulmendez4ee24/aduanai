@@ -1,5 +1,5 @@
 import { Link, useLocation } from 'react-router-dom';
-import { Search, Calculator, MessageSquare, LayoutDashboard, LogOut, History, Menu, X, Bell, FolderOpen, BarChart3 } from 'lucide-react';
+import { Search, Calculator, MessageSquare, LayoutDashboard, LogOut, History, Menu, X, Bell, FolderOpen, BarChart3, Warehouse, Shield, FileSignature, Package, RefreshCw } from 'lucide-react';
 import { type ReactNode, useState } from 'react';
 
 const NAV_ITEMS = [
@@ -9,6 +9,11 @@ const NAV_ITEMS = [
   { path: '/copilot', label: 'Copilot', icon: MessageSquare },
   { path: '/historial', label: 'Historial', icon: History },
   { path: '/analytics', label: 'Analytics', icon: BarChart3 },
+  { path: '/inventario', label: 'Inventario IMMEX', icon: Warehouse },
+  { path: '/fiscal', label: 'Fiscal Guardian', icon: Shield },
+  { path: '/mve', label: 'Auto MVE', icon: FileSignature },
+  { path: '/logistics', label: 'Logistica', icon: Package },
+  { path: '/updates', label: 'Actualizaciones', icon: RefreshCw },
   { path: '/expediente', label: 'Expediente', icon: FolderOpen },
   { path: '/alertas', label: 'Alertas', icon: Bell },
 ];
