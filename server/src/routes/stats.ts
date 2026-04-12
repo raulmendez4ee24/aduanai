@@ -46,6 +46,57 @@ statsRouter.get('/public', publicStatsLimit, async (_req, res, next) => {
   }
 });
 
+// GET /api/stats/volume — clasificaciones por día, últimos 30 días
+statsRouter.get('/volume', authenticate, async (req: AuthRequest, res, next) => {
+  try {
+    const tenantId = req.tenantId!;
+    const days = Math.min(Number(req.query.days || 30), 90);
+    const since = new Date();
+    since.setDate(since.getDate() - days);
+
+    const classifications = await prisma.classification.findMany({
+      where: { tenantId, createdAt: { gte: since } },
+      select: { createdAt: true },
+      orderBy: { createdAt: 'asc' },
+    });
+
+    const quotes = await prisma.quote.findMany({
+      where: { tenantId, createdAt: { gte: since } },
+      select: { createdAt: true },
+      orderBy: { createdAt: 'asc' },
+    });
+
+    // Agrupar por día
+    const volumeMap = new Map<string, { classifications: number; quotes: number }>();
+    for (let d = 0; d < days; d++) {
+      const date = new Date(since);
+      date.setDate(since.getDate() + d);
+      const key = date.toISOString().slice(0, 10);
+      volumeMap.set(key, { classifications: 0, quotes: 0 });
+    }
+
+    for (const c of classifications) {
+      const key = c.createdAt.toISOString().slice(0, 10);
+      const entry = volumeMap.get(key);
+      if (entry) entry.classifications++;
+    }
+    for (const q of quotes) {
+      const key = q.createdAt.toISOString().slice(0, 10);
+      const entry = volumeMap.get(key);
+      if (entry) entry.quotes++;
+    }
+
+    const volume = [...volumeMap.entries()].map(([date, counts]) => ({
+      date,
+      ...counts,
+    }));
+
+    res.json({ status: 'ok', data: volume });
+  } catch (err) {
+    next(err);
+  }
+});
+
 // GET /api/stats — con auth, por tenant
 statsRouter.get('/', authenticate, async (req: AuthRequest, res, next) => {
   try {

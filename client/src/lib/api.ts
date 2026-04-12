@@ -56,6 +56,9 @@ export const api = {
   stats: () =>
     request<{ status: string; data: StatsData }>('/stats'),
 
+  statsVolume: (days = 30) =>
+    request<{ status: string; data: VolumeDay[] }>(`/stats/volume?days=${days}`),
+
   // Cotizador
   quote: (data: QuoteInput) =>
     request<{ status: string; data: QuoteResult }>('/quote', {
@@ -394,6 +397,12 @@ export interface ClassificationRecord {
   feedback?: string | null;
   feedbackNote?: string | null;
   createdAt: string;
+}
+
+export interface VolumeDay {
+  date: string;
+  classifications: number;
+  quotes: number;
 }
 
 export interface StatsData {

@@ -146,7 +146,7 @@ Responde SIEMPRE en formato JSON válido con esta estructura:
 async function findRelatedFractions(description: string) {
   const searchWords = description.toLowerCase().split(/\s+/).filter(w => w.length > 3);
 
-  // Phase 1: Quick keyword search to identify probable chapter
+  // Phase 1: Quick keyword search to identify probable headings
   const keywordMatches = await prisma.fraction.findMany({
     where: {
       OR: [
@@ -155,54 +155,66 @@ async function findRelatedFractions(description: string) {
           description: { contains: w, mode: 'insensitive' as const },
         })),
       ],
+      active: true,
     },
     select: { code: true, codeFormatted: true, description: true, tariffNMF: true, noms: true, requiresPermit: true, permitType: true, sectoralRegistry: true },
     take: 30,
   });
 
-  // Determine most likely chapter from initial matches
+  // Determine most likely headings (4 digits) from initial matches
+  const headingCounts = new Map<string, number>();
   const chapterCounts = new Map<string, number>();
   for (const m of keywordMatches) {
-    const ch = m.code.substring(0, 2);
-    chapterCounts.set(ch, (chapterCounts.get(ch) || 0) + 1);
+    const heading = m.code.substring(0, 4);
+    const chapter = m.code.substring(0, 2);
+    headingCounts.set(heading, (headingCounts.get(heading) || 0) + 1);
+    chapterCounts.set(chapter, (chapterCounts.get(chapter) || 0) + 1);
   }
 
-  // Get top 2 chapters
+  // Get top 3 headings
+  const topHeadings = [...headingCounts.entries()]
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, 3)
+    .map(e => e[0]);
+
   const topChapters = [...chapterCounts.entries()]
     .sort((a, b) => b[1] - a[1])
     .slice(0, 2)
     .map(e => e[0]);
 
-  if (topChapters.length === 0) {
-    return { relatedFractions: keywordMatches, chapterFractions: [] };
+  if (topHeadings.length === 0) {
+    return { relatedFractions: keywordMatches, chapterFractions: [], topChapters: [] };
   }
 
-  // Phase 2: Fetch ALL fractions from the top chapter(s) — Mejora #2
-  const chapterFractions = await prisma.fraction.findMany({
+  // Phase 2: Fetch ALL fractions from the top headings (not entire chapter)
+  // This gives complete context within the relevant headings without token overflow
+  const headingFractions = await prisma.fraction.findMany({
     where: {
-      code: { startsWith: topChapters[0] },
+      OR: topHeadings.map(h => ({ code: { startsWith: h } })),
       active: true,
     },
     select: { code: true, codeFormatted: true, description: true, tariffNMF: true, noms: true, requiresPermit: true, permitType: true, sectoralRegistry: true },
     orderBy: { code: 'asc' },
   });
 
-  // Also get second chapter if relevant
-  let secondChapterFractions: typeof chapterFractions = [];
-  if (topChapters.length > 1) {
-    secondChapterFractions = await prisma.fraction.findMany({
-      where: {
-        code: { startsWith: topChapters[1] },
-        active: true,
-      },
-      select: { code: true, codeFormatted: true, description: true, tariffNMF: true, noms: true, requiresPermit: true, permitType: true, sectoralRegistry: true },
-      orderBy: { code: 'asc' },
-    });
-  }
+  // Phase 3: Also get nearby headings from same chapter for broader context (limited)
+  const nearbyFractions = await prisma.fraction.findMany({
+    where: {
+      code: { startsWith: topChapters[0] },
+      active: true,
+    },
+    select: { code: true, codeFormatted: true, description: true, tariffNMF: true, noms: true, requiresPermit: true, permitType: true, sectoralRegistry: true },
+    orderBy: { code: 'asc' },
+    take: 80,
+  });
+
+  // Filter out fractions already in headingFractions
+  const headingCodes = new Set(headingFractions.map(f => f.code));
+  const uniqueNearby = nearbyFractions.filter(f => !headingCodes.has(f.code));
 
   return {
     relatedFractions: keywordMatches,
-    chapterFractions: [...chapterFractions, ...secondChapterFractions],
+    chapterFractions: [...headingFractions, ...uniqueNearby.slice(0, 60)],
     topChapters,
   };
 }
@@ -317,9 +329,9 @@ export async function classifyProduct(
       }).join('\n')}`
     : '';
 
-  // Format FULL chapter context — Mejora #2
+  // Format heading/nearby fractions context — Mejora #2 (limited to avoid token overflow)
   const chapterContext = chapterFractions.length > 0
-    ? `\n\nTODAS LAS FRACCIONES DEL CAPÍTULO ${topChapters?.join(' y ')} (REVISA CADA UNA):\n${chapterFractions.map(f => `- ${f.codeFormatted}: ${f.description}`).join('\n')}`
+    ? `\n\nFRACCIONES DEL MISMO HEADING Y CAPÍTULO ${topChapters?.join('/')} — REVISA CADA UNA PARA ELEGIR LA MÁS ESPECÍFICA:\n${chapterFractions.slice(0, 150).map(f => `- ${f.codeFormatted}: ${f.description}`).join('\n')}`
     : '';
 
   const userMessage = `Clasifica el siguiente producto para importación a México:
@@ -390,7 +402,7 @@ PRODUCTO: ${description}
 FRACCIÓN SUGERIDA: ${result.fraction.code} (confianza: ${result.confidence}%)
 
 Revisa estas alternativas del mismo capítulo y elige la MEJOR:
-${chapterFractions.slice(0, 200).map(f => `- ${f.codeFormatted}: ${f.description}`).join('\n')}
+${chapterFractions.slice(0, 100).map(f => `- ${f.codeFormatted}: ${f.description}`).join('\n')}
 
 ¿Hay una fracción más apropiada? Responde con el mismo formato JSON.`;
 

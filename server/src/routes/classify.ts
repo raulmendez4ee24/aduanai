@@ -12,7 +12,7 @@ const demoClassifyLimit = rateLimit({
   max: 3,
   standardHeaders: true,
   legacyHeaders: false,
-  keyGenerator: (req) => req.ip || req.socket.remoteAddress || 'unknown',
+  validate: { xForwardedForHeader: false },
   message: { status: 'error', message: 'Límite de 3 clasificaciones demo por hora. Regístrate para uso ilimitado.' },
 });
 

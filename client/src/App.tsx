@@ -16,6 +16,9 @@ import { FiscalGuardianPage } from './pages/FiscalGuardian';
 import { AutoMVEPage } from './pages/AutoMVE';
 import { LogisticsPage } from './pages/LogisticsOptimizer';
 import { TIGIEUpdaterPage } from './pages/TIGIEUpdater';
+import { PreValidatorPage } from './pages/PreValidator';
+import { WhatsAppPage } from './pages/WhatsApp';
+import { FractionsPage } from './pages/Fractions';
 
 export function App() {
   const [token, setToken] = useState<string | null>(
@@ -187,6 +190,42 @@ export function App() {
           token ? (
             <Layout onLogout={() => setToken(null)}>
               <HistoryPage />
+            </Layout>
+          ) : (
+            <Navigate to="/login" replace />
+          )
+        }
+      />
+      <Route
+        path="/prevalidador"
+        element={
+          token ? (
+            <Layout onLogout={() => setToken(null)}>
+              <PreValidatorPage />
+            </Layout>
+          ) : (
+            <Navigate to="/login" replace />
+          )
+        }
+      />
+      <Route
+        path="/whatsapp"
+        element={
+          token ? (
+            <Layout onLogout={() => setToken(null)}>
+              <WhatsAppPage />
+            </Layout>
+          ) : (
+            <Navigate to="/login" replace />
+          )
+        }
+      />
+      <Route
+        path="/fracciones"
+        element={
+          token ? (
+            <Layout onLogout={() => setToken(null)}>
+              <FractionsPage />
             </Layout>
           ) : (
             <Navigate to="/login" replace />
