@@ -5,6 +5,13 @@ dist/
 *.log
 .DS_Store
 .omc/
+.claude/
+client-backup/
+test-results/
+
+# Binarios LIGIE/TIGIE source data
+*.xlsb
+*.xlsx
 
 # Prisma
 server/prisma/migrations/
@@ -12,3 +19,7 @@ server/prisma/migrations/
 # Frontend
 client/node_modules/
 client/dist/
+client/.vite/
+
+# Server build cache
+server/dist/

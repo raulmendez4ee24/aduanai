@@ -12,75 +12,185 @@ datasource db {
 // ============================================
 
 enum Plan {
+  PILOT
   STARTER
   PROFESSIONAL
   ENTERPRISE
   CUSTOM
 }
 
+enum TenantStatus {
+  TRIAL
+  PILOT
+  ACTIVE
+  SUSPENDED
+  CHURNED
+}
+
 model Tenant {
-  id        String   @id @default(cuid())
-  name      String
-  plan      Plan     @default(STARTER)
-  rfc       String?
-  active    Boolean  @default(true)
+  id     String       @id @default(cuid())
+  name   String
+  plan   Plan         @default(STARTER)
+  status TenantStatus @default(ACTIVE)
+  rfc    String?
+  active Boolean      @default(true)
+
+  // Piloto
+  pilotStartedAt      DateTime?
+  pilotEndsAt         DateTime?
+  classificationLimit Int?
+  userLimit           Int?
+  pilot15DaySentAt    DateTime?
+  pilot25DaySentAt    DateTime?
+  pilotExpiredSentAt  DateTime?
+
+  // Contrato
+  contractStartedAt DateTime?
+  contractEndsAt    DateTime?
+  monthlyPrice      Float?
+  contractModules   String[]
+
+  // Retención
+  lastActivityAt DateTime?
+  healthScore    Int       @default(50)
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
   // Relations
-  users           User[]
-  classifications Classification[]
-  quotes          Quote[]
-  copilotMessages CopilotMessage[]
-  alerts          Alert[]
-  auditLogs       AuditLog[]
-  operations      Operation[]
-  temporaryImports    TemporaryImport[]
-  discharges          Discharge[]
-  annex24Reports      Annex24Report[]
-  annex30Accounts     Annex30Account[]
-  taxCredits          TaxCredit[]
-  creditUsages        CreditUsage[]
-  guarantees          Guarantee[]
+  proposals            Proposal[]
+  users                User[]
+  classifications      Classification[]
+  quotes               Quote[]
+  copilotMessages      CopilotMessage[]
+  alerts               Alert[]
+  auditLogs            AuditLog[]
+  operations           Operation[]
+  temporaryImports     TemporaryImport[]
+  discharges           Discharge[]
+  annex24Reports       Annex24Report[]
+  annex30Accounts      Annex30Account[]
+  taxCredits           TaxCredit[]
+  creditUsages         CreditUsage[]
+  guarantees           Guarantee[]
   certificationProfile CertificationProfile?
-  manifestaciones     ManifestacionValor[]
-  coves               COVE[]
-  loadPlans           LoadPlan[]
-  updateNotifications UpdateNotification[]
+  manifestaciones      ManifestacionValor[]
+  coves                COVE[]
+  loadPlans            LoadPlan[]
+  updateNotifications  UpdateNotification[]
+  pedimentos           Pedimento[]
 
+  @@index([plan])
+  @@index([status])
+  @@index([pilotEndsAt])
+  @@index([contractEndsAt])
   @@map("tenants")
+}
+
+// ============================================
+// PROPOSALS (cotizaciones comerciales)
+// ============================================
+
+enum ProposalStatus {
+  DRAFT
+  SENT
+  ACCEPTED
+  REJECTED
+  EXPIRED
+}
+
+model Proposal {
+  id             String         @id @default(cuid())
+  tenantId       String
+  leadId         String?
+  plan           Plan
+  monthlyPrice   Float
+  durationMonths Int            @default(12)
+  modules        String[]
+  conditions     String?
+  supportTier    String?
+  status         ProposalStatus @default(DRAFT)
+  sentAt         DateTime?
+  acceptedAt     DateTime?
+  expiresAt      DateTime?
+  createdAt      DateTime       @default(now())
+  updatedAt      DateTime       @updatedAt
+
+  tenant Tenant @relation(fields: [tenantId], references: [id])
+
+  @@index([tenantId])
+  @@index([leadId])
+  @@index([status])
+  @@map("proposals")
 }
 
 enum UserRole {
   ADMIN
   USER
   VIEWER
+  SUPERADMIN
+}
+
+enum UserStatus {
+  UNVERIFIED
+  VERIFIED
+  SUSPENDED
+  BANNED
 }
 
 model User {
-  id        String   @id @default(cuid())
-  email     String   @unique
-  password  String
-  name      String
-  role      UserRole @default(USER)
-  phone     String?
-  active    Boolean  @default(true)
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  id                  String     @id @default(cuid())
+  email               String     @unique
+  password            String
+  name                String
+  role                UserRole   @default(USER)
+  status              UserStatus @default(UNVERIFIED)
+  emailVerified       Boolean    @default(false)
+  phone               String?
+  rfc                 String?
+  active              Boolean    @default(true)
+  failedLoginAttempts Int        @default(0)
+  lockedUntil         DateTime?
+  lastLoginAt         DateTime?
+  lastLoginIp         String?
+  onboardingCompleted Boolean    @default(false)
+  onboardingStep      Int        @default(0)
+  createdAt           DateTime   @default(now())
+  updatedAt           DateTime   @updatedAt
 
   tenantId String
   tenant   Tenant @relation(fields: [tenantId], references: [id])
 
-  classifications Classification[]
-  quotes          Quote[]
-  copilotMessages CopilotMessage[]
-  auditLogs       AuditLog[]
-  operations      Operation[]
-  temporaryImports TemporaryImport[]
-  discharges       Discharge[]
+  classifications   Classification[]
+  quotes            Quote[]
+  copilotMessages   CopilotMessage[]
+  auditLogs         AuditLog[]
+  operations        Operation[]
+  temporaryImports  TemporaryImport[]
+  discharges        Discharge[]
+  verificationCodes VerificationCode[]
+  pedimentos        Pedimento[]
 
   @@index([tenantId])
   @@map("users")
+}
+
+model VerificationCode {
+  id        String   @id @default(cuid())
+  userId    String
+  code      String
+  type      String   @default("email_verify") // "email_verify" | "password_reset"
+  expiresAt DateTime
+  attempts  Int      @default(0)
+  used      Boolean  @default(false)
+  createdAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([code])
+  @@index([expiresAt])
+  @@map("verification_codes")
 }
 
 // ============================================
@@ -88,8 +198,8 @@ model User {
 // ============================================
 
 model Section {
-  id          String @id @default(cuid())
-  number      String @unique // "I", "II", etc.
+  id          String  @id @default(cuid())
+  number      String  @unique // "I", "II", etc.
   title       String
   description String?
 
@@ -99,10 +209,10 @@ model Section {
 }
 
 model Chapter {
-  id          String  @id @default(cuid())
-  number      String  @unique // "01", "02", etc.
-  title       String
-  legalNotes  String? // Notas legales del capítulo
+  id         String  @id @default(cuid())
+  number     String  @unique // "01", "02", etc.
+  title      String
+  legalNotes String? // Notas legales del capítulo
 
   sectionId String
   section   Section @relation(fields: [sectionId], references: [id])
@@ -142,27 +252,27 @@ model Subheading {
 }
 
 model Fraction {
-  id          String   @id @default(cuid())
-  code        String   @unique // "01012101" (8 dígitos sin puntos)
+  id            String   @id @default(cuid())
+  code          String   @unique // "01012101" (8 dígitos sin puntos)
   codeFormatted String // "0101.21.01" (con puntos)
-  description String
-  nico        String?  // 2 dígitos NICO
-  unit        String?  // Unidad de medida (Kg, Pza, L, etc.)
-  keywords    String[] // Para búsqueda
+  description   String
+  nico          String? // 2 dígitos NICO
+  unit          String? // Unidad de medida (Kg, Pza, L, etc.)
+  keywords      String[] // Para búsqueda
 
   // Aranceles
-  tariffNMF     Float?  // Arancel Nación Más Favorecida (%)
-  tariffTMEC    Float?  // Preferencial TMEC
-  tariffTLCUE   Float?  // Preferencial TLCUE
-  tariffCPTPP   Float?  // Preferencial CPTPP
-  iepsRate      Float?  // Tasa IEPS si aplica
+  tariffNMF   Float? // Arancel Nación Más Favorecida (%)
+  tariffTMEC  Float? // Preferencial TMEC
+  tariffTLCUE Float? // Preferencial TLCUE
+  tariffCPTPP Float? // Preferencial CPTPP
+  iepsRate    Float? // Tasa IEPS si aplica
 
   // Regulaciones
-  requiresPermit     Boolean @default(false)
-  permitType         String? // "SEMARNAT", "COFEPRIS", etc.
-  noms               String[] // NOMs aplicables
-  sectoralRegistry   Boolean @default(false)
-  sectoralType       String? // Tipo de padrón sectorial
+  requiresPermit   Boolean  @default(false)
+  permitType       String? // "SEMARNAT", "COFEPRIS", etc.
+  noms             String[] // NOMs aplicables
+  sectoralRegistry Boolean  @default(false)
+  sectoralType     String? // Tipo de padrón sectorial
 
   // Metadata
   active    Boolean  @default(true)
@@ -179,22 +289,78 @@ model Fraction {
 }
 
 // ============================================
+// BASE DE CONOCIMIENTO
+// ============================================
+
+enum KnowledgeType {
+  CASO_CLASIFICACION
+  CRITERIO_SAT
+  RESOLUCION_SCJN
+  NOTA_EXPLICATIVA_OMA
+  NOTA_LEGAL
+  REGLA_SECTOR
+  ERROR_COMUN
+  PRECEDENTE
+  CONSULTA_SAT
+}
+
+model ClassificationKnowledge {
+  id           String        @id @default(cuid())
+  type         KnowledgeType
+  fractionCode String?
+  chapterCode  String?
+  sectionCode  String?
+  title        String
+  content      String
+  source       String
+  sourceDate   DateTime?
+  keywords     Json
+  products     Json?
+  priority     Int           @default(5)
+  verified     Boolean       @default(false)
+  verifiedBy   String?
+  createdAt    DateTime      @default(now())
+  updatedAt    DateTime      @updatedAt
+
+  @@index([type])
+  @@index([fractionCode])
+  @@index([chapterCode])
+  @@index([priority])
+  @@index([verified])
+  @@map("classification_knowledge")
+}
+
+// ============================================
 // CLASIFICACIONES
 // ============================================
 
 model Classification {
-  id                 String   @id @default(cuid())
-  inputDescription   String
+  id                  String   @id @default(cuid())
+  inputDescription    String
   inputContext        String?
-  fractionCode       String
+  inputCountryOfOrigin String?
+  inputDeclaredValueUSD Float?
+  fractionCode        String
   fractionDescription String?
-  confidence         Float
-  griApplied         String[]
-  alternatives       String?  // JSON
-  fullResponse       String?  // JSON completo de la IA
-  feedback           String?  // "correct", "incorrect", "partial"
-  feedbackNote       String?
-  createdAt          DateTime @default(now())
+  confidence          Float
+  griApplied          String[]
+  alternatives        String? // JSON
+  legalBasis          Json? // GRI aplicadas, notas legales, partidas descartadas
+  fullResponse        String? // JSON completo de la IA
+  feedback            String? // "correct", "incorrect", "partial"
+  feedbackNote        String?
+
+  // Trazabilidad regulatoria
+  tigieVersion        String?  // Versión TIGIE consultada
+  ligieVersion        String?  // Versión LIGIE consultada
+  consultHash         String?  // SHA-256 del prompt + respuesta para verificación pública
+  consultedAt         DateTime?
+
+  // Alertas generadas durante la clasificación (cuotas comp, NOMs, automotive, etc.)
+  alertsJson          Json?
+
+  isDemoData          Boolean  @default(false)
+  createdAt           DateTime @default(now())
 
   tenantId String
   tenant   Tenant @relation(fields: [tenantId], references: [id])
@@ -205,6 +371,8 @@ model Classification {
   @@index([userId])
   @@index([fractionCode])
   @@index([createdAt])
+  @@index([isDemoData])
+  @@index([consultHash])
   @@map("classifications")
 }
 
@@ -214,22 +382,215 @@ model Classification {
 
 model Quote {
   id           String   @id @default(cuid())
-  fractionCode String
-  customsValue Float
+  fractionCode String   // legacy / convenience — primer item para queries simples
+  customsValue Float    // legacy — total USD del primer item
   origin       String
   incoterm     String   @default("CIF")
   currency     String   @default("USD")
-  result       String   // JSON con el desglose completo
-  createdAt    DateTime @default(now())
+  result       String // JSON con el desglose completo
+
+  // Metadata operación
+  name        String?
+  client      String?
+  destination String?
+
+  // Tipo de cambio aplicado
+  exchangeRate     Float?
+  exchangeRateDate DateTime?
+
+  // Costos de despacho aduanero (NO incluidos en totalLandedCost de partidas)
+  honorariosAgente Float? @default(0)
+  prevalidacion    Float? @default(321)
+  almacenaje       Float? @default(0)
+  estiba           Float? @default(0)
+  fleteInterno     Float? @default(0)
+  otrosGastos      Json? // [{ label: string, amount: number }]
+
+  // Totales del Quote completo (suma de items + despacho)
+  totalLandedCost Float? // Solo contribuciones (suma de items.totalCost)
+  totalDispatch   Float? // Suma de despacho aduanero
+  totalAll        Float? // landed + despacho
+
+  isDemoData Boolean  @default(false)
+  createdAt  DateTime @default(now())
 
   tenantId String
   tenant   Tenant @relation(fields: [tenantId], references: [id])
   userId   String
   user     User   @relation(fields: [userId], references: [id])
 
+  items QuoteItem[]
+
   @@index([tenantId])
   @@index([createdAt])
+  @@index([isDemoData])
   @@map("quotes")
+}
+
+model QuoteItem {
+  id      String @id @default(cuid())
+  quoteId String
+  quote   Quote  @relation(fields: [quoteId], references: [id], onDelete: Cascade)
+
+  numeroPartida   Int
+  fractionCode    String
+  description     String?
+  countryOfOrigin String?
+
+  quantity        Float
+  unit            String?
+  unitValueUSD    Float
+  totalValueUSD   Float
+  freightUSD      Float  @default(0)
+  insuranceUSD    Float  @default(0)
+  customsValueUSD Float
+  customsValueMXN Float
+
+  igiRate            Float
+  dtaRate            Float @default(0.8)
+  ivaRate            Float @default(16)
+  iepsRate           Float @default(0)
+  countervailingRate Float @default(0)
+
+  igi            Float
+  dta            Float
+  ieps           Float @default(0)
+  countervailing Float @default(0)
+  iva            Float
+  totalDuties    Float
+  totalCost      Float
+
+  hasAntidumping    Boolean @default(false)
+  antidumpingDecree String?
+
+  createdAt DateTime @default(now())
+
+  @@index([quoteId])
+  @@index([fractionCode])
+  @@map("quote_items")
+}
+
+// ============================================
+// PEDIMENTO — Pre-validador formal (Anexo 22)
+// ============================================
+
+enum PedimentoStatus {
+  DRAFT
+  VALIDATING
+  WITH_ERRORS
+  VALIDATED
+  TRANSMITTED
+}
+
+model Pedimento {
+  id String @id @default(cuid())
+
+  // Datos del pedimento (Anexo 22)
+  numero         String? // Número de pedimento
+  clave          String // A1, IN, RT, R1, etc.
+  aduana         String // Aduana de despacho
+  patenteAduanal String
+  rfcImportador  String
+  curp           String?
+
+  // Datos generales
+  tipoOperacion   String // IMP, EXP
+  regimen         String // Definitivo, temporal, etc.
+  destino         String?
+  origen          String?
+  pesoBruto       Float
+  pesoNeto        Float
+  bultos          Int
+
+  // Valores
+  valorAduana    Float
+  valorComercial Float
+  valorDolares   Float
+  tipoCambio     Float
+
+  // Incoterm y transporte
+  incoterm        String
+  transporte      String // Marítimo, aéreo, terrestre
+  medioTransporte String?
+
+  // Documentos relacionados
+  factura String?
+  cove    String?
+  bl      String?
+
+  // Validación
+  errors   Json?  // [{ partida?: number, field: string, severity: 'error'|'warning'|'info', message: string, rule: string }]
+  warnings Json?
+  aiNotes  Json? // Notas IA (inconsistencias detectadas por LLM)
+  status   PedimentoStatus @default(DRAFT)
+
+  isDemoData Boolean @default(false)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  tenantId String
+  tenant   Tenant @relation(fields: [tenantId], references: [id])
+  userId   String
+  user     User   @relation(fields: [userId], references: [id])
+
+  partidas PedimentoPartida[]
+
+  @@index([tenantId])
+  @@index([status])
+  @@index([numero])
+  @@index([rfcImportador])
+  @@map("pedimentos")
+}
+
+model PedimentoPartida {
+  id          String    @id @default(cuid())
+  pedimentoId String
+  pedimento   Pedimento @relation(fields: [pedimentoId], references: [id], onDelete: Cascade)
+
+  numeroPartida   Int
+  fraccion        String // 8 dígitos sin puntos
+  descripcion     String
+  cantidad        Float
+  unidadMedida    String
+  unidadMedidaCom String? // unidad comercial
+
+  valorUnitario Float
+  valorAduana   Float
+
+  pais         String // país origen
+  paisVendedor String?
+
+  // Contribuciones por partida
+  igi  Float?
+  dta  Float?
+  iva  Float?
+  ieps Float?
+
+  // Permisos / identificadores Anexo 22
+  permisos        Json? // RRNA, NOMs, etc. → [{ tipo, codigo, autoridad }]
+  identificadores Json? // Identificadores específicos → [{ codigo, complemento1?, complemento2? }]
+
+  // Vinculación con vendedor (Art. 71 Ley Aduanera)
+  vinculacion     Boolean @default(false)
+  vinculacionDesc String?
+
+  createdAt DateTime @default(now())
+
+  @@index([pedimentoId])
+  @@index([fraccion])
+  @@map("pedimento_partidas")
+}
+
+model ExchangeRate {
+  id        String   @id @default(cuid())
+  date      DateTime @unique
+  rate      Float
+  source    String   @default("synthetic") // "banxico" | "manual" | "synthetic"
+  createdAt DateTime @default(now())
+
+  @@index([date])
+  @@map("exchange_rates")
 }
 
 // ============================================
@@ -239,7 +600,7 @@ model Quote {
 model CopilotMessage {
   id             String   @id @default(cuid())
   conversationId String
-  role           String   // "user" | "assistant"
+  role           String // "user" | "assistant"
   content        String
   createdAt      DateTime @default(now())
 
@@ -265,14 +626,15 @@ enum AlertChannel {
 }
 
 model Alert {
-  id        String       @id @default(cuid())
-  channel   AlertChannel @default(IN_APP)
-  type      String       // "tariff_change", "new_regulation", "weekly_summary"
-  title     String
-  content   String
-  read      Boolean      @default(false)
-  sentAt    DateTime?
-  createdAt DateTime     @default(now())
+  id         String       @id @default(cuid())
+  channel    AlertChannel @default(IN_APP)
+  type       String // "tariff_change", "new_regulation", "weekly_summary"
+  title      String
+  content    String
+  read       Boolean      @default(false)
+  sentAt     DateTime?
+  isDemoData Boolean      @default(false)
+  createdAt  DateTime     @default(now())
 
   tenantId String
   tenant   Tenant @relation(fields: [tenantId], references: [id])
@@ -282,6 +644,7 @@ model Alert {
 
   @@index([tenantId])
   @@index([createdAt])
+  @@index([isDemoData])
   @@map("alerts")
 }
 
@@ -291,21 +654,32 @@ model Alert {
 
 model AuditLog {
   id        String   @id @default(cuid())
-  action    String   // "classify", "quote", "login", "export_pdf", etc.
-  entity    String   // "classification", "quote", "user", etc.
+  action    String // CREATE, UPDATE, DELETE, LOGIN, LOGOUT, FAILED_LOGIN, EXPORT, etc.
+  entity    String // Classification, Quote, Pedimento, User, Tenant, etc.
   entityId  String?
-  details   String?  // JSON con detalles adicionales
+  details   String? // legacy
+  before    Json? // estado antes
+  after     Json? // estado después
+  diff      Json? // qué cambió (shallow diff)
   ipAddress String?
+  userAgent String?
+  endpoint  String?
+  method    String?
+  metadata  Json? // datos extra
+  hash      String   @default("") // SHA-256 hash del registro (chain)
+  prevHash  String? // hash del registro previo del mismo tenant
   createdAt DateTime @default(now())
 
   tenantId String
-  tenant   Tenant @relation(fields: [tenantId], references: [id])
+  tenant   Tenant  @relation(fields: [tenantId], references: [id])
   userId   String?
-  user     User?  @relation(fields: [userId], references: [id])
+  user     User?   @relation(fields: [userId], references: [id])
 
-  @@index([tenantId])
+  @@index([tenantId, createdAt])
+  @@index([entity, entityId])
+  @@index([userId])
   @@index([action])
-  @@index([createdAt])
+  @@index([hash])
   @@map("audit_logs")
 }
 
@@ -327,22 +701,23 @@ enum OperationType {
 }
 
 model Operation {
-  id              String          @id @default(cuid())
-  reference       String          // Número de referencia / pedimento
-  type            OperationType   @default(IMPORT)
-  status          OperationStatus @default(DRAFT)
-  fractionCode    String?
-  description     String?
-  origin          String?
-  destination     String?
-  customsValue    Float?
-  currency        String?         @default("USD")
-  customsBroker   String?         // Agente aduanal
-  completeness    Float           @default(0) // % de documentos completos
-  notes           String?
-  operationDate   DateTime?
-  createdAt       DateTime        @default(now())
-  updatedAt       DateTime        @updatedAt
+  id            String          @id @default(cuid())
+  reference     String // Número de referencia / pedimento
+  type          OperationType   @default(IMPORT)
+  status        OperationStatus @default(DRAFT)
+  fractionCode  String?
+  description   String?
+  origin        String?
+  destination   String?
+  customsValue  Float?
+  currency      String?         @default("USD")
+  customsBroker String? // Agente aduanal
+  completeness  Float           @default(0) // % de documentos completos
+  notes         String?
+  operationDate DateTime?
+  isDemoData    Boolean         @default(false)
+  createdAt     DateTime        @default(now())
+  updatedAt     DateTime        @updatedAt
 
   tenantId String
   tenant   Tenant @relation(fields: [tenantId], references: [id])
@@ -355,6 +730,7 @@ model Operation {
   @@index([reference])
   @@index([status])
   @@index([createdAt])
+  @@index([isDemoData])
   @@map("operations")
 }
 
@@ -367,29 +743,44 @@ enum DocumentStatus {
 }
 
 model Document {
-  id          String         @id @default(cuid())
-  name        String         // Nombre del documento
-  type        String         // "pedimento", "factura", "bl", "certificado_origen", "nom", "packing_list", etc.
-  status      DocumentStatus @default(PENDING)
-  required    Boolean        @default(true)
-  fileName    String?        // Nombre del archivo subido
-  fileSize    Int?           // Tamaño en bytes
-  mimeType    String?
-  filePath    String?        // Ruta en storage
-  expiresAt   DateTime?      // Fecha de vencimiento
-  verifiedAt  DateTime?
-  verifiedBy  String?
-  notes       String?
-  createdAt   DateTime       @default(now())
-  updatedAt   DateTime       @updatedAt
+  id         String         @id @default(cuid())
+  tenantId   String?        // null para legacy; nuevo upload siempre lleva tenantId
+  name       String
+  type       String // tipo declarado por el usuario o slot
+  status     DocumentStatus @default(PENDING)
+  required   Boolean        @default(true)
+  fileName   String?
+  fileSize   Int?
+  mimeType   String?
+  filePath   String?
+  fileUrl    String?  // URL pública o data: URI corta
+  fileHash   String?  // SHA-256 del contenido — para cache de extracción
 
-  operationId String
-  operation   Operation @relation(fields: [operationId], references: [id], onDelete: Cascade)
+  // Extracción IA
+  docType       String? // tipo detectado por IA (factura, pedimento, bl, etc.)
+  confidence    Float?  // 0-100
+  extractedData Json?   // datos estructurados por tipo
+  rawText       String? // texto OCR/extraído (truncado)
+  aiErrors      Json?
+  processedAt   DateTime?
 
+  expiresAt  DateTime?
+  verifiedAt DateTime?
+  verifiedBy String?
+  notes      String?
+  createdAt  DateTime       @default(now())
+  updatedAt  DateTime       @updatedAt
+
+  operationId String?
+  operation   Operation? @relation(fields: [operationId], references: [id], onDelete: SetNull)
+
+  @@index([tenantId])
   @@index([operationId])
   @@index([type])
+  @@index([docType])
   @@index([status])
   @@index([expiresAt])
+  @@index([fileHash])
   @@map("documents")
 }
 
@@ -406,24 +797,25 @@ enum ImportStatus {
 }
 
 model TemporaryImport {
-  id              String       @id @default(cuid())
-  pedimento       String       // Número de pedimento (ej: "24 47 3461 4000123")
-  fractionCode    String       // Fracción arancelaria 8 dígitos
-  description     String       // Descripción de la mercancía
-  quantity        Float        // Cantidad importada
-  unit            String       // Unidad de medida (Kg, Pza, L, etc.)
-  customsValue    Float        // Valor en aduana USD
-  valueMXN        Float?       // Valor en MXN
-  supplier        String?      // Proveedor extranjero
-  originCountry   String?      // País de origen
-  entryDate       DateTime     // Fecha de entrada (pedimento)
-  expirationDate  DateTime     // Fecha de vencimiento (18 o 36 meses)
-  expirationMonths Int         @default(18) // 18 general, 36 con certificación
-  quantityDischarged Float     @default(0)  // Cantidad descargada acumulada
-  status          ImportStatus @default(ACTIVE)
-  notes           String?
-  createdAt       DateTime     @default(now())
-  updatedAt       DateTime     @updatedAt
+  id                 String       @id @default(cuid())
+  pedimento          String // Número de pedimento (ej: "24 47 3461 4000123")
+  fractionCode       String // Fracción arancelaria 8 dígitos
+  description        String // Descripción de la mercancía
+  quantity           Float // Cantidad importada
+  unit               String // Unidad de medida (Kg, Pza, L, etc.)
+  customsValue       Float // Valor en aduana USD
+  valueMXN           Float? // Valor en MXN
+  supplier           String? // Proveedor extranjero
+  originCountry      String? // País de origen
+  entryDate          DateTime // Fecha de entrada (pedimento)
+  expirationDate     DateTime // Fecha de vencimiento (18 o 36 meses)
+  expirationMonths   Int          @default(18) // 18 general, 36 con certificación
+  quantityDischarged Float        @default(0) // Cantidad descargada acumulada
+  status             ImportStatus @default(ACTIVE)
+  notes              String?
+  isDemoData         Boolean      @default(false)
+  createdAt          DateTime     @default(now())
+  updatedAt          DateTime     @updatedAt
 
   tenantId String
   tenant   Tenant @relation(fields: [tenantId], references: [id])
@@ -438,34 +830,36 @@ model TemporaryImport {
   @@index([status])
   @@index([expirationDate])
   @@index([entryDate])
+  @@index([isDemoData])
   @@map("temporary_imports")
 }
 
 enum DischargeType {
-  RETURN_EXPORT      // Retorno al extranjero
-  DOMESTIC_SALE      // Venta nacional (cambio a definitiva)
-  REGIME_CHANGE      // Cambio de régimen
-  WASTE              // Desperdicio
-  SCRAP              // Merma
-  DESTRUCTION        // Destrucción
-  DONATION           // Donación
-  TRANSFER           // Transferencia virtual entre IMMEX
+  RETURN_EXPORT // Retorno al extranjero
+  DOMESTIC_SALE // Venta nacional (cambio a definitiva)
+  REGIME_CHANGE // Cambio de régimen
+  WASTE // Desperdicio
+  SCRAP // Merma
+  DESTRUCTION // Destrucción
+  DONATION // Donación
+  TRANSFER // Transferencia virtual entre IMMEX
 }
 
 model Discharge {
-  id                  String        @id @default(cuid())
-  type                DischargeType
-  pedimento           String?       // Pedimento de descargo/retorno
-  quantity            Float         // Cantidad descargada
-  unit                String        // Unidad de medida
-  customsValue        Float?        // Valor declarado
-  dischargeDate       DateTime      // Fecha de descargo
-  destinationCountry  String?       // País destino (para retornos)
-  buyerName           String?       // Comprador (para ventas nacionales)
-  taxesPaid           Float?        // Impuestos pagados (cambio régimen/venta)
-  notes               String?
-  createdAt           DateTime      @default(now())
-  updatedAt           DateTime      @updatedAt
+  id                 String        @id @default(cuid())
+  type               DischargeType
+  pedimento          String? // Pedimento de descargo/retorno
+  quantity           Float // Cantidad descargada
+  unit               String // Unidad de medida
+  customsValue       Float? // Valor declarado
+  dischargeDate      DateTime // Fecha de descargo
+  destinationCountry String? // País destino (para retornos)
+  buyerName          String? // Comprador (para ventas nacionales)
+  taxesPaid          Float? // Impuestos pagados (cambio régimen/venta)
+  notes              String?
+  isDemoData         Boolean       @default(false)
+  createdAt          DateTime      @default(now())
+  updatedAt          DateTime      @updatedAt
 
   temporaryImportId String
   temporaryImport   TemporaryImport @relation(fields: [temporaryImportId], references: [id])
@@ -479,6 +873,7 @@ model Discharge {
   @@index([temporaryImportId])
   @@index([type])
   @@index([dischargeDate])
+  @@index([isDemoData])
   @@map("discharges")
 }
 
@@ -491,20 +886,20 @@ enum ReportStatus {
 }
 
 model Annex24Report {
-  id                String       @id @default(cuid())
-  period            String       // "2026-Q1", "2026-01", etc.
-  periodStart       DateTime
-  periodEnd         DateTime
-  totalImports      Int          @default(0)
-  totalDischarges   Int          @default(0)
-  totalValueUSD     Float        @default(0)
-  reportData        String?      // JSON con el reporte completo
-  transmissionDate  DateTime?
-  transmissionRef   String?      // Referencia de transmisión al SAT
-  status            ReportStatus @default(DRAFT)
-  notes             String?
-  createdAt         DateTime     @default(now())
-  updatedAt         DateTime     @updatedAt
+  id               String       @id @default(cuid())
+  period           String // "2026-Q1", "2026-01", etc.
+  periodStart      DateTime
+  periodEnd        DateTime
+  totalImports     Int          @default(0)
+  totalDischarges  Int          @default(0)
+  totalValueUSD    Float        @default(0)
+  reportData       String? // JSON con el reporte completo
+  transmissionDate DateTime?
+  transmissionRef  String? // Referencia de transmisión al SAT
+  status           ReportStatus @default(DRAFT)
+  notes            String?
+  createdAt        DateTime     @default(now())
+  updatedAt        DateTime     @updatedAt
 
   tenantId String
   tenant   Tenant @relation(fields: [tenantId], references: [id])
@@ -516,19 +911,19 @@ model Annex24Report {
 }
 
 model Annex30Account {
-  id                  String   @id @default(cuid())
-  period              String   // "2026-Q1"
-  totalCredits        Float    @default(0) // Créditos fiscales acumulados
-  totalGuarantees     Float    @default(0) // Garantías otorgadas
-  totalDebits         Float    @default(0) // Cargos / pagos realizados
-  balance             Float    @default(0) // Saldo actual
-  igiDeferred         Float    @default(0) // IGI diferido
-  dtaDeferred         Float    @default(0) // DTA diferido
-  ivaDeferred         Float    @default(0) // IVA diferido
-  accountData         String?  // JSON con detalle
-  notes               String?
-  createdAt           DateTime @default(now())
-  updatedAt           DateTime @updatedAt
+  id              String   @id @default(cuid())
+  period          String // "2026-Q1"
+  totalCredits    Float    @default(0) // Créditos fiscales acumulados
+  totalGuarantees Float    @default(0) // Garantías otorgadas
+  totalDebits     Float    @default(0) // Cargos / pagos realizados
+  balance         Float    @default(0) // Saldo actual
+  igiDeferred     Float    @default(0) // IGI diferido
+  dtaDeferred     Float    @default(0) // DTA diferido
+  ivaDeferred     Float    @default(0) // IVA diferido
+  accountData     String? // JSON con detalle
+  notes           String?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
 
   tenantId String
   tenant   Tenant @relation(fields: [tenantId], references: [id])
@@ -585,6 +980,7 @@ model TaxCredit {
   remaining         Float
   relatedImportId   String?
   notes             String?
+  isDemoData        Boolean      @default(false)
   createdAt         DateTime     @default(now())
   updatedAt         DateTime     @updatedAt
 
@@ -598,6 +994,7 @@ model TaxCredit {
   @@index([fractionCode])
   @@index([dischargeDeadline])
   @@index([pedimento])
+  @@index([isDemoData])
   @@map("tax_credits")
 }
 
@@ -607,6 +1004,7 @@ model CreditUsage {
   ivaApplied        Float
   iepsApplied       Float    @default(0)
   usageDate         DateTime
+  isDemoData        Boolean  @default(false)
   createdAt         DateTime @default(now())
 
   creditId String
@@ -618,6 +1016,7 @@ model CreditUsage {
   @@index([tenantId])
   @@index([creditId])
   @@index([usageDate])
+  @@index([isDemoData])
   @@map("credit_usages")
 }
 
@@ -631,6 +1030,7 @@ model Guarantee {
   expiryDate      DateTime
   status          GuaranteeStatus @default(ACTIVE)
   notes           String?
+  isDemoData      Boolean         @default(false)
   createdAt       DateTime        @default(now())
   updatedAt       DateTime        @updatedAt
 
@@ -640,18 +1040,20 @@ model Guarantee {
   @@index([tenantId])
   @@index([status])
   @@index([expiryDate])
+  @@index([isDemoData])
   @@map("guarantees")
 }
 
 model CertificationProfile {
   id              String     @id @default(cuid())
-  modality        String     // "A", "AA", "AAA", "Operador Económico Autorizado"
+  modality        String // "A", "AA", "AAA", "Operador Económico Autorizado"
   certNumber      String?
   issueDate       DateTime?
   expiryDate      DateTime?
   renewalDeadline DateTime?
   status          CertStatus @default(ACTIVE)
   notes           String?
+  isDemoData      Boolean    @default(false)
   updatedAt       DateTime   @updatedAt
 
   tenantId String @unique
@@ -673,44 +1075,45 @@ enum MVEStatus {
 }
 
 model ManifestacionValor {
-  id              String    @id @default(cuid())
+  id              String   @id @default(cuid())
   pedimento       String?
   providerName    String
   providerCountry String
   invoiceNumber   String
   invoiceDate     DateTime
   incoterm        String
-  currency        String    @default("USD")
+  currency        String   @default("USD")
   exchangeRate    Float?
 
   // Valores
   invoiceValue    Float
-  freightValue    Float     @default(0)
-  insuranceValue  Float     @default(0)
-  otherIncrements Float     @default(0)
-  customsValue    Float     // Valor en aduana calculado
+  freightValue    Float @default(0)
+  insuranceValue  Float @default(0)
+  otherIncrements Float @default(0)
+  customsValue    Float // Valor en aduana calculado
 
   // Vinculacion
-  hasVinculacion  Boolean   @default(false)
+  hasVinculacion  Boolean @default(false)
   vinculacionDesc String?
 
   // Formato E2
-  formatoE2       Json?     // El formato completo generado
+  formatoE2 Json? // El formato completo generado
 
   // Validacion IA
-  aiValidation    Json?     // Warnings y sugerencias
-  riskLevel       String?   // LOW, MEDIUM, HIGH
+  aiValidation Json? // Warnings y sugerencias
+  riskLevel    String? // LOW, MEDIUM, HIGH
 
   // Status
-  status          MVEStatus @default(DRAFT)
-  signedAt        DateTime?
-  transmittedAt   DateTime?
+  status        MVEStatus @default(DRAFT)
+  signedAt      DateTime?
+  transmittedAt DateTime?
 
   // Documentos fuente
-  invoiceFileUrl  String?
+  invoiceFileUrl String?
 
-  createdAt       DateTime  @default(now())
-  updatedAt       DateTime  @updatedAt
+  isDemoData Boolean  @default(false)
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
 
   tenantId String
   tenant   Tenant @relation(fields: [tenantId], references: [id])
@@ -721,18 +1124,20 @@ model ManifestacionValor {
   @@index([status])
   @@index([invoiceDate])
   @@index([providerName])
+  @@index([isDemoData])
   @@map("manifestaciones_valor")
 }
 
 model COVE {
   id             String    @id @default(cuid())
-  eDocument      String    // Numero de e-document
+  eDocument      String // Numero de e-document
   invoiceNumber  String
   providerTaxId  String?
   value          Float
   currency       String
   validated      Boolean   @default(false)
   validationDate DateTime?
+  isDemoData     Boolean   @default(false)
   createdAt      DateTime  @default(now())
 
   mveId String
@@ -743,6 +1148,7 @@ model COVE {
 
   @@index([tenantId])
   @@index([mveId])
+  @@index([isDemoData])
   @@map("coves")
 }
 
@@ -764,18 +1170,19 @@ model LoadPlan {
   id              String        @id @default(cuid())
   name            String
   containerType   ContainerType
-  containerLength Float         // cm
-  containerWidth  Float         // cm
-  containerHeight Float         // cm
-  maxWeight       Float         // kg
+  containerLength Float // cm
+  containerWidth  Float // cm
+  containerHeight Float // cm
+  maxWeight       Float // kg
   totalItems      Int           @default(0)
-  totalVolume     Float         @default(0)  // m³
-  totalWeight     Float         @default(0)  // kg
-  volumeUsed      Float         @default(0)  // porcentaje
-  weightUsed      Float         @default(0)  // porcentaje
+  totalVolume     Float         @default(0) // m³
+  totalWeight     Float         @default(0) // kg
+  volumeUsed      Float         @default(0) // porcentaje
+  weightUsed      Float         @default(0) // porcentaje
   aiOptimization  Json?
   costAnalysis    Json?
   status          String        @default("draft")
+  isDemoData      Boolean       @default(false)
   createdAt       DateTime      @default(now())
   updatedAt       DateTime      @updatedAt
 
@@ -786,6 +1193,7 @@ model LoadPlan {
 
   @@index([tenantId])
   @@index([status])
+  @@index([isDemoData])
   @@map("load_plans")
 }
 
@@ -793,10 +1201,10 @@ model LoadItem {
   id          String   @id @default(cuid())
   description String
   quantity    Int
-  length      Float    // cm
-  width       Float    // cm
-  height      Float    // cm
-  weight      Float    // kg por pieza
+  length      Float // cm
+  width       Float // cm
+  height      Float // cm
+  weight      Float // kg por pieza
   stackable   Boolean  @default(true)
   fragile     Boolean  @default(false)
   createdAt   DateTime @default(now())
@@ -822,8 +1230,8 @@ enum UpdateStatus {
 
 model TIGIEUpdate {
   id                  String       @id @default(cuid())
-  source              String       // "DOF", "SAT", "SE", "manual"
-  decree              String?      // Nombre/referencia del decreto
+  source              String // "DOF", "SAT", "SE", "manual"
+  decree              String? // Nombre/referencia del decreto
   publishDate         DateTime
   effectiveDate       DateTime
   summary             String
@@ -831,7 +1239,7 @@ model TIGIEUpdate {
   fractionsModified   Int          @default(0)
   fractionsSuppressed Int          @default(0)
   nomsUpdated         Int          @default(0)
-  changes             Json         // Array de cambios individuales
+  changes             Json // Array de cambios individuales
   status              UpdateStatus @default(DETECTED)
   appliedAt           DateTime?
   appliedBy           String?
@@ -847,17 +1255,17 @@ model TIGIEUpdate {
 }
 
 model UpdateNotification {
-  id           String   @id @default(cuid())
+  id           String    @id @default(cuid())
   fractionCode String
-  changeType   String   // "arancel_change", "fraction_created", "fraction_suppressed", "nom_change"
+  changeType   String // "arancel_change", "fraction_created", "fraction_suppressed", "nom_change"
   oldValue     String?
   newValue     String?
   message      String
-  channel      String   // "app", "whatsapp", "email"
-  sent         Boolean  @default(false)
+  channel      String // "app", "whatsapp", "email"
+  sent         Boolean   @default(false)
   sentAt       DateTime?
-  read         Boolean  @default(false)
-  createdAt    DateTime @default(now())
+  read         Boolean   @default(false)
+  createdAt    DateTime  @default(now())
 
   updateId String
   update   TIGIEUpdate @relation(fields: [updateId], references: [id])
@@ -873,4 +1281,245 @@ model UpdateNotification {
   @@index([read])
   @@index([fractionCode])
   @@map("update_notifications")
+}
+
+// ============================================
+// DEMO ACCOUNTS
+// ============================================
+
+model DemoAccount {
+  id        String   @id @default(cuid())
+  leadId    String
+  tenantId  String
+  userId    String
+  email     String
+  password  String // plaintext temporary password (shown to admin)
+  expiresAt DateTime
+  active    Boolean  @default(true)
+  products  String[] // pre-loaded product descriptions
+  createdAt DateTime @default(now())
+
+  @@index([leadId])
+  @@index([expiresAt])
+  @@map("demo_accounts")
+}
+
+// ============================================
+// LEADS (público, sin auth)
+// ============================================
+
+model Lead {
+  id      String  @id @default(cuid())
+  name    String
+  company String?
+  email   String
+  phone   String
+  message String?
+  source  String  @default("landing")
+  status  String  @default("new") // new, contacted, demo_scheduled, demo_done, pilot, negotiating, converted, discarded
+
+  // Nivel 2 — calificación
+  rfc             String?
+  industry        String? // giro de la empresa
+  monthlyOps      String? // operaciones mensuales aprox
+  hasIMMEX        Boolean?
+  currentSoftware String?
+  problems        String[] // array de problemas seleccionados
+  referralSource  String? // cómo nos encontró
+
+  // Scoring
+  score          Int     @default(0)
+  scoreBreakdown String? // JSON con detalle del score
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @default(now()) @updatedAt
+
+  @@index([status])
+  @@index([score])
+  @@index([createdAt])
+  @@map("leads")
+}
+
+// ============================================
+// SECURITY
+// ============================================
+
+model LoginAttempt {
+  id        String   @id @default(cuid())
+  email     String
+  ip        String
+  userAgent String?
+  success   Boolean
+  reason    String?
+  createdAt DateTime @default(now())
+
+  @@index([email])
+  @@index([ip])
+  @@index([createdAt])
+  @@map("login_attempts")
+}
+
+model TokenBlacklist {
+  id        String   @id @default(cuid())
+  token     String   @unique
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+
+  @@index([token])
+  @@index([expiresAt])
+  @@map("token_blacklist")
+}
+
+// ============================================
+// BOM — Productos terminados y materia prima IMMEX
+// ============================================
+
+model Product {
+  id           String   @id @default(cuid())
+  tenantId     String
+  productCode  String   // SKU del cliente
+  description  String
+  fractionCode String?  // Fracción arancelaria si aplica (8 dígitos sin puntos)
+  unit         String   // Pza, Kg, m, etc.
+  isFinished   Boolean  @default(false) // false = materia prima, true = producto terminado
+  active       Boolean  @default(true)
+  isDemoData   Boolean  @default(false)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  // Si es producto terminado: componentes que lo conforman
+  components ProductComponent[] @relation("ProductBOM")
+  // Si es materia prima: en qué productos terminados se usa
+  usedIn     ProductComponent[] @relation("ComponentOfBOM")
+  assemblies Assembly[]
+
+  @@unique([tenantId, productCode])
+  @@index([tenantId])
+  @@index([isFinished])
+  @@index([fractionCode])
+  @@index([isDemoData])
+  @@map("products")
+}
+
+model ProductComponent {
+  id           String   @id @default(cuid())
+  productId    String   // Producto terminado
+  product      Product  @relation("ProductBOM", fields: [productId], references: [id], onDelete: Cascade)
+  componentId  String   // Materia prima / sub-ensamble
+  component    Product  @relation("ComponentOfBOM", fields: [componentId], references: [id])
+  quantity     Float    // Unidades de componente requeridas por 1 unidad de producto terminado
+  unit         String
+  scrapPercent Float    @default(0) // Merma esperada (%)
+  notes        String?
+  createdAt    DateTime @default(now())
+
+  @@unique([productId, componentId])
+  @@index([productId])
+  @@index([componentId])
+  @@map("product_components")
+}
+
+model Assembly {
+  id           String   @id @default(cuid())
+  tenantId     String
+  productId    String   // Producto terminado ensamblado
+  product      Product  @relation(fields: [productId], references: [id])
+  quantity     Float    // Cantidad ensamblada
+  assemblyDate DateTime
+  reference    String?  // Orden de producción / referencia interna
+  notes        String?
+  isDemoData   Boolean  @default(false)
+  createdAt    DateTime @default(now())
+
+  consumptions AssemblyConsumption[]
+
+  @@index([tenantId])
+  @@index([productId])
+  @@index([assemblyDate])
+  @@index([isDemoData])
+  @@map("assemblies")
+}
+
+model AssemblyConsumption {
+  id                String   @id @default(cuid())
+  assemblyId        String
+  assembly          Assembly @relation(fields: [assemblyId], references: [id], onDelete: Cascade)
+  componentId       String   // Producto materia prima consumido
+  componentCode     String   // SKU snapshot
+  fractionCode      String?  // Fracción snapshot
+  quantityRequired  Float    // Por BOM, sin merma
+  quantityWithScrap Float    // Real consumido = required × (1 + scrapPercent/100)
+  unit              String
+  // Trazabilidad: IDs de TemporaryImport descontados FIFO
+  importIds         String[]
+  createdAt         DateTime @default(now())
+
+  @@index([assemblyId])
+  @@index([componentId])
+  @@map("assembly_consumptions")
+}
+
+// ============================================
+// CUOTAS COMPENSATORIAS (antidumping)
+// ============================================
+
+model AntidumpingDuty {
+  id              String    @id @default(cuid())
+  fractionCode    String // 8 dígitos sin puntos
+  countryOfOrigin String // ISO-2 normalizado (CN, US, etc.)
+  rate            Float // % aplicable a base CIF (sobre valor en aduana)
+  type            String    @default("definitiva") // "definitiva" | "provisional"
+  decree          String? // referencia DOF, ej. "DOF-2024-03-15"
+  publishDate     DateTime?
+  effectiveDate   DateTime?
+  expiryDate      DateTime?
+  notes           String?
+  active          Boolean   @default(true)
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  @@unique([fractionCode, countryOfOrigin], name: "antidumping_fraction_country")
+  @@index([fractionCode])
+  @@index([countryOfOrigin])
+  @@index([active])
+  @@map("antidumping_duties")
+}
+
+// ============================================
+// REGULACIONES POR FRACCIÓN — NOMs / RRNA / Padrones
+// ============================================
+
+model FractionRegulation {
+  id           String   @id @default(cuid())
+  fractionCode String // 8 dígitos sin puntos; usar prefijo (ej "8485") para regla por capítulo/partida
+  matchType    String   @default("exact") // "exact" | "prefix"
+  type         String // "NOM" | "RRNA" | "padron_sectorial" | "permiso_previo"
+  authority    String // "SE" | "COFEPRIS" | "SEMARNAT" | "SADER" | "SENASICA" | "SAT"
+  code         String // ej. "NOM-004-SE-2006" o "Sector 11 — Hierro y acero"
+  description  String
+  required     Boolean  @default(true)
+  active       Boolean  @default(true)
+  createdAt    DateTime @default(now())
+
+  @@index([fractionCode])
+  @@index([type])
+  @@index([active])
+  @@map("fraction_regulations")
+}
+
+// ============================================
+// DEMO DATA — Fixture registry for sales demos
+// ============================================
+
+model DemoData {
+  id        String   @id @default(cuid())
+  category  String // 'inventory' | 'discharges' | 'fiscal' | 'guarantees' | 'certification'
+  // | 'classifications' | 'quotes' | 'operations' | 'mve' | 'logistics' | 'alerts'
+  data      Json // Array of records or single record blob to materialize
+  active    Boolean  @default(true)
+  createdAt DateTime @default(now())
+
+  @@index([category])
+  @@index([active])
+  @@map("demo_data")
 }

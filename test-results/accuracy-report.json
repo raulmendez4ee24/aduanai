@@ -1,19 +1,855 @@
 {
-  "timestamp": "2026-04-12T13:41:05.027Z",
+  "timestamp": "2026-05-03T06:39:37.907Z",
   "totalProducts": 100,
-  "tested": 0,
-  "errors": 100,
-  "accuracyTop1": 0,
-  "accuracyTop3": 0,
-  "accuracyChapter": 0,
-  "avgTimeMs": 0,
-  "medianTimeMs": 0,
-  "minTimeMs": 0,
-  "maxTimeMs": 0,
-  "byCategory": {},
-  "byChapter": {},
-  "worstChapters": [],
-  "failures": [],
+  "tested": 100,
+  "errors": 0,
+  "accuracyTop1": 63,
+  "accuracyTop3": 71,
+  "accuracyChapter": 94,
+  "avgTimeMs": 20300,
+  "medianTimeMs": 20594,
+  "minTimeMs": 15493,
+  "maxTimeMs": 25211,
+  "byCategory": {
+    "Textiles": {
+      "total": 10,
+      "top1": 5,
+      "top3": 5,
+      "pctTop1": 50,
+      "pctTop3": 50
+    },
+    "Electrónica": {
+      "total": 15,
+      "top1": 10,
+      "top3": 12,
+      "pctTop1": 67,
+      "pctTop3": 80
+    },
+    "Alimentos": {
+      "total": 15,
+      "top1": 13,
+      "top3": 13,
+      "pctTop1": 87,
+      "pctTop3": 87
+    },
+    "Farmacéuticos": {
+      "total": 5,
+      "top1": 1,
+      "top3": 2,
+      "pctTop1": 20,
+      "pctTop3": 40
+    },
+    "Químicos": {
+      "total": 5,
+      "top1": 4,
+      "top3": 4,
+      "pctTop1": 80,
+      "pctTop3": 80
+    },
+    "Maquinaria": {
+      "total": 10,
+      "top1": 5,
+      "top3": 7,
+      "pctTop1": 50,
+      "pctTop3": 70
+    },
+    "Vehículos": {
+      "total": 10,
+      "top1": 6,
+      "top3": 7,
+      "pctTop1": 60,
+      "pctTop3": 70
+    },
+    "Plásticos": {
+      "total": 10,
+      "top1": 6,
+      "top3": 6,
+      "pctTop1": 60,
+      "pctTop3": 60
+    },
+    "Acero": {
+      "total": 10,
+      "top1": 7,
+      "top3": 7,
+      "pctTop1": 70,
+      "pctTop3": 70
+    },
+    "Calzado": {
+      "total": 5,
+      "top1": 3,
+      "top3": 5,
+      "pctTop1": 60,
+      "pctTop3": 100
+    },
+    "Varios": {
+      "total": 5,
+      "top1": 3,
+      "top3": 3,
+      "pctTop1": 60,
+      "pctTop3": 60
+    }
+  },
+  "byChapter": {
+    "10": {
+      "total": 1,
+      "top1": 1,
+      "top3": 1,
+      "pctTop1": 100
+    },
+    "15": {
+      "total": 1,
+      "top1": 1,
+      "top3": 1,
+      "pctTop1": 100
+    },
+    "16": {
+      "total": 1,
+      "top1": 1,
+      "top3": 1,
+      "pctTop1": 100
+    },
+    "18": {
+      "total": 1,
+      "top1": 0,
+      "top3": 0,
+      "pctTop1": 0
+    },
+    "21": {
+      "total": 2,
+      "top1": 0,
+      "top3": 0,
+      "pctTop1": 0
+    },
+    "22": {
+      "total": 4,
+      "top1": 4,
+      "top3": 4,
+      "pctTop1": 100
+    },
+    "28": {
+      "total": 3,
+      "top1": 3,
+      "top3": 3,
+      "pctTop1": 100
+    },
+    "30": {
+      "total": 4,
+      "top1": 1,
+      "top3": 2,
+      "pctTop1": 25
+    },
+    "38": {
+      "total": 1,
+      "top1": 0,
+      "top3": 0,
+      "pctTop1": 0
+    },
+    "39": {
+      "total": 10,
+      "top1": 6,
+      "top3": 6,
+      "pctTop1": 60
+    },
+    "40": {
+      "total": 1,
+      "top1": 1,
+      "top3": 1,
+      "pctTop1": 100
+    },
+    "48": {
+      "total": 1,
+      "top1": 0,
+      "top3": 0,
+      "pctTop1": 0
+    },
+    "61": {
+      "total": 5,
+      "top1": 3,
+      "top3": 3,
+      "pctTop1": 60
+    },
+    "62": {
+      "total": 3,
+      "top1": 1,
+      "top3": 1,
+      "pctTop1": 33
+    },
+    "63": {
+      "total": 2,
+      "top1": 1,
+      "top3": 1,
+      "pctTop1": 50
+    },
+    "64": {
+      "total": 5,
+      "top1": 3,
+      "top3": 5,
+      "pctTop1": 60
+    },
+    "68": {
+      "total": 1,
+      "top1": 0,
+      "top3": 0,
+      "pctTop1": 0
+    },
+    "70": {
+      "total": 1,
+      "top1": 1,
+      "top3": 1,
+      "pctTop1": 100
+    },
+    "72": {
+      "total": 4,
+      "top1": 2,
+      "top3": 2,
+      "pctTop1": 50
+    },
+    "73": {
+      "total": 4,
+      "top1": 3,
+      "top3": 3,
+      "pctTop1": 75
+    },
+    "74": {
+      "total": 1,
+      "top1": 1,
+      "top3": 1,
+      "pctTop1": 100
+    },
+    "76": {
+      "total": 1,
+      "top1": 1,
+      "top3": 1,
+      "pctTop1": 100
+    },
+    "84": {
+      "total": 16,
+      "top1": 11,
+      "top3": 13,
+      "pctTop1": 69
+    },
+    "85": {
+      "total": 11,
+      "top1": 5,
+      "top3": 8,
+      "pctTop1": 45
+    },
+    "87": {
+      "total": 5,
+      "top1": 3,
+      "top3": 3,
+      "pctTop1": 60
+    },
+    "90": {
+      "total": 1,
+      "top1": 1,
+      "top3": 1,
+      "pctTop1": 100
+    },
+    "91": {
+      "total": 1,
+      "top1": 0,
+      "top3": 0,
+      "pctTop1": 0
+    },
+    "94": {
+      "total": 1,
+      "top1": 1,
+      "top3": 1,
+      "pctTop1": 100
+    },
+    "95": {
+      "total": 1,
+      "top1": 1,
+      "top3": 1,
+      "pctTop1": 100
+    },
+    "08": {
+      "total": 2,
+      "top1": 2,
+      "top3": 2,
+      "pctTop1": 100
+    },
+    "09": {
+      "total": 1,
+      "top1": 1,
+      "top3": 1,
+      "pctTop1": 100
+    },
+    "02": {
+      "total": 1,
+      "top1": 1,
+      "top3": 1,
+      "pctTop1": 100
+    },
+    "03": {
+      "total": 1,
+      "top1": 1,
+      "top3": 1,
+      "pctTop1": 100
+    },
+    "04": {
+      "total": 2,
+      "top1": 2,
+      "top3": 2,
+      "pctTop1": 100
+    }
+  },
+  "worstChapters": [
+    {
+      "chapter": "21",
+      "total": 2,
+      "top1": 0,
+      "top3": 0,
+      "pctTop1": 0
+    },
+    {
+      "chapter": "30",
+      "total": 4,
+      "top1": 1,
+      "top3": 2,
+      "pctTop1": 25
+    },
+    {
+      "chapter": "62",
+      "total": 3,
+      "top1": 1,
+      "top3": 1,
+      "pctTop1": 33
+    },
+    {
+      "chapter": "85",
+      "total": 11,
+      "top1": 5,
+      "top3": 8,
+      "pctTop1": 45
+    },
+    {
+      "chapter": "63",
+      "total": 2,
+      "top1": 1,
+      "top3": 1,
+      "pctTop1": 50
+    },
+    {
+      "chapter": "72",
+      "total": 4,
+      "top1": 2,
+      "top3": 2,
+      "pctTop1": 50
+    },
+    {
+      "chapter": "39",
+      "total": 10,
+      "top1": 6,
+      "top3": 6,
+      "pctTop1": 60
+    },
+    {
+      "chapter": "61",
+      "total": 5,
+      "top1": 3,
+      "top3": 3,
+      "pctTop1": 60
+    },
+    {
+      "chapter": "64",
+      "total": 5,
+      "top1": 3,
+      "top3": 5,
+      "pctTop1": 60
+    },
+    {
+      "chapter": "87",
+      "total": 5,
+      "top1": 3,
+      "top3": 3,
+      "pctTop1": 60
+    }
+  ],
+  "failures": [
+    {
+      "id": 2,
+      "description": "Pantalón de mezclilla (jeans) para mujer, algodón, tipo skinny",
+      "expected": "62043201",
+      "obtained": "62046201",
+      "alternatives": [
+        "62034201",
+        "61046201"
+      ],
+      "confidence": 95,
+      "chapter": "62",
+      "category": "Textiles"
+    },
+    {
+      "id": 5,
+      "description": "Calcetines de algodón para hombre, tejido de punto",
+      "expected": "61159201",
+      "obtained": "61151001",
+      "alternatives": [
+        "61159501",
+        "61159901"
+      ],
+      "confidence": 75,
+      "chapter": "61",
+      "category": "Textiles"
+    },
+    {
+      "id": 7,
+      "description": "Chamarra tipo bomber de nylon para hombre",
+      "expected": "62019301",
+      "obtained": "62011301",
+      "alternatives": [
+        "62011201",
+        "61013001"
+      ],
+      "confidence": 88,
+      "chapter": "62",
+      "category": "Textiles"
+    },
+    {
+      "id": 8,
+      "description": "Sábana de algodón 100%, tamaño queen, tejido plano",
+      "expected": "63021001",
+      "obtained": "63022101",
+      "alternatives": [
+        "63022201",
+        "52083201"
+      ],
+      "confidence": 95,
+      "chapter": "63",
+      "category": "Textiles"
+    },
+    {
+      "id": 10,
+      "description": "Corbata de seda para hombre",
+      "expected": "61171001",
+      "obtained": "62151001",
+      "alternatives": [
+        "62152001",
+        "62159001"
+      ],
+      "confidence": 95,
+      "chapter": "61",
+      "category": "Textiles"
+    },
+    {
+      "id": 18,
+      "description": "Monitor de computadora de 27 pulgadas, LED, resolución QHD",
+      "expected": "85285201",
+      "obtained": "85285101",
+      "alternatives": [
+        "85285101",
+        "85287201"
+      ],
+      "confidence": 95,
+      "chapter": "85",
+      "category": "Electrónica"
+    },
+    {
+      "id": 22,
+      "description": "Proyector de video tipo DLP para presentaciones",
+      "expected": "85286101",
+      "obtained": "85286201",
+      "alternatives": [
+        "85286999",
+        "84716001"
+      ],
+      "confidence": 92,
+      "chapter": "85",
+      "category": "Electrónica"
+    },
+    {
+      "id": 23,
+      "description": "Cargador de pared USB-C de 65W para laptop",
+      "expected": "85044001",
+      "obtained": "85044005",
+      "alternatives": [
+        "85049099",
+        "85444299"
+      ],
+      "confidence": 88,
+      "chapter": "85",
+      "category": "Electrónica"
+    },
+    {
+      "id": 24,
+      "description": "Cable HDMI de alta velocidad, 2 metros",
+      "expected": "85444901",
+      "obtained": "85444201",
+      "alternatives": [
+        "85444901",
+        "85442001"
+      ],
+      "confidence": 95,
+      "chapter": "85",
+      "category": "Electrónica"
+    },
+    {
+      "id": 25,
+      "description": "Memoria USB flash drive de 64GB, USB 3.0",
+      "expected": "85235101",
+      "obtained": "85423201",
+      "alternatives": [
+        "84717002",
+        "85235101"
+      ],
+      "confidence": 92,
+      "chapter": "85",
+      "category": "Electrónica"
+    },
+    {
+      "id": 30,
+      "description": "Chocolate con leche en tableta, cacao 35%",
+      "expected": "18069001",
+      "obtained": "18063201",
+      "alternatives": [
+        "18063101",
+        "18062001"
+      ],
+      "confidence": 95,
+      "chapter": "18",
+      "category": "Alimentos"
+    },
+    {
+      "id": 37,
+      "description": "Salsa de soya fermentada, botella 500ml",
+      "expected": "21039001",
+      "obtained": "21031001",
+      "alternatives": [
+        "21039099",
+        "21069099"
+      ],
+      "confidence": 98,
+      "chapter": "21",
+      "category": "Alimentos"
+    },
+    {
+      "id": 41,
+      "description": "Ibuprofeno tabletas de 400mg, uso humano, venta libre",
+      "expected": "30049099",
+      "obtained": "30041001",
+      "alternatives": [
+        "30049099",
+        "30042001"
+      ],
+      "confidence": 75,
+      "chapter": "30",
+      "category": "Farmacéuticos"
+    },
+    {
+      "id": 42,
+      "description": "Paracetamol (acetaminofén) en tabletas de 500mg",
+      "expected": "30049099",
+      "obtained": "30049001",
+      "alternatives": [
+        "29242901",
+        "30041001"
+      ],
+      "confidence": 95,
+      "chapter": "30",
+      "category": "Farmacéuticos"
+    },
+    {
+      "id": 47,
+      "description": "Gel antibacterial con alcohol al 70%, envase 500ml",
+      "expected": "38089401",
+      "obtained": "34022001",
+      "alternatives": [
+        "34022001",
+        "22071001"
+      ],
+      "confidence": 90,
+      "chapter": "38",
+      "category": "Químicos"
+    },
+    {
+      "id": 48,
+      "description": "Insulina humana inyectable, 100 UI/ml",
+      "expected": "30043101",
+      "obtained": "30041001",
+      "alternatives": [
+        "30049099",
+        "30019001"
+      ],
+      "confidence": 95,
+      "chapter": "30",
+      "category": "Farmacéuticos"
+    },
+    {
+      "id": 50,
+      "description": "Vitamina C (ácido ascórbico) tabletas efervescentes 1000mg",
+      "expected": "21069099",
+      "obtained": "21069009",
+      "alternatives": [
+        "29369099",
+        "30049099"
+      ],
+      "confidence": 90,
+      "chapter": "21",
+      "category": "Farmacéuticos"
+    },
+    {
+      "id": 52,
+      "description": "Compresor de aire de tornillo rotativo, 100 HP",
+      "expected": "84143001",
+      "obtained": "84148099",
+      "alternatives": [
+        "84143001",
+        "84145999"
+      ],
+      "confidence": 90,
+      "chapter": "84",
+      "category": "Maquinaria"
+    },
+    {
+      "id": 53,
+      "description": "Montacargas de contrapeso, motor diésel, capacidad 3 toneladas",
+      "expected": "84272001",
+      "obtained": "84271001",
+      "alternatives": [
+        "87041001",
+        "84272001"
+      ],
+      "confidence": 75,
+      "chapter": "84",
+      "category": "Maquinaria"
+    },
+    {
+      "id": 57,
+      "description": "Banda transportadora de hule para línea de producción, 10 metros",
+      "expected": "84283301",
+      "obtained": "40101201",
+      "alternatives": [
+        "40101999",
+        "84281001"
+      ],
+      "confidence": 92,
+      "chapter": "84",
+      "category": "Maquinaria"
+    },
+    {
+      "id": 58,
+      "description": "Robot industrial articulado de 6 ejes para soldadura",
+      "expected": "84795001",
+      "obtained": "85152101",
+      "alternatives": [
+        "84798999",
+        "85158001"
+      ],
+      "confidence": 92,
+      "chapter": "84",
+      "category": "Maquinaria"
+    },
+    {
+      "id": 60,
+      "description": "Lavadora automática de ropa, carga frontal, 20 kg, uso doméstico",
+      "expected": "84502001",
+      "obtained": "84501201",
+      "alternatives": [
+        "84501101",
+        "84501999"
+      ],
+      "confidence": 95,
+      "chapter": "84",
+      "category": "Maquinaria"
+    },
+    {
+      "id": 62,
+      "description": "Camioneta pickup doble cabina, motor diésel 2.8L",
+      "expected": "87043101",
+      "obtained": "87042103",
+      "alternatives": [
+        "87033303",
+        "87043103"
+      ],
+      "confidence": 95,
+      "chapter": "87",
+      "category": "Vehículos"
+    },
+    {
+      "id": 64,
+      "description": "Batería de plomo-ácido para automóvil, 12V, 60 Ah",
+      "expected": "85071001",
+      "obtained": "85072001",
+      "alternatives": [
+        "85071001",
+        "85078001"
+      ],
+      "confidence": 95,
+      "chapter": "85",
+      "category": "Vehículos"
+    },
+    {
+      "id": 66,
+      "description": "Amortiguador hidráulico trasero para automóvil",
+      "expected": "87083001",
+      "obtained": "87089999",
+      "alternatives": [
+        "87082999",
+        "87088099"
+      ],
+      "confidence": 95,
+      "chapter": "87",
+      "category": "Vehículos"
+    },
+    {
+      "id": 67,
+      "description": "Pastillas de freno delanteras para automóvil",
+      "expected": "68131001",
+      "obtained": "87089999",
+      "alternatives": [
+        "68132001",
+        "87089999"
+      ],
+      "confidence": 95,
+      "chapter": "68",
+      "category": "Vehículos"
+    },
+    {
+      "id": 75,
+      "description": "Película stretch de polietileno para embalaje, rollo",
+      "expected": "39201001",
+      "obtained": "39232101",
+      "alternatives": [
+        "39232101",
+        "39269099"
+      ],
+      "confidence": 95,
+      "chapter": "39",
+      "category": "Plásticos"
+    },
+    {
+      "id": 77,
+      "description": "Lámina de policarbonato transparente, 6mm espesor",
+      "expected": "39206001",
+      "obtained": "39206201",
+      "alternatives": [
+        "39206999",
+        "39219099"
+      ],
+      "confidence": 90,
+      "chapter": "39",
+      "category": "Plásticos"
+    },
+    {
+      "id": 78,
+      "description": "Guantes desechables de nitrilo, talla M, caja 100 piezas",
+      "expected": "39262001",
+      "obtained": "40151999",
+      "alternatives": [
+        "40151101",
+        "39262099"
+      ],
+      "confidence": 95,
+      "chapter": "39",
+      "category": "Plásticos"
+    },
+    {
+      "id": 80,
+      "description": "Manguera flexible de PVC reforzada, 1 pulgada, para riego",
+      "expected": "39173901",
+      "obtained": "39172301",
+      "alternatives": [
+        "39172999",
+        "39173301"
+      ],
+      "confidence": 75,
+      "chapter": "39",
+      "category": "Plásticos"
+    },
+    {
+      "id": 82,
+      "description": "Lámina de acero inoxidable 304, calibre 18, hoja 4x8 pies",
+      "expected": "72193401",
+      "obtained": "72193101",
+      "alternatives": [
+        "72193201",
+        "72192101"
+      ],
+      "confidence": 95,
+      "chapter": "72",
+      "category": "Acero"
+    },
+    {
+      "id": 85,
+      "description": "Alambre de acero galvanizado, calibre 14",
+      "expected": "72172001",
+      "obtained": "72171001",
+      "alternatives": [
+        "72172099",
+        "73269099"
+      ],
+      "confidence": 85,
+      "chapter": "72",
+      "category": "Acero"
+    },
+    {
+      "id": 87,
+      "description": "Clavo de acero sin cabeza, 2 pulgadas, para construcción",
+      "expected": "73170001",
+      "obtained": "73269099",
+      "alternatives": [
+        "73269099",
+        "73181599"
+      ],
+      "confidence": 95,
+      "chapter": "73",
+      "category": "Acero"
+    },
+    {
+      "id": 91,
+      "description": "Zapato deportivo tipo tenis para hombre, suela de caucho, parte superior textil",
+      "expected": "64041901",
+      "obtained": "64041101",
+      "alternatives": [
+        "64021901",
+        "64041901"
+      ],
+      "confidence": 95,
+      "chapter": "64",
+      "category": "Calzado"
+    },
+    {
+      "id": 94,
+      "description": "Zapato de vestir para hombre, piel genuina, suela de cuero",
+      "expected": "64035101",
+      "obtained": "64051001",
+      "alternatives": [
+        "64035101",
+        "64052001"
+      ],
+      "confidence": 95,
+      "chapter": "64",
+      "category": "Calzado"
+    },
+    {
+      "id": 97,
+      "description": "Reloj de pulsera analógico con caja de acero inoxidable",
+      "expected": "91019901",
+      "obtained": "91022101",
+      "alternatives": [
+        "91021101",
+        "91022999"
+      ],
+      "confidence": 95,
+      "chapter": "91",
+      "category": "Varios"
+    },
+    {
+      "id": 99,
+      "description": "Papel bond blanco tamaño carta, 75g/m², resma 500 hojas",
+      "expected": "48025601",
+      "obtained": "48025501",
+      "alternatives": [
+        "48010001",
+        "48101301"
+      ],
+      "confidence": 95,
+      "chapter": "48",
+      "category": "Varios"
+    }
+  ],
   "results": [
     {
       "id": 1,
@@ -21,14 +857,17 @@
       "category": "Textiles",
       "chapter": "61",
       "expectedFraction": "61091001",
-      "obtainedFraction": null,
-      "alternatives": [],
-      "confidence": null,
-      "matchTop1": false,
-      "matchTop3": false,
-      "matchChapter": false,
-      "timeMs": 348,
-      "error": "HTTP 500: {\"status\":\"error\",\"message\":\"Error interno del servidor\"}"
+      "obtainedFraction": "61091001",
+      "alternatives": [
+        "61051001",
+        "61102001"
+      ],
+      "confidence": 95,
+      "matchTop1": true,
+      "matchTop3": true,
+      "matchChapter": true,
+      "timeMs": 20170,
+      "error": null
     },
     {
       "id": 2,
@@ -36,14 +875,17 @@
       "category": "Textiles",
       "chapter": "62",
       "expectedFraction": "62043201",
-      "obtainedFraction": null,
-      "alternatives": [],
-      "confidence": null,
+      "obtainedFraction": "62046201",
+      "alternatives": [
+        "62034201",
+        "61046201"
+      ],
+      "confidence": 95,
       "matchTop1": false,
       "matchTop3": false,
-      "matchChapter": false,
-      "timeMs": 422,
-      "error": "HTTP 500: {\"status\":\"error\",\"message\":\"Error interno del servidor\"}"
+      "matchChapter": true,
+      "timeMs": 20086,
+      "error": null
     },
     {
       "id": 3,
@@ -51,14 +893,17 @@
       "category": "Textiles",
       "chapter": "61",
       "expectedFraction": "61101101",
-      "obtainedFraction": null,
-      "alternatives": [],
-      "confidence": null,
-      "matchTop1": false,
-      "matchTop3": false,
-      "matchChapter": false,
-      "timeMs": 235,
-      "error": "HTTP 500: {\"status\":\"error\",\"message\":\"Error interno del servidor\"}"
+      "obtainedFraction": "61101101",
+      "alternatives": [
+        "61102001",
+        "61103001"
+      ],
+      "confidence": 95,
+      "matchTop1": true,
+      "matchTop3": true,
+      "matchChapter": true,
+      "timeMs": 18209,
+      "error": null
     },
     {
       "id": 4,
@@ -66,14 +911,17 @@
       "category": "Textiles",
       "chapter": "62",
       "expectedFraction": "62044401",
-      "obtainedFraction": null,
-      "alternatives": [],
-      "confidence": null,
-      "matchTop1": false,
-      "matchTop3": false,
-      "matchChapter": false,
-      "timeMs": 279,
-      "error": "HTTP 500: {\"status\":\"error\",\"message\":\"Error interno del servidor\"}"
+      "obtainedFraction": "62044401",
+      "alternatives": [
+        "62044901",
+        "62064001"
+      ],
+      "confidence": 95,
+      "matchTop1": true,
+      "matchTop3": true,
+      "matchChapter": true,
+      "timeMs": 18796,
+      "error": null
     },
     {
       "id": 5,
@@ -81,14 +929,17 @@
       "category": "Textiles",
       "chapter": "61",
       "expectedFraction": "61159201",
-      "obtainedFraction": null,
-      "alternatives": [],
-      "confidence": null,
+      "obtainedFraction": "61151001",
+      "alternatives": [
+        "61159501",
+        "61159901"
+      ],
+      "confidence": 75,
       "matchTop1": false,
       "matchTop3": false,
-      "matchChapter": false,
-      "timeMs": 221,
-      "error": "HTTP 500: {\"status\":\"error\",\"message\":\"Error interno del servidor\"}"
+      "matchChapter": true,
+      "timeMs": 24338,
+      "error": null
     },
     {
       "id": 6,
@@ -96,14 +947,17 @@
       "category": "Textiles",
       "chapter": "61",
       "expectedFraction": "61071101",
-      "obtainedFraction": null,
-      "alternatives": [],
-      "confidence": null,
-      "matchTop1": false,
-      "matchTop3": false,
-      "matchChapter": false,
-      "timeMs": 218,
-      "error": "HTTP 500: {\"status\":\"error\",\"message\":\"Error interno del servidor\"}"
+      "obtainedFraction": "61071101",
+      "alternatives": [
+        "61071201",
+        "61071901"
+      ],
+      "confidence": 95,
+      "matchTop1": true,
+      "matchTop3": true,
+      "matchChapter": true,
+      "timeMs": 15493,
+      "error": null
     },
     {
       "id": 7,
@@ -111,14 +965,17 @@
       "category": "Textiles",
       "chapter": "62",
       "expectedFraction": "62019301",
-      "obtainedFraction": null,
-      "alternatives": [],
-      "confidence": null,
+      "obtainedFraction": "62011301",
+      "alternatives": [
+        "62011201",
+        "61013001"
+      ],
+      "confidence": 88,
       "matchTop1": false,
       "matchTop3": false,
-      "matchChapter": false,
-      "timeMs": 228,
-      "error": "HTTP 500: {\"status\":\"error\",\"message\":\"Error interno del servidor\"}"
+      "matchChapter": true,
+      "timeMs": 18131,
+      "error": null
     },
     {
       "id": 8,
@@ -126,14 +983,17 @@
       "category": "Textiles",
       "chapter": "63",
       "expectedFraction": "63021001",
-      "obtainedFraction": null,
-      "alternatives": [],
-      "confidence": null,
+      "obtainedFraction": "63022101",
+      "alternatives": [
+        "63022201",
+        "52083201"
+      ],
+      "confidence": 95,
       "matchTop1": false,
       "matchTop3": false,
-      "matchChapter": false,
-      "timeMs": 183,
-      "error": "HTTP 500: {\"status\":\"error\",\"message\":\"Error interno del servidor\"}"
+      "matchChapter": true,
+      "timeMs": 17237,
+      "error": null
     },
     {
       "id": 9,
@@ -141,14 +1001,17 @@
       "category": "Textiles",
       "chapter": "63",
       "expectedFraction": "63026001",
-      "obtainedFraction": null,
-      "alternatives": [],
-      "confidence": null,
-      "matchTop1": false,
-      "matchTop3": false,
-      "matchChapter": false,
-      "timeMs": 201,
-      "error": "HTTP 500: {\"status\":\"error\",\"message\":\"Error interno del servidor\"}"
+      "obtainedFraction": "63026001",
+      "alternatives": [
+        "63026099",
+        "63029101"
+      ],
+      "confidence": 95,
+      "matchTop1": true,
+      "matchTop3": true,
+      "matchChapter": true,
+      "timeMs": 17121,
+      "error": null
     },
     {
       "id": 10,
@@ -156,14 +1019,17 @@
       "category": "Textiles",
       "chapter": "61",
       "expectedFraction": "61171001",
-      "obtainedFraction": null,
-      "alternatives": [],
-      "confidence": null,
+      "obtainedFraction": "62151001",
+      "alternatives": [
+        "62152001",
+        "62159001"
+      ],
+      "confidence": 95,
       "matchTop1": false,
       "matchTop3": false,
       "matchChapter": false,
-      "timeMs": 203,
-      "error": "HTTP 500: {\"status\":\"error\",\"message\":\"Error interno del servidor\"}"
+      "timeMs": 19373,
+      "error": null
     },
     {
       "id": 11,
@@ -171,14 +1037,17 @@
       "category": "Electrónica",
       "chapter": "84",
       "expectedFraction": "84713001",
-      "obtainedFraction": null,
-      "alternatives": [],
-      "confidence": null,
-      "matchTop1": false,
-      "matchTop3": false,
-      "matchChapter": false,
-      "timeMs": 211,
-      "error": "HTTP 500: {\"status\":\"error\",\"message\":\"Error interno del servidor\"}"
+      "obtainedFraction": "84713001",
+      "alternatives": [
+        "84714101",
+        "84715001"
+      ],
+      "confidence": 95,
+      "matchTop1": true,
+      "matchTop3": true,
+      "matchChapter": true,
+      "timeMs": 23416,
+      "error": null
     },
     {
       "id": 12,
@@ -186,14 +1055,17 @@
       "category": "Electrónica",
       "chapter": "85",
       "expectedFraction": "85171401",
-      "obtainedFraction": null,
-      "alternatives": [],
-      "confidence": null,
-      "matchTop1": false,
-      "matchTop3": false,
-      "matchChapter": false,
-      "timeMs": 201,
-      "error": "HTTP 500: {\"status\":\"error\",\"message\":\"Error interno del servidor\"}"
+      "obtainedFraction": "85171401",
+      "alternatives": [
+        "85258001",
+        "85285101"
+      ],
+      "confidence": 95,
+      "matchTop1": true,
+      "matchTop3": true,
+      "matchChapter": true,
+      "timeMs": 18896,
+      "error": null
     },
     {
       "id": 13,
@@ -201,14 +1073,17 @@
       "category": "Electrónica",
       "chapter": "85",
       "expectedFraction": "85287201",
-      "obtainedFraction": null,
-      "alternatives": [],
-      "confidence": null,
-      "matchTop1": false,
-      "matchTop3": false,
-      "matchChapter": false,
-      "timeMs": 326,
-      "error": "HTTP 500: {\"status\":\"error\",\"message\":\"Error interno del servidor\"}"
+      "obtainedFraction": "85287201",
+      "alternatives": [
+        "85285101",
+        "85437001"
+      ],
+      "confidence": 95,
+      "matchTop1": true,
+      "matchTop3": true,
+      "matchChapter": true,
+      "timeMs": 17705,
+      "error": null
     },
     {
       "id": 14,
@@ -216,14 +1091,17 @@
       "category": "Electrónica",
       "chapter": "84",
       "expectedFraction": "84433201",
-      "obtainedFraction": null,
-      "alternatives": [],
-      "confidence": null,
-      "matchTop1": false,
-      "matchTop3": false,
-      "matchChapter": false,
-      "timeMs": 235,
-      "error": "HTTP 500: {\"status\":\"error\",\"message\":\"Error interno del servidor\"}"
+      "obtainedFraction": "84433201",
+      "alternatives": [
+        "84433101",
+        "84433999"
+      ],
+      "confidence": 95,
+      "matchTop1": true,
+      "matchTop3": true,
+      "matchChapter": true,
+      "timeMs": 19111,
+      "error": null
     },
     {
       "id": 15,
@@ -231,14 +1109,17 @@
       "category": "Electrónica",
       "chapter": "84",
       "expectedFraction": "84717001",
-      "obtainedFraction": null,
-      "alternatives": [],
-      "confidence": null,
-      "matchTop1": false,
-      "matchTop3": false,
-      "matchChapter": false,
-      "timeMs": 209,
-      "error": "HTTP 500: {\"status\":\"error\",\"message\":\"Error interno del servidor\"}"
+      "obtainedFraction": "84717001",
+      "alternatives": [
+        "84718001",
+        "85235101"
+      ],
+      "confidence": 92,
+      "matchTop1": true,
+      "matchTop3": true,
+      "matchChapter": true,
+      "timeMs": 18790,
+      "error": null
     },
     {
       "id": 16,
@@ -246,14 +1127,17 @@
       "category": "Electrónica",
       "chapter": "84",
       "expectedFraction": "84716001",
-      "obtainedFraction": null,
-      "alternatives": [],
-      "confidence": null,
-      "matchTop1": false,
-      "matchTop3": false,
-      "matchChapter": false,
-      "timeMs": 201,
-      "error": "HTTP 500: {\"status\":\"error\",\"message\":\"Error interno del servidor\"}"
+      "obtainedFraction": "84716001",
+      "alternatives": [
+        "84717001",
+        "84798999"
+      ],
+      "confidence": 95,
+      "matchTop1": true,
+      "matchTop3": true,
+      "matchChapter": true,
+      "timeMs": 22179,
+      "error": null
     },
     {
       "id": 17,
@@ -261,14 +1145,17 @@
       "category": "Electrónica",
       "chapter": "84",
       "expectedFraction": "84716001",
-      "obtainedFraction": null,
-      "alternatives": [],
-      "confidence": null,
-      "matchTop1": false,
-      "matchTop3": false,
-      "matchChapter": false,
-      "timeMs": 262,
-      "error": "HTTP 500: {\"status\":\"error\",\"message\":\"Error interno del servidor\"}"
+      "obtainedFraction": "84716001",
+      "alternatives": [
+        "85444201",
+        "84733001"
+      ],
+      "confidence": 92,
+      "matchTop1": true,
+      "matchTop3": true,
+      "matchChapter": true,
+      "timeMs": 22348,
+      "error": null
     },
     {
       "id": 18,
@@ -276,14 +1163,17 @@
       "category": "Electrónica",
       "chapter": "85",
       "expectedFraction": "85285201",
-      "obtainedFraction": null,
-      "alternatives": [],
-      "confidence": null,
+      "obtainedFraction": "85285101",
+      "alternatives": [
+        "85285101",
+        "85287201"
+      ],
+      "confidence": 95,
       "matchTop1": false,
       "matchTop3": false,
-      "matchChapter": false,
-      "timeMs": 235,
-      "error": "HTTP 500: {\"status\":\"error\",\"message\":\"Error interno del servidor\"}"
+      "matchChapter": true,
+      "timeMs": 18864,
+      "error": null
     },
     {
       "id": 19,
@@ -291,14 +1181,17 @@
       "category": "Electrónica",
       "chapter": "85",
       "expectedFraction": "85183001",
-      "obtainedFraction": null,
-      "alternatives": [],
-      "confidence": null,
-      "matchTop1": false,
-      "matchTop3": false,
-      "matchChapter": false,
-      "timeMs": 192,
-      "error": "HTTP 500: {\"status\":\"error\",\"message\":\"Error interno del servidor\"}"
+      "obtainedFraction": "85183001",
+      "alternatives": [
+        "85176201",
+        "85437001"
+      ],
+      "confidence": 95,
+      "matchTop1": true,
+      "matchTop3": true,
+      "matchChapter": true,
+      "timeMs": 17990,
+      "error": null
     },
     {
       "id": 20,
@@ -306,14 +1199,17 @@
       "category": "Electrónica",
       "chapter": "85",
       "expectedFraction": "85258001",
-      "obtainedFraction": null,
-      "alternatives": [],
-      "confidence": null,
-      "matchTop1": false,
-      "matchTop3": false,
-      "matchChapter": false,
-      "timeMs": 194,
-      "error": "HTTP 500: {\"status\":\"error\",\"message\":\"Error interno del servidor\"}"
+      "obtainedFraction": "85258001",
+      "alternatives": [
+        "84713001",
+        "84715001"
+      ],
+      "confidence": 95,
+      "matchTop1": true,
+      "matchTop3": true,
+      "matchChapter": true,
+      "timeMs": 19158,
+      "error": null
     },
     {
       "id": 21,
@@ -321,14 +1217,17 @@
       "category": "Electrónica",
       "chapter": "84",
       "expectedFraction": "84713001",
-      "obtainedFraction": null,
-      "alternatives": [],
-      "confidence": null,
-      "matchTop1": false,
-      "matchTop3": false,
-      "matchChapter": false,
-      "timeMs": 204,
-      "error": "HTTP 500: {\"status\":\"error\",\"message\":\"Error interno del servidor\"}"
+      "obtainedFraction": "84713001",
+      "alternatives": [
+        "85285101",
+        "85171401"
+      ],
+      "confidence": 90,
+      "matchTop1": true,
+      "matchTop3": true,
+      "matchChapter": true,
+      "timeMs": 22096,
+      "error": null
     },
     {
       "id": 22,
@@ -336,14 +1235,17 @@
       "category": "Electrónica",
       "chapter": "85",
       "expectedFraction": "85286101",
-      "obtainedFraction": null,
-      "alternatives": [],
-      "confidence": null,
+      "obtainedFraction": "85286201",
+      "alternatives": [
+        "85286999",
+        "84716001"
+      ],
+      "confidence": 92,
       "matchTop1": false,
       "matchTop3": false,
-      "matchChapter": false,
-      "timeMs": 207,
-      "error": "HTTP 500: {\"status\":\"error\",\"message\":\"Error interno del servidor\"}"
+      "matchChapter": true,
+      "timeMs": 21329,
+      "error": null
     },
     {
       "id": 23,
@@ -351,14 +1253,17 @@
       "category": "Electrónica",
       "chapter": "85",
       "expectedFraction": "85044001",
-      "obtainedFraction": null,
-      "alternatives": [],
-      "confidence": null,
+      "obtainedFraction": "85044005",
+      "alternatives": [
+        "85049099",
+        "85444299"
+      ],
+      "confidence": 88,
       "matchTop1": false,
       "matchTop3": false,
-      "matchChapter": false,
-      "timeMs": 461,
-      "error": "HTTP 500: {\"status\":\"error\",\"message\":\"Error interno del servidor\"}"
+      "matchChapter": true,
+      "timeMs": 17282,
+      "error": null
     },
     {
       "id": 24,
@@ -366,14 +1271,17 @@
       "category": "Electrónica",
       "chapter": "85",
       "expectedFraction": "85444901",
-      "obtainedFraction": null,
-      "alternatives": [],
-      "confidence": null,
+      "obtainedFraction": "85444201",
+      "alternatives": [
+        "85444901",
+        "85442001"
+      ],
+      "confidence": 95,
       "matchTop1": false,
-      "matchTop3": false,
-      "matchChapter": false,
-      "timeMs": 193,
-      "error": "HTTP 500: {\"status\":\"error\",\"message\":\"Error interno del servidor\"}"
+      "matchTop3": true,
+      "matchChapter": true,
+      "timeMs": 16772,
+      "error": null
     },
     {
       "id": 25,
@@ -381,14 +1289,17 @@
       "category": "Electrónica",
       "chapter": "85",
       "expectedFraction": "85235101",
-      "obtainedFraction": null,
-      "alternatives": [],
-      "confidence": null,
+      "obtainedFraction": "85423201",
+      "alternatives": [
+        "84717002",
+        "85235101"
+      ],
+      "confidence": 92,
       "matchTop1": false,
-      "matchTop3": false,
-      "matchChapter": false,
-      "timeMs": 304,
-      "error": "HTTP 500: {\"status\":\"error\",\"message\":\"Error interno del servidor\"}"
+      "matchTop3": true,
+      "matchChapter": true,
+      "timeMs": 21224,
+      "error": null
     },
     {
       "id": 26,
@@ -396,14 +1307,17 @@
       "category": "Alimentos",
       "chapter": "08",
       "expectedFraction": "08044001",
-      "obtainedFraction": null,
-      "alternatives": [],
-      "confidence": null,
-      "matchTop1": false,
-      "matchTop3": false,
-      "matchChapter": false,
-      "timeMs": 215,
-      "error": "HTTP 500: {\"status\":\"error\",\"message\":\"Error interno del servidor\"}"
+      "obtainedFraction": "08044001",
+      "alternatives": [
+        "08134001",
+        "20089999"
+      ],
+      "confidence": 100,
+      "matchTop1": true,
+      "matchTop3": true,
+      "matchChapter": true,
+      "timeMs": 24510,
+      "error": null
     },
     {
       "id": 27,
@@ -411,14 +1325,17 @@
       "category": "Alimentos",
       "chapter": "22",
       "expectedFraction": "22089001",
-      "obtainedFraction": null,
-      "alternatives": [],
-      "confidence": null,
-      "matchTop1": false,
-      "matchTop3": false,
-      "matchChapter": false,
-      "timeMs": 237,
-      "error": "HTTP 500: {\"status\":\"error\",\"message\":\"Error interno del servidor\"}"
+      "obtainedFraction": "22089001",
+      "alternatives": [
+        "22082001",
+        "22084001"
+      ],
+      "confidence": 98,
+      "matchTop1": true,
+      "matchTop3": true,
+      "matchChapter": true,
+      "timeMs": 20594,
+      "error": null
     },
     {
       "id": 28,
@@ -426,14 +1343,17 @@
       "category": "Alimentos",
       "chapter": "22",
       "expectedFraction": "22030001",
-      "obtainedFraction": null,
-      "alternatives": [],
-      "confidence": null,
-      "matchTop1": false,
-      "matchTop3": false,
-      "matchChapter": false,
-      "timeMs": 237,
-      "error": "HTTP 500: {\"status\":\"error\",\"message\":\"Error interno del servidor\"}"
+      "obtainedFraction": "22030001",
+      "alternatives": [
+        "22060001",
+        "22029001"
+      ],
+      "confidence": 98,
+      "matchTop1": true,
+      "matchTop3": true,
+      "matchChapter": true,
+      "timeMs": 21532,
+      "error": null
     },
     {
       "id": 29,
@@ -441,14 +1361,17 @@
       "category": "Alimentos",
       "chapter": "09",
       "expectedFraction": "09012101",
-      "obtainedFraction": null,
-      "alternatives": [],
-      "confidence": null,
-      "matchTop1": false,
-      "matchTop3": false,
-      "matchChapter": false,
-      "timeMs": 197,
-      "error": "HTTP 500: {\"status\":\"error\",\"message\":\"Error interno del servidor\"}"
+      "obtainedFraction": "09012101",
+      "alternatives": [
+        "09011101",
+        "09012201"
+      ],
+      "confidence": 95,
+      "matchTop1": true,
+      "matchTop3": true,
+      "matchChapter": true,
+      "timeMs": 17100,
+      "error": null
     },
     {
       "id": 30,
@@ -456,14 +1379,17 @@
       "category": "Alimentos",
       "chapter": "18",
       "expectedFraction": "18069001",
-      "obtainedFraction": null,
-      "alternatives": [],
-      "confidence": null,
+      "obtainedFraction": "18063201",
+      "alternatives": [
+        "18063101",
+        "18062001"
+      ],
+      "confidence": 95,
       "matchTop1": false,
       "matchTop3": false,
-      "matchChapter": false,
-      "timeMs": 196,
-      "error": "HTTP 500: {\"status\":\"error\",\"message\":\"Error interno del servidor\"}"
+      "matchChapter": true,
+      "timeMs": 21555,
+      "error": null
     },
     {
       "id": 31,
@@ -471,14 +1397,17 @@
       "category": "Alimentos",
       "chapter": "02",
       "expectedFraction": "02023001",
-      "obtainedFraction": null,
-      "alternatives": [],
-      "confidence": null,
-      "matchTop1": false,
-      "matchTop3": false,
-      "matchChapter": false,
-      "timeMs": 244,
-      "error": "HTTP 500: {\"status\":\"error\",\"message\":\"Error interno del servidor\"}"
+      "obtainedFraction": "02023001",
+      "alternatives": [
+        "02022001",
+        "02013001"
+      ],
+      "confidence": 95,
+      "matchTop1": true,
+      "matchTop3": true,
+      "matchChapter": true,
+      "timeMs": 18148,
+      "error": null
     },
     {
       "id": 32,
@@ -486,14 +1415,17 @@
       "category": "Alimentos",
       "chapter": "03",
       "expectedFraction": "03061701",
-      "obtainedFraction": null,
-      "alternatives": [],
-      "confidence": null,
-      "matchTop1": false,
-      "matchTop3": false,
-      "matchChapter": false,
-      "timeMs": 206,
-      "error": "HTTP 500: {\"status\":\"error\",\"message\":\"Error interno del servidor\"}"
+      "obtainedFraction": "03061701",
+      "alternatives": [
+        "03061601",
+        "16052101"
+      ],
+      "confidence": 95,
+      "matchTop1": true,
+      "matchTop3": true,
+      "matchChapter": true,
+      "timeMs": 22753,
+      "error": null
     },
     {
       "id": 33,
@@ -501,14 +1433,17 @@
       "category": "Alimentos",
       "chapter": "10",
       "expectedFraction": "10063001",
-      "obtainedFraction": null,
-      "alternatives": [],
-      "confidence": null,
-      "matchTop1": false,
-      "matchTop3": false,
-      "matchChapter": false,
-      "timeMs": 465,
-      "error": "HTTP 500: {\"status\":\"error\",\"message\":\"Error interno del servidor\"}"
+      "obtainedFraction": "10063001",
+      "alternatives": [
+        "10062001",
+        "10064001"
+      ],
+      "confidence": 95,
+      "matchTop1": true,
+      "matchTop3": true,
+      "matchChapter": true,
+      "timeMs": 18813,
+      "error": null
     },
     {
       "id": 34,
@@ -516,14 +1451,17 @@
       "category": "Alimentos",
       "chapter": "15",
       "expectedFraction": "15091001",
-      "obtainedFraction": null,
-      "alternatives": [],
-      "confidence": null,
-      "matchTop1": false,
-      "matchTop3": false,
-      "matchChapter": false,
-      "timeMs": 456,
-      "error": "HTTP 500: {\"status\":\"error\",\"message\":\"Error interno del servidor\"}"
+      "obtainedFraction": "15091001",
+      "alternatives": [
+        "15099001",
+        "15100001"
+      ],
+      "confidence": 95,
+      "matchTop1": true,
+      "matchTop3": true,
+      "matchChapter": true,
+      "timeMs": 21574,
+      "error": null
     },
     {
       "id": 35,
@@ -531,14 +1469,17 @@
       "category": "Alimentos",
       "chapter": "04",
       "expectedFraction": "04022101",
-      "obtainedFraction": null,
-      "alternatives": [],
-      "confidence": null,
-      "matchTop1": false,
-      "matchTop3": false,
-      "matchChapter": false,
-      "timeMs": 473,
-      "error": "HTTP 500: {\"status\":\"error\",\"message\":\"Error interno del servidor\"}"
+      "obtainedFraction": "04022101",
+      "alternatives": [
+        "04022999",
+        "04021001"
+      ],
+      "confidence": 95,
+      "matchTop1": true,
+      "matchTop3": true,
+      "matchChapter": true,
+      "timeMs": 20823,
+      "error": null
     },
     {
       "id": 36,
@@ -546,14 +1487,17 @@
       "category": "Alimentos",
       "chapter": "08",
       "expectedFraction": "08045001",
-      "obtainedFraction": null,
-      "alternatives": [],
-      "confidence": null,
-      "matchTop1": false,
-      "matchTop3": false,
-      "matchChapter": false,
-      "timeMs": 202,
-      "error": "HTTP 500: {\"status\":\"error\",\"message\":\"Error interno del servidor\"}"
+      "obtainedFraction": "08045001",
+      "alternatives": [
+        "08044001",
+        "08030001"
+      ],
+      "confidence": 95,
+      "matchTop1": true,
+      "matchTop3": true,
+      "matchChapter": true,
+      "timeMs": 21643,
+      "error": null
     },
     {
       "id": 37,
@@ -561,14 +1505,17 @@
       "category": "Alimentos",
       "chapter": "21",
       "expectedFraction": "21039001",
-      "obtainedFraction": null,
-      "alternatives": [],
-      "confidence": null,
+      "obtainedFraction": "21031001",
+      "alternatives": [
+        "21039099",
+        "21069099"
+      ],
+      "confidence": 98,
       "matchTop1": false,
       "matchTop3": false,
-      "matchChapter": false,
-      "timeMs": 210,
-      "error": "HTTP 500: {\"status\":\"error\",\"message\":\"Error interno del servidor\"}"
+      "matchChapter": true,
+      "timeMs": 23351,
+      "error": null
     },
     {
       "id": 38,
@@ -576,14 +1523,17 @@
       "category": "Alimentos",
       "chapter": "22",
       "expectedFraction": "22042101",
-      "obtainedFraction": null,
-      "alternatives": [],
-      "confidence": null,
-      "matchTop1": false,
-      "matchTop3": false,
-      "matchChapter": false,
-      "timeMs": 208,
-      "error": "HTTP 500: {\"status\":\"error\",\"message\":\"Error interno del servidor\"}"
+      "obtainedFraction": "22042101",
+      "alternatives": [
+        "22041001",
+        "22042201"
+      ],
+      "confidence": 95,
+      "matchTop1": true,
+      "matchTop3": true,
+      "matchChapter": true,
+      "timeMs": 20793,
+      "error": null
     },
     {
       "id": 39,
@@ -591,14 +1541,17 @@
       "category": "Alimentos",
       "chapter": "04",
       "expectedFraction": "04090001",
-      "obtainedFraction": null,
-      "alternatives": [],
-      "confidence": null,
-      "matchTop1": false,
-      "matchTop3": false,
-      "matchChapter": false,
-      "timeMs": 210,
-      "error": "HTTP 500: {\"status\":\"error\",\"message\":\"Error interno del servidor\"}"
+      "obtainedFraction": "04090001",
+      "alternatives": [
+        "21069099",
+        "17029099"
+      ],
+      "confidence": 95,
+      "matchTop1": true,
+      "matchTop3": true,
+      "matchChapter": true,
+      "timeMs": 21295,
+      "error": null
     },
     {
       "id": 40,
@@ -606,14 +1559,17 @@
       "category": "Alimentos",
       "chapter": "16",
       "expectedFraction": "16041401",
-      "obtainedFraction": null,
-      "alternatives": [],
-      "confidence": null,
-      "matchTop1": false,
-      "matchTop3": false,
-      "matchChapter": false,
-      "timeMs": 208,
-      "error": "HTTP 500: {\"status\":\"error\",\"message\":\"Error interno del servidor\"}"
+      "obtainedFraction": "16041401",
+      "alternatives": [
+        "16041999",
+        "16042001"
+      ],
+      "confidence": 95,
+      "matchTop1": true,
+      "matchTop3": true,
+      "matchChapter": true,
+      "timeMs": 20774,
+      "error": null
     },
     {
       "id": 41,
@@ -621,14 +1577,17 @@
       "category": "Farmacéuticos",
       "chapter": "30",
       "expectedFraction": "30049099",
-      "obtainedFraction": null,
-      "alternatives": [],
-      "confidence": null,
+      "obtainedFraction": "30041001",
+      "alternatives": [
+        "30049099",
+        "30042001"
+      ],
+      "confidence": 75,
       "matchTop1": false,
-      "matchTop3": false,
-      "matchChapter": false,
-      "timeMs": 206,
-      "error": "HTTP 500: {\"status\":\"error\",\"message\":\"Error interno del servidor\"}"
+      "matchTop3": true,
+      "matchChapter": true,
+      "timeMs": 18342,
+      "error": null
     },
     {
       "id": 42,
@@ -636,14 +1595,17 @@
       "category": "Farmacéuticos",
       "chapter": "30",
       "expectedFraction": "30049099",
-      "obtainedFraction": null,
-      "alternatives": [],
-      "confidence": null,
+      "obtainedFraction": "30049001",
+      "alternatives": [
+        "29242901",
+        "30041001"
+      ],
+      "confidence": 95,
       "matchTop1": false,
       "matchTop3": false,
-      "matchChapter": false,
-      "timeMs": 339,
-      "error": "HTTP 500: {\"status\":\"error\",\"message\":\"Error interno del servidor\"}"
+      "matchChapter": true,
+      "timeMs": 23702,
+      "error": null
     },
     {
       "id": 43,
@@ -651,14 +1613,17 @@
       "category": "Químicos",
       "chapter": "22",
       "expectedFraction": "22071001",
-      "obtainedFraction": null,
-      "alternatives": [],
-      "confidence": null,
-      "matchTop1": false,
-      "matchTop3": false,
-      "matchChapter": false,
-      "timeMs": 242,
-      "error": "HTTP 500: {\"status\":\"error\",\"message\":\"Error interno del servidor\"}"
+      "obtainedFraction": "22071001",
+      "alternatives": [
+        "22072001",
+        "38249099"
+      ],
+      "confidence": 90,
+      "matchTop1": true,
+      "matchTop3": true,
+      "matchChapter": true,
+      "timeMs": 21833,
+      "error": null
     },
     {
       "id": 44,
@@ -666,14 +1631,17 @@
       "category": "Químicos",
       "chapter": "28",
       "expectedFraction": "28151101",
-      "obtainedFraction": null,
-      "alternatives": [],
-      "confidence": null,
-      "matchTop1": false,
-      "matchTop3": false,
-      "matchChapter": false,
-      "timeMs": 207,
-      "error": "HTTP 500: {\"status\":\"error\",\"message\":\"Error interno del servidor\"}"
+      "obtainedFraction": "28151101",
+      "alternatives": [
+        "28151201",
+        "38249999"
+      ],
+      "confidence": 95,
+      "matchTop1": true,
+      "matchTop3": true,
+      "matchChapter": true,
+      "timeMs": 20808,
+      "error": null
     },
     {
       "id": 45,
@@ -681,14 +1649,17 @@
       "category": "Químicos",
       "chapter": "28",
       "expectedFraction": "28070001",
-      "obtainedFraction": null,
-      "alternatives": [],
-      "confidence": null,
-      "matchTop1": false,
-      "matchTop3": false,
-      "matchChapter": false,
-      "timeMs": 242,
-      "error": "HTTP 500: {\"status\":\"error\",\"message\":\"Error interno del servidor\"}"
+      "obtainedFraction": "28070001",
+      "alternatives": [
+        "28111999",
+        "28319099"
+      ],
+      "confidence": 95,
+      "matchTop1": true,
+      "matchTop3": true,
+      "matchChapter": true,
+      "timeMs": 22854,
+      "error": null
     },
     {
       "id": 46,
@@ -696,14 +1667,17 @@
       "category": "Farmacéuticos",
       "chapter": "30",
       "expectedFraction": "30041001",
-      "obtainedFraction": null,
-      "alternatives": [],
-      "confidence": null,
-      "matchTop1": false,
-      "matchTop3": false,
-      "matchChapter": false,
-      "timeMs": 232,
-      "error": "HTTP 500: {\"status\":\"error\",\"message\":\"Error interno del servidor\"}"
+      "obtainedFraction": "30041001",
+      "alternatives": [
+        "30049001",
+        "30031001"
+      ],
+      "confidence": 95,
+      "matchTop1": true,
+      "matchTop3": true,
+      "matchChapter": true,
+      "timeMs": 21307,
+      "error": null
     },
     {
       "id": 47,
@@ -711,14 +1685,17 @@
       "category": "Químicos",
       "chapter": "38",
       "expectedFraction": "38089401",
-      "obtainedFraction": null,
-      "alternatives": [],
-      "confidence": null,
+      "obtainedFraction": "34022001",
+      "alternatives": [
+        "34022001",
+        "22071001"
+      ],
+      "confidence": 90,
       "matchTop1": false,
       "matchTop3": false,
       "matchChapter": false,
-      "timeMs": 197,
-      "error": "HTTP 500: {\"status\":\"error\",\"message\":\"Error interno del servidor\"}"
+      "timeMs": 21020,
+      "error": null
     },
     {
       "id": 48,
@@ -726,14 +1703,17 @@
       "category": "Farmacéuticos",
       "chapter": "30",
       "expectedFraction": "30043101",
-      "obtainedFraction": null,
-      "alternatives": [],
-      "confidence": null,
+      "obtainedFraction": "30041001",
+      "alternatives": [
+        "30049099",
+        "30019001"
+      ],
+      "confidence": 95,
       "matchTop1": false,
       "matchTop3": false,
-      "matchChapter": false,
-      "timeMs": 237,
-      "error": "HTTP 500: {\"status\":\"error\",\"message\":\"Error interno del servidor\"}"
+      "matchChapter": true,
+      "timeMs": 21730,
+      "error": null
     },
     {
       "id": 49,
@@ -741,14 +1721,17 @@
       "category": "Químicos",
       "chapter": "28",
       "expectedFraction": "28289001",
-      "obtainedFraction": null,
-      "alternatives": [],
-      "confidence": null,
-      "matchTop1": false,
-      "matchTop3": false,
-      "matchChapter": false,
-      "timeMs": 243,
-      "error": "HTTP 500: {\"status\":\"error\",\"message\":\"Error interno del servidor\"}"
+      "obtainedFraction": "28289001",
+      "alternatives": [
+        "34022001",
+        "38089401"
+      ],
+      "confidence": 95,
+      "matchTop1": true,
+      "matchTop3": true,
+      "matchChapter": true,
+      "timeMs": 22229,
+      "error": null
     },
     {
       "id": 50,
@@ -756,14 +1739,17 @@
       "category": "Farmacéuticos",
       "chapter": "21",
       "expectedFraction": "21069099",
-      "obtainedFraction": null,
-      "alternatives": [],
-      "confidence": null,
+      "obtainedFraction": "21069009",
+      "alternatives": [
+        "29369099",
+        "30049099"
+      ],
+      "confidence": 90,
       "matchTop1": false,
       "matchTop3": false,
-      "matchChapter": false,
-      "timeMs": 229,
-      "error": "HTTP 500: {\"status\":\"error\",\"message\":\"Error interno del servidor\"}"
+      "matchChapter": true,
+      "timeMs": 21101,
+      "error": null
     },
     {
       "id": 51,
@@ -771,14 +1757,17 @@
       "category": "Maquinaria",
       "chapter": "84",
       "expectedFraction": "84581101",
-      "obtainedFraction": null,
-      "alternatives": [],
-      "confidence": null,
-      "matchTop1": false,
-      "matchTop3": false,
-      "matchChapter": false,
-      "timeMs": 217,
-      "error": "HTTP 500: {\"status\":\"error\",\"message\":\"Error interno del servidor\"}"
+      "obtainedFraction": "84581101",
+      "alternatives": [
+        "84581999",
+        "84589101"
+      ],
+      "confidence": 95,
+      "matchTop1": true,
+      "matchTop3": true,
+      "matchChapter": true,
+      "timeMs": 16200,
+      "error": null
     },
     {
       "id": 52,
@@ -786,14 +1775,17 @@
       "category": "Maquinaria",
       "chapter": "84",
       "expectedFraction": "84143001",
-      "obtainedFraction": null,
-      "alternatives": [],
-      "confidence": null,
+      "obtainedFraction": "84148099",
+      "alternatives": [
+        "84143001",
+        "84145999"
+      ],
+      "confidence": 90,
       "matchTop1": false,
-      "matchTop3": false,
-      "matchChapter": false,
-      "timeMs": 285,
-      "error": "HTTP 500: {\"status\":\"error\",\"message\":\"Error interno del servidor\"}"
+      "matchTop3": true,
+      "matchChapter": true,
+      "timeMs": 18295,
+      "error": null
     },
     {
       "id": 53,
@@ -801,14 +1793,17 @@
       "category": "Maquinaria",
       "chapter": "84",
       "expectedFraction": "84272001",
-      "obtainedFraction": null,
-      "alternatives": [],
-      "confidence": null,
+      "obtainedFraction": "84271001",
+      "alternatives": [
+        "87041001",
+        "84272001"
+      ],
+      "confidence": 75,
       "matchTop1": false,
-      "matchTop3": false,
-      "matchChapter": false,
-      "timeMs": 206,
-      "error": "HTTP 500: {\"status\":\"error\",\"message\":\"Error interno del servidor\"}"
+      "matchTop3": true,
+      "matchChapter": true,
+      "timeMs": 24553,
+      "error": null
     },
     {
       "id": 54,
@@ -816,14 +1811,17 @@
       "category": "Maquinaria",
       "chapter": "84",
       "expectedFraction": "84137001",
-      "obtainedFraction": null,
-      "alternatives": [],
-      "confidence": null,
-      "matchTop1": false,
-      "matchTop3": false,
-      "matchChapter": false,
-      "timeMs": 202,
-      "error": "HTTP 500: {\"status\":\"error\",\"message\":\"Error interno del servidor\"}"
+      "obtainedFraction": "84137001",
+      "alternatives": [
+        "84138101",
+        "84798999"
+      ],
+      "confidence": 95,
+      "matchTop1": true,
+      "matchTop3": true,
+      "matchChapter": true,
+      "timeMs": 24550,
+      "error": null
     },
     {
       "id": 55,
@@ -831,14 +1829,17 @@
       "category": "Maquinaria",
       "chapter": "84",
       "expectedFraction": "84771001",
-      "obtainedFraction": null,
-      "alternatives": [],
-      "confidence": null,
-      "matchTop1": false,
-      "matchTop3": false,
-      "matchChapter": false,
-      "timeMs": 240,
-      "error": "HTTP 500: {\"status\":\"error\",\"message\":\"Error interno del servidor\"}"
+      "obtainedFraction": "84771001",
+      "alternatives": [
+        "84772001",
+        "84798999"
+      ],
+      "confidence": 95,
+      "matchTop1": true,
+      "matchTop3": true,
+      "matchChapter": true,
+      "timeMs": 19218,
+      "error": null
     },
     {
       "id": 56,
@@ -846,14 +1847,17 @@
       "category": "Maquinaria",
       "chapter": "85",
       "expectedFraction": "85021301",
-      "obtainedFraction": null,
-      "alternatives": [],
-      "confidence": null,
-      "matchTop1": false,
-      "matchTop3": false,
-      "matchChapter": false,
-      "timeMs": 241,
-      "error": "HTTP 500: {\"status\":\"error\",\"message\":\"Error interno del servidor\"}"
+      "obtainedFraction": "85021301",
+      "alternatives": [
+        "85021201",
+        "85016101"
+      ],
+      "confidence": 95,
+      "matchTop1": true,
+      "matchTop3": true,
+      "matchChapter": true,
+      "timeMs": 22752,
+      "error": null
     },
     {
       "id": 57,
@@ -861,14 +1865,17 @@
       "category": "Maquinaria",
       "chapter": "84",
       "expectedFraction": "84283301",
-      "obtainedFraction": null,
-      "alternatives": [],
-      "confidence": null,
+      "obtainedFraction": "40101201",
+      "alternatives": [
+        "40101999",
+        "84281001"
+      ],
+      "confidence": 92,
       "matchTop1": false,
       "matchTop3": false,
       "matchChapter": false,
-      "timeMs": 189,
-      "error": "HTTP 500: {\"status\":\"error\",\"message\":\"Error interno del servidor\"}"
+      "timeMs": 18458,
+      "error": null
     },
     {
       "id": 58,
@@ -876,14 +1883,17 @@
       "category": "Maquinaria",
       "chapter": "84",
       "expectedFraction": "84795001",
-      "obtainedFraction": null,
-      "alternatives": [],
-      "confidence": null,
+      "obtainedFraction": "85152101",
+      "alternatives": [
+        "84798999",
+        "85158001"
+      ],
+      "confidence": 92,
       "matchTop1": false,
       "matchTop3": false,
       "matchChapter": false,
-      "timeMs": 240,
-      "error": "HTTP 500: {\"status\":\"error\",\"message\":\"Error interno del servidor\"}"
+      "timeMs": 25211,
+      "error": null
     },
     {
       "id": 59,
@@ -891,14 +1901,17 @@
       "category": "Maquinaria",
       "chapter": "84",
       "expectedFraction": "84151001",
-      "obtainedFraction": null,
-      "alternatives": [],
-      "confidence": null,
-      "matchTop1": false,
-      "matchTop3": false,
-      "matchChapter": false,
-      "timeMs": 225,
-      "error": "HTTP 500: {\"status\":\"error\",\"message\":\"Error interno del servidor\"}"
+      "obtainedFraction": "84151001",
+      "alternatives": [
+        "84152001",
+        "84159099"
+      ],
+      "confidence": 95,
+      "matchTop1": true,
+      "matchTop3": true,
+      "matchChapter": true,
+      "timeMs": 21169,
+      "error": null
     },
     {
       "id": 60,
@@ -906,14 +1919,17 @@
       "category": "Maquinaria",
       "chapter": "84",
       "expectedFraction": "84502001",
-      "obtainedFraction": null,
-      "alternatives": [],
-      "confidence": null,
+      "obtainedFraction": "84501201",
+      "alternatives": [
+        "84501101",
+        "84501999"
+      ],
+      "confidence": 95,
       "matchTop1": false,
       "matchTop3": false,
-      "matchChapter": false,
-      "timeMs": 195,
-      "error": "HTTP 500: {\"status\":\"error\",\"message\":\"Error interno del servidor\"}"
+      "matchChapter": true,
+      "timeMs": 18764,
+      "error": null
     },
     {
       "id": 61,
@@ -921,14 +1937,17 @@
       "category": "Vehículos",
       "chapter": "87",
       "expectedFraction": "87032301",
-      "obtainedFraction": null,
-      "alternatives": [],
-      "confidence": null,
-      "matchTop1": false,
-      "matchTop3": false,
-      "matchChapter": false,
-      "timeMs": 236,
-      "error": "HTTP 500: {\"status\":\"error\",\"message\":\"Error interno del servidor\"}"
+      "obtainedFraction": "87032301",
+      "alternatives": [
+        "87032201",
+        "87032401"
+      ],
+      "confidence": 95,
+      "matchTop1": true,
+      "matchTop3": true,
+      "matchChapter": true,
+      "timeMs": 21164,
+      "error": null
     },
     {
       "id": 62,
@@ -936,14 +1955,17 @@
       "category": "Vehículos",
       "chapter": "87",
       "expectedFraction": "87043101",
-      "obtainedFraction": null,
-      "alternatives": [],
-      "confidence": null,
+      "obtainedFraction": "87042103",
+      "alternatives": [
+        "87033303",
+        "87043103"
+      ],
+      "confidence": 95,
       "matchTop1": false,
       "matchTop3": false,
-      "matchChapter": false,
-      "timeMs": 237,
-      "error": "HTTP 500: {\"status\":\"error\",\"message\":\"Error interno del servidor\"}"
+      "matchChapter": true,
+      "timeMs": 17151,
+      "error": null
     },
     {
       "id": 63,
@@ -951,14 +1973,17 @@
       "category": "Vehículos",
       "chapter": "40",
       "expectedFraction": "40111001",
-      "obtainedFraction": null,
-      "alternatives": [],
-      "confidence": null,
-      "matchTop1": false,
-      "matchTop3": false,
-      "matchChapter": false,
-      "timeMs": 232,
-      "error": "HTTP 500: {\"status\":\"error\",\"message\":\"Error interno del servidor\"}"
+      "obtainedFraction": "40111001",
+      "alternatives": [
+        "40112001",
+        "40119099"
+      ],
+      "confidence": 95,
+      "matchTop1": true,
+      "matchTop3": true,
+      "matchChapter": true,
+      "timeMs": 21174,
+      "error": null
     },
     {
       "id": 64,
@@ -966,14 +1991,17 @@
       "category": "Vehículos",
       "chapter": "85",
       "expectedFraction": "85071001",
-      "obtainedFraction": null,
-      "alternatives": [],
-      "confidence": null,
+      "obtainedFraction": "85072001",
+      "alternatives": [
+        "85071001",
+        "85078001"
+      ],
+      "confidence": 95,
       "matchTop1": false,
-      "matchTop3": false,
-      "matchChapter": false,
-      "timeMs": 236,
-      "error": "HTTP 500: {\"status\":\"error\",\"message\":\"Error interno del servidor\"}"
+      "matchTop3": true,
+      "matchChapter": true,
+      "timeMs": 18863,
+      "error": null
     },
     {
       "id": 65,
@@ -981,14 +2009,17 @@
       "category": "Vehículos",
       "chapter": "70",
       "expectedFraction": "70071101",
-      "obtainedFraction": null,
-      "alternatives": [],
-      "confidence": null,
-      "matchTop1": false,
-      "matchTop3": false,
-      "matchChapter": false,
-      "timeMs": 330,
-      "error": "HTTP 500: {\"status\":\"error\",\"message\":\"Error interno del servidor\"}"
+      "obtainedFraction": "70071101",
+      "alternatives": [
+        "70051001",
+        "70049001"
+      ],
+      "confidence": 95,
+      "matchTop1": true,
+      "matchTop3": true,
+      "matchChapter": true,
+      "timeMs": 20447,
+      "error": null
     },
     {
       "id": 66,
@@ -996,14 +2027,17 @@
       "category": "Vehículos",
       "chapter": "87",
       "expectedFraction": "87083001",
-      "obtainedFraction": null,
-      "alternatives": [],
-      "confidence": null,
+      "obtainedFraction": "87089999",
+      "alternatives": [
+        "87082999",
+        "87088099"
+      ],
+      "confidence": 95,
       "matchTop1": false,
       "matchTop3": false,
-      "matchChapter": false,
-      "timeMs": 213,
-      "error": "HTTP 500: {\"status\":\"error\",\"message\":\"Error interno del servidor\"}"
+      "matchChapter": true,
+      "timeMs": 20608,
+      "error": null
     },
     {
       "id": 67,
@@ -1011,14 +2045,17 @@
       "category": "Vehículos",
       "chapter": "68",
       "expectedFraction": "68131001",
-      "obtainedFraction": null,
-      "alternatives": [],
-      "confidence": null,
+      "obtainedFraction": "87089999",
+      "alternatives": [
+        "68132001",
+        "87089999"
+      ],
+      "confidence": 95,
       "matchTop1": false,
       "matchTop3": false,
       "matchChapter": false,
-      "timeMs": 255,
-      "error": "HTTP 500: {\"status\":\"error\",\"message\":\"Error interno del servidor\"}"
+      "timeMs": 20439,
+      "error": null
     },
     {
       "id": 68,
@@ -1026,14 +2063,17 @@
       "category": "Vehículos",
       "chapter": "84",
       "expectedFraction": "84212301",
-      "obtainedFraction": null,
-      "alternatives": [],
-      "confidence": null,
-      "matchTop1": false,
-      "matchTop3": false,
-      "matchChapter": false,
-      "timeMs": 221,
-      "error": "HTTP 500: {\"status\":\"error\",\"message\":\"Error interno del servidor\"}"
+      "obtainedFraction": "84212301",
+      "alternatives": [
+        "84099999",
+        "84212999"
+      ],
+      "confidence": 95,
+      "matchTop1": true,
+      "matchTop3": true,
+      "matchChapter": true,
+      "timeMs": 19428,
+      "error": null
     },
     {
       "id": 69,
@@ -1041,14 +2081,17 @@
       "category": "Vehículos",
       "chapter": "87",
       "expectedFraction": "87112001",
-      "obtainedFraction": null,
-      "alternatives": [],
-      "confidence": null,
-      "matchTop1": false,
-      "matchTop3": false,
-      "matchChapter": false,
-      "timeMs": 220,
-      "error": "HTTP 500: {\"status\":\"error\",\"message\":\"Error interno del servidor\"}"
+      "obtainedFraction": "87112001",
+      "alternatives": [
+        "87113001",
+        "87111001"
+      ],
+      "confidence": 95,
+      "matchTop1": true,
+      "matchTop3": true,
+      "matchChapter": true,
+      "timeMs": 19890,
+      "error": null
     },
     {
       "id": 70,
@@ -1056,14 +2099,17 @@
       "category": "Vehículos",
       "chapter": "87",
       "expectedFraction": "87120001",
-      "obtainedFraction": null,
-      "alternatives": [],
-      "confidence": null,
-      "matchTop1": false,
-      "matchTop3": false,
-      "matchChapter": false,
-      "timeMs": 208,
-      "error": "HTTP 500: {\"status\":\"error\",\"message\":\"Error interno del servidor\"}"
+      "obtainedFraction": "87120001",
+      "alternatives": [
+        "87149101",
+        "87149999"
+      ],
+      "confidence": 95,
+      "matchTop1": true,
+      "matchTop3": true,
+      "matchChapter": true,
+      "timeMs": 18881,
+      "error": null
     },
     {
       "id": 71,
@@ -1071,14 +2117,17 @@
       "category": "Plásticos",
       "chapter": "39",
       "expectedFraction": "39232101",
-      "obtainedFraction": null,
-      "alternatives": [],
-      "confidence": null,
-      "matchTop1": false,
-      "matchTop3": false,
-      "matchChapter": false,
-      "timeMs": 226,
-      "error": "HTTP 500: {\"status\":\"error\",\"message\":\"Error interno del servidor\"}"
+      "obtainedFraction": "39232101",
+      "alternatives": [
+        "39011001",
+        "39269099"
+      ],
+      "confidence": 95,
+      "matchTop1": true,
+      "matchTop3": true,
+      "matchChapter": true,
+      "timeMs": 21731,
+      "error": null
     },
     {
       "id": 72,
@@ -1086,14 +2135,17 @@
       "category": "Plásticos",
       "chapter": "39",
       "expectedFraction": "39233001",
-      "obtainedFraction": null,
-      "alternatives": [],
-      "confidence": null,
-      "matchTop1": false,
-      "matchTop3": false,
-      "matchChapter": false,
-      "timeMs": 244,
-      "error": "HTTP 500: {\"status\":\"error\",\"message\":\"Error interno del servidor\"}"
+      "obtainedFraction": "39233001",
+      "alternatives": [
+        "39241001",
+        "39269099"
+      ],
+      "confidence": 95,
+      "matchTop1": true,
+      "matchTop3": true,
+      "matchChapter": true,
+      "timeMs": 21219,
+      "error": null
     },
     {
       "id": 73,
@@ -1101,14 +2153,17 @@
       "category": "Plásticos",
       "chapter": "39",
       "expectedFraction": "39172301",
-      "obtainedFraction": null,
-      "alternatives": [],
-      "confidence": null,
-      "matchTop1": false,
-      "matchTop3": false,
-      "matchChapter": false,
-      "timeMs": 195,
-      "error": "HTTP 500: {\"status\":\"error\",\"message\":\"Error interno del servidor\"}"
+      "obtainedFraction": "39172301",
+      "alternatives": [
+        "39172999",
+        "39173301"
+      ],
+      "confidence": 95,
+      "matchTop1": true,
+      "matchTop3": true,
+      "matchChapter": true,
+      "timeMs": 16196,
+      "error": null
     },
     {
       "id": 74,
@@ -1116,14 +2171,17 @@
       "category": "Plásticos",
       "chapter": "39",
       "expectedFraction": "39241001",
-      "obtainedFraction": null,
-      "alternatives": [],
-      "confidence": null,
-      "matchTop1": false,
-      "matchTop3": false,
-      "matchChapter": false,
-      "timeMs": 223,
-      "error": "HTTP 500: {\"status\":\"error\",\"message\":\"Error interno del servidor\"}"
+      "obtainedFraction": "39241001",
+      "alternatives": [
+        "39233001",
+        "39269099"
+      ],
+      "confidence": 95,
+      "matchTop1": true,
+      "matchTop3": true,
+      "matchChapter": true,
+      "timeMs": 20982,
+      "error": null
     },
     {
       "id": 75,
@@ -1131,14 +2189,17 @@
       "category": "Plásticos",
       "chapter": "39",
       "expectedFraction": "39201001",
-      "obtainedFraction": null,
-      "alternatives": [],
-      "confidence": null,
+      "obtainedFraction": "39232101",
+      "alternatives": [
+        "39232101",
+        "39269099"
+      ],
+      "confidence": 95,
       "matchTop1": false,
       "matchTop3": false,
-      "matchChapter": false,
-      "timeMs": 234,
-      "error": "HTTP 500: {\"status\":\"error\",\"message\":\"Error interno del servidor\"}"
+      "matchChapter": true,
+      "timeMs": 21602,
+      "error": null
     },
     {
       "id": 76,
@@ -1146,14 +2207,17 @@
       "category": "Plásticos",
       "chapter": "39",
       "expectedFraction": "39021001",
-      "obtainedFraction": null,
-      "alternatives": [],
-      "confidence": null,
-      "matchTop1": false,
-      "matchTop3": false,
-      "matchChapter": false,
-      "timeMs": 374,
-      "error": "HTTP 500: {\"status\":\"error\",\"message\":\"Error interno del servidor\"}"
+      "obtainedFraction": "39021001",
+      "alternatives": [
+        "39011001",
+        "39012001"
+      ],
+      "confidence": 98,
+      "matchTop1": true,
+      "matchTop3": true,
+      "matchChapter": true,
+      "timeMs": 21600,
+      "error": null
     },
     {
       "id": 77,
@@ -1161,14 +2225,17 @@
       "category": "Plásticos",
       "chapter": "39",
       "expectedFraction": "39206001",
-      "obtainedFraction": null,
-      "alternatives": [],
-      "confidence": null,
+      "obtainedFraction": "39206201",
+      "alternatives": [
+        "39206999",
+        "39219099"
+      ],
+      "confidence": 90,
       "matchTop1": false,
       "matchTop3": false,
-      "matchChapter": false,
-      "timeMs": 194,
-      "error": "HTTP 500: {\"status\":\"error\",\"message\":\"Error interno del servidor\"}"
+      "matchChapter": true,
+      "timeMs": 21650,
+      "error": null
     },
     {
       "id": 78,
@@ -1176,14 +2243,17 @@
       "category": "Plásticos",
       "chapter": "39",
       "expectedFraction": "39262001",
-      "obtainedFraction": null,
-      "alternatives": [],
-      "confidence": null,
+      "obtainedFraction": "40151999",
+      "alternatives": [
+        "40151101",
+        "39262099"
+      ],
+      "confidence": 95,
       "matchTop1": false,
       "matchTop3": false,
       "matchChapter": false,
-      "timeMs": 247,
-      "error": "HTTP 500: {\"status\":\"error\",\"message\":\"Error interno del servidor\"}"
+      "timeMs": 20093,
+      "error": null
     },
     {
       "id": 79,
@@ -1191,14 +2261,17 @@
       "category": "Plásticos",
       "chapter": "39",
       "expectedFraction": "39231001",
-      "obtainedFraction": null,
-      "alternatives": [],
-      "confidence": null,
-      "matchTop1": false,
-      "matchTop3": false,
-      "matchChapter": false,
-      "timeMs": 252,
-      "error": "HTTP 500: {\"status\":\"error\",\"message\":\"Error interno del servidor\"}"
+      "obtainedFraction": "39231001",
+      "alternatives": [
+        "39241001",
+        "39269099"
+      ],
+      "confidence": 90,
+      "matchTop1": true,
+      "matchTop3": true,
+      "matchChapter": true,
+      "timeMs": 21969,
+      "error": null
     },
     {
       "id": 80,
@@ -1206,14 +2279,17 @@
       "category": "Plásticos",
       "chapter": "39",
       "expectedFraction": "39173901",
-      "obtainedFraction": null,
-      "alternatives": [],
-      "confidence": null,
+      "obtainedFraction": "39172301",
+      "alternatives": [
+        "39172999",
+        "39173301"
+      ],
+      "confidence": 75,
       "matchTop1": false,
       "matchTop3": false,
-      "matchChapter": false,
-      "timeMs": 237,
-      "error": "HTTP 500: {\"status\":\"error\",\"message\":\"Error interno del servidor\"}"
+      "matchChapter": true,
+      "timeMs": 16940,
+      "error": null
     },
     {
       "id": 81,
@@ -1221,14 +2297,17 @@
       "category": "Acero",
       "chapter": "73",
       "expectedFraction": "73181501",
-      "obtainedFraction": null,
-      "alternatives": [],
-      "confidence": null,
-      "matchTop1": false,
-      "matchTop3": false,
-      "matchChapter": false,
-      "timeMs": 229,
-      "error": "HTTP 500: {\"status\":\"error\",\"message\":\"Error interno del servidor\"}"
+      "obtainedFraction": "73181501",
+      "alternatives": [
+        "73181599",
+        "73181999"
+      ],
+      "confidence": 95,
+      "matchTop1": true,
+      "matchTop3": true,
+      "matchChapter": true,
+      "timeMs": 19478,
+      "error": null
     },
     {
       "id": 82,
@@ -1236,14 +2315,17 @@
       "category": "Acero",
       "chapter": "72",
       "expectedFraction": "72193401",
-      "obtainedFraction": null,
-      "alternatives": [],
-      "confidence": null,
+      "obtainedFraction": "72193101",
+      "alternatives": [
+        "72193201",
+        "72192101"
+      ],
+      "confidence": 95,
       "matchTop1": false,
       "matchTop3": false,
-      "matchChapter": false,
-      "timeMs": 197,
-      "error": "HTTP 500: {\"status\":\"error\",\"message\":\"Error interno del servidor\"}"
+      "matchChapter": true,
+      "timeMs": 19132,
+      "error": null
     },
     {
       "id": 83,
@@ -1251,14 +2333,17 @@
       "category": "Acero",
       "chapter": "72",
       "expectedFraction": "72142001",
-      "obtainedFraction": null,
-      "alternatives": [],
-      "confidence": null,
-      "matchTop1": false,
-      "matchTop3": false,
-      "matchChapter": false,
-      "timeMs": 192,
-      "error": "HTTP 500: {\"status\":\"error\",\"message\":\"Error interno del servidor\"}"
+      "obtainedFraction": "72142001",
+      "alternatives": [
+        "72131001",
+        "72161001"
+      ],
+      "confidence": 95,
+      "matchTop1": true,
+      "matchTop3": true,
+      "matchChapter": true,
+      "timeMs": 23782,
+      "error": null
     },
     {
       "id": 84,
@@ -1266,14 +2351,17 @@
       "category": "Acero",
       "chapter": "73",
       "expectedFraction": "73063001",
-      "obtainedFraction": null,
-      "alternatives": [],
-      "confidence": null,
-      "matchTop1": false,
-      "matchTop3": false,
-      "matchChapter": false,
-      "timeMs": 235,
-      "error": "HTTP 500: {\"status\":\"error\",\"message\":\"Error interno del servidor\"}"
+      "obtainedFraction": "73063001",
+      "alternatives": [
+        "73041999",
+        "73069099"
+      ],
+      "confidence": 90,
+      "matchTop1": true,
+      "matchTop3": true,
+      "matchChapter": true,
+      "timeMs": 21350,
+      "error": null
     },
     {
       "id": 85,
@@ -1281,14 +2369,17 @@
       "category": "Acero",
       "chapter": "72",
       "expectedFraction": "72172001",
-      "obtainedFraction": null,
-      "alternatives": [],
-      "confidence": null,
+      "obtainedFraction": "72171001",
+      "alternatives": [
+        "72172099",
+        "73269099"
+      ],
+      "confidence": 85,
       "matchTop1": false,
       "matchTop3": false,
-      "matchChapter": false,
-      "timeMs": 226,
-      "error": "HTTP 500: {\"status\":\"error\",\"message\":\"Error interno del servidor\"}"
+      "matchChapter": true,
+      "timeMs": 19693,
+      "error": null
     },
     {
       "id": 86,
@@ -1296,14 +2387,17 @@
       "category": "Acero",
       "chapter": "72",
       "expectedFraction": "72163201",
-      "obtainedFraction": null,
-      "alternatives": [],
-      "confidence": null,
-      "matchTop1": false,
-      "matchTop3": false,
-      "matchChapter": false,
-      "timeMs": 204,
-      "error": "HTTP 500: {\"status\":\"error\",\"message\":\"Error interno del servidor\"}"
+      "obtainedFraction": "72163201",
+      "alternatives": [
+        "72163301",
+        "72164001"
+      ],
+      "confidence": 90,
+      "matchTop1": true,
+      "matchTop3": true,
+      "matchChapter": true,
+      "timeMs": 21318,
+      "error": null
     },
     {
       "id": 87,
@@ -1311,14 +2405,17 @@
       "category": "Acero",
       "chapter": "73",
       "expectedFraction": "73170001",
-      "obtainedFraction": null,
-      "alternatives": [],
-      "confidence": null,
+      "obtainedFraction": "73269099",
+      "alternatives": [
+        "73269099",
+        "73181599"
+      ],
+      "confidence": 95,
       "matchTop1": false,
       "matchTop3": false,
-      "matchChapter": false,
-      "timeMs": 189,
-      "error": "HTTP 500: {\"status\":\"error\",\"message\":\"Error interno del servidor\"}"
+      "matchChapter": true,
+      "timeMs": 22479,
+      "error": null
     },
     {
       "id": 88,
@@ -1326,14 +2423,17 @@
       "category": "Acero",
       "chapter": "76",
       "expectedFraction": "76061201",
-      "obtainedFraction": null,
-      "alternatives": [],
-      "confidence": null,
-      "matchTop1": false,
-      "matchTop3": false,
-      "matchChapter": false,
-      "timeMs": 434,
-      "error": "HTTP 500: {\"status\":\"error\",\"message\":\"Error interno del servidor\"}"
+      "obtainedFraction": "76061201",
+      "alternatives": [
+        "76071101",
+        "76012001"
+      ],
+      "confidence": 95,
+      "matchTop1": true,
+      "matchTop3": true,
+      "matchChapter": true,
+      "timeMs": 18946,
+      "error": null
     },
     {
       "id": 89,
@@ -1341,14 +2441,17 @@
       "category": "Acero",
       "chapter": "74",
       "expectedFraction": "74081101",
-      "obtainedFraction": null,
-      "alternatives": [],
-      "confidence": null,
-      "matchTop1": false,
-      "matchTop3": false,
-      "matchChapter": false,
-      "timeMs": 211,
-      "error": "HTTP 500: {\"status\":\"error\",\"message\":\"Error interno del servidor\"}"
+      "obtainedFraction": "74081101",
+      "alternatives": [
+        "85444999",
+        "74081999"
+      ],
+      "confidence": 95,
+      "matchTop1": true,
+      "matchTop3": true,
+      "matchChapter": true,
+      "timeMs": 19149,
+      "error": null
     },
     {
       "id": 90,
@@ -1356,14 +2459,17 @@
       "category": "Acero",
       "chapter": "73",
       "expectedFraction": "73181601",
-      "obtainedFraction": null,
-      "alternatives": [],
-      "confidence": null,
-      "matchTop1": false,
-      "matchTop3": false,
-      "matchChapter": false,
-      "timeMs": 211,
-      "error": "HTTP 500: {\"status\":\"error\",\"message\":\"Error interno del servidor\"}"
+      "obtainedFraction": "73181601",
+      "alternatives": [
+        "73181599",
+        "73269099"
+      ],
+      "confidence": 95,
+      "matchTop1": true,
+      "matchTop3": true,
+      "matchChapter": true,
+      "timeMs": 22624,
+      "error": null
     },
     {
       "id": 91,
@@ -1371,14 +2477,17 @@
       "category": "Calzado",
       "chapter": "64",
       "expectedFraction": "64041901",
-      "obtainedFraction": null,
-      "alternatives": [],
-      "confidence": null,
+      "obtainedFraction": "64041101",
+      "alternatives": [
+        "64021901",
+        "64041901"
+      ],
+      "confidence": 95,
       "matchTop1": false,
-      "matchTop3": false,
-      "matchChapter": false,
-      "timeMs": 200,
-      "error": "HTTP 500: {\"status\":\"error\",\"message\":\"Error interno del servidor\"}"
+      "matchTop3": true,
+      "matchChapter": true,
+      "timeMs": 19579,
+      "error": null
     },
     {
       "id": 92,
@@ -1386,14 +2495,17 @@
       "category": "Calzado",
       "chapter": "64",
       "expectedFraction": "64035101",
-      "obtainedFraction": null,
-      "alternatives": [],
-      "confidence": null,
-      "matchTop1": false,
-      "matchTop3": false,
-      "matchChapter": false,
-      "timeMs": 207,
-      "error": "HTTP 500: {\"status\":\"error\",\"message\":\"Error interno del servidor\"}"
+      "obtainedFraction": "64035101",
+      "alternatives": [
+        "64035101",
+        "64039101"
+      ],
+      "confidence": 95,
+      "matchTop1": true,
+      "matchTop3": true,
+      "matchChapter": true,
+      "timeMs": 17959,
+      "error": null
     },
     {
       "id": 93,
@@ -1401,14 +2513,17 @@
       "category": "Calzado",
       "chapter": "64",
       "expectedFraction": "64029901",
-      "obtainedFraction": null,
-      "alternatives": [],
-      "confidence": null,
-      "matchTop1": false,
-      "matchTop3": false,
-      "matchChapter": false,
-      "timeMs": 207,
-      "error": "HTTP 500: {\"status\":\"error\",\"message\":\"Error interno del servidor\"}"
+      "obtainedFraction": "64029901",
+      "alternatives": [
+        "64022001",
+        "64052001"
+      ],
+      "confidence": 92,
+      "matchTop1": true,
+      "matchTop3": true,
+      "matchChapter": true,
+      "timeMs": 23470,
+      "error": null
     },
     {
       "id": 94,
@@ -1416,14 +2531,17 @@
       "category": "Calzado",
       "chapter": "64",
       "expectedFraction": "64035101",
-      "obtainedFraction": null,
-      "alternatives": [],
-      "confidence": null,
+      "obtainedFraction": "64051001",
+      "alternatives": [
+        "64035101",
+        "64052001"
+      ],
+      "confidence": 95,
       "matchTop1": false,
-      "matchTop3": false,
-      "matchChapter": false,
-      "timeMs": 190,
-      "error": "HTTP 500: {\"status\":\"error\",\"message\":\"Error interno del servidor\"}"
+      "matchTop3": true,
+      "matchChapter": true,
+      "timeMs": 18964,
+      "error": null
     },
     {
       "id": 95,
@@ -1431,14 +2549,17 @@
       "category": "Calzado",
       "chapter": "64",
       "expectedFraction": "64041901",
-      "obtainedFraction": null,
-      "alternatives": [],
-      "confidence": null,
-      "matchTop1": false,
-      "matchTop3": false,
-      "matchChapter": false,
-      "timeMs": 379,
-      "error": "HTTP 500: {\"status\":\"error\",\"message\":\"Error interno del servidor\"}"
+      "obtainedFraction": "64041901",
+      "alternatives": [
+        "64052001",
+        "64041101"
+      ],
+      "confidence": 92,
+      "matchTop1": true,
+      "matchTop3": true,
+      "matchChapter": true,
+      "timeMs": 17140,
+      "error": null
     },
     {
       "id": 96,
@@ -1446,14 +2567,17 @@
       "category": "Varios",
       "chapter": "95",
       "expectedFraction": "95030001",
-      "obtainedFraction": null,
-      "alternatives": [],
-      "confidence": null,
-      "matchTop1": false,
-      "matchTop3": false,
-      "matchChapter": false,
-      "timeMs": 218,
-      "error": "HTTP 500: {\"status\":\"error\",\"message\":\"Error interno del servidor\"}"
+      "obtainedFraction": "95030001",
+      "alternatives": [
+        "39269099",
+        "39249099"
+      ],
+      "confidence": 95,
+      "matchTop1": true,
+      "matchTop3": true,
+      "matchChapter": true,
+      "timeMs": 21908,
+      "error": null
     },
     {
       "id": 97,
@@ -1461,14 +2585,17 @@
       "category": "Varios",
       "chapter": "91",
       "expectedFraction": "91019901",
-      "obtainedFraction": null,
-      "alternatives": [],
-      "confidence": null,
+      "obtainedFraction": "91022101",
+      "alternatives": [
+        "91021101",
+        "91022999"
+      ],
+      "confidence": 95,
       "matchTop1": false,
       "matchTop3": false,
-      "matchChapter": false,
-      "timeMs": 305,
-      "error": "HTTP 500: {\"status\":\"error\",\"message\":\"Error interno del servidor\"}"
+      "matchChapter": true,
+      "timeMs": 19402,
+      "error": null
     },
     {
       "id": 98,
@@ -1476,14 +2603,17 @@
       "category": "Varios",
       "chapter": "94",
       "expectedFraction": "94033001",
-      "obtainedFraction": null,
-      "alternatives": [],
-      "confidence": null,
-      "matchTop1": false,
-      "matchTop3": false,
-      "matchChapter": false,
-      "timeMs": 304,
-      "error": "HTTP 500: {\"status\":\"error\",\"message\":\"Error interno del servidor\"}"
+      "obtainedFraction": "94033001",
+      "alternatives": [
+        "94036001",
+        "94032001"
+      ],
+      "confidence": 95,
+      "matchTop1": true,
+      "matchTop3": true,
+      "matchChapter": true,
+      "timeMs": 17357,
+      "error": null
     },
     {
       "id": 99,
@@ -1491,14 +2621,17 @@
       "category": "Varios",
       "chapter": "48",
       "expectedFraction": "48025601",
-      "obtainedFraction": null,
-      "alternatives": [],
-      "confidence": null,
+      "obtainedFraction": "48025501",
+      "alternatives": [
+        "48010001",
+        "48101301"
+      ],
+      "confidence": 95,
       "matchTop1": false,
       "matchTop3": false,
-      "matchChapter": false,
-      "timeMs": 235,
-      "error": "HTTP 500: {\"status\":\"error\",\"message\":\"Error interno del servidor\"}"
+      "matchChapter": true,
+      "timeMs": 19584,
+      "error": null
     },
     {
       "id": 100,
@@ -1506,14 +2639,17 @@
       "category": "Varios",
       "chapter": "90",
       "expectedFraction": "90041001",
-      "obtainedFraction": null,
-      "alternatives": [],
-      "confidence": null,
-      "matchTop1": false,
-      "matchTop3": false,
-      "matchChapter": false,
-      "timeMs": 246,
-      "error": "HTTP 500: {\"status\":\"error\",\"message\":\"Error interno del servidor\"}"
+      "obtainedFraction": "90041001",
+      "alternatives": [
+        "90049099",
+        "39269099"
+      ],
+      "confidence": 95,
+      "matchTop1": true,
+      "matchTop3": true,
+      "matchChapter": true,
+      "timeMs": 19182,
+      "error": null
     }
   ]
 }

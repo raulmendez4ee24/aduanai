@@ -1,124 +1,150 @@
-import { useState } from 'react';
-import { api } from '../lib/api';
-import { ArrowRight } from 'lucide-react';
+import { useState } from 'react'
+import { Link, useNavigate } from 'react-router-dom'
+import { Mail, Lock, Eye, EyeOff } from 'lucide-react'
+import { motion } from 'framer-motion'
+import { AuthLayout } from '../components/AuthLayout'
+import { api } from '../lib/api'
 
-export function LoginPage({ onLogin }: { onLogin: (token: string) => void }) {
-  const [isRegister, setIsRegister] = useState(false);
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
-  const [name, setName] = useState('');
-  const [companyName, setCompanyName] = useState('');
-  const [error, setError] = useState('');
-  const [loading, setLoading] = useState(false);
+interface Props {
+  onLogin: (token: string, user: { id: string; email: string; name: string; role: string; emailVerified: boolean; status: string }) => void
+}
+
+export function LoginPage({ onLogin }: Props) {
+  const navigate = useNavigate()
+  const [email, setEmail] = useState('')
+  const [password, setPassword] = useState('')
+  const [rememberMe, setRememberMe] = useState(false)
+  const [showPassword, setShowPassword] = useState(false)
+  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState('')
 
   async function handleSubmit(e: React.FormEvent) {
-    e.preventDefault();
-    setError('');
-    setLoading(true);
+    e.preventDefault()
+    if (!email || !password) {
+      setError('Email y contraseña son requeridos')
+      return
+    }
+    setLoading(true)
+    setError('')
     try {
-      const res = isRegister
-        ? await api.register({ email, password, name, companyName })
-        : await api.login(email, password);
-      onLogin(res.token);
+      const res = await api.login(email, password, rememberMe)
+      if (rememberMe) {
+        localStorage.setItem('aduanai_token', res.token)
+      } else {
+        localStorage.setItem('aduanai_token', res.token)
+      }
+      onLogin(res.token, res.user)
+      if (!res.user.emailVerified) {
+        navigate('/verify')
+      } else {
+        navigate('/app')
+      }
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Error de conexión');
+      setError(err instanceof Error ? err.message : 'Error de conexión')
     } finally {
-      setLoading(false);
+      setLoading(false)
     }
   }
 
-  const inputStyle = {
-    background: 'var(--bg-surface)',
-    border: '1px solid var(--border)',
-    borderRadius: 'var(--radius)',
-    padding: '12px 16px',
-    color: 'var(--text-primary)',
-    fontFamily: 'var(--font-body)',
-    fontSize: '14px',
-    width: '100%',
-    outline: 'none',
-    transition: 'border-color 0.2s, box-shadow 0.2s',
-  };
-
   return (
-    <div className="min-h-screen flex items-center justify-center p-4 grid-bg" style={{ background: 'var(--bg-deep)' }}>
-      <div className="noise-overlay" />
-      {/* Background glows */}
-      <div className="fixed top-1/4 left-1/3 w-[500px] h-[500px] rounded-full blur-[150px]" style={{ background: 'rgba(6,182,212,0.06)' }} />
-      <div className="fixed bottom-1/4 right-1/3 w-[400px] h-[400px] rounded-full blur-[120px]" style={{ background: 'rgba(129,140,248,0.04)' }} />
-
-      <div className="w-full max-w-md relative z-10 animate-scale-in">
-        {/* Logo */}
-        <div className="text-center mb-10">
-          <div className="w-14 h-14 rounded-2xl flex items-center justify-center mx-auto mb-4 glow-cyan" style={{ background: 'linear-gradient(135deg, var(--cyan), var(--cyan-dim))' }}>
-            <span className="font-black text-xl" style={{ fontFamily: 'var(--font-display)', color: 'var(--bg-deep)' }}>A</span>
+    <AuthLayout title="Bienvenido de vuelta" subtitle="Ingresa a tu plataforma de comercio exterior">
+      <motion.form
+        onSubmit={handleSubmit}
+        className="space-y-4"
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        transition={{ delay: 0.1 }}
+      >
+        {/* Email */}
+        <div>
+          <label className="text-[12px] font-medium text-[#999] mb-1.5 block">Correo electrónico</label>
+          <div className="relative">
+            <Mail className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+            <input
+              type="email"
+              value={email}
+              onChange={e => { setEmail(e.target.value); setError('') }}
+              placeholder="tu@empresa.com"
+              autoComplete="email"
+              className="w-full pl-10 pr-4 py-3 bg-gray-50 border border-gray-200 rounded-xl text-[14px] text-[#1a1a1a] placeholder:text-gray-400 outline-none focus:ring-2 focus:ring-emerald-100 focus:border-emerald-500 transition-all"
+            />
           </div>
-          <h1 className="text-3xl font-bold mb-1" style={{ fontFamily: 'var(--font-display)' }}>
-            <span style={{ color: 'var(--cyan)' }}>ADUANA</span>I
-          </h1>
-          <p className="text-xs tracking-[0.15em]" style={{ fontFamily: 'var(--font-mono)', color: 'var(--text-muted)' }}>COMMAND CENTER</p>
         </div>
 
-        {/* Form */}
-        <form onSubmit={handleSubmit} className="glass rounded-2xl p-8 space-y-5">
-          <h2 className="text-lg font-semibold" style={{ fontFamily: 'var(--font-display)' }}>
-            {isRegister ? 'Crear cuenta' : 'Iniciar sesión'}
-          </h2>
-
-          {isRegister && (
-            <>
-              <div>
-                <label className="block text-xs mb-1.5" style={{ color: 'var(--text-muted)', fontFamily: 'var(--font-mono)' }}>NOMBRE</label>
-                <input type="text" value={name} onChange={e => setName(e.target.value)} required placeholder="Tu nombre" style={inputStyle}
-                  onFocus={e => { e.target.style.borderColor = 'var(--cyan)'; e.target.style.boxShadow = '0 0 0 4px var(--cyan-glow)'; }}
-                  onBlur={e => { e.target.style.borderColor = 'var(--border)'; e.target.style.boxShadow = 'none'; }} />
-              </div>
-              <div>
-                <label className="block text-xs mb-1.5" style={{ color: 'var(--text-muted)', fontFamily: 'var(--font-mono)' }}>EMPRESA</label>
-                <input type="text" value={companyName} onChange={e => setCompanyName(e.target.value)} placeholder="Nombre de tu empresa" style={inputStyle}
-                  onFocus={e => { e.target.style.borderColor = 'var(--cyan)'; e.target.style.boxShadow = '0 0 0 4px var(--cyan-glow)'; }}
-                  onBlur={e => { e.target.style.borderColor = 'var(--border)'; e.target.style.boxShadow = 'none'; }} />
-              </div>
-            </>
-          )}
-
-          <div>
-            <label className="block text-xs mb-1.5" style={{ color: 'var(--text-muted)', fontFamily: 'var(--font-mono)' }}>EMAIL</label>
-            <input type="email" value={email} onChange={e => setEmail(e.target.value)} required placeholder="tu@empresa.com" style={inputStyle}
-              onFocus={e => { e.target.style.borderColor = 'var(--cyan)'; e.target.style.boxShadow = '0 0 0 4px var(--cyan-glow)'; }}
-              onBlur={e => { e.target.style.borderColor = 'var(--border)'; e.target.style.boxShadow = 'none'; }} />
+        {/* Password */}
+        <div>
+          <div className="flex items-center justify-between mb-1.5">
+            <label className="text-[12px] font-medium text-[#999]">Contraseña</label>
+            <Link to="/forgot-password" className="text-[12px] text-emerald-600 hover:text-emerald-700 font-medium">
+              ¿Olvidaste tu contraseña?
+            </Link>
           </div>
-
-          <div>
-            <label className="block text-xs mb-1.5" style={{ color: 'var(--text-muted)', fontFamily: 'var(--font-mono)' }}>CONTRASEÑA</label>
-            <input type="password" value={password} onChange={e => setPassword(e.target.value)} required placeholder="••••••••" minLength={6} style={inputStyle}
-              onFocus={e => { e.target.style.borderColor = 'var(--cyan)'; e.target.style.boxShadow = '0 0 0 4px var(--cyan-glow)'; }}
-              onBlur={e => { e.target.style.borderColor = 'var(--border)'; e.target.style.boxShadow = 'none'; }} />
-          </div>
-
-          {error && (
-            <div className="text-sm rounded-xl px-4 py-3" style={{ background: 'rgba(239,68,68,0.08)', border: '1px solid rgba(239,68,68,0.15)', color: 'var(--red)' }}>
-              {error}
-            </div>
-          )}
-
-          <button type="submit" disabled={loading} className="btn-primary w-full py-3.5 text-sm flex items-center justify-center gap-2 disabled:opacity-50">
-            {loading ? (
-              <svg className="animate-spin h-4 w-4" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="3" fill="none" strokeDasharray="60" strokeDashoffset="20" /></svg>
-            ) : (
-              <>{isRegister ? 'Crear cuenta' : 'Entrar'}<ArrowRight size={15} /></>
-            )}
-          </button>
-
-          <p className="text-center text-sm" style={{ color: 'var(--text-muted)' }}>
-            {isRegister ? '¿Ya tienes cuenta?' : '¿No tienes cuenta?'}{' '}
-            <button type="button" onClick={() => { setIsRegister(!isRegister); setError(''); }}
-              className="font-medium" style={{ color: 'var(--cyan)' }}>
-              {isRegister ? 'Inicia sesión' : 'Regístrate'}
+          <div className="relative">
+            <Lock className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+            <input
+              type={showPassword ? 'text' : 'password'}
+              value={password}
+              onChange={e => { setPassword(e.target.value); setError('') }}
+              placeholder="Tu contraseña"
+              autoComplete="current-password"
+              className="w-full pl-10 pr-10 py-3 bg-gray-50 border border-gray-200 rounded-xl text-[14px] text-[#1a1a1a] placeholder:text-gray-400 outline-none focus:ring-2 focus:ring-emerald-100 focus:border-emerald-500 transition-all"
+            />
+            <button
+              type="button"
+              onClick={() => setShowPassword(s => !s)}
+              className="absolute right-3.5 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
+            >
+              {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
             </button>
-          </p>
-        </form>
-      </div>
-    </div>
-  );
+          </div>
+        </div>
+
+        {/* Remember me */}
+        <div className="flex items-center gap-2.5">
+          <input
+            id="remember"
+            type="checkbox"
+            checked={rememberMe}
+            onChange={e => setRememberMe(e.target.checked)}
+            className="w-4 h-4 rounded border-gray-300 text-emerald-600 focus:ring-emerald-500 cursor-pointer"
+          />
+          <label htmlFor="remember" className="text-[13px] text-gray-600 cursor-pointer select-none">
+            Recordar sesión
+          </label>
+        </div>
+
+        {/* Error */}
+        {error && (
+          <motion.div
+            initial={{ opacity: 0, y: -4 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="p-3 rounded-xl bg-red-50 border border-red-100"
+          >
+            <p className="text-[12px] text-red-700">{error}</p>
+          </motion.div>
+        )}
+
+        {/* Submit */}
+        <button
+          type="submit"
+          disabled={loading}
+          className="w-full py-3.5 bg-emerald-600 hover:bg-emerald-700 disabled:opacity-60 text-white font-semibold text-[14px] rounded-xl transition-all"
+        >
+          {loading ? (
+            <span className="flex items-center justify-center gap-2">
+              <span className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+              Ingresando...
+            </span>
+          ) : 'Iniciar sesión'}
+        </button>
+
+        <p className="text-center text-[13px] text-gray-500 pt-2">
+          ¿No tienes cuenta?{' '}
+          <Link to="/register" className="text-emerald-600 hover:text-emerald-700 font-semibold">
+            Regístrate
+          </Link>
+        </p>
+      </motion.form>
+    </AuthLayout>
+  )
 }

@@ -1,97 +1,75 @@
-import { useState } from 'react';
-import { Search, BookOpen, Eye } from 'lucide-react';
-import { api, type FractionSearchResult } from '../lib/api';
+import { useState } from 'react'
+import { api } from '../lib/api'
+import type { FractionSearchResult } from '../lib/api'
+import { Search, Package, Eye, Bell } from 'lucide-react'
+
+const GLASS = 'bg-white/70 backdrop-blur-xl border border-white/50 shadow-[0_8px_30px_rgb(0,0,0,0.04)]'
 
 export function FractionsPage() {
-  const [query, setQuery] = useState('');
-  const [results, setResults] = useState<FractionSearchResult[]>([]);
-  const [loading, setLoading] = useState(false);
-  const [searched, setSearched] = useState(false);
+  const [query, setQuery] = useState('')
+  const [results, setResults] = useState<FractionSearchResult[]>([])
+  const [loading, setLoading] = useState(false)
 
-  const search = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!query.trim() || loading) return;
-    setLoading(true);
-    try {
-      const r = await api.searchFractions(query);
-      setResults(r.data);
-    } catch { setResults([]); }
-    setSearched(true);
-    setLoading(false);
-  };
+  async function handleSearch() {
+    if (!query.trim()) return
+    setLoading(true)
+    try { const res = await api.searchFractions(query); setResults(res.data) } catch { setResults([]) }
+    setLoading(false)
+  }
+
+  async function watch(code: string) {
+    try { await api.watchFraction(code) } catch { /* silent */ }
+  }
 
   return (
-    <div>
-      <div className="mb-8 animate-fade-up">
-        <h1 className="text-2xl font-bold mb-1" style={{ fontFamily: 'var(--font-display)' }}>Fracciones TIGIE</h1>
-        <p className="text-sm" style={{ color: 'var(--text-muted)' }}>Consulta las 8,183 fracciones arancelarias</p>
+    <div className="max-w-5xl mx-auto space-y-4">
+      <div className={`${GLASS} rounded-[2rem] p-6`}>
+        <div className="flex items-center gap-2 mb-6">
+          <Package className="w-5 h-5 text-emerald-500" />
+          <h1 className="text-xl font-bold text-slate-900">Fracciones TIGIE</h1>
+          <span className="text-[11px] text-slate-500 ml-2">8,183 fracciones</span>
+        </div>
+
+        <div className="flex gap-2">
+          <div className="flex-1 flex items-center gap-2 bg-white/60 border border-slate-200/50 rounded-xl px-4 py-2.5">
+            <Search className="w-4 h-4 text-slate-400" />
+            <input type="text" value={query} onChange={e => setQuery(e.target.value)}
+              onKeyDown={e => { if (e.key === 'Enter') handleSearch() }}
+              placeholder="Buscar por código o descripción..."
+              className="flex-1 bg-transparent text-[13px] text-slate-900 placeholder:text-slate-400 outline-none" />
+          </div>
+          <button onClick={handleSearch} disabled={loading} className="bg-emerald-500 hover:bg-emerald-600 disabled:opacity-50 text-white text-[13px] font-medium px-5 rounded-xl transition-colors">
+            {loading ? '...' : 'Buscar'}
+          </button>
+        </div>
       </div>
 
-      <form onSubmit={search} className="relative mb-8 max-w-2xl animate-fade-up delay-100">
-        <Search size={18} className="absolute left-4 top-1/2 -translate-y-1/2" style={{ color: loading ? 'var(--cyan)' : 'var(--text-muted)' }} />
-        <input
-          value={query}
-          onChange={e => setQuery(e.target.value)}
-          placeholder="Busca por código, descripción o palabra clave..."
-          className="spotlight pr-28"
-          style={{ fontSize: '14px' }}
-        />
-        <button type="submit" disabled={loading || !query.trim()}
-          className="btn-primary absolute right-2 top-1/2 -translate-y-1/2 py-2.5 px-5 text-sm disabled:opacity-40">
-          {loading ? 'Buscando...' : 'Buscar'}
-        </button>
-      </form>
-
       {results.length > 0 && (
-        <div className="glass rounded-2xl overflow-hidden animate-fade-up delay-200">
-          <table className="w-full text-sm">
-            <thead>
-              <tr style={{ borderBottom: '1px solid var(--border)' }}>
-                {['FRACCIÓN', 'DESCRIPCIÓN', 'ARANCEL', 'UNIDAD', 'PERMISOS'].map(h => (
-                  <th key={h} className="text-left px-5 py-3 font-normal text-xs" style={{ fontFamily: 'var(--font-mono)', color: 'var(--text-dim)' }}>{h}</th>
-                ))}
-              </tr>
-            </thead>
-            <tbody>
-              {results.map(f => (
-                <tr key={f.code} style={{ borderBottom: '1px solid var(--border)' }} className="hover:bg-white/[0.02]">
-                  <td className="px-5 py-3" style={{ fontFamily: 'var(--font-mono)', color: 'var(--cyan)' }}>{f.codeFormatted}</td>
-                  <td className="px-5 py-3 max-w-[300px]" style={{ color: 'var(--text-secondary)' }}>
-                    <p className="text-xs leading-relaxed">{f.description}</p>
-                  </td>
-                  <td className="px-5 py-3" style={{ fontFamily: 'var(--font-mono)' }}>
-                    {f.tariffNMF !== null ? `${f.tariffNMF}%` : '—'}
-                  </td>
-                  <td className="px-5 py-3 text-xs" style={{ color: 'var(--text-muted)' }}>{f.unit || '—'}</td>
-                  <td className="px-5 py-3">
-                    {f.requiresPermit ? (
-                      <span className="badge badge-amber text-[10px]">{f.permitType || 'Permiso'}</span>
-                    ) : (
-                      <span className="text-xs" style={{ color: 'var(--text-dim)' }}>—</span>
-                    )}
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      )}
-
-      {searched && results.length === 0 && (
-        <div className="glass rounded-2xl p-12 text-center animate-fade-up">
-          <p className="text-sm" style={{ color: 'var(--text-muted)' }}>No se encontraron fracciones para "{query}"</p>
-        </div>
-      )}
-
-      {!searched && (
-        <div className="glass rounded-2xl p-12 text-center animate-fade-up delay-200">
-          <div className="w-16 h-16 rounded-2xl flex items-center justify-center mx-auto mb-4" style={{ background: 'var(--bg-surface)' }}>
-            <BookOpen size={24} style={{ color: 'var(--text-dim)' }} />
+        <div className={`${GLASS} rounded-[2rem] p-6`}>
+          <p className="text-[12px] text-slate-500 mb-4">{results.length} resultados</p>
+          <div className="space-y-2">
+            {results.map((f, i) => (
+              <div key={i} className="bg-white/40 rounded-xl p-4 hover:bg-white/60 transition-colors">
+                <div className="flex items-start justify-between">
+                  <div className="flex-1">
+                    <p className="font-mono text-[15px] font-bold text-slate-900">{f.codeFormatted}</p>
+                    <p className="text-[12px] text-slate-600 mt-1">{f.description}</p>
+                    <div className="flex flex-wrap gap-2 mt-2">
+                      {f.tariffNMF !== null && <span className="text-[10px] px-2 py-0.5 rounded-full bg-slate-100 text-slate-600">IGI: {f.tariffNMF}%</span>}
+                      {f.unit && <span className="text-[10px] px-2 py-0.5 rounded-full bg-slate-100 text-slate-600">{f.unit}</span>}
+                      {f.requiresPermit && <span className="text-[10px] px-2 py-0.5 rounded-full bg-amber-50 text-amber-600">Requiere permiso</span>}
+                      {f.noms?.map((n, j) => <span key={j} className="text-[10px] px-2 py-0.5 rounded-full bg-blue-50 text-blue-600">{n}</span>)}
+                    </div>
+                  </div>
+                  <button onClick={() => watch(f.code)} className="w-8 h-8 rounded-lg bg-emerald-50 flex items-center justify-center hover:bg-emerald-100 transition-colors shrink-0 ml-3" title="Monitorear cambios">
+                    <Bell className="w-3.5 h-3.5 text-emerald-500" />
+                  </button>
+                </div>
+              </div>
+            ))}
           </div>
-          <p className="font-medium mb-1" style={{ fontFamily: 'var(--font-display)' }}>Base de datos TIGIE</p>
-          <p className="text-sm" style={{ color: 'var(--text-muted)' }}>Busca cualquier fracción arancelaria por código o descripción</p>
         </div>
       )}
     </div>
-  );
+  )
 }

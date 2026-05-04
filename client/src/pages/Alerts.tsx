@@ -1,223 +1,171 @@
-import { useEffect, useState } from 'react';
-import { Bell, CheckCheck, Eye, Search, Plus, Trash2 } from 'lucide-react';
-import { api, type Alert, type FractionSearchResult } from '../lib/api';
+import { useState, useEffect } from 'react'
+import { api } from '../lib/api'
+import type { Alert, FractionSearchResult } from '../lib/api'
+import { Megaphone, CheckCheck, Search, Bell, Eye, X } from 'lucide-react'
+import { formatFraction } from '../lib/format'
+
+const GLASS = 'bg-white/70 backdrop-blur-xl border border-white/50 shadow-[0_8px_30px_rgb(0,0,0,0.04)]'
 
 export function AlertsPage() {
-  const [alerts, setAlerts] = useState<Alert[]>([]);
-  const [watched, setWatched] = useState<FractionSearchResult[]>([]);
-  const [searchQuery, setSearchQuery] = useState('');
-  const [searchResults, setSearchResults] = useState<FractionSearchResult[]>([]);
-  const [searching, setSearching] = useState(false);
-  const [tab, setTab] = useState<'alerts' | 'monitor'>('alerts');
+  const [tab, setTab] = useState<'alerts' | 'watch'>('alerts')
+  const [alerts, setAlerts] = useState<Alert[]>([])
+  const [watched, setWatched] = useState<FractionSearchResult[]>([])
+  const [loading, setLoading] = useState(true)
+  const [searchQuery, setSearchQuery] = useState('')
+  const [searchResults, setSearchResults] = useState<FractionSearchResult[]>([])
+  const [searching, setSearching] = useState(false)
 
-  useEffect(() => {
-    api.alerts().then(r => setAlerts(r.data)).catch(() => {});
-    api.watchedFractions().then(r => setWatched(r.data)).catch(() => {});
-  }, []);
+  useEffect(() => { loadAlerts(); loadWatched() }, [])
 
-  const markAllRead = async () => {
-    await api.alertMarkAllRead();
-    setAlerts(prev => prev.map(a => ({ ...a, read: true })));
-  };
+  async function loadAlerts() {
+    setLoading(true)
+    try { const res = await api.alerts(); setAlerts(res.data) } catch { setAlerts([]) }
+    setLoading(false)
+  }
 
-  const searchFractions = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (searchQuery.length < 2) return;
-    setSearching(true);
-    try {
-      const res = await api.searchFractions(searchQuery);
-      setSearchResults(res.data);
-    } catch {
-      // ignore
-    } finally {
-      setSearching(false);
-    }
-  };
+  async function loadWatched() {
+    try { const res = await api.watchedFractions(); setWatched(res.data) } catch { setWatched([]) }
+  }
 
-  const addWatch = async (code: string) => {
-    await api.watchFraction(code);
-    const res = await api.watchedFractions();
-    setWatched(res.data);
-    setSearchResults([]);
-    setSearchQuery('');
-  };
+  async function markAllRead() {
+    try { await api.alertMarkAllRead(); loadAlerts() } catch {}
+  }
 
-  const removeWatch = async (code: string) => {
-    await api.unwatchFraction(code);
-    setWatched(prev => prev.filter(f => f.code !== code));
-  };
+  async function markRead(id: string) {
+    try { await api.alertMarkRead(id); loadAlerts() } catch {}
+  }
 
-  const unreadCount = alerts.filter(a => !a.read && a.type !== 'watch').length;
+  async function searchFractions() {
+    if (!searchQuery.trim()) return
+    setSearching(true)
+    try { const res = await api.searchFractions(searchQuery); setSearchResults(res.data.slice(0, 6)) } catch { setSearchResults([]) }
+    setSearching(false)
+  }
+
+  async function watchFraction(code: string) {
+    try { await api.watchFraction(code); loadWatched(); setSearchResults([]) ; setSearchQuery('') } catch {}
+  }
+
+  async function unwatchFraction(code: string) {
+    try { await api.unwatchFraction(code); loadWatched() } catch {}
+  }
 
   return (
-    <div>
-      <div className="mb-8">
-        <h1 className="text-2xl font-bold text-white mb-1 flex items-center gap-2">
-          <Bell size={24} className="text-[#C9A84C]" />
-          Alertas y Monitoreo
-        </h1>
-        <p className="text-slate-400">Recibe alertas de cambios regulatorios en tus fracciones</p>
-      </div>
-
-      {/* Tabs */}
-      <div className="flex gap-1 bg-[#0D1B2A] border border-[#1B2D45] rounded-xl p-1 mb-6 w-fit">
-        <button
-          onClick={() => setTab('alerts')}
-          className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
-            tab === 'alerts' ? 'bg-[#C9A84C]/10 text-[#C9A84C]' : 'text-slate-400 hover:text-white'
-          }`}
-        >
-          Alertas {unreadCount > 0 && <span className="ml-1 bg-[#C9A84C] text-[#0A1628] text-xs px-1.5 py-0.5 rounded-full">{unreadCount}</span>}
-        </button>
-        <button
-          onClick={() => setTab('monitor')}
-          className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
-            tab === 'monitor' ? 'bg-[#C9A84C]/10 text-[#C9A84C]' : 'text-slate-400 hover:text-white'
-          }`}
-        >
-          Monitoreo ({watched.length})
-        </button>
-      </div>
-
-      {tab === 'alerts' && (
-        <div>
-          {unreadCount > 0 && (
-            <button
-              onClick={markAllRead}
-              className="flex items-center gap-2 text-sm text-slate-400 hover:text-[#C9A84C] mb-4 transition-colors"
-            >
-              <CheckCheck size={14} />
-              Marcar todas como leídas
+    <div className="max-w-4xl mx-auto space-y-4">
+      <div className={`${GLASS} rounded-[2rem] p-6`}>
+        <div className="flex items-center justify-between mb-6">
+          <div className="flex items-center gap-2">
+            <Megaphone className="w-5 h-5 text-emerald-500" />
+            <h1 className="text-xl font-bold text-slate-900">Alertas</h1>
+          </div>
+          {tab === 'alerts' && (
+            <button onClick={markAllRead} className="flex items-center gap-1.5 text-[11px] font-medium text-emerald-500 bg-emerald-50 px-3 py-1.5 rounded-full hover:bg-emerald-100 transition-colors">
+              <CheckCheck className="w-3 h-3" /> Marcar leídas
             </button>
           )}
+        </div>
 
-          {alerts.filter(a => a.type !== 'watch').length === 0 ? (
-            <div className="bg-[#0D1B2A] border border-[#1B2D45] rounded-xl p-12 text-center">
-              <Bell size={36} className="text-[#1B2D45] mx-auto mb-4" />
-              <p className="text-slate-500 mb-2">No tienes alertas</p>
-              <p className="text-xs text-slate-600">Agrega fracciones al monitoreo para recibir alertas de cambios regulatorios</p>
-            </div>
-          ) : (
-            <div className="space-y-3">
-              {alerts.filter(a => a.type !== 'watch').map((alert) => (
-                <div
-                  key={alert.id}
-                  className={`bg-[#0D1B2A] border rounded-xl p-5 transition-colors ${
-                    alert.read ? 'border-[#1B2D45]' : 'border-[#C9A84C]/20 bg-[#C9A84C]/5'
-                  }`}
-                >
-                  <div className="flex items-start justify-between">
-                    <div>
-                      <div className="flex items-center gap-2 mb-1">
-                        {!alert.read && <div className="w-2 h-2 bg-[#C9A84C] rounded-full" />}
-                        <h3 className="text-sm font-semibold text-white">{alert.title}</h3>
+        {/* Tabs */}
+        <div className="flex gap-2 mb-5">
+          <button onClick={() => setTab('alerts')} className={`text-[12px] font-medium px-4 py-2 rounded-full transition-all ${tab === 'alerts' ? 'bg-emerald-500 text-white' : 'bg-white/50 text-slate-600 hover:bg-white/70'}`}>
+            Alertas {alerts.filter(a => !a.read).length > 0 && <span className="ml-1 text-[10px] bg-white/30 px-1.5 py-0.5 rounded-full">{alerts.filter(a => !a.read).length}</span>}
+          </button>
+          <button onClick={() => setTab('watch')} className={`text-[12px] font-medium px-4 py-2 rounded-full transition-all ${tab === 'watch' ? 'bg-emerald-500 text-white' : 'bg-white/50 text-slate-600 hover:bg-white/70'}`}>
+            <Eye className="w-3 h-3 inline mr-1" /> Monitoreo ({watched.length})
+          </button>
+        </div>
+
+        {/* Alerts tab */}
+        {tab === 'alerts' && (
+          loading ? (
+            <div className="space-y-3">{[1,2,3,4].map(i => <div key={i} className="animate-pulse bg-slate-200/60 rounded-xl h-20" />)}</div>
+          ) : alerts.length > 0 ? (
+            <div className="space-y-2">
+              {alerts.map(a => (
+                <div key={a.id} onClick={() => !a.read && markRead(a.id)}
+                  className={`p-4 rounded-xl border cursor-pointer transition-all ${
+                    a.type === 'critical' ? 'bg-rose-50/50 border-rose-100' :
+                    a.type === 'warning' ? 'bg-amber-50/50 border-amber-100' :
+                    'bg-blue-50/50 border-blue-100'
+                  } ${!a.read ? 'ring-1 ring-emerald-200' : 'opacity-60'}`}>
+                  <div className="flex items-start gap-3">
+                    <div className={`w-2.5 h-2.5 rounded-full mt-1.5 shrink-0 ${a.type === 'critical' ? 'bg-rose-500' : a.type === 'warning' ? 'bg-amber-500' : 'bg-blue-500'}`} />
+                    <div className="flex-1">
+                      <div className="flex items-center justify-between">
+                        <p className="text-[13px] font-semibold text-slate-800">{a.title}</p>
+                        <span className="text-[10px] text-slate-400">{new Date(a.createdAt).toLocaleDateString('es-MX')}</span>
                       </div>
-                      <p className="text-sm text-slate-400">{alert.content}</p>
-                      {alert.fractionCodes.length > 0 && (
-                        <div className="flex gap-2 mt-2">
-                          {alert.fractionCodes.map(code => (
-                            <span key={code} className="font-mono text-xs bg-[#1B2D45] text-slate-300 px-2 py-0.5 rounded">{code}</span>
-                          ))}
+                      <p className="text-[12px] text-slate-600 mt-1">{a.content}</p>
+                      {a.fractionCodes.length > 0 && (
+                        <div className="flex gap-1.5 mt-2">
+                          {a.fractionCodes.map((f, i) => <span key={i} className="font-mono text-[10px] px-2 py-0.5 rounded-full bg-white/60 text-slate-600">{formatFraction(f)}</span>)}
                         </div>
                       )}
                     </div>
-                    <div className="flex items-center gap-2">
-                      <span className="text-xs text-slate-600 whitespace-nowrap">
-                        {new Date(alert.createdAt).toLocaleDateString('es-MX')}
-                      </span>
-                      {!alert.read && (
-                        <button
-                          onClick={async () => {
-                            await api.alertMarkRead(alert.id);
-                            setAlerts(prev => prev.map(a => a.id === alert.id ? { ...a, read: true } : a));
-                          }}
-                          className="text-slate-500 hover:text-white"
-                        >
-                          <Eye size={14} />
-                        </button>
-                      )}
+                  </div>
+                </div>
+              ))}
+            </div>
+          ) : <p className="text-center text-[13px] text-slate-400 py-8">Sin alertas</p>
+        )}
+
+        {/* Watch tab */}
+        {tab === 'watch' && (
+          <div className="space-y-4">
+            {/* Search to add */}
+            <div className="flex gap-2">
+              <div className="flex-1 flex items-center gap-2 bg-white/60 border border-slate-200/50 rounded-xl px-4 py-2.5">
+                <Search className="w-4 h-4 text-slate-400" />
+                <input type="text" value={searchQuery} onChange={e => setSearchQuery(e.target.value)}
+                  onKeyDown={e => { if (e.key === 'Enter') searchFractions() }}
+                  placeholder="Buscar fracción para monitorear..." className="flex-1 bg-transparent text-[13px] text-slate-900 placeholder:text-slate-400 outline-none" />
+              </div>
+              <button onClick={searchFractions} disabled={searching} className="bg-emerald-500 hover:bg-emerald-600 text-white text-[12px] font-medium px-4 rounded-xl transition-colors">
+                {searching ? '...' : 'Buscar'}
+              </button>
+            </div>
+
+            {/* Search results */}
+            {searchResults.length > 0 && (
+              <div className="bg-white/40 rounded-xl p-3 space-y-1.5">
+                <p className="text-[11px] text-slate-500 mb-2">Selecciona para monitorear:</p>
+                {searchResults.map((f, i) => (
+                  <button key={i} onClick={() => watchFraction(f.code)}
+                    className="w-full flex items-center gap-3 p-2.5 rounded-lg hover:bg-white/60 transition-colors text-left">
+                    <Bell className="w-3.5 h-3.5 text-emerald-500 shrink-0" />
+                    <span className="font-mono text-[12px] font-semibold text-slate-900">{f.codeFormatted}</span>
+                    <span className="text-[11px] text-slate-500 flex-1 truncate">{f.description}</span>
+                  </button>
+                ))}
+              </div>
+            )}
+
+            {/* Watched list */}
+            <div>
+              <p className="text-[12px] font-semibold text-slate-700 mb-3">Fracciones monitoreadas ({watched.length})</p>
+              {watched.length > 0 ? (
+                <div className="space-y-2">
+                  {watched.map((f, i) => (
+                    <div key={i} className="flex items-center gap-3 bg-white/40 rounded-xl p-3">
+                      <div className="w-8 h-8 bg-emerald-50 rounded-lg flex items-center justify-center shrink-0">
+                        <Eye className="w-3.5 h-3.5 text-emerald-500" />
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="font-mono text-[13px] font-semibold text-slate-900">{f.codeFormatted}</p>
+                        <p className="text-[11px] text-slate-500 truncate">{f.description}</p>
+                      </div>
+                      {f.tariffNMF !== null && <span className="text-[10px] text-slate-400">{f.tariffNMF}% IGI</span>}
+                      <button onClick={() => unwatchFraction(f.code)} className="w-7 h-7 rounded-lg bg-rose-50 flex items-center justify-center hover:bg-rose-100 transition-colors shrink-0">
+                        <X className="w-3 h-3 text-rose-500" />
+                      </button>
                     </div>
-                  </div>
+                  ))}
                 </div>
-              ))}
+              ) : <p className="text-[12px] text-slate-400 text-center py-6">No estás monitoreando ninguna fracción</p>}
             </div>
-          )}
-        </div>
-      )}
-
-      {tab === 'monitor' && (
-        <div>
-          {/* Search to add */}
-          <form onSubmit={searchFractions} className="flex gap-3 mb-6">
-            <div className="flex-1 relative">
-              <Search size={16} className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-500" />
-              <input
-                type="text"
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className="w-full bg-[#0D1B2A] border border-[#1B2D45] rounded-xl pl-11 pr-4 py-3 text-white placeholder-slate-500 focus:outline-none focus:border-[#C9A84C] transition-colors"
-                placeholder="Buscar fracción para monitorear..."
-              />
-            </div>
-            <button
-              type="submit"
-              disabled={searching || searchQuery.length < 2}
-              className="bg-[#C9A84C] hover:bg-[#A68A3E] text-[#0A1628] font-semibold px-6 rounded-xl transition-colors disabled:opacity-50"
-            >
-              Buscar
-            </button>
-          </form>
-
-          {/* Search results */}
-          {searchResults.length > 0 && (
-            <div className="bg-[#0D1B2A] border border-[#1B2D45] rounded-xl mb-6 overflow-hidden">
-              <p className="text-xs text-slate-500 px-4 pt-3">Resultados de búsqueda</p>
-              {searchResults.map((f) => (
-                <div key={f.code} className="flex items-center justify-between px-4 py-3 border-b border-[#1B2D45]/50 last:border-0 hover:bg-[#1B2D45]/20">
-                  <div>
-                    <span className="font-mono text-white text-sm">{f.codeFormatted}</span>
-                    <p className="text-xs text-slate-400 mt-0.5 max-w-md truncate">{f.description}</p>
-                  </div>
-                  <button
-                    onClick={() => addWatch(f.code)}
-                    className="flex items-center gap-1 text-xs text-[#C9A84C] hover:text-[#E8D48B] transition-colors"
-                  >
-                    <Plus size={14} />
-                    Monitorear
-                  </button>
-                </div>
-              ))}
-            </div>
-          )}
-
-          {/* Watched fractions */}
-          <h3 className="text-sm font-semibold text-white mb-3">Fracciones monitoreadas ({watched.length})</h3>
-          {watched.length === 0 ? (
-            <div className="bg-[#0D1B2A] border border-[#1B2D45] rounded-xl p-8 text-center">
-              <p className="text-slate-500 text-sm">No tienes fracciones monitoreadas</p>
-              <p className="text-xs text-slate-600 mt-1">Busca una fracción arriba para agregarla</p>
-            </div>
-          ) : (
-            <div className="bg-[#0D1B2A] border border-[#1B2D45] rounded-xl overflow-hidden">
-              {watched.map((f) => (
-                <div key={f.code} className="flex items-center justify-between px-4 py-3 border-b border-[#1B2D45]/50 last:border-0">
-                  <div>
-                    <span className="font-mono text-white text-sm">{f.codeFormatted}</span>
-                    <span className="text-xs text-slate-500 ml-3">NMF: {f.tariffNMF}%</span>
-                    <p className="text-xs text-slate-400 mt-0.5 max-w-md truncate">{f.description}</p>
-                  </div>
-                  <button
-                    onClick={() => removeWatch(f.code)}
-                    className="text-slate-500 hover:text-red-400 transition-colors"
-                  >
-                    <Trash2 size={14} />
-                  </button>
-                </div>
-              ))}
-            </div>
-          )}
-        </div>
-      )}
+          </div>
+        )}
+      </div>
     </div>
-  );
+  )
 }

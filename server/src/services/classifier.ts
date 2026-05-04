@@ -1,4 +1,4 @@
-import { getAnthropicClient } from '../lib/anthropic';
+import { llmGenerate } from '../lib/llm';
 import { prisma } from '../lib/prisma';
 
 interface ClassificationResult {
@@ -29,6 +29,11 @@ interface ClassificationResult {
   explanation: {
     simple: string;
     technical: string;
+  };
+  legalBasis: {
+    griApplied: { rule: string; reasoning: string }[];
+    legalNotes: { source: string; text: string }[];
+    discardedFractions: { code: string; reason: string }[];
   };
   disclaimer: string;
 }
@@ -104,6 +109,32 @@ REGLAS GENERALES:
 7. Proporciona 2-3 fracciones alternativas con justificación
 8. Da una explicación en lenguaje simple Y técnico
 
+APLICACIÓN OBLIGATORIA DE LAS 6 GRI (en orden estricto):
+
+Para clasificar este producto, aplica las Reglas Generales de Interpretación en orden:
+
+GRI 1: Busca primero si el producto está descrito textualmente en alguna partida. Lee las Notas Legales de la sección y capítulo aplicables — estas tienen fuerza legal sobre los títulos.
+
+GRI 2a: Si el producto está incompleto, sin montar, o sin ensamblar, clasifícalo como si estuviera completo.
+
+GRI 2b: Si es una mezcla de materiales, considera qué material le da el carácter esencial.
+
+GRI 3: Si el producto podría ir en dos o más partidas:
+  3a: La partida más específica prevalece sobre la genérica.
+  3b: Para mezclas y surtidos, clasifica por el material o componente que le da carácter esencial.
+  3c: Si todo falla, la última partida en orden numérico.
+
+GRI 4: Si ninguna partida aplica, clasifica en la del artículo más análogo o semejante.
+
+GRI 5: Los estuches y envases van con el producto que contienen (salvo que tengan valor propio).
+
+GRI 6: A nivel de subpartida y fracción, aplica las mismas reglas anteriores considerando las notas de subpartida.
+
+En tu respuesta, SIEMPRE incluye (en el campo legalBasis):
+1. Qué GRI aplicaste y por qué (rule + reasoning)
+2. Qué notas legales revisaste (source = "Nota X del capítulo Y" o "Nota de sección Z", text = contenido)
+3. Por qué descartaste otras partidas posibles (code + reason)
+
 INSTRUCCIÓN CRÍTICA SOBRE LOS ÚLTIMOS DÍGITOS:
 Los últimos 2 dígitos de la fracción mexicana (posiciones 7-8) distinguen variantes ESPECÍFICAS del producto. Presta ESPECIAL atención a:
 - Material principal (algodón vs poliéster vs mezcla vs lana)
@@ -114,6 +145,36 @@ Los últimos 2 dígitos de la fracción mexicana (posiciones 7-8) distinguen var
 - Para quién es (hombre, mujer, niño)
 
 OBLIGATORIO: Revisa TODAS las fracciones del subheading (6 dígitos) que te proporcioné antes de elegir. NO uses fracciones terminadas en .99 o .00 (cajón de sastre) si existe una fracción más específica que describa mejor el producto. La fracción .01 suele ser la más específica y común.
+
+GUÍA DE DESAMBIGUACIÓN (últimos 2 dígitos de la fracción):
+
+Cuando identifiques la subpartida (6 dígitos), ANTES de dar la fracción final (8 dígitos) pregúntate:
+
+1. ¿Hay variantes por MATERIAL específico?
+   - algodón ≥85% vs mezcla vs fibras sintéticas vs artificiales (lana/seda)
+   - fibras "sintéticas" (poliéster, nylon, acrílico) ≠ "artificiales" (rayón, viscosa, lyocell)
+
+2. ¿Hay variantes por USO específico?
+   - deportivo (running, tenis, gym) vs vestir vs seguridad industrial vs casual
+   - hombre vs mujer vs niño (en prendas de vestir)
+
+3. ¿Hay variantes por CARACTERÍSTICA técnica?
+   - con/sin elastómero (lycra/spandex) — "stretch" o "skinny" implica elastómero → fracción distinta
+   - con/sin conectores (cables: 8544.42 con, 8544.49 sin)
+   - añejo/reposado/blanco (tequila): cada uno tiene fracción distinta
+   - con/sin sintonizador TV (8528.52 monitor sin, 8528.72 televisor con)
+   - con/sin puntera metálica (calzado: 6403.40 seguridad vs 6403.99 vestir)
+
+4. ¿Hay variantes por TAMAÑO/CAPACIDAD?
+   - envases ≤2L vs más grandes (vinos 2204.21 vs 2204.22)
+   - cilindrada de motor (vehículos: rangos 1000/1500/3000 cc)
+   - peso (laptops ≤10kg → 8471.30; otros → 8471.41)
+
+5. ¿Hay variantes por FORMA del producto?
+   - cápsulas/tabletas vs polvo vs líquido (suplementos 2106.90.01 vs .09 vs .10)
+   - primaria (pellets) vs semiacabado (láminas) vs terminado (envases) en plásticos
+
+REGLA: si la descripción del producto no especifica estos detalles, NO asumas .99 genérica. Busca la fracción MÁS ESPECÍFICA que sea consistente con la descripción. Si realmente no hay información suficiente, elige la más común (.01) antes que .99.
 
 PROCESO DE CLASIFICACIÓN:
 1. Identifica la Sección y Capítulo correctos
@@ -136,8 +197,70 @@ Responde SIEMPRE en formato JSON válido con esta estructura:
   "regulations": { "rrna": ["Permiso SEMARNAT"], "noms": ["NOM-051-SCFI"], "sectoralRegistry": false },
   "alternatives": [{ "code": "YYYY.YY.YY", "description": "...", "confidence": 60, "reason": "..." }],
   "explanation": { "simple": "...", "technical": "..." },
+  "legalBasis": {
+    "griApplied": [
+      { "rule": "GRI 1", "reasoning": "El producto se describe textualmente en la partida 61.09 como..." },
+      { "rule": "GRI 6", "reasoning": "A nivel de subpartida se aplicó..." }
+    ],
+    "legalNotes": [
+      { "source": "Nota 1 del capítulo 61", "text": "Este capítulo comprende solamente artículos de punto confeccionados..." }
+    ],
+    "discardedFractions": [
+      { "code": "62.05", "reason": "Se descartó porque el producto es de tejido de punto (cap 61), no de tejido plano (cap 62)" }
+    ]
+  },
   "disclaimer": "Esta clasificación es orientativa. La clasificación oficial debe ser validada por un agente aduanal certificado."
 }`;
+
+// ============================================
+// KNOWLEDGE BASE SEARCH
+// ============================================
+
+async function findRelevantKnowledge(description: string, probableChapters: string[] = []) {
+  const words = description.toLowerCase().split(/\s+/).filter(w => w.length > 3);
+  if (words.length === 0 && probableChapters.length === 0) return [];
+
+  const all = await prisma.classificationKnowledge.findMany({
+    where: {
+      OR: [
+        ...(probableChapters.length > 0 ? [{ chapterCode: { in: probableChapters } }] : []),
+        { verified: true },
+      ],
+    },
+    orderBy: [{ priority: 'desc' }, { createdAt: 'desc' }],
+    take: 80,
+  });
+
+  const descLower = description.toLowerCase();
+  const scored = all.map(k => {
+    let score = (k.priority ?? 5) * 10;
+    const kwArr = Array.isArray(k.keywords) ? (k.keywords as string[]) : [];
+    for (const kw of kwArr) {
+      if (descLower.includes(String(kw).toLowerCase())) score += 15;
+    }
+    const prodArr = Array.isArray(k.products) ? (k.products as string[]) : [];
+    for (const p of prodArr) {
+      if (descLower.includes(String(p).toLowerCase())) score += 20;
+    }
+    if (k.chapterCode && probableChapters.includes(k.chapterCode)) score += 25;
+    if (!k.verified) score -= 20;
+    return { k, score };
+  });
+
+  return scored
+    .sort((a, b) => b.score - a.score)
+    .slice(0, 5)
+    .map(s => s.k);
+}
+
+function formatKnowledgeForPrompt(kn: Awaited<ReturnType<typeof findRelevantKnowledge>>): string {
+  if (kn.length === 0) return '';
+  const lines = kn.map((k, i) => {
+    const header = `[${k.type}${k.fractionCode ? ` — ${k.fractionCode}` : ''}] ${k.title}`;
+    return `— Caso ${i + 1}: ${header}\n${k.content}\n(Fuente: ${k.source})`;
+  });
+  return `\n\nCONOCIMIENTO ESPECÍFICO DISPONIBLE PARA ESTA CLASIFICACIÓN:\n\n${lines.join('\n\n')}\n\nUSA ESTE CONOCIMIENTO como referencia prioritaria para tu clasificación. Si el producto coincide con un caso documentado, sigue ese precedente. Si hay un ERROR_COMUN relevante, evítalo explícitamente.\n`;
+}
 
 // ============================================
 // IMPROVED DB SEARCH — Mejora #2
@@ -249,10 +372,9 @@ async function verifyClassification(
   const allOptions = [subheadingOptions, altOptions].filter(Boolean).join('\n');
   if (!allOptions) return { verifiedCode: suggestedCode, changed: false };
 
-  const client = getAnthropicClient();
-  const response = await client.messages.create({
-    model: 'claude-haiku-4-5-20251001',
-    max_tokens: 300,
+  const text = await llmGenerate({
+    model: 'fast',
+    maxTokens: 300,
     system: `Eres un verificador de clasificación arancelaria mexicana. Se te da un producto, una fracción sugerida, y TODAS las fracciones del mismo subheading. Tu trabajo es verificar si la fracción sugerida es la MÁS ESPECÍFICA y correcta, o si hay otra mejor.
 
 Responde ÚNICAMENTE con JSON: {"code": "XXXX.XX.XX", "changed": true/false, "reason": "..."}
@@ -260,20 +382,16 @@ Responde ÚNICAMENTE con JSON: {"code": "XXXX.XX.XX", "changed": true/false, "re
 - Si hay una más específica, devuélvela con changed=true
 - NUNCA elijas .99 o .00 si existe una más específica
 - El código DEBE ser una de las opciones listadas`,
-    messages: [{
-      role: 'user',
-      content: `PRODUCTO: ${description}
+    user: `PRODUCTO: ${description}
 FRACCIÓN SUGERIDA: ${suggestedCode}
 
 TODAS LAS FRACCIONES DISPONIBLES EN ESTE SUBHEADING Y ALTERNATIVAS:
 ${allOptions}
 
 ¿Es ${suggestedCode} la correcta o hay una más específica?`,
-    }],
   });
 
   try {
-    const text = response.content[0].type === 'text' ? response.content[0].text : '';
     const jsonMatch = text.match(/\{[\s\S]*\}/);
     if (jsonMatch) {
       const result = JSON.parse(jsonMatch[0]);
@@ -298,6 +416,10 @@ export async function classifyProduct(
 ): Promise<ClassificationResult> {
   // Mejora #2: Better DB search with full chapter context
   const { relatedFractions, chapterFractions, topChapters } = await findRelatedFractions(description);
+
+  // Knowledge base lookup (casos reales, errores comunes, reglas de sector)
+  const knowledge = await findRelevantKnowledge(description, topChapters || []);
+  const knowledgeContext = formatKnowledgeForPrompt(knowledge);
 
   // Build context with related fractions (scored by relevance)
   const searchWords = description.toLowerCase().split(/\s+/).filter(w => w.length > 3);
@@ -338,6 +460,7 @@ export async function classifyProduct(
 
 PRODUCTO: ${description}
 ${context ? `CONTEXTO ADICIONAL: ${context}` : ''}
+${knowledgeContext}
 ${relatedContext}
 ${chapterContext}
 
@@ -351,14 +474,12 @@ INSTRUCCIONES:
 
 Responde en JSON válido.`;
 
-  const response = await getAnthropicClient().messages.create({
-    model: 'claude-sonnet-4-20250514',
-    max_tokens: 2000,
+  const text = await llmGenerate({
+    model: 'strong',
+    maxTokens: 2000,
     system: SYSTEM_PROMPT,
-    messages: [{ role: 'user', content: userMessage }],
+    user: userMessage,
   });
-
-  const text = response.content[0].type === 'text' ? response.content[0].text : '';
 
   const jsonMatch = text.match(/\{[\s\S]*\}/);
   if (!jsonMatch) {
@@ -407,14 +528,13 @@ ${chapterFractions.slice(0, 100).map(f => `- ${f.codeFormatted}: ${f.description
 ¿Hay una fracción más apropiada? Responde con el mismo formato JSON.`;
 
     try {
-      const retryResponse = await getAnthropicClient().messages.create({
-        model: 'claude-sonnet-4-20250514',
-        max_tokens: 2000,
+      const retryText = await llmGenerate({
+        model: 'strong',
+        maxTokens: 2000,
         system: SYSTEM_PROMPT,
-        messages: [{ role: 'user', content: retryMessage }],
+        user: retryMessage,
       });
 
-      const retryText = retryResponse.content[0].type === 'text' ? retryResponse.content[0].text : '';
       const retryMatch = retryText.match(/\{[\s\S]*\}/);
       if (retryMatch) {
         const retryResult = JSON.parse(retryMatch[0]) as ClassificationResult;

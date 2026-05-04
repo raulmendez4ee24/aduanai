@@ -2,18 +2,64 @@ import { Router } from 'express';
 import rateLimit from 'express-rate-limit';
 import { authenticate, AuthRequest } from '../middlewares/auth';
 import { classifyProduct } from '../services/classifier';
+import { buildClassifierAlerts, computeConsultHash, TIGIE_VERSION, LIGIE_VERSION } from '../services/classifier-alerts';
 import { prisma } from '../lib/prisma';
 
 export const classifyRouter = Router();
+export const classifyVerifyRouter = Router();
 
-// POST /api/classify/demo — sin auth, 3 por IP por hora
+// GET /verify/classify/:hash — público (sin auth) para verificación SAT/auditor
+classifyVerifyRouter.get('/:hash', async (req, res, next) => {
+  try {
+    const hash = String(req.params.hash);
+    if (!/^[a-f0-9]{64}$/.test(hash)) {
+      return res.status(400).json({ status: 'error', message: 'Hash inválido (SHA-256 64 hex)' });
+    }
+    const c = await prisma.classification.findFirst({
+      where: { consultHash: hash },
+      select: {
+        id: true, fractionCode: true, fractionDescription: true,
+        confidence: true, tigieVersion: true, ligieVersion: true,
+        consultedAt: true, inputDescription: true,
+        tenant: { select: { name: true, rfc: true } },
+      },
+    });
+    if (!c) {
+      return res.json({
+        status: 'ok',
+        data: { found: false, message: 'Hash no encontrado. La clasificación pudo haber sido alterada o no fue emitida por ADUANAI.' },
+      });
+    }
+    res.json({
+      status: 'ok',
+      data: {
+        found: true,
+        verified: true,
+        classification: {
+          fractionCode: c.fractionCode,
+          fractionDescription: c.fractionDescription,
+          confidence: c.confidence,
+          tigieVersion: c.tigieVersion,
+          ligieVersion: c.ligieVersion,
+          consultedAt: c.consultedAt?.toISOString(),
+          inputDescription: c.inputDescription,
+          tenantName: c.tenant.name,
+          tenantRFC: c.tenant.rfc,
+        },
+        message: 'Hash válido — la clasificación está registrada con la versión TIGIE/LIGIE consultada.',
+      },
+    });
+  } catch (err) { next(err); }
+});
+
+// POST /api/classify/demo — sin auth, 10 por IP por hora
 const demoClassifyLimit = rateLimit({
-  windowMs: 60 * 60 * 1000, // 1 hora
-  max: 3,
+  windowMs: 60 * 60 * 1000,
+  max: 10,
   standardHeaders: true,
   legacyHeaders: false,
   validate: { xForwardedForHeader: false },
-  message: { status: 'error', message: 'Límite de 3 clasificaciones demo por hora. Regístrate para uso ilimitado.' },
+  message: { status: 'error', message: 'Límite de clasificaciones demo alcanzado. Regístrate para uso ilimitado.' },
 });
 
 classifyRouter.post('/demo', demoClassifyLimit, async (req, res, next) => {
@@ -42,10 +88,12 @@ classifyRouter.post('/demo', demoClassifyLimit, async (req, res, next) => {
   }
 });
 
-// POST /api/classify — con auth
+// POST /api/classify — con auth + alertas defensivas + verificabilidad
 classifyRouter.post('/', authenticate, async (req: AuthRequest, res, next) => {
   try {
-    const { description, context } = req.body;
+    const { description, context, countryOfOrigin, declaredValueUSD } = req.body as {
+      description?: string; context?: string; countryOfOrigin?: string; declaredValueUSD?: number;
+    };
 
     if (!description || description.trim().length < 3) {
       return res.status(400).json({
@@ -56,23 +104,63 @@ classifyRouter.post('/', authenticate, async (req: AuthRequest, res, next) => {
 
     const result = await classifyProduct(description, context);
 
-    // Guardar clasificación en historial
+    // Alertas defensivas (cuotas comp + NOMs + padrón + automotive + subvaloración)
+    const alerts = await buildClassifierAlerts({
+      fractionCode: result.fraction.code,
+      fractionDescription: result.fraction.description,
+      description,
+      context,
+      countryOfOrigin,
+      declaredValueUSD,
+    });
+
+    const consultedAt = new Date();
+    const consultHash = computeConsultHash({
+      description,
+      context,
+      fractionCode: result.fraction.code,
+      confidence: result.confidence,
+      tigieVersion: TIGIE_VERSION,
+    });
+
     const record = await prisma.classification.create({
       data: {
         tenantId: req.tenantId!,
         userId: req.userId!,
         inputDescription: description,
         inputContext: context,
+        inputCountryOfOrigin: countryOfOrigin,
+        inputDeclaredValueUSD: declaredValueUSD,
         fractionCode: result.fraction.code,
         fractionDescription: result.fraction.description,
         confidence: result.confidence,
         griApplied: result.griApplied,
         alternatives: JSON.stringify(result.alternatives),
+        legalBasis: result.legalBasis ? (result.legalBasis as unknown as object) : undefined,
         fullResponse: JSON.stringify(result),
+        tigieVersion: TIGIE_VERSION,
+        ligieVersion: LIGIE_VERSION,
+        consultHash,
+        consultedAt,
+        alertsJson: alerts as unknown as object,
       },
     });
 
-    res.json({ status: 'ok', data: result, classificationId: record.id });
+    res.json({
+      status: 'ok',
+      data: {
+        ...result,
+        alerts,
+        meta: {
+          tigieVersion: TIGIE_VERSION,
+          ligieVersion: LIGIE_VERSION,
+          consultHash,
+          consultedAt: consultedAt.toISOString(),
+          verifyUrl: `/verify/classify/${consultHash}`,
+        },
+      },
+      classificationId: record.id,
+    });
   } catch (err) {
     next(err);
   }
@@ -130,6 +218,29 @@ classifyRouter.patch('/:id/feedback', authenticate, async (req: AuthRequest, res
       where: { id },
       data: { feedback, feedbackNote },
     });
+
+    // Feedback loop: clasificación incorrecta → crea caso unverified en knowledge base
+    if (feedback === 'incorrect') {
+      const chapter = classification.fractionCode.replace(/[.\-\s]/g, '').substring(0, 2);
+      const keywords = classification.inputDescription
+        .toLowerCase()
+        .split(/\s+/)
+        .filter((w) => w.length > 3)
+        .slice(0, 10);
+      await prisma.classificationKnowledge.create({
+        data: {
+          type: 'CASO_CLASIFICACION',
+          fractionCode: classification.fractionCode,
+          chapterCode: chapter,
+          title: `Caso con feedback negativo: ${classification.inputDescription.slice(0, 80)}`,
+          content: `Producto declarado: ${classification.inputDescription}\n\nLa IA clasificó en: ${classification.fractionCode}\nEl usuario marcó esta clasificación como INCORRECTA.\n${feedbackNote ? `\nNota del usuario: ${feedbackNote}` : ''}\n\nREVISAR: determinar la fracción correcta, documentar el razonamiento, y verificar este caso para que el clasificador aprenda del error.`,
+          source: `Feedback usuario ${req.userId ?? 'desconocido'} — clasificación ${id}`,
+          keywords,
+          priority: 7,
+          verified: false,
+        },
+      });
+    }
 
     res.json({ status: 'ok', data: classification });
   } catch (err) {

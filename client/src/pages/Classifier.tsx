@@ -1,193 +1,331 @@
-import { useState } from 'react';
-import { Search, AlertTriangle, ChevronDown, ChevronUp, ThumbsUp, ThumbsDown, AlertCircle, Download } from 'lucide-react';
-import { api, type ClassificationResult } from '../lib/api';
-import { generateClassificationPDF } from '../lib/pdf-classify';
+import { useState } from 'react'
+import { api } from '../lib/api'
+import type { ClassificationResult } from '../lib/api'
+import { Search, Sparkles, AlertCircle, ThumbsUp, ThumbsDown, Copy, Check, Scale, ChevronDown, AlertTriangle, ShieldCheck, Car, Link as LinkIcon } from 'lucide-react'
+import { formatFraction } from '../lib/format'
+import { ROITile } from '../components/ROIBanner'
+
+const GLASS = 'bg-white/70 backdrop-blur-xl border border-white/50 shadow-[0_8px_30px_rgb(0,0,0,0.04)]'
 
 export function ClassifierPage() {
-  const [description, setDescription] = useState('');
-  const [context, setContext] = useState('');
-  const [loading, setLoading] = useState(false);
-  const [result, setResult] = useState<ClassificationResult | null>(null);
-  const [error, setError] = useState('');
-  const [showTechnical, setShowTechnical] = useState(false);
-  const [classificationId, setClassificationId] = useState<string | null>(null);
-  const [feedback, setFeedback] = useState<string | null>(null);
+  const [query, setQuery] = useState('')
+  const [context, setContext] = useState('')
+  const [country, setCountry] = useState('')
+  const [declaredValue, setDeclaredValue] = useState('')
+  const [result, setResult] = useState<ClassificationResult | null>(null)
+  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState('')
+  const [classificationId, setClassificationId] = useState('')
+  const [feedbackSent, setFeedbackSent] = useState(false)
+  const [copied, setCopied] = useState(false)
+  const [legalOpen, setLegalOpen] = useState(false)
 
-  async function handleClassify(e: React.FormEvent) {
-    e.preventDefault();
-    setError('');
-    setResult(null);
-    setLoading(true);
-
+  async function handleClassify() {
+    if (!query.trim()) return
+    setLoading(true); setError(''); setResult(null); setFeedbackSent(false)
     try {
-      const res = await api.classify(description, context || undefined);
-      setResult(res.data);
-      setClassificationId((res as unknown as { classificationId: string }).classificationId);
-      setFeedback(null);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Error al clasificar');
-    } finally {
-      setLoading(false);
+      const declared = declaredValue ? parseFloat(declaredValue) : undefined
+      const res = await api.classify(query, context || undefined, country || undefined, declared)
+      setResult(res.data)
+      if (res.classificationId) setClassificationId(res.classificationId)
+      else {
+        const hist = await api.classifyHistory(query, 1)
+        if (hist.data.length > 0) setClassificationId(hist.data[0]!.id)
+      }
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Error al clasificar')
     }
+    setLoading(false)
+  }
+
+  async function sendFeedback(fb: 'correct' | 'incorrect') {
+    if (!classificationId) return
+    try {
+      await api.classifyFeedback(classificationId, fb)
+      setFeedbackSent(true)
+    } catch { /* silent */ }
+  }
+
+  function copyFraction() {
+    if (!result) return
+    navigator.clipboard.writeText(result.fraction.code)
+    setCopied(true)
+    setTimeout(() => setCopied(false), 2000)
   }
 
   return (
-    <div>
-      <div className="mb-8">
-        <h1 className="text-2xl font-bold text-white mb-1">Clasificador Arancelario IA</h1>
-        <p className="text-slate-400">Describe tu producto y obtén la fracción TIGIE + NICO</p>
+    <div className="max-w-5xl mx-auto space-y-4">
+      {/* Input card */}
+      <div className={`${GLASS} rounded-[2rem] p-6 md:p-8`}>
+        <div className="flex items-center gap-2 mb-4">
+          <Sparkles className="w-5 h-5 text-emerald-500" />
+          <h1 className="text-xl font-bold text-slate-900">Clasificador Arancelario IA</h1>
+        </div>
+
+        <div className="mb-4"><ROITile moduleKey="classifier" /></div>
+
+        <div className="space-y-4">
+          <div>
+            <label className="text-[12px] font-medium text-slate-500 mb-1.5 block">Describe el producto a importar</label>
+            <textarea
+              value={query}
+              onChange={e => setQuery(e.target.value)}
+              placeholder="Ej: Laptop Dell Inspiron 15, pantalla 15.6 pulgadas, procesador Intel i7, 16GB RAM, 512GB SSD..."
+              className="w-full bg-white/60 border border-slate-200/50 rounded-xl px-4 py-3 text-[14px] text-slate-900 placeholder:text-slate-400 outline-none focus:ring-2 focus:ring-emerald-500/30 focus:border-emerald-500/50 resize-none h-28 transition-all"
+              onKeyDown={e => { if (e.key === 'Enter' && e.metaKey) handleClassify() }}
+            />
+          </div>
+          <div>
+            <label className="text-[12px] font-medium text-slate-500 mb-1.5 block">Contexto adicional (opcional)</label>
+            <input
+              type="text"
+              value={context}
+              onChange={e => setContext(e.target.value)}
+              placeholder="Ej: Para uso en oficina, importado de China"
+              className="w-full bg-white/60 border border-slate-200/50 rounded-xl px-4 py-3 text-[14px] text-slate-900 placeholder:text-slate-400 outline-none focus:ring-2 focus:ring-emerald-500/30 focus:border-emerald-500/50 transition-all"
+            />
+          </div>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+            <div>
+              <label className="text-[12px] font-medium text-slate-500 mb-1.5 block">País de origen (opcional — activa alertas de cuota compensatoria)</label>
+              <input
+                type="text"
+                value={country}
+                onChange={e => setCountry(e.target.value)}
+                placeholder="China, Estados Unidos, Vietnam..."
+                className="w-full bg-white/60 border border-slate-200/50 rounded-xl px-4 py-3 text-[14px] text-slate-900 placeholder:text-slate-400 outline-none focus:ring-2 focus:ring-emerald-500/30 focus:border-emerald-500/50 transition-all"
+              />
+            </div>
+            <div>
+              <label className="text-[12px] font-medium text-slate-500 mb-1.5 block">Valor unitario declarado USD (opcional — chequeo subvaloración)</label>
+              <input
+                type="number"
+                step="0.01"
+                value={declaredValue}
+                onChange={e => setDeclaredValue(e.target.value)}
+                placeholder="0.00"
+                className="w-full bg-white/60 border border-slate-200/50 rounded-xl px-4 py-3 text-[14px] text-slate-900 placeholder:text-slate-400 outline-none focus:ring-2 focus:ring-emerald-500/30 focus:border-emerald-500/50 transition-all"
+              />
+            </div>
+          </div>
+          <button
+            onClick={handleClassify}
+            disabled={loading || !query.trim()}
+            className="flex items-center gap-2 bg-emerald-500 hover:bg-emerald-600 disabled:opacity-50 disabled:cursor-not-allowed text-white text-[13px] font-semibold px-6 py-3 rounded-full transition-all"
+          >
+            {loading ? <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" /> : <Search className="w-4 h-4" />}
+            {loading ? 'Clasificando...' : 'Clasificar con IA'}
+          </button>
+        </div>
+
+        {error && (
+          <div className="mt-4 flex items-center gap-2 p-3 rounded-xl bg-rose-50 border border-rose-100">
+            <AlertCircle className="w-4 h-4 text-rose-500 shrink-0" />
+            <p className="text-[12px] text-rose-700">{error}</p>
+          </div>
+        )}
       </div>
 
-      {/* Input */}
-      <form onSubmit={handleClassify} className="bg-[#0D1B2A] border border-[#1B2D45] rounded-xl p-6 mb-6">
-        <div className="mb-4">
-          <label className="block text-sm text-slate-400 mb-1.5">Descripción del producto</label>
-          <textarea
-            value={description}
-            onChange={(e) => setDescription(e.target.value)}
-            className="w-full bg-[#1B2D45] border border-[#243656] rounded-lg px-4 py-3 text-white placeholder-slate-500 focus:outline-none focus:border-[#C9A84C] transition-colors min-h-[100px] resize-y"
-            placeholder='Ej: "Tornillos de acero inoxidable de cabeza hexagonal, diámetro 10mm, para uso industrial"'
-            required
-          />
-        </div>
-        <div className="mb-4">
-          <label className="block text-sm text-slate-400 mb-1.5">Contexto adicional (opcional)</label>
-          <input
-            type="text"
-            value={context}
-            onChange={(e) => setContext(e.target.value)}
-            className="w-full bg-[#1B2D45] border border-[#243656] rounded-lg px-4 py-2.5 text-white placeholder-slate-500 focus:outline-none focus:border-[#C9A84C] transition-colors"
-            placeholder="Ej: uso, material específico, país de origen..."
-          />
-        </div>
-        <button
-          type="submit"
-          disabled={loading || description.trim().length < 3}
-          className="bg-[#C9A84C] hover:bg-[#A68A3E] text-[#0A1628] font-semibold px-6 py-2.5 rounded-lg transition-colors disabled:opacity-50 flex items-center gap-2"
-        >
-          <Search size={16} />
-          {loading ? 'Clasificando...' : 'Clasificar'}
-        </button>
-      </form>
-
-      {error && (
-        <div className="bg-red-500/10 border border-red-500/20 text-red-400 rounded-xl px-5 py-4 mb-6">
-          {error}
-        </div>
-      )}
-
-      {/* Result */}
+      {/* Result card */}
       {result && (
-        <div className="space-y-4">
-          {/* Main result */}
-          <div className="bg-[#0D1B2A] border border-[#C9A84C]/20 rounded-xl p-6 animate-fade-in">
-            <div className="flex items-start justify-between mb-4">
-              <div>
-                <p className="text-sm text-[#C9A84C] font-medium mb-1">Fracción Arancelaria</p>
-                <p className="text-3xl font-bold text-white font-mono">{result.fraction.code}</p>
-                <p className="text-slate-300 mt-1">{result.fraction.description}</p>
-              </div>
-              <div className="text-right">
-                <p className="text-sm text-slate-400">Confianza</p>
-                <p className={`text-2xl font-bold ${
-                  result.confidence >= 80 ? 'text-green-400' :
-                  result.confidence >= 60 ? 'text-yellow-400' : 'text-red-400'
-                }`}>
-                  {result.confidence}%
+        <div className={`${GLASS} rounded-[2rem] p-6 md:p-8 space-y-6`}>
+          {/* Disclaimer prominente Art. 54 LA */}
+          <div className="rounded-2xl bg-amber-50 border border-amber-200 p-4">
+            <div className="flex items-start gap-3">
+              <Scale className="w-5 h-5 text-amber-700 shrink-0 mt-0.5" />
+              <div className="flex-1">
+                <p className="text-[13px] font-bold text-amber-900">Sugerencia de IA — Análisis técnico de apoyo</p>
+                <p className="text-[12px] text-amber-800 mt-1 leading-relaxed">
+                  ⚖️ La clasificación final es responsabilidad del agente aduanal certificado conforme al Art. 54 de la Ley Aduanera.
+                  Este resultado es un apoyo técnico basado en GRI, notas legales y catálogo TIGIE; no sustituye el dictamen profesional ni constituye certeza fiscal vinculante.
                 </p>
               </div>
             </div>
-
-            {result.nico && (
-              <p className="text-sm text-slate-400">
-                NICO: <span className="text-white font-mono">{result.nico}</span>
-              </p>
-            )}
           </div>
 
-          {/* Explanation toggle */}
-          <div className="bg-[#0D1B2A] border border-[#1B2D45] rounded-xl p-6 animate-fade-in delay-100">
-            <button
-              onClick={() => setShowTechnical(!showTechnical)}
-              className="flex items-center gap-2 text-sm text-[#C9A84C] mb-3"
-            >
-              {showTechnical ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
-              {showTechnical ? 'Ver explicación simple' : 'Ver explicación técnica'}
-            </button>
-            <p className="text-slate-300 text-sm leading-relaxed">
-              {showTechnical ? result.explanation.technical : result.explanation.simple}
-            </p>
+          {/* Fraction header */}
+          <div className="flex items-start justify-between">
+            <div>
+              <p className="text-[11px] text-slate-500 uppercase tracking-wider mb-1">Fracción sugerida</p>
+              <div className="flex items-center gap-3">
+                <p className="font-mono text-[32px] font-bold text-slate-900 tracking-tight">{formatFraction(result.fraction.code)}</p>
+                <button onClick={copyFraction} className="w-8 h-8 rounded-lg bg-white/60 flex items-center justify-center hover:bg-white transition-colors">
+                  {copied ? <Check className="w-3.5 h-3.5 text-emerald-500" /> : <Copy className="w-3.5 h-3.5 text-slate-400" />}
+                </button>
+              </div>
+              {result.nico && <p className="font-mono text-[13px] text-slate-500 mt-1">NICO: {result.nico}</p>}
+            </div>
+            <div className="text-right">
+              <p className="text-[10px] text-slate-400 uppercase tracking-wider">Métrica técnica IA</p>
+              <p className="text-[18px] font-semibold text-slate-700">{Math.round(result.confidence)}%</p>
+              <p className="text-[10px] text-slate-400">no es certeza fiscal</p>
+            </div>
           </div>
 
-          {/* GRI */}
-          {result.griApplied.length > 0 && (
-            <div className="bg-[#0D1B2A] border border-[#1B2D45] rounded-xl p-6 animate-fade-in delay-200">
-              <h3 className="text-sm font-medium text-white mb-3">Reglas Generales Interpretativas aplicadas</h3>
-              <ul className="space-y-1">
-                {result.griApplied.map((gri, i) => (
-                  <li key={i} className="text-sm text-slate-400">{gri}</li>
-                ))}
-              </ul>
+          {/* Alertas defensivas */}
+          {result.alerts && result.alerts.length > 0 && (
+            <div className="space-y-2">
+              {result.alerts.map((a, i) => {
+                const isAntidumping = a.type === 'antidumping'
+                const isAutomotive = a.type === 'automotive'
+                const isUndervalue = a.type === 'undervalue'
+                const palette = a.severity === 'critical'
+                  ? 'bg-rose-50 border-rose-200 text-rose-800'
+                  : isAutomotive
+                    ? 'bg-orange-50 border-orange-200 text-orange-800'
+                    : isUndervalue
+                      ? 'bg-amber-50 border-amber-200 text-amber-800'
+                      : 'bg-sky-50 border-sky-200 text-sky-800'
+                const Icon = isAntidumping ? AlertTriangle
+                  : isAutomotive ? Car
+                  : isUndervalue ? AlertTriangle
+                  : ShieldCheck
+                return (
+                  <div key={i} className={`rounded-xl border p-4 ${palette}`}>
+                    <div className="flex items-start gap-3">
+                      <Icon className="w-5 h-5 shrink-0 mt-0.5"/>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-[13px] font-bold">{a.title}</p>
+                        <p className="text-[12px] mt-1 leading-relaxed">{a.message}</p>
+                      </div>
+                    </div>
+                  </div>
+                )
+              })}
             </div>
           )}
 
+          {/* Description */}
+          <div className="bg-white/40 rounded-xl p-4">
+            <p className="text-[12px] font-semibold text-slate-700 mb-1">{result.fraction.description}</p>
+            <p className="text-[11px] text-slate-500">Capítulo {result.fraction.chapter} — Sección {result.fraction.section}</p>
+          </div>
+
           {/* Tariffs */}
-          <div className="bg-[#0D1B2A] border border-[#1B2D45] rounded-xl p-6 animate-fade-in delay-300">
-            <h3 className="text-sm font-medium text-white mb-3">Aranceles</h3>
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-              <div>
-                <p className="text-xs text-slate-500">NMF</p>
-                <p className="text-lg font-semibold text-white">{result.tariffs.nmf}%</p>
+          <div>
+            <p className="text-[12px] font-semibold text-slate-700 mb-3">Aranceles</p>
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+              <div className="bg-white/40 rounded-xl p-3 text-center">
+                <p className="text-[18px] font-bold text-slate-900">{result.tariffs.nmf}%</p>
+                <p className="text-[10px] text-slate-500">IGI (NMF)</p>
               </div>
-              {Object.entries(result.tariffs.preferential).map(([treaty, rate]) => (
-                <div key={treaty}>
-                  <p className="text-xs text-slate-500">{treaty}</p>
-                  <p className="text-lg font-semibold text-green-400">{rate}%</p>
+              {Object.entries(result.tariffs.preferential).slice(0, 3).map(([treaty, rate]) => (
+                <div key={treaty} className="bg-emerald-50/50 rounded-xl p-3 text-center">
+                  <p className="text-[18px] font-bold text-emerald-600">{rate}%</p>
+                  <p className="text-[10px] text-slate-500">{treaty}</p>
                 </div>
               ))}
             </div>
           </div>
 
           {/* Regulations */}
-          <div className="bg-[#0D1B2A] border border-[#1B2D45] rounded-xl p-6 animate-fade-in delay-400">
-            <h3 className="text-sm font-medium text-white mb-3">Regulaciones</h3>
-            {result.regulations.rrna.length > 0 && (
-              <div className="mb-3">
-                <p className="text-xs text-slate-500 mb-1">RRNA</p>
-                {result.regulations.rrna.map((r, i) => (
-                  <span key={i} className="inline-block bg-yellow-500/10 text-yellow-400 text-xs px-2 py-1 rounded mr-2 mb-1">{r}</span>
-                ))}
-              </div>
-            )}
-            {result.regulations.noms.length > 0 && (
-              <div className="mb-3">
-                <p className="text-xs text-slate-500 mb-1">NOMs aplicables</p>
+          {(result.regulations.rrna.length > 0 || result.regulations.noms.length > 0) && (
+            <div>
+              <p className="text-[12px] font-semibold text-slate-700 mb-3">Regulaciones</p>
+              <div className="flex flex-wrap gap-2">
                 {result.regulations.noms.map((n, i) => (
-                  <span key={i} className="inline-block bg-blue-500/10 text-blue-400 text-xs px-2 py-1 rounded mr-2 mb-1">{n}</span>
+                  <span key={i} className="text-[10px] font-medium px-2.5 py-1 rounded-full bg-amber-50 text-amber-700 border border-amber-100">{n}</span>
+                ))}
+                {result.regulations.rrna.map((r, i) => (
+                  <span key={i} className="text-[10px] font-medium px-2.5 py-1 rounded-full bg-blue-50 text-blue-700 border border-blue-100">{r}</span>
                 ))}
               </div>
-            )}
-            {result.regulations.sectoralRegistry && (
-              <div className="flex items-center gap-2 text-amber-400 text-sm">
-                <AlertTriangle size={14} />
-                Requiere padrón sectorial
-              </div>
-            )}
+            </div>
+          )}
+
+          {/* Explanation */}
+          <div>
+            <p className="text-[12px] font-semibold text-slate-700 mb-2">Explicación</p>
+            <p className="text-[13px] text-slate-600 leading-relaxed">{result.explanation.simple}</p>
           </div>
+
+          {/* Fundamentación Legal */}
+          {result.legalBasis && (
+            (result.legalBasis.griApplied?.length ||
+              result.legalBasis.legalNotes?.length ||
+              result.legalBasis.discardedFractions?.length) ? (
+              <div>
+                <button
+                  onClick={() => setLegalOpen(o => !o)}
+                  className="w-full flex items-center justify-between bg-white/40 hover:bg-white/60 rounded-xl p-3 transition-colors"
+                >
+                  <div className="flex items-center gap-2">
+                    <Scale className="w-4 h-4 text-emerald-500" />
+                    <p className="text-[12px] font-semibold text-slate-700">Fundamentación Legal</p>
+                  </div>
+                  <ChevronDown className={`w-4 h-4 text-slate-500 transition-transform ${legalOpen ? 'rotate-180' : ''}`} />
+                </button>
+                {legalOpen && (
+                  <div className="mt-3 space-y-4 bg-white/30 rounded-xl p-4">
+                    {result.legalBasis.griApplied?.length > 0 && (
+                      <div>
+                        <p className="text-[11px] font-semibold text-slate-600 uppercase tracking-wider mb-2">GRI aplicadas</p>
+                        <div className="space-y-2">
+                          {result.legalBasis.griApplied.map((g, i) => (
+                            <div key={i} className="bg-white/50 rounded-lg p-3">
+                              <p className="text-[12px] font-semibold text-emerald-700">{g.rule}</p>
+                              <p className="text-[12px] text-slate-600 mt-1 leading-relaxed">{g.reasoning}</p>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+
+                    {result.legalBasis.legalNotes?.length > 0 && (
+                      <div>
+                        <p className="text-[11px] font-semibold text-slate-600 uppercase tracking-wider mb-2">Notas legales revisadas</p>
+                        <div className="space-y-2">
+                          {result.legalBasis.legalNotes.map((n, i) => (
+                            <div key={i} className="bg-amber-50/50 border border-amber-100 rounded-lg p-3">
+                              <p className="text-[12px] font-semibold text-amber-800">{n.source}</p>
+                              <p className="text-[12px] text-slate-700 mt-1 leading-relaxed italic">"{n.text}"</p>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+
+                    {result.legalBasis.discardedFractions?.length > 0 && (
+                      <div>
+                        <p className="text-[11px] font-semibold text-slate-600 uppercase tracking-wider mb-2">Partidas descartadas</p>
+                        <div className="space-y-2">
+                          {result.legalBasis.discardedFractions.map((d, i) => (
+                            <div key={i} className="flex gap-3 bg-rose-50/40 border border-rose-100 rounded-lg p-3">
+                              <p className="font-mono text-[12px] font-semibold text-rose-700 shrink-0">{d.code}</p>
+                              <p className="text-[12px] text-slate-600 leading-relaxed">{d.reason}</p>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+            ) : null
+          )}
+
+          {/* GRI */}
+          {result.griApplied.length > 0 && (
+            <div>
+              <p className="text-[12px] font-semibold text-slate-700 mb-2">GRI aplicadas</p>
+              <div className="flex flex-wrap gap-2">
+                {result.griApplied.map((g, i) => (
+                  <span key={i} className="text-[10px] font-medium px-2.5 py-1 rounded-full bg-slate-100 text-slate-600">{g}</span>
+                ))}
+              </div>
+            </div>
+          )}
 
           {/* Alternatives */}
           {result.alternatives.length > 0 && (
-            <div className="bg-[#0D1B2A] border border-[#1B2D45] rounded-xl p-6 animate-fade-in delay-500">
-              <h3 className="text-sm font-medium text-white mb-3">Fracciones alternativas</h3>
-              <div className="space-y-3">
+            <div>
+              <p className="text-[12px] font-semibold text-slate-700 mb-3">Alternativas</p>
+              <div className="space-y-2">
                 {result.alternatives.map((alt, i) => (
-                  <div key={i} className="flex items-start justify-between border-b border-[#1B2D45] pb-3 last:border-0">
-                    <div>
-                      <p className="font-mono text-white">{alt.code}</p>
-                      <p className="text-sm text-slate-400">{alt.description}</p>
-                      <p className="text-xs text-slate-500 mt-1">{alt.reason}</p>
-                    </div>
-                    <span className="text-sm text-slate-400">{alt.confidence}%</span>
+                  <div key={i} className="flex items-center gap-3 bg-white/40 rounded-xl p-3">
+                    <p className="font-mono text-[13px] font-semibold text-slate-800">{alt.code}</p>
+                    <p className="text-[11px] text-slate-500 flex-1 line-clamp-1">{alt.description}</p>
+                    <span className="text-[11px] font-bold text-emerald-500">{Math.round(alt.confidence)}%</span>
                   </div>
                 ))}
               </div>
@@ -195,56 +333,46 @@ export function ClassifierPage() {
           )}
 
           {/* Feedback */}
-          {classificationId && (
-            <div className="bg-[#0D1B2A] border border-[#1B2D45] rounded-xl p-6">
-              <p className="text-sm text-slate-400 mb-3">¿Esta clasificación es correcta?</p>
-              <div className="flex gap-3">
-                {[
-                  { value: 'correct', label: 'Correcta', icon: ThumbsUp, color: 'green' },
-                  { value: 'partial', label: 'Parcial', icon: AlertCircle, color: 'yellow' },
-                  { value: 'incorrect', label: 'Incorrecta', icon: ThumbsDown, color: 'red' },
-                ].map((opt) => (
-                  <button
-                    key={opt.value}
-                    onClick={async () => {
-                      await api.classifyFeedback(classificationId, opt.value as 'correct' | 'incorrect' | 'partial');
-                      setFeedback(opt.value);
-                    }}
-                    className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm transition-all ${
-                      feedback === opt.value
-                        ? `bg-${opt.color}-500/20 text-${opt.color}-400 border border-${opt.color}-500/30`
-                        : 'bg-[#1B2D45] text-slate-400 hover:text-white'
-                    }`}
-                  >
-                    <opt.icon size={14} />
-                    {opt.label}
-                  </button>
-                ))}
-              </div>
-              {feedback && (
-                <p className="text-xs text-slate-500 mt-3">Gracias por tu feedback. Esto mejora la precisión del clasificador.</p>
-              )}
+          <div className="flex items-center gap-3 pt-4 border-t border-slate-200/50">
+            <p className="text-[12px] text-slate-500">¿Resultado correcto?</p>
+            {feedbackSent ? (
+              <span className="text-[12px] text-emerald-600 font-medium">¡Gracias por tu feedback!</span>
+            ) : (
+              <>
+                <button onClick={() => sendFeedback('correct')} className="flex items-center gap-1.5 text-[11px] font-medium text-emerald-600 bg-emerald-50 px-3 py-1.5 rounded-full hover:bg-emerald-100 transition-colors">
+                  <ThumbsUp className="w-3 h-3" /> Sí
+                </button>
+                <button onClick={() => sendFeedback('incorrect')} className="flex items-center gap-1.5 text-[11px] font-medium text-rose-600 bg-rose-50 px-3 py-1.5 rounded-full hover:bg-rose-100 transition-colors">
+                  <ThumbsDown className="w-3 h-3" /> No
+                </button>
+              </>
+            )}
+          </div>
+
+          {/* Footer regulatorio + verifiable */}
+          {result.meta && (
+            <div className="rounded-xl bg-slate-50 border border-slate-200 p-3 text-[10px] text-slate-600 space-y-1">
+              <p>
+                <span className="font-semibold">Consultado:</span> TIGIE {result.meta.tigieVersion} · LIGIE {result.meta.ligieVersion}
+                {' · '}
+                <span className="font-mono">{new Date(result.meta.consultedAt).toLocaleString('es-MX')}</span>
+              </p>
+              <p className="font-mono break-all">
+                <span className="font-semibold font-sans">Hash:</span> SHA256-{result.meta.consultHash.slice(0, 16)}…
+              </p>
+              <p className="flex items-center gap-1">
+                <LinkIcon className="w-2.5 h-2.5"/>
+                <a href={result.meta.verifyUrl} target="_blank" rel="noreferrer" className="text-emerald-600 hover:underline font-mono">
+                  Verificable en {result.meta.verifyUrl}
+                </a>
+              </p>
             </div>
           )}
 
-          {/* Export PDF */}
-          <button
-            onClick={() => generateClassificationPDF(result, description)}
-            className="flex items-center gap-2 bg-[#1B2D45] hover:bg-[#243656] text-slate-300 hover:text-white px-4 py-2.5 rounded-lg text-sm transition-colors"
-          >
-            <Download size={16} />
-            Exportar PDF
-          </button>
-
           {/* Disclaimer */}
-          <div className="bg-amber-500/5 border border-amber-500/10 rounded-xl px-5 py-4">
-            <p className="text-xs text-amber-400/80 flex items-start gap-2">
-              <AlertTriangle size={14} className="mt-0.5 shrink-0" />
-              {result.disclaimer}
-            </p>
-          </div>
+          <p className="text-[10px] text-slate-400 italic">{result.disclaimer}</p>
         </div>
       )}
     </div>
-  );
+  )
 }

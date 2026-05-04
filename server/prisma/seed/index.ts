@@ -3,6 +3,10 @@ import { PrismaPg } from '@prisma/adapter-pg';
 import dotenv from 'dotenv';
 import path from 'node:path';
 import { SECTIONS, CHAPTERS, FRACTIONS } from './tigie-data';
+import { KNOWLEDGE_BASE } from './knowledge-base';
+import { seedDemoFixtures, loadDemoIntoTenant, clearDemoFromTenant, DEMO_TENANT_ID } from '../../src/services/demo-loader';
+import { seedRegulations } from './regulations';
+import { seedSyntheticHistory } from '../../src/services/exchange-rate';
 
 dotenv.config({ path: path.join(__dirname, '..', '..', '.env') });
 
@@ -132,29 +136,95 @@ async function main() {
   }
   console.log(`   ✅ ${created} fracciones creadas\n`);
 
-  // 4. Crear usuario demo
-  console.log('👤 Creando usuario demo...');
+  // 4. Crear usuario demo (Maquiladora Ejemplo SA de CV)
+  console.log('👤 Creando tenant demo + usuario...');
   const bcrypt = await import('bcryptjs');
   const hashedPassword = await bcrypt.hash('demo1234', 12);
 
   await prisma.tenant.upsert({
-    where: { id: 'demo-tenant' },
-    update: {},
+    where: { id: DEMO_TENANT_ID },
+    update: { name: 'Maquiladora Ejemplo SA de CV', rfc: 'MEJ010203AB1' },
     create: {
-      id: 'demo-tenant',
-      name: 'Empresa Demo',
-      plan: 'STARTER',
+      id: DEMO_TENANT_ID,
+      name: 'Maquiladora Ejemplo SA de CV',
+      plan: 'PROFESSIONAL',
+      rfc: 'MEJ010203AB1',
       users: {
         create: {
           email: 'demo@aduanai.mx',
           password: hashedPassword,
           name: 'Usuario Demo',
           role: 'ADMIN',
+          status: 'VERIFIED',
+          emailVerified: true,
         },
       },
     },
   });
-  console.log('   ✅ Usuario demo creado: demo@aduanai.mx / demo1234\n');
+  // Garantizar credenciales conocidas si el usuario ya existía
+  await prisma.user.updateMany({
+    where: { email: 'demo@aduanai.mx' },
+    data: { password: hashedPassword, status: 'VERIFIED', emailVerified: true, active: true },
+  });
+  console.log('   ✅ Tenant demo: Maquiladora Ejemplo SA de CV');
+  console.log('   ✅ Login: demo@aduanai.mx / demo1234\n');
+
+  // 4.b Sembrar fixtures de demo en tabla DemoData
+  console.log('📦 Sembrando DemoData fixtures...');
+  await seedDemoFixtures(prisma);
+  console.log('   ✅ Fixtures registrados (13 categorías)\n');
+
+  // 4.b.2 Cuotas compensatorias + regulaciones (NOMs / padrones)
+  console.log('⚖️  Sembrando cuotas compensatorias y regulaciones...');
+  const regs = await seedRegulations(prisma);
+  console.log(`   ✅ ${regs.antidumping} cuotas compensatorias, ${regs.regulations} regulaciones\n`);
+
+  // 4.b.3 Histórico sintético de TC (90 días) para selector "TC histórico"
+  console.log('💱 Sembrando histórico de tipo de cambio (90 días)...');
+  const tcCount = await seedSyntheticHistory(90);
+  console.log(`   ✅ ${tcCount} días de TC en cache\n`);
+
+  // 4.c Cargar dataset al tenant demo (idempotente: limpia y recarga)
+  console.log('🚚 Materializando dataset en tenant demo...');
+  const demoUser = await prisma.user.findFirst({
+    where: { tenantId: DEMO_TENANT_ID, role: 'ADMIN' },
+  });
+  if (demoUser) {
+    await clearDemoFromTenant(prisma, DEMO_TENANT_ID);
+    const loaded = await loadDemoIntoTenant(prisma, DEMO_TENANT_ID, demoUser.id, { replaceExisting: false });
+    console.log(`   ✅ ${loaded.imports} imports, ${loaded.discharges} descargos, ${loaded.taxCredits} créditos,`);
+    console.log(`      ${loaded.guarantees} garantías, ${loaded.classifications} clasificaciones, ${loaded.quotes} quotes,`);
+    console.log(`      ${loaded.operations} expedientes, ${loaded.mves} MVE, ${loaded.coves} COVE, ${loaded.loadPlans} planes carga, ${loaded.alerts} alertas\n`);
+  } else {
+    console.warn('   ⚠️  No se encontró usuario admin del tenant demo\n');
+  }
+
+  // 5. Base de conocimiento
+  console.log(`📚 Sembrando ${KNOWLEDGE_BASE.length} registros de conocimiento...`);
+  const existingKnowledgeCount = await prisma.classificationKnowledge.count();
+  if (existingKnowledgeCount === 0) {
+    for (const k of KNOWLEDGE_BASE) {
+      await prisma.classificationKnowledge.create({
+        data: {
+          type: k.type,
+          fractionCode: k.fractionCode,
+          chapterCode: k.chapterCode,
+          sectionCode: k.sectionCode,
+          title: k.title,
+          content: k.content,
+          source: k.source,
+          keywords: k.keywords,
+          products: k.products,
+          priority: k.priority ?? 5,
+          verified: true,
+          verifiedBy: 'seed',
+        },
+      });
+    }
+    console.log(`   ✅ ${KNOWLEDGE_BASE.length} registros sembrados\n`);
+  } else {
+    console.log(`   ⏭️  Saltado (ya existen ${existingKnowledgeCount})\n`);
+  }
 
   // Resumen
   const counts = {
@@ -163,6 +233,7 @@ async function main() {
     headings: await prisma.heading.count(),
     subheadings: await prisma.subheading.count(),
     fractions: await prisma.fraction.count(),
+    knowledge: await prisma.classificationKnowledge.count(),
     users: await prisma.user.count(),
   };
 
@@ -172,6 +243,7 @@ async function main() {
   console.log(`   Partidas:     ${counts.headings}`);
   console.log(`   Subpartidas:  ${counts.subheadings}`);
   console.log(`   Fracciones:   ${counts.fractions}`);
+  console.log(`   Conocimiento: ${counts.knowledge}`);
   console.log(`   Usuarios:     ${counts.users}`);
   console.log('\n🚀 Seed completado exitosamente!');
 }

@@ -1,238 +1,291 @@
-import { Routes, Route, Navigate } from 'react-router-dom';
-import { useState, useEffect } from 'react';
-import { Layout } from './components/Layout';
-import { LandingPage } from './pages/Landing';
-import { LoginPage } from './pages/Login';
-import { ClassifierPage } from './pages/Classifier';
-import { QuoterPage } from './pages/Quoter';
-import { CopilotPage } from './pages/Copilot';
-import { DashboardPage } from './pages/Dashboard';
-import { HistoryPage } from './pages/History';
-import { AlertsPage } from './pages/Alerts';
-import { OperationsPage } from './pages/Operations';
-import { AnalyticsPage } from './pages/Analytics';
-import { InventoryPage } from './pages/Inventory';
-import { FiscalGuardianPage } from './pages/FiscalGuardian';
-import { AutoMVEPage } from './pages/AutoMVE';
-import { LogisticsPage } from './pages/LogisticsOptimizer';
-import { TIGIEUpdaterPage } from './pages/TIGIEUpdater';
-import { PreValidatorPage } from './pages/PreValidator';
-import { WhatsAppPage } from './pages/WhatsApp';
-import { FractionsPage } from './pages/Fractions';
+import { useState, useEffect } from 'react'
+import { Routes, Route, Navigate } from 'react-router-dom'
+import { AppLayout } from './components/AppLayout'
+import { AboutPage } from './pages/Public/About'
+import { TermsPage } from './pages/Public/Terms'
+import { PrivacyPage } from './pages/Public/Privacy'
+import { CookiesPage } from './pages/Public/Cookies'
+import { ThankYouPage } from './pages/Public/ThankYou'
+import { LoginPage } from './pages/Login'
+import { RegisterPage } from './pages/Register'
+import { VerifyEmailPage } from './pages/VerifyEmail'
+import { ForgotPasswordPage } from './pages/ForgotPassword'
+import { ResetPasswordPage } from './pages/ResetPassword'
+import { DashboardPage } from './pages/Dashboard'
+import { ClassifierPage } from './pages/Classifier'
+import { QuoterPage } from './pages/Quoter'
+import { CopilotPage } from './pages/Copilot'
+import { HistoryPage } from './pages/History'
+import { OperationsPage } from './pages/Operations'
+import { AlertsPage } from './pages/Alerts'
+import { AnalyticsPage } from './pages/Analytics'
+import { InventoryPage } from './pages/Inventory'
+import { FiscalPage } from './pages/Fiscal'
+import { MVEPage } from './pages/MVE'
+import { LogisticsPage } from './pages/Logistics'
+import { UpdatesPage } from './pages/Updates'
+import { PreValidatorPage } from './pages/PreValidator'
+import { FractionsPage } from './pages/Fractions'
+import { AdminLeadsPage } from './pages/Admin/AdminLeads'
+import { AdminKnowledgePage } from './pages/Admin/AdminKnowledge'
+import { AdminDashboardPage } from './pages/Admin/AdminDashboard'
+import { AdminEmpresasPage } from './pages/Admin/AdminEmpresas'
+import { AdminPilotosPage } from './pages/Admin/AdminPilotos'
+import { AdminRenovacionesPage } from './pages/Admin/AdminRenovaciones'
+import { AdminMetricasPage } from './pages/Admin/AdminMetricas'
+import { AdminDemoPage } from './pages/Admin/AdminDemo'
+import { AdminAuditPage } from './pages/Admin/AdminAudit'
+import { ExpedientesAIPage } from './pages/ExpedientesAI'
+import { OnboardingWizard } from './components/OnboardingWizard'
+import { api } from './lib/api'
+
+interface User {
+  id: string
+  email: string
+  name: string
+  role: string
+  emailVerified: boolean
+  status: string
+  onboardingCompleted?: boolean
+  onboardingStep?: number
+  tenant?: { id: string; name: string; plan: string; status: string }
+}
+
+function RequireAuth({ token, user, children }: { token: string | null; user: User | null; children: React.ReactNode }) {
+  if (!token) return <Navigate to="/login" replace />
+  if (token && user && !user.emailVerified) return <Navigate to="/verify" replace />
+  return <>{children}</>
+}
+
+function RequireVerifyOnly({ token, children }: { token: string | null; children: React.ReactNode }) {
+  if (!token) return <Navigate to="/login" replace />
+  return <>{children}</>
+}
+
+function RedirectIfAuthed({ token, user, children }: { token: string | null; user: User | null; children: React.ReactNode }) {
+  if (token && user?.emailVerified) return <Navigate to="/app" replace />
+  return <>{children}</>
+}
 
 export function App() {
-  const [token, setToken] = useState<string | null>(
-    localStorage.getItem('aduanai_token')
-  );
+  const [token, setToken] = useState<string | null>(localStorage.getItem('aduanai_token'))
+  const [user, setUser] = useState<User | null>(null)
+  const [authLoading, setAuthLoading] = useState(!!localStorage.getItem('aduanai_token'))
 
   useEffect(() => {
-    if (token) {
-      localStorage.setItem('aduanai_token', token);
-    } else {
-      localStorage.removeItem('aduanai_token');
+    const stored = localStorage.getItem('aduanai_token')
+    if (!stored) {
+      setAuthLoading(false)
+      return
     }
-  }, [token]);
+    api.me()
+      .then(res => {
+        setUser(res.data)
+        setToken(stored)
+      })
+      .catch(() => {
+        localStorage.removeItem('aduanai_token')
+        setToken(null)
+        setUser(null)
+      })
+      .finally(() => setAuthLoading(false))
+  }, [])
+
+  function handleLogin(newToken: string, newUser: User) {
+    localStorage.setItem('aduanai_token', newToken)
+    setToken(newToken)
+    setUser(newUser)
+  }
+
+  function handleLogout() {
+    api.logout().catch(() => {})
+    localStorage.removeItem('aduanai_token')
+    setToken(null)
+    setUser(null)
+  }
+
+  if (authLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-white">
+        <div className="w-6 h-6 border-2 border-emerald-600 border-t-transparent rounded-full animate-spin" />
+      </div>
+    )
+  }
+
+  const showOnboarding = !!user && user.emailVerified && user.onboardingCompleted === false
 
   return (
+    <>
+      {showOnboarding && <OnboardingWizard user={user!} onComplete={() => setUser(prev => prev ? { ...prev, onboardingCompleted: true } : prev)} />}
     <Routes>
-      {/* Public routes */}
-      <Route path="/" element={token ? <Navigate to="/app" replace /> : <LandingPage />} />
-      <Route path="/login" element={token ? <Navigate to="/app" replace /> : <LoginPage onLogin={setToken} />} />
+      {/* Public */}
+      <Route path="/" element={<AboutPage />} />
+      <Route path="/about" element={<AboutPage />} />
+      <Route path="/terminos" element={<TermsPage />} />
+      <Route path="/privacidad" element={<PrivacyPage />} />
+      <Route path="/cookies" element={<CookiesPage />} />
+      <Route path="/gracias" element={<ThankYouPage />} />
 
-      {/* Protected routes */}
+      {/* Auth pages — redirect to /app if already logged in and verified */}
       <Route
-        path="/app"
+        path="/login"
         element={
-          token ? (
-            <Layout onLogout={() => setToken(null)}>
-              <DashboardPage />
-            </Layout>
-          ) : (
-            <Navigate to="/login" replace />
-          )
+          <RedirectIfAuthed token={token} user={user}>
+            <LoginPage onLogin={handleLogin} />
+          </RedirectIfAuthed>
         }
       />
       <Route
-        path="/clasificador"
+        path="/register"
         element={
-          token ? (
-            <Layout onLogout={() => setToken(null)}>
-              <ClassifierPage />
-            </Layout>
-          ) : (
-            <Navigate to="/login" replace />
-          )
+          <RedirectIfAuthed token={token} user={user}>
+            <RegisterPage onLogin={handleLogin} />
+          </RedirectIfAuthed>
         }
       />
+      <Route path="/forgot-password" element={<ForgotPasswordPage />} />
+      <Route path="/reset-password" element={<ResetPasswordPage />} />
+
+      {/* Verify — requires token but NOT emailVerified */}
       <Route
-        path="/cotizador"
+        path="/verify"
         element={
-          token ? (
-            <Layout onLogout={() => setToken(null)}>
-              <QuoterPage />
-            </Layout>
-          ) : (
-            <Navigate to="/login" replace />
-          )
+          <RequireVerifyOnly token={token}>
+            <VerifyEmailPage userEmail={user?.email} onLogout={handleLogout} />
+          </RequireVerifyOnly>
         }
       />
-      <Route
-        path="/copilot"
-        element={
-          token ? (
-            <Layout onLogout={() => setToken(null)}>
-              <CopilotPage />
-            </Layout>
-          ) : (
-            <Navigate to="/login" replace />
-          )
-        }
-      />
-      <Route
-        path="/analytics"
-        element={
-          token ? (
-            <Layout onLogout={() => setToken(null)}>
-              <AnalyticsPage />
-            </Layout>
-          ) : (
-            <Navigate to="/login" replace />
-          )
-        }
-      />
-      <Route
-        path="/inventario"
-        element={
-          token ? (
-            <Layout onLogout={() => setToken(null)}>
-              <InventoryPage />
-            </Layout>
-          ) : (
-            <Navigate to="/login" replace />
-          )
-        }
-      />
-      <Route
-        path="/updates"
-        element={
-          token ? (
-            <Layout onLogout={() => setToken(null)}>
-              <TIGIEUpdaterPage />
-            </Layout>
-          ) : (
-            <Navigate to="/login" replace />
-          )
-        }
-      />
-      <Route
-        path="/logistics"
-        element={
-          token ? (
-            <Layout onLogout={() => setToken(null)}>
-              <LogisticsPage />
-            </Layout>
-          ) : (
-            <Navigate to="/login" replace />
-          )
-        }
-      />
-      <Route
-        path="/mve"
-        element={
-          token ? (
-            <Layout onLogout={() => setToken(null)}>
-              <AutoMVEPage />
-            </Layout>
-          ) : (
-            <Navigate to="/login" replace />
-          )
-        }
-      />
-      <Route
-        path="/fiscal"
-        element={
-          token ? (
-            <Layout onLogout={() => setToken(null)}>
-              <FiscalGuardianPage />
-            </Layout>
-          ) : (
-            <Navigate to="/login" replace />
-          )
-        }
-      />
-      <Route
-        path="/expediente"
-        element={
-          token ? (
-            <Layout onLogout={() => setToken(null)}>
-              <OperationsPage />
-            </Layout>
-          ) : (
-            <Navigate to="/login" replace />
-          )
-        }
-      />
-      <Route
-        path="/alertas"
-        element={
-          token ? (
-            <Layout onLogout={() => setToken(null)}>
-              <AlertsPage />
-            </Layout>
-          ) : (
-            <Navigate to="/login" replace />
-          )
-        }
-      />
-      <Route
-        path="/historial"
-        element={
-          token ? (
-            <Layout onLogout={() => setToken(null)}>
-              <HistoryPage />
-            </Layout>
-          ) : (
-            <Navigate to="/login" replace />
-          )
-        }
-      />
-      <Route
-        path="/prevalidador"
-        element={
-          token ? (
-            <Layout onLogout={() => setToken(null)}>
-              <PreValidatorPage />
-            </Layout>
-          ) : (
-            <Navigate to="/login" replace />
-          )
-        }
-      />
-      <Route
-        path="/whatsapp"
-        element={
-          token ? (
-            <Layout onLogout={() => setToken(null)}>
-              <WhatsAppPage />
-            </Layout>
-          ) : (
-            <Navigate to="/login" replace />
-          )
-        }
-      />
-      <Route
-        path="/fracciones"
-        element={
-          token ? (
-            <Layout onLogout={() => setToken(null)}>
-              <FractionsPage />
-            </Layout>
-          ) : (
-            <Navigate to="/login" replace />
-          )
-        }
-      />
+
+      {/* Protected app routes */}
+      <Route path="/app" element={
+        <RequireAuth token={token} user={user}>
+          <AppLayout onLogout={handleLogout} userRole={user?.role}><DashboardPage /></AppLayout>
+        </RequireAuth>
+      } />
+      <Route path="/clasificador" element={
+        <RequireAuth token={token} user={user}>
+          <AppLayout onLogout={handleLogout} userRole={user?.role}><ClassifierPage /></AppLayout>
+        </RequireAuth>
+      } />
+      <Route path="/cotizador" element={
+        <RequireAuth token={token} user={user}>
+          <AppLayout onLogout={handleLogout} userRole={user?.role}><QuoterPage /></AppLayout>
+        </RequireAuth>
+      } />
+      <Route path="/copilot" element={
+        <RequireAuth token={token} user={user}>
+          <AppLayout onLogout={handleLogout} userRole={user?.role}><CopilotPage /></AppLayout>
+        </RequireAuth>
+      } />
+      <Route path="/historial" element={
+        <RequireAuth token={token} user={user}>
+          <AppLayout onLogout={handleLogout} userRole={user?.role}><HistoryPage /></AppLayout>
+        </RequireAuth>
+      } />
+      <Route path="/expediente" element={
+        <RequireAuth token={token} user={user}>
+          <AppLayout onLogout={handleLogout} userRole={user?.role}><OperationsPage /></AppLayout>
+        </RequireAuth>
+      } />
+      <Route path="/expediente-ia" element={
+        <RequireAuth token={token} user={user}>
+          <AppLayout onLogout={handleLogout} userRole={user?.role}><ExpedientesAIPage /></AppLayout>
+        </RequireAuth>
+      } />
+      <Route path="/prevalidador" element={
+        <RequireAuth token={token} user={user}>
+          <AppLayout onLogout={handleLogout} userRole={user?.role}><PreValidatorPage /></AppLayout>
+        </RequireAuth>
+      } />
+      <Route path="/alertas" element={
+        <RequireAuth token={token} user={user}>
+          <AppLayout onLogout={handleLogout} userRole={user?.role}><AlertsPage /></AppLayout>
+        </RequireAuth>
+      } />
+      <Route path="/analytics" element={
+        <RequireAuth token={token} user={user}>
+          <AppLayout onLogout={handleLogout} userRole={user?.role}><AnalyticsPage /></AppLayout>
+        </RequireAuth>
+      } />
+      <Route path="/inventario" element={
+        <RequireAuth token={token} user={user}>
+          <AppLayout onLogout={handleLogout} userRole={user?.role}><InventoryPage /></AppLayout>
+        </RequireAuth>
+      } />
+      <Route path="/fiscal" element={
+        <RequireAuth token={token} user={user}>
+          <AppLayout onLogout={handleLogout} userRole={user?.role}><FiscalPage /></AppLayout>
+        </RequireAuth>
+      } />
+      <Route path="/mve" element={
+        <RequireAuth token={token} user={user}>
+          <AppLayout onLogout={handleLogout} userRole={user?.role}><MVEPage /></AppLayout>
+        </RequireAuth>
+      } />
+      <Route path="/logistics" element={
+        <RequireAuth token={token} user={user}>
+          <AppLayout onLogout={handleLogout} userRole={user?.role}><LogisticsPage /></AppLayout>
+        </RequireAuth>
+      } />
+      <Route path="/updates" element={
+        <RequireAuth token={token} user={user}>
+          <AppLayout onLogout={handleLogout} userRole={user?.role}><UpdatesPage /></AppLayout>
+        </RequireAuth>
+      } />
+      <Route path="/fracciones" element={
+        <RequireAuth token={token} user={user}>
+          <AppLayout onLogout={handleLogout} userRole={user?.role}><FractionsPage /></AppLayout>
+        </RequireAuth>
+      } />
+
+      <Route path="/admin" element={
+        <RequireAuth token={token} user={user}>
+          <AppLayout onLogout={handleLogout} userRole={user?.role}><AdminDashboardPage /></AppLayout>
+        </RequireAuth>
+      } />
+      <Route path="/admin/leads" element={
+        <RequireAuth token={token} user={user}>
+          <AppLayout onLogout={handleLogout} userRole={user?.role}><AdminLeadsPage /></AppLayout>
+        </RequireAuth>
+      } />
+      <Route path="/admin/knowledge" element={
+        <RequireAuth token={token} user={user}>
+          <AppLayout onLogout={handleLogout} userRole={user?.role}><AdminKnowledgePage /></AppLayout>
+        </RequireAuth>
+      } />
+      <Route path="/admin/pilotos" element={
+        <RequireAuth token={token} user={user}>
+          <AppLayout onLogout={handleLogout} userRole={user?.role}><AdminPilotosPage /></AppLayout>
+        </RequireAuth>
+      } />
+      <Route path="/admin/empresas" element={
+        <RequireAuth token={token} user={user}>
+          <AppLayout onLogout={handleLogout} userRole={user?.role}><AdminEmpresasPage /></AppLayout>
+        </RequireAuth>
+      } />
+      <Route path="/admin/renovaciones" element={
+        <RequireAuth token={token} user={user}>
+          <AppLayout onLogout={handleLogout} userRole={user?.role}><AdminRenovacionesPage /></AppLayout>
+        </RequireAuth>
+      } />
+      <Route path="/admin/metricas" element={
+        <RequireAuth token={token} user={user}>
+          <AppLayout onLogout={handleLogout} userRole={user?.role}><AdminMetricasPage /></AppLayout>
+        </RequireAuth>
+      } />
+      <Route path="/admin/demo" element={
+        <RequireAuth token={token} user={user}>
+          <AppLayout onLogout={handleLogout} userRole={user?.role}><AdminDemoPage /></AppLayout>
+        </RequireAuth>
+      } />
+      <Route path="/admin/audit" element={
+        <RequireAuth token={token} user={user}>
+          <AppLayout onLogout={handleLogout} userRole={user?.role}><AdminAuditPage /></AppLayout>
+        </RequireAuth>
+      } />
+
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>
-  );
+    </>
+  )
 }

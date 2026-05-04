@@ -9,6 +9,7 @@ import {
   getAnnex30Account,
   getInventoryStats,
 } from '../services/inventory';
+import { recordAssembly, traceImport } from '../services/bom-service';
 
 export const inventoryRouter = Router();
 
@@ -413,6 +414,211 @@ inventoryRouter.get('/annex30-account', authenticate, async (req: AuthRequest, r
   try {
     const account = await getAnnex30Account(req.tenantId!);
     res.json({ status: 'ok', data: account });
+  } catch (err) {
+    next(err);
+  }
+});
+
+// ============================================
+// PRODUCTOS Y BOM — Bill of Materials
+// ============================================
+
+// Listar productos (con BOM expandido)
+inventoryRouter.get('/products', authenticate, async (req: AuthRequest, res, next) => {
+  try {
+    const where: { tenantId: string; isFinished?: boolean } = { tenantId: req.tenantId! };
+    if (req.query.finished === 'true') where.isFinished = true;
+    if (req.query.finished === 'false') where.isFinished = false;
+
+    const products = await prisma.product.findMany({
+      where,
+      include: {
+        components: { include: { component: true } },
+        _count: { select: { assemblies: true } },
+      },
+      orderBy: [{ isFinished: 'desc' }, { productCode: 'asc' }],
+    });
+    res.json({ status: 'ok', data: products });
+  } catch (err) {
+    next(err);
+  }
+});
+
+// Crear producto (materia prima o terminado)
+inventoryRouter.post('/products', authenticate, async (req: AuthRequest, res, next) => {
+  try {
+    const { productCode, description, fractionCode, unit, isFinished } = req.body as {
+      productCode?: string; description?: string; fractionCode?: string; unit?: string; isFinished?: boolean;
+    };
+    if (!productCode || !description || !unit) {
+      return res.status(400).json({ status: 'error', message: 'productCode, description y unit son requeridos' });
+    }
+    const product = await prisma.product.create({
+      data: {
+        tenantId: req.tenantId!,
+        productCode,
+        description,
+        fractionCode: fractionCode ?? null,
+        unit,
+        isFinished: !!isFinished,
+      },
+    });
+    res.status(201).json({ status: 'ok', data: product });
+  } catch (err) {
+    next(err);
+  }
+});
+
+// Eliminar producto
+inventoryRouter.delete('/products/:id', authenticate, async (req: AuthRequest, res, next) => {
+  try {
+    const product = await prisma.product.findFirst({
+      where: { id: String(req.params.id), tenantId: req.tenantId! },
+    });
+    if (!product) return res.status(404).json({ status: 'error', message: 'Producto no encontrado' });
+    await prisma.product.delete({ where: { id: product.id } });
+    res.json({ status: 'ok' });
+  } catch (err) {
+    next(err);
+  }
+});
+
+// Agregar/actualizar componente del BOM
+inventoryRouter.post('/products/:id/components', authenticate, async (req: AuthRequest, res, next) => {
+  try {
+    const productId = String(req.params.id);
+    const { componentId, quantity, unit, scrapPercent, notes } = req.body as {
+      componentId?: string; quantity?: number; unit?: string; scrapPercent?: number; notes?: string;
+    };
+    if (!componentId || quantity == null || !unit) {
+      return res.status(400).json({ status: 'error', message: 'componentId, quantity y unit son requeridos' });
+    }
+    const product = await prisma.product.findFirst({ where: { id: productId, tenantId: req.tenantId! } });
+    if (!product) return res.status(404).json({ status: 'error', message: 'Producto no encontrado' });
+    if (!product.isFinished) return res.status(400).json({ status: 'error', message: 'Solo productos terminados pueden tener BOM' });
+    const component = await prisma.product.findFirst({ where: { id: componentId, tenantId: req.tenantId! } });
+    if (!component) return res.status(404).json({ status: 'error', message: 'Componente no encontrado' });
+
+    const created = await prisma.productComponent.upsert({
+      where: { productId_componentId: { productId, componentId } },
+      update: { quantity, unit, scrapPercent: scrapPercent ?? 0, notes: notes ?? null },
+      create: { productId, componentId, quantity, unit, scrapPercent: scrapPercent ?? 0, notes: notes ?? null },
+    });
+    res.status(201).json({ status: 'ok', data: created });
+  } catch (err) {
+    next(err);
+  }
+});
+
+// Eliminar componente del BOM
+inventoryRouter.delete('/products/:id/components/:componentId', authenticate, async (req: AuthRequest, res, next) => {
+  try {
+    const product = await prisma.product.findFirst({
+      where: { id: String(req.params.id), tenantId: req.tenantId! },
+    });
+    if (!product) return res.status(404).json({ status: 'error', message: 'Producto no encontrado' });
+    await prisma.productComponent.delete({
+      where: { productId_componentId: { productId: product.id, componentId: String(req.params.componentId) } },
+    });
+    res.json({ status: 'ok' });
+  } catch (err) {
+    next(err);
+  }
+});
+
+// Importar BOM masivo
+inventoryRouter.post('/bom/import', authenticate, async (req: AuthRequest, res, next) => {
+  try {
+    const rows = (req.body?.components ?? []) as Array<{
+      productCode: string; componentCode: string; quantity: number; unit: string; scrapPercent?: number;
+    }>;
+    if (!Array.isArray(rows) || rows.length === 0) {
+      return res.status(400).json({ status: 'error', message: 'components[] requerido' });
+    }
+
+    const codes = Array.from(new Set(rows.flatMap(r => [r.productCode, r.componentCode])));
+    const products = await prisma.product.findMany({
+      where: { tenantId: req.tenantId!, productCode: { in: codes } },
+    });
+    const byCode = new Map(products.map(p => [p.productCode, p]));
+
+    let created = 0;
+    let skipped = 0;
+    const errors: string[] = [];
+
+    for (const row of rows) {
+      const product = byCode.get(row.productCode);
+      const component = byCode.get(row.componentCode);
+      if (!product || !component) {
+        skipped++;
+        errors.push(`SKU no encontrado: ${!product ? row.productCode : row.componentCode}`);
+        continue;
+      }
+      if (!product.isFinished) {
+        skipped++;
+        errors.push(`${row.productCode} no es producto terminado`);
+        continue;
+      }
+      await prisma.productComponent.upsert({
+        where: { productId_componentId: { productId: product.id, componentId: component.id } },
+        update: { quantity: row.quantity, unit: row.unit, scrapPercent: row.scrapPercent ?? 0 },
+        create: { productId: product.id, componentId: component.id, quantity: row.quantity, unit: row.unit, scrapPercent: row.scrapPercent ?? 0 },
+      });
+      created++;
+    }
+    res.json({ status: 'ok', data: { created, skipped, errors } });
+  } catch (err) {
+    next(err);
+  }
+});
+
+// Registrar ensamble — descuenta componentes del inventario IMMEX FIFO
+inventoryRouter.post('/assemblies', authenticate, async (req: AuthRequest, res, next) => {
+  try {
+    const { productId, quantity, assemblyDate, reference, notes } = req.body as {
+      productId?: string; quantity?: number; assemblyDate?: string; reference?: string; notes?: string;
+    };
+    if (!productId || !quantity || quantity <= 0) {
+      return res.status(400).json({ status: 'error', message: 'productId y quantity > 0 son requeridos' });
+    }
+    const result = await recordAssembly({
+      tenantId: req.tenantId!,
+      productId,
+      quantity,
+      assemblyDate: assemblyDate ? new Date(assemblyDate) : undefined,
+      reference,
+      notes,
+    });
+    res.status(201).json({ status: 'ok', data: result });
+  } catch (err) {
+    next(err);
+  }
+});
+
+// Listar ensambles
+inventoryRouter.get('/assemblies', authenticate, async (req: AuthRequest, res, next) => {
+  try {
+    const assemblies = await prisma.assembly.findMany({
+      where: { tenantId: req.tenantId! },
+      include: {
+        product: { select: { productCode: true, description: true, unit: true } },
+        consumptions: true,
+      },
+      orderBy: { assemblyDate: 'desc' },
+      take: 100,
+    });
+    res.json({ status: 'ok', data: assemblies });
+  } catch (err) {
+    next(err);
+  }
+});
+
+// Trazabilidad reverse: dado un import, qué consumió
+inventoryRouter.get('/traceability/:importId', authenticate, async (req: AuthRequest, res, next) => {
+  try {
+    const trace = await traceImport(req.tenantId!, String(req.params.importId));
+    if (!trace) return res.status(404).json({ status: 'error', message: 'Importación no encontrada' });
+    res.json({ status: 'ok', data: trace });
   } catch (err) {
     next(err);
   }

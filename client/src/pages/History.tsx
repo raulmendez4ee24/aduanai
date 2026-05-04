@@ -1,145 +1,151 @@
-import { useEffect, useState } from 'react';
-import { Search, CheckCircle, XCircle, AlertCircle, ChevronLeft, ChevronRight } from 'lucide-react';
-import { api, type ClassificationRecord } from '../lib/api';
+import { useState, useEffect } from 'react'
+import { api } from '../lib/api'
+import type { ClassificationRecord } from '../lib/api'
+import { Clock, Search, ChevronLeft, ChevronRight, ChevronDown, ChevronUp } from 'lucide-react'
+import { formatFraction } from '../lib/format'
 
-const feedbackBadge = (fb: string | null | undefined) => {
-  if (fb === 'correct') return <span className="inline-flex items-center gap-1 bg-green-500/10 text-green-400 text-xs px-2 py-0.5 rounded"><CheckCircle size={10} /> Correcta</span>;
-  if (fb === 'incorrect') return <span className="inline-flex items-center gap-1 bg-red-500/10 text-red-400 text-xs px-2 py-0.5 rounded"><XCircle size={10} /> Incorrecta</span>;
-  if (fb === 'partial') return <span className="inline-flex items-center gap-1 bg-yellow-500/10 text-yellow-400 text-xs px-2 py-0.5 rounded"><AlertCircle size={10} /> Parcial</span>;
-  return <span className="text-xs text-slate-600">Sin feedback</span>;
-};
+const GLASS = 'bg-white/70 backdrop-blur-xl border border-white/50 shadow-[0_8px_30px_rgb(0,0,0,0.04)]'
 
 export function HistoryPage() {
-  const [records, setRecords] = useState<ClassificationRecord[]>([]);
-  const [search, setSearch] = useState('');
-  const [page, setPage] = useState(1);
-  const [total, setTotal] = useState(0);
-  const [loading, setLoading] = useState(true);
+  const [records, setRecords] = useState<ClassificationRecord[]>([])
+  const [loading, setLoading] = useState(true)
+  const [search, setSearch] = useState('')
+  const [page, setPage] = useState(1)
+  const [total, setTotal] = useState(0)
+  const [expandedId, setExpandedId] = useState<string | null>(null)
 
-  const fetchHistory = async (s: string, p: number) => {
-    setLoading(true);
+  useEffect(() => { load() }, [page, search])
+
+  async function load() {
+    setLoading(true)
     try {
-      const res = await api.classifyHistory(s || undefined, p);
-      setRecords(res.data);
-      setTotal(res.pagination.total);
-    } catch {
-      // ignore
-    } finally {
-      setLoading(false);
-    }
-  };
+      const res = await api.classifyHistory(search || undefined, page)
+      setRecords(res.data)
+      setTotal(res.pagination.total)
+    } catch { setRecords([]) }
+    setLoading(false)
+  }
 
-  useEffect(() => {
-    fetchHistory(search, page);
-  }, [page]);
+  async function sendFeedback(id: string, fb: 'correct' | 'incorrect') {
+    try { await api.classifyFeedback(id, fb); load() } catch {}
+  }
 
-  const handleSearch = (e: React.FormEvent) => {
-    e.preventDefault();
-    setPage(1);
-    fetchHistory(search, 1);
-  };
-
-  const totalPages = Math.ceil(total / 20);
+  const confBadge = (c: number) => {
+    const pct = Math.round(c * 100)
+    if (pct >= 90) return 'bg-emerald-50 text-emerald-600'
+    if (pct >= 75) return 'bg-emerald-50/50 text-emerald-500'
+    if (pct >= 50) return 'bg-amber-50 text-amber-600'
+    return 'bg-rose-50 text-rose-600'
+  }
 
   return (
-    <div>
-      <div className="mb-8">
-        <h1 className="text-2xl font-bold text-white mb-1">Historial de Clasificaciones</h1>
-        <p className="text-slate-400">{total} clasificaciones realizadas</p>
-      </div>
-
-      {/* Search */}
-      <form onSubmit={handleSearch} className="flex gap-3 mb-6">
-        <div className="flex-1 relative">
-          <Search size={16} className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-500" />
-          <input
-            type="text"
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            className="w-full bg-[#0D1B2A] border border-[#1B2D45] rounded-xl pl-11 pr-4 py-3 text-white placeholder-slate-500 focus:outline-none focus:border-[#C9A84C] transition-colors"
-            placeholder="Buscar por producto o fracción..."
-          />
-        </div>
-        <button
-          type="submit"
-          className="bg-[#C9A84C] hover:bg-[#A68A3E] text-[#0A1628] font-semibold px-6 rounded-xl transition-colors"
-        >
-          Buscar
-        </button>
-      </form>
-
-      {/* Table */}
-      <div className="bg-[#0D1B2A] border border-[#1B2D45] rounded-xl overflow-hidden">
-        {loading ? (
-          <div className="p-12 text-center text-slate-500">Cargando...</div>
-        ) : records.length === 0 ? (
-          <div className="p-12 text-center text-slate-500">
-            {search ? 'No se encontraron resultados' : 'Aún no hay clasificaciones'}
+    <div className="max-w-5xl mx-auto space-y-4">
+      <div className={`${GLASS} rounded-[2rem] p-6`}>
+        <div className="flex items-center justify-between mb-6">
+          <div className="flex items-center gap-2">
+            <Clock className="w-5 h-5 text-emerald-500" />
+            <h1 className="text-xl font-bold text-slate-900">Historial</h1>
           </div>
-        ) : (
-          <table className="w-full text-sm">
-            <thead>
-              <tr className="border-b border-[#1B2D45]">
-                <th className="text-left p-4 text-slate-500 font-normal">Producto</th>
-                <th className="text-left p-4 text-slate-500 font-normal">Fracción</th>
-                <th className="text-center p-4 text-slate-500 font-normal">Confianza</th>
-                <th className="text-center p-4 text-slate-500 font-normal">Feedback</th>
-                <th className="text-right p-4 text-slate-500 font-normal">Fecha</th>
-              </tr>
-            </thead>
-            <tbody>
-              {records.map((r) => (
-                <tr key={r.id} className="border-b border-[#1B2D45]/50 last:border-0 hover:bg-[#1B2D45]/20">
-                  <td className="p-4 text-slate-300 max-w-[300px]">
-                    <p className="truncate">{r.inputDescription}</p>
-                  </td>
-                  <td className="p-4 font-mono text-white">{r.fractionCode}</td>
-                  <td className="p-4 text-center">
-                    <span className={`font-semibold ${
-                      r.confidence >= 80 ? 'text-green-400' :
-                      r.confidence >= 60 ? 'text-yellow-400' : 'text-red-400'
-                    }`}>
-                      {r.confidence}%
+          <span className="text-[12px] text-slate-500">{total} clasificaciones</span>
+        </div>
+
+        {/* Search */}
+        <div className="flex items-center gap-2 bg-white/60 border border-slate-200/50 rounded-xl px-4 py-2.5 mb-4">
+          <Search className="w-4 h-4 text-slate-400" />
+          <input type="text" value={search} onChange={e => { setSearch(e.target.value); setPage(1) }}
+            placeholder="Buscar por producto o fracción..." className="flex-1 bg-transparent text-[13px] text-slate-900 placeholder:text-slate-400 outline-none" />
+        </div>
+
+        {/* Table header */}
+        <div className="hidden md:grid grid-cols-[1fr_120px_80px_80px_100px_40px] gap-3 px-4 py-2 text-[10px] font-medium text-slate-500 uppercase tracking-wider border-b border-slate-200/50">
+          <span>Producto</span>
+          <span>Fracción</span>
+          <span>Confianza</span>
+          <span>Feedback</span>
+          <span>Fecha</span>
+          <span></span>
+        </div>
+
+        {/* Rows */}
+        {loading ? (
+          <div className="space-y-2 mt-2">{[1,2,3,4,5].map(i => <div key={i} className="animate-pulse bg-slate-200/60 rounded-xl h-14" />)}</div>
+        ) : records.length > 0 ? (
+          <div className="mt-1">
+            {records.map(r => {
+              const isExpanded = expandedId === r.id
+              return (
+                <div key={r.id} className="border-b border-slate-100/50 last:border-b-0">
+                  <button onClick={() => setExpandedId(isExpanded ? null : r.id)}
+                    className="w-full grid grid-cols-1 md:grid-cols-[1fr_120px_80px_80px_100px_40px] gap-2 md:gap-3 px-4 py-3 hover:bg-white/40 transition-colors text-left items-center">
+                    <p className="text-[12px] text-slate-700 line-clamp-1">{r.inputDescription}</p>
+                    <span className="font-mono text-[13px] font-bold text-slate-900">{formatFraction(r.fractionCode)}</span>
+                    <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full inline-block w-fit ${confBadge(r.confidence)}`}>
+                      {Math.round(r.confidence)}%
                     </span>
-                  </td>
-                  <td className="p-4 text-center">{feedbackBadge(r.feedback)}</td>
-                  <td className="p-4 text-right text-slate-500 text-xs whitespace-nowrap">
-                    {new Date(r.createdAt).toLocaleDateString('es-MX', {
-                      day: '2-digit', month: 'short', year: 'numeric',
-                      hour: '2-digit', minute: '2-digit',
-                    })}
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+                    <span>
+                      {r.feedback === 'correct' && <span className="text-[10px] px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-600">✓ Sí</span>}
+                      {r.feedback === 'incorrect' && <span className="text-[10px] px-2 py-0.5 rounded-full bg-rose-50 text-rose-600">✗ No</span>}
+                      {r.feedback === 'partial' && <span className="text-[10px] px-2 py-0.5 rounded-full bg-amber-50 text-amber-600">~ Parcial</span>}
+                      {!r.feedback && <span className="text-[10px] text-slate-400">—</span>}
+                    </span>
+                    <span className="text-[11px] text-slate-400">{new Date(r.createdAt).toLocaleDateString('es-MX')}</span>
+                    {isExpanded ? <ChevronUp className="w-3.5 h-3.5 text-slate-400" /> : <ChevronDown className="w-3.5 h-3.5 text-slate-400" />}
+                  </button>
+
+                  {isExpanded && (
+                    <div className="px-4 pb-4 space-y-3">
+                      <div className="bg-white/40 rounded-xl p-4">
+                        <p className="text-[11px] text-slate-500 mb-1">Descripción completa</p>
+                        <p className="text-[13px] text-slate-800">{r.inputDescription}</p>
+                      </div>
+                      <div className="grid grid-cols-3 gap-3">
+                        <div className="bg-white/40 rounded-xl p-3">
+                          <p className="text-[10px] text-slate-500">Fracción</p>
+                          <p className="font-mono text-[15px] font-bold text-slate-900">{formatFraction(r.fractionCode)}</p>
+                        </div>
+                        <div className="bg-white/40 rounded-xl p-3">
+                          <p className="text-[10px] text-slate-500">Confianza</p>
+                          <div className="flex items-center gap-2 mt-1">
+                            <div className="flex-1 bg-slate-200/50 rounded-full h-2">
+                              <div className="bg-emerald-500 h-2 rounded-full" style={{ width: `${Math.min(100, r.confidence)}%` }} />
+                            </div>
+                            <span className="text-[12px] font-bold text-emerald-500">{Math.round(r.confidence)}%</span>
+                          </div>
+                        </div>
+                        <div className="bg-white/40 rounded-xl p-3">
+                          <p className="text-[10px] text-slate-500">Fecha</p>
+                          <p className="text-[12px] font-medium text-slate-800">{new Date(r.createdAt).toLocaleString('es-MX')}</p>
+                        </div>
+                      </div>
+                      {!r.feedback && (
+                        <div className="flex items-center gap-3">
+                          <p className="text-[11px] text-slate-500">¿Resultado correcto?</p>
+                          <button onClick={() => sendFeedback(r.id, 'correct')} className="text-[10px] font-medium text-emerald-600 bg-emerald-50 px-3 py-1 rounded-full hover:bg-emerald-100">✓ Sí</button>
+                          <button onClick={() => sendFeedback(r.id, 'incorrect')} className="text-[10px] font-medium text-rose-600 bg-rose-50 px-3 py-1 rounded-full hover:bg-rose-100">✗ No</button>
+                        </div>
+                      )}
+                      {r.feedbackNote && (
+                        <div className="bg-amber-50/50 rounded-xl p-3 border border-amber-100">
+                          <p className="text-[10px] text-amber-600 font-medium">Nota: {r.feedbackNote}</p>
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
+              )
+            })}
+          </div>
+        ) : <p className="text-center text-[13px] text-slate-400 py-8">Sin resultados</p>}
+
+        {/* Pagination */}
+        {total > 20 && (
+          <div className="flex items-center justify-center gap-3 mt-6">
+            <button onClick={() => setPage(p => Math.max(1, p - 1))} disabled={page === 1} className="w-8 h-8 rounded-lg bg-white/60 flex items-center justify-center disabled:opacity-30 hover:bg-white/80 transition-colors"><ChevronLeft className="w-4 h-4" /></button>
+            <span className="text-[12px] text-slate-500">Página {page} de {Math.ceil(total / 20)}</span>
+            <button onClick={() => setPage(p => p + 1)} disabled={records.length < 20} className="w-8 h-8 rounded-lg bg-white/60 flex items-center justify-center disabled:opacity-30 hover:bg-white/80 transition-colors"><ChevronRight className="w-4 h-4" /></button>
+          </div>
         )}
       </div>
-
-      {/* Pagination */}
-      {totalPages > 1 && (
-        <div className="flex items-center justify-between mt-4">
-          <p className="text-sm text-slate-500">
-            Página {page} de {totalPages}
-          </p>
-          <div className="flex gap-2">
-            <button
-              onClick={() => setPage(Math.max(1, page - 1))}
-              disabled={page === 1}
-              className="p-2 rounded-lg bg-[#1B2D45] text-slate-400 hover:text-white disabled:opacity-30 transition-colors"
-            >
-              <ChevronLeft size={16} />
-            </button>
-            <button
-              onClick={() => setPage(Math.min(totalPages, page + 1))}
-              disabled={page === totalPages}
-              className="p-2 rounded-lg bg-[#1B2D45] text-slate-400 hover:text-white disabled:opacity-30 transition-colors"
-            >
-              <ChevronRight size={16} />
-            </button>
-          </div>
-        </div>
-      )}
     </div>
-  );
+  )
 }
