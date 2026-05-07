@@ -39,6 +39,8 @@ import { AdminAntidumpingPage } from './pages/Admin/AdminAntidumping'
 import { AdminTimestampsPage } from './pages/Admin/AdminTimestamps'
 import { AdminPadronesPage } from './pages/Admin/AdminPadrones'
 import { PadronesPage } from './pages/Settings/Padrones'
+import { GlosaSimulatorPage } from './pages/GlosaSimulator'
+import { AdminGlosaPage } from './pages/Admin/AdminGlosa'
 import { StatusPage } from './pages/Public/Status'
 import { PrecedentsPage } from './pages/Precedents'
 import { AdminLeadsPage } from './pages/Admin/AdminLeads'
@@ -174,199 +176,209 @@ export function App() {
       {/* Protected app routes */}
       <Route path="/app" element={
         <RequireAuth token={token} user={user}>
-          <AppLayout onLogout={handleLogout} userRole={user?.role}><DashboardPage /></AppLayout>
+          <AppLayout onLogout={handleLogout} userRole={user?.role} userName={user?.name} userEmail={user?.email} tenantName={user?.tenant?.name}><DashboardPage /></AppLayout>
         </RequireAuth>
       } />
       <Route path="/clasificador" element={
         <RequireAuth token={token} user={user}>
-          <AppLayout onLogout={handleLogout} userRole={user?.role}><ClassifierPage /></AppLayout>
+          <AppLayout onLogout={handleLogout} userRole={user?.role} userName={user?.name} userEmail={user?.email} tenantName={user?.tenant?.name}><ClassifierPage /></AppLayout>
         </RequireAuth>
       } />
       <Route path="/cotizador" element={
         <RequireAuth token={token} user={user}>
-          <AppLayout onLogout={handleLogout} userRole={user?.role}><QuoterPage /></AppLayout>
+          <AppLayout onLogout={handleLogout} userRole={user?.role} userName={user?.name} userEmail={user?.email} tenantName={user?.tenant?.name}><QuoterPage /></AppLayout>
         </RequireAuth>
       } />
       <Route path="/copilot" element={
         <RequireAuth token={token} user={user}>
-          <AppLayout onLogout={handleLogout} userRole={user?.role}><CopilotPage /></AppLayout>
+          <AppLayout onLogout={handleLogout} userRole={user?.role} userName={user?.name} userEmail={user?.email} tenantName={user?.tenant?.name}><CopilotPage /></AppLayout>
         </RequireAuth>
       } />
       <Route path="/historial" element={
         <RequireAuth token={token} user={user}>
-          <AppLayout onLogout={handleLogout} userRole={user?.role}><HistoryPage /></AppLayout>
+          <AppLayout onLogout={handleLogout} userRole={user?.role} userName={user?.name} userEmail={user?.email} tenantName={user?.tenant?.name}><HistoryPage /></AppLayout>
         </RequireAuth>
       } />
       <Route path="/expediente" element={
         <RequireAuth token={token} user={user}>
-          <AppLayout onLogout={handleLogout} userRole={user?.role}><OperationsPage /></AppLayout>
+          <AppLayout onLogout={handleLogout} userRole={user?.role} userName={user?.name} userEmail={user?.email} tenantName={user?.tenant?.name}><OperationsPage /></AppLayout>
         </RequireAuth>
       } />
       <Route path="/expediente-ia" element={
         <RequireAuth token={token} user={user}>
-          <AppLayout onLogout={handleLogout} userRole={user?.role}><ExpedientesAIPage /></AppLayout>
+          <AppLayout onLogout={handleLogout} userRole={user?.role} userName={user?.name} userEmail={user?.email} tenantName={user?.tenant?.name}><ExpedientesAIPage /></AppLayout>
         </RequireAuth>
       } />
       <Route path="/prevalidador" element={
         <RequireAuth token={token} user={user}>
-          <AppLayout onLogout={handleLogout} userRole={user?.role}><PreValidatorPage /></AppLayout>
+          <AppLayout onLogout={handleLogout} userRole={user?.role} userName={user?.name} userEmail={user?.email} tenantName={user?.tenant?.name}><PreValidatorPage /></AppLayout>
         </RequireAuth>
       } />
       <Route path="/alertas" element={
         <RequireAuth token={token} user={user}>
-          <AppLayout onLogout={handleLogout} userRole={user?.role}><AlertsPage /></AppLayout>
+          <AppLayout onLogout={handleLogout} userRole={user?.role} userName={user?.name} userEmail={user?.email} tenantName={user?.tenant?.name}><AlertsPage /></AppLayout>
         </RequireAuth>
       } />
       <Route path="/analytics" element={
         <RequireAuth token={token} user={user}>
-          <AppLayout onLogout={handleLogout} userRole={user?.role}><AnalyticsPage /></AppLayout>
+          <AppLayout onLogout={handleLogout} userRole={user?.role} userName={user?.name} userEmail={user?.email} tenantName={user?.tenant?.name}><AnalyticsPage /></AppLayout>
         </RequireAuth>
       } />
       <Route path="/inventario" element={
         <RequireAuth token={token} user={user}>
-          <AppLayout onLogout={handleLogout} userRole={user?.role}><InventoryPage /></AppLayout>
+          <AppLayout onLogout={handleLogout} userRole={user?.role} userName={user?.name} userEmail={user?.email} tenantName={user?.tenant?.name}><InventoryPage /></AppLayout>
         </RequireAuth>
       } />
       <Route path="/fiscal" element={
         <RequireAuth token={token} user={user}>
-          <AppLayout onLogout={handleLogout} userRole={user?.role}><FiscalPage /></AppLayout>
+          <AppLayout onLogout={handleLogout} userRole={user?.role} userName={user?.name} userEmail={user?.email} tenantName={user?.tenant?.name}><FiscalPage /></AppLayout>
         </RequireAuth>
       } />
       <Route path="/mve" element={
         <RequireAuth token={token} user={user}>
-          <AppLayout onLogout={handleLogout} userRole={user?.role}><MVEPage /></AppLayout>
+          <AppLayout onLogout={handleLogout} userRole={user?.role} userName={user?.name} userEmail={user?.email} tenantName={user?.tenant?.name}><MVEPage /></AppLayout>
         </RequireAuth>
       } />
       <Route path="/logistics" element={
         <RequireAuth token={token} user={user}>
-          <AppLayout onLogout={handleLogout} userRole={user?.role}><LogisticsPage /></AppLayout>
+          <AppLayout onLogout={handleLogout} userRole={user?.role} userName={user?.name} userEmail={user?.email} tenantName={user?.tenant?.name}><LogisticsPage /></AppLayout>
         </RequireAuth>
       } />
       <Route path="/updates" element={
         <RequireAuth token={token} user={user}>
-          <AppLayout onLogout={handleLogout} userRole={user?.role}><UpdatesPage /></AppLayout>
+          <AppLayout onLogout={handleLogout} userRole={user?.role} userName={user?.name} userEmail={user?.email} tenantName={user?.tenant?.name}><UpdatesPage /></AppLayout>
         </RequireAuth>
       } />
       <Route path="/fracciones" element={
         <RequireAuth token={token} user={user}>
-          <AppLayout onLogout={handleLogout} userRole={user?.role}><FractionsPage /></AppLayout>
+          <AppLayout onLogout={handleLogout} userRole={user?.role} userName={user?.name} userEmail={user?.email} tenantName={user?.tenant?.name}><FractionsPage /></AppLayout>
         </RequireAuth>
       } />
       <Route path="/origen-tmec" element={
         <RequireAuth token={token} user={user}>
-          <AppLayout onLogout={handleLogout} userRole={user?.role}><OrigenTMECPage /></AppLayout>
+          <AppLayout onLogout={handleLogout} userRole={user?.role} userName={user?.name} userEmail={user?.email} tenantName={user?.tenant?.name}><OrigenTMECPage /></AppLayout>
         </RequireAuth>
       } />
       <Route path="/admin/compliance" element={
         <RequireAuth token={token} user={user}>
-          <AppLayout onLogout={handleLogout} userRole={user?.role}><AdminCompliancePage /></AppLayout>
+          <AppLayout onLogout={handleLogout} userRole={user?.role} userName={user?.name} userEmail={user?.email} tenantName={user?.tenant?.name}><AdminCompliancePage /></AppLayout>
         </RequireAuth>
       } />
       <Route path="/precedentes" element={
         <RequireAuth token={token} user={user}>
-          <AppLayout onLogout={handleLogout} userRole={user?.role}><PrecedentsPage /></AppLayout>
+          <AppLayout onLogout={handleLogout} userRole={user?.role} userName={user?.name} userEmail={user?.email} tenantName={user?.tenant?.name}><PrecedentsPage /></AppLayout>
         </RequireAuth>
       } />
       <Route path="/admin/monitoring" element={
         <RequireAuth token={token} user={user}>
-          <AppLayout onLogout={handleLogout} userRole={user?.role}><AdminMonitoringPage /></AppLayout>
+          <AppLayout onLogout={handleLogout} userRole={user?.role} userName={user?.name} userEmail={user?.email} tenantName={user?.tenant?.name}><AdminMonitoringPage /></AppLayout>
         </RequireAuth>
       } />
       <Route path="/admin/security" element={
         <RequireAuth token={token} user={user}>
-          <AppLayout onLogout={handleLogout} userRole={user?.role}><AdminSecurityPage /></AppLayout>
+          <AppLayout onLogout={handleLogout} userRole={user?.role} userName={user?.name} userEmail={user?.email} tenantName={user?.tenant?.name}><AdminSecurityPage /></AppLayout>
         </RequireAuth>
       } />
       <Route path="/admin/verifications" element={
         <RequireAuth token={token} user={user}>
-          <AppLayout onLogout={handleLogout} userRole={user?.role}><AdminVerificationsPage /></AppLayout>
+          <AppLayout onLogout={handleLogout} userRole={user?.role} userName={user?.name} userEmail={user?.email} tenantName={user?.tenant?.name}><AdminVerificationsPage /></AppLayout>
         </RequireAuth>
       } />
       <Route path="/verificacion" element={
         <RequireAuth token={token} user={user}>
-          <AppLayout onLogout={handleLogout} userRole={user?.role}><VerificacionPage /></AppLayout>
+          <AppLayout onLogout={handleLogout} userRole={user?.role} userName={user?.name} userEmail={user?.email} tenantName={user?.tenant?.name}><VerificacionPage /></AppLayout>
         </RequireAuth>
       } />
       <Route path="/admin/backups" element={
         <RequireAuth token={token} user={user}>
-          <AppLayout onLogout={handleLogout} userRole={user?.role}><AdminBackupsPage /></AppLayout>
+          <AppLayout onLogout={handleLogout} userRole={user?.role} userName={user?.name} userEmail={user?.email} tenantName={user?.tenant?.name}><AdminBackupsPage /></AppLayout>
         </RequireAuth>
       } />
       <Route path="/admin/demo-profiles" element={
         <RequireAuth token={token} user={user}>
-          <AppLayout onLogout={handleLogout} userRole={user?.role}><AdminDemoProfilesPage /></AppLayout>
+          <AppLayout onLogout={handleLogout} userRole={user?.role} userName={user?.name} userEmail={user?.email} tenantName={user?.tenant?.name}><AdminDemoProfilesPage /></AppLayout>
         </RequireAuth>
       } />
       <Route path="/admin/legal-docs" element={
         <RequireAuth token={token} user={user}>
-          <AppLayout onLogout={handleLogout} userRole={user?.role}><AdminLegalDocsPage /></AppLayout>
+          <AppLayout onLogout={handleLogout} userRole={user?.role} userName={user?.name} userEmail={user?.email} tenantName={user?.tenant?.name}><AdminLegalDocsPage /></AppLayout>
         </RequireAuth>
       } />
       <Route path="/admin/antidumping" element={
         <RequireAuth token={token} user={user}>
-          <AppLayout onLogout={handleLogout} userRole={user?.role}><AdminAntidumpingPage /></AppLayout>
+          <AppLayout onLogout={handleLogout} userRole={user?.role} userName={user?.name} userEmail={user?.email} tenantName={user?.tenant?.name}><AdminAntidumpingPage /></AppLayout>
         </RequireAuth>
       } />
       <Route path="/admin/timestamps" element={
         <RequireAuth token={token} user={user}>
-          <AppLayout onLogout={handleLogout} userRole={user?.role}><AdminTimestampsPage /></AppLayout>
+          <AppLayout onLogout={handleLogout} userRole={user?.role} userName={user?.name} userEmail={user?.email} tenantName={user?.tenant?.name}><AdminTimestampsPage /></AppLayout>
         </RequireAuth>
       } />
       <Route path="/admin/padrones" element={
         <RequireAuth token={token} user={user}>
-          <AppLayout onLogout={handleLogout} userRole={user?.role}><AdminPadronesPage /></AppLayout>
+          <AppLayout onLogout={handleLogout} userRole={user?.role} userName={user?.name} userEmail={user?.email} tenantName={user?.tenant?.name}><AdminPadronesPage /></AppLayout>
         </RequireAuth>
       } />
       <Route path="/settings/padrones" element={
         <RequireAuth token={token} user={user}>
-          <AppLayout onLogout={handleLogout} userRole={user?.role}><PadronesPage /></AppLayout>
+          <AppLayout onLogout={handleLogout} userRole={user?.role} userName={user?.name} userEmail={user?.email} tenantName={user?.tenant?.name}><PadronesPage /></AppLayout>
+        </RequireAuth>
+      } />
+      <Route path="/simulador-glosa" element={
+        <RequireAuth token={token} user={user}>
+          <AppLayout onLogout={handleLogout} userRole={user?.role} userName={user?.name} userEmail={user?.email} tenantName={user?.tenant?.name}><GlosaSimulatorPage /></AppLayout>
+        </RequireAuth>
+      } />
+      <Route path="/admin/glosa-simulations" element={
+        <RequireAuth token={token} user={user}>
+          <AppLayout onLogout={handleLogout} userRole={user?.role} userName={user?.name} userEmail={user?.email} tenantName={user?.tenant?.name}><AdminGlosaPage /></AppLayout>
         </RequireAuth>
       } />
       <Route path="/status" element={<StatusPage />} />
 
       <Route path="/admin" element={
         <RequireAuth token={token} user={user}>
-          <AppLayout onLogout={handleLogout} userRole={user?.role}><AdminDashboardPage /></AppLayout>
+          <AppLayout onLogout={handleLogout} userRole={user?.role} userName={user?.name} userEmail={user?.email} tenantName={user?.tenant?.name}><AdminDashboardPage /></AppLayout>
         </RequireAuth>
       } />
       <Route path="/admin/leads" element={
         <RequireAuth token={token} user={user}>
-          <AppLayout onLogout={handleLogout} userRole={user?.role}><AdminLeadsPage /></AppLayout>
+          <AppLayout onLogout={handleLogout} userRole={user?.role} userName={user?.name} userEmail={user?.email} tenantName={user?.tenant?.name}><AdminLeadsPage /></AppLayout>
         </RequireAuth>
       } />
       <Route path="/admin/knowledge" element={
         <RequireAuth token={token} user={user}>
-          <AppLayout onLogout={handleLogout} userRole={user?.role}><AdminKnowledgePage /></AppLayout>
+          <AppLayout onLogout={handleLogout} userRole={user?.role} userName={user?.name} userEmail={user?.email} tenantName={user?.tenant?.name}><AdminKnowledgePage /></AppLayout>
         </RequireAuth>
       } />
       <Route path="/admin/pilotos" element={
         <RequireAuth token={token} user={user}>
-          <AppLayout onLogout={handleLogout} userRole={user?.role}><AdminPilotosPage /></AppLayout>
+          <AppLayout onLogout={handleLogout} userRole={user?.role} userName={user?.name} userEmail={user?.email} tenantName={user?.tenant?.name}><AdminPilotosPage /></AppLayout>
         </RequireAuth>
       } />
       <Route path="/admin/empresas" element={
         <RequireAuth token={token} user={user}>
-          <AppLayout onLogout={handleLogout} userRole={user?.role}><AdminEmpresasPage /></AppLayout>
+          <AppLayout onLogout={handleLogout} userRole={user?.role} userName={user?.name} userEmail={user?.email} tenantName={user?.tenant?.name}><AdminEmpresasPage /></AppLayout>
         </RequireAuth>
       } />
       <Route path="/admin/renovaciones" element={
         <RequireAuth token={token} user={user}>
-          <AppLayout onLogout={handleLogout} userRole={user?.role}><AdminRenovacionesPage /></AppLayout>
+          <AppLayout onLogout={handleLogout} userRole={user?.role} userName={user?.name} userEmail={user?.email} tenantName={user?.tenant?.name}><AdminRenovacionesPage /></AppLayout>
         </RequireAuth>
       } />
       <Route path="/admin/metricas" element={
         <RequireAuth token={token} user={user}>
-          <AppLayout onLogout={handleLogout} userRole={user?.role}><AdminMetricasPage /></AppLayout>
+          <AppLayout onLogout={handleLogout} userRole={user?.role} userName={user?.name} userEmail={user?.email} tenantName={user?.tenant?.name}><AdminMetricasPage /></AppLayout>
         </RequireAuth>
       } />
       <Route path="/admin/demo" element={
         <RequireAuth token={token} user={user}>
-          <AppLayout onLogout={handleLogout} userRole={user?.role}><AdminDemoPage /></AppLayout>
+          <AppLayout onLogout={handleLogout} userRole={user?.role} userName={user?.name} userEmail={user?.email} tenantName={user?.tenant?.name}><AdminDemoPage /></AppLayout>
         </RequireAuth>
       } />
       <Route path="/admin/audit" element={
         <RequireAuth token={token} user={user}>
-          <AppLayout onLogout={handleLogout} userRole={user?.role}><AdminAuditPage /></AppLayout>
+          <AppLayout onLogout={handleLogout} userRole={user?.role} userName={user?.name} userEmail={user?.email} tenantName={user?.tenant?.name}><AdminAuditPage /></AppLayout>
         </RequireAuth>
       } />
 

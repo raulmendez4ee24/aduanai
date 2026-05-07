@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { api } from '../lib/api'
 import type { ClassificationResult, IndustrialSector, ImporterType } from '../lib/api'
-import { Search, Sparkles, AlertCircle, ThumbsUp, ThumbsDown, Copy, Check, Scale, ChevronDown, AlertTriangle, ShieldCheck, Car, Link as LinkIcon } from 'lucide-react'
+import { Search, Sparkles, AlertCircle, ThumbsUp, ThumbsDown, Copy, Check, Scale, ChevronDown, AlertTriangle, ShieldCheck, Car, Link as LinkIcon, Target } from 'lucide-react'
 import { formatFraction } from '../lib/format'
 import { ROITile } from '../components/ROIBanner'
 import { NOMExceptionPanel } from '../components/NOMExceptionPanel'
@@ -237,6 +237,14 @@ export function ClassifierPage() {
           {/* Padrones SAT — bloqueo si no inscrito */}
           {result.padronCheck && <PadronCheckBanner check={result.padronCheck}/>}
           {result.padronCheck?.canOperate && result.padronCheck.totalRequired > 0 && <PadronOkBadge totalRequired={result.padronCheck.totalRequired}/>}
+
+          {/* Simular glosa */}
+          <a
+            href={`/simulador-glosa?fraction=${encodeURIComponent(result.fraction.code)}`}
+            className="inline-flex items-center gap-1.5 text-[11px] bg-emerald-600 hover:bg-emerald-700 text-white px-3 py-1.5 rounded-lg font-medium"
+          >
+            <Target className="w-3.5 h-3.5"/> Simular glosa para esta fracción
+          </a>
 
           {/* Alertas defensivas */}
           {result.alerts && result.alerts.length > 0 && (

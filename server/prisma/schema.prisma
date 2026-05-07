@@ -2444,6 +2444,81 @@ model TenantPadronStatus {
   @@map("tenant_padron_status")
 }
 
+// ──────────────────────────────────────────────────────────────────
+// Simulador de Glosa — predice probabilidad de RA
+// ──────────────────────────────────────────────────────────────────
+
+model GlosaSimulation {
+  id              String @id @default(cuid())
+  tenantId        String
+  userId          String
+
+  pedimentoData   Json
+
+  fractionCode    String
+  countryOrigin   String
+  countryProvider String
+  customsCode     String
+  regimenCode     String
+
+  valueUSD        Float
+  valueMXN        Float
+  weightKg        Float
+  units           Int?
+  unitMeasure     String?
+
+  riskScore       Float
+  riskLevel       String
+
+  raProbability   Float
+  cotejoProb      Float
+  glosaProb       Float
+
+  riskFlags       Json
+  recommendations Json
+
+  industryAverage Float?
+  yourHistory     Float?
+
+  // Aprendizaje continuo: feedback del usuario sobre el resultado real
+  actualOutcome   String?  // "ra_yes", "ra_no", "documental", "free"
+  feedbackAt      DateTime?
+  feedbackNotes   String?
+
+  createdAt       DateTime @default(now())
+
+  @@index([tenantId, createdAt])
+  @@index([fractionCode])
+  @@index([riskLevel])
+  @@map("glosa_simulations")
+}
+
+model GlosaRiskRule {
+  id              String @id @default(cuid())
+
+  ruleCode        String @unique
+  category        String
+
+  name            String
+  description     String
+
+  detectionLogic  Json
+
+  weight          Float
+  severity        String
+
+  recommendation  String
+  legalBasis      String?
+
+  active          Boolean @default(true)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@index([category])
+  @@index([active])
+  @@map("glosa_risk_rules")
+}
+
 model PadronCheck {
   id              String @id @default(cuid())
   tenantId        String

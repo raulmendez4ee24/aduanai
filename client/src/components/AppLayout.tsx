@@ -6,13 +6,20 @@ import {
   Truck, Megaphone, LineChart, Warehouse, RefreshCw, Globe, Package,
   HelpCircle, MessageCircle, Users, Rocket, Building2, TrendingUp, RotateCcw,
   Shield, BookOpen, Database, Sparkles, Scale, BadgeCheck, Briefcase, AlertTriangle,
-  Anchor
+  Anchor, UserCircle2, LogOut, Target
 } from 'lucide-react'
+import type { LucideIcon } from 'lucide-react'
 import { api } from '../lib/api'
 import type { FractionSearchResult } from '../lib/api'
 import { PilotBanner } from './PilotBanner'
 
 const GLASS = 'bg-white/70 backdrop-blur-xl border border-white/50 shadow-[0_8px_30px_rgb(0,0,0,0.04)]'
+
+function DropdownItem({ icon: Icon, label, onClick, href, danger }: { icon: LucideIcon; label: string; onClick?: () => void; href?: string; danger?: boolean }) {
+  const cls = `w-full text-left px-4 py-2 flex items-center gap-2.5 hover:bg-white/60 transition-colors text-[12px] ${danger ? 'text-rose-600 hover:text-rose-700' : 'text-slate-700'}`
+  if (href) return <a href={href} className={cls}><Icon className="w-3.5 h-3.5"/>{label}</a>
+  return <button onClick={onClick} className={cls}><Icon className="w-3.5 h-3.5"/>{label}</button>
+}
 
 const NAV_ITEMS = [
   { label: 'Vista General', path: '/app', icon: LayoutDashboard },
@@ -33,6 +40,7 @@ const NAV_ITEMS = [
   { label: 'Logística', path: '/logistics', icon: Truck },
   { label: 'Actualizaciones', path: '/updates', icon: RefreshCw },
   { label: 'Mis padrones SAT', path: '/settings/padrones', icon: Shield },
+  { label: 'Simulador de Glosa', path: '/simulador-glosa', icon: Target },
 ]
 
 const ADMIN_NAV_ITEMS = [
@@ -55,15 +63,28 @@ const ADMIN_NAV_ITEMS = [
   { label: 'Cuotas compensatorias', path: '/admin/antidumping', icon: AlertTriangle },
   { label: 'Anclajes Bitcoin (OTS)', path: '/admin/timestamps', icon: Anchor },
   { label: 'Padrones SAT', path: '/admin/padrones', icon: BadgeCheck },
+  { label: 'Glosa Simulator', path: '/admin/glosa-simulations', icon: Target },
 ]
 
 interface Props {
   children: ReactNode
   onLogout: () => void
   userRole?: string
+  userName?: string
+  userEmail?: string
+  tenantName?: string
 }
 
-export function AppLayout({ children, onLogout, userRole }: Props) {
+interface RecentAlert {
+  id: string
+  title: string
+  severity: string
+  createdAt: string
+  type?: string
+  affectedFraction?: string | null
+}
+
+export function AppLayout({ children, onLogout, userRole, userName, userEmail, tenantName }: Props) {
   const navigate = useNavigate()
   const [collapsed, setCollapsed] = useState(false)
   const [mobileOpen, setMobileOpen] = useState(false)
@@ -73,10 +94,18 @@ export function AppLayout({ children, onLogout, userRole }: Props) {
   const [searching, setSearching] = useState(false)
   const [unreadCount, setUnreadCount] = useState(0)
   const [adminExpanded, setAdminExpanded] = useState(true)
+  const [notifOpen, setNotifOpen] = useState(false)
+  const [settingsMenuOpen, setSettingsMenuOpen] = useState(false)
+  const [userMenuOpen, setUserMenuOpen] = useState(false)
+  const [recentAlerts, setRecentAlerts] = useState<RecentAlert[]>([])
   const isAdmin = userRole === 'ADMIN' || userRole === 'SUPERADMIN'
   const searchRef = useRef<HTMLDivElement>(null)
   const searchInputRef = useRef<HTMLInputElement>(null)
+  const notifRef = useRef<HTMLDivElement>(null)
+  const settingsMenuRef = useRef<HTMLDivElement>(null)
+  const userMenuRef = useRef<HTMLDivElement>(null)
   const debounceRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined)
+  const initial = (userName ?? userEmail ?? 'U').charAt(0).toUpperCase()
 
   // Load unread count
   useEffect(() => {
@@ -130,18 +159,50 @@ export function AppLayout({ children, onLogout, userRole }: Props) {
     return () => document.removeEventListener('mousedown', handler)
   }, [])
 
-  // Keyboard shortcut: Cmd+K
+  // Close dropdowns on outside click / Escape
+  useEffect(() => {
+    function handler(e: MouseEvent) {
+      const t = e.target as Node
+      if (notifRef.current && !notifRef.current.contains(t)) setNotifOpen(false)
+      if (settingsMenuRef.current && !settingsMenuRef.current.contains(t)) setSettingsMenuOpen(false)
+      if (userMenuRef.current && !userMenuRef.current.contains(t)) setUserMenuOpen(false)
+    }
+    document.addEventListener('mousedown', handler)
+    return () => document.removeEventListener('mousedown', handler)
+  }, [])
+
+  // Keyboard shortcut: Cmd+K + Escape para todos los dropdowns
   useEffect(() => {
     function handler(e: KeyboardEvent) {
       if ((e.metaKey || e.ctrlKey) && e.key === 'k') {
         e.preventDefault()
         setSearchOpen(prev => !prev)
       }
-      if (e.key === 'Escape') setSearchOpen(false)
+      if (e.key === 'Escape') {
+        setSearchOpen(false)
+        setNotifOpen(false)
+        setSettingsMenuOpen(false)
+        setUserMenuOpen(false)
+      }
     }
     document.addEventListener('keydown', handler)
     return () => document.removeEventListener('keydown', handler)
   }, [])
+
+  // Cargar alertas recientes al abrir el dropdown + marcar como leídas
+  useEffect(() => {
+    if (!notifOpen) return
+    void (async () => {
+      try {
+        const r = await api.alerts()
+        const items = (r.data as unknown as { id: string; title: string; severity: string; createdAt: string; type?: string; affectedFraction?: string | null }[])
+          .slice(0, 10)
+        setRecentAlerts(items)
+        await api.alertMarkAllRead().catch(() => {})
+        setUnreadCount(0)
+      } catch { setRecentAlerts([]) }
+    })()
+  }, [notifOpen])
 
   const linkClass = (isActive: boolean) =>
     `flex items-center gap-3 px-3 py-2.5 rounded-xl text-[13px] font-medium transition-all duration-200 ${
@@ -258,22 +319,114 @@ export function AppLayout({ children, onLogout, userRole }: Props) {
 
             {/* Right actions */}
             <div className="flex items-center gap-1.5 ml-auto">
-              <button onClick={() => setSearchOpen(true)} className="w-9 h-9 rounded-full bg-white/50 flex items-center justify-center hover:bg-white/70 transition-colors" title="Buscar (⌘K)">
+              <button onClick={() => setSearchOpen(true)} aria-label="Buscar (⌘K)" className="w-9 h-9 rounded-full bg-white/50 flex items-center justify-center hover:bg-white/70 transition-colors" title="Buscar (⌘K)">
                 <Search className="w-4 h-4 text-slate-500" />
               </button>
-              <button onClick={() => navigate('/alertas')} className="w-9 h-9 rounded-full bg-white/50 flex items-center justify-center hover:bg-white/70 transition-colors relative">
-                <Bell className="w-4 h-4 text-slate-500" />
-                {unreadCount > 0 && (
-                  <span className="absolute -top-0.5 -right-0.5 min-w-[16px] h-4 bg-emerald-500 rounded-full flex items-center justify-center text-[9px] font-bold text-white px-1">
-                    {unreadCount > 99 ? '99+' : unreadCount}
-                  </span>
+
+              {/* Campana */}
+              <div className="relative" ref={notifRef}>
+                <button
+                  onClick={() => { setNotifOpen(prev => !prev); setSettingsMenuOpen(false); setUserMenuOpen(false) }}
+                  aria-label={`Notificaciones${unreadCount > 0 ? ` (${unreadCount} sin leer)` : ''}`}
+                  aria-expanded={notifOpen}
+                  className="w-9 h-9 rounded-full bg-white/50 flex items-center justify-center hover:bg-white/70 transition-colors relative"
+                >
+                  <Bell className="w-4 h-4 text-slate-500" />
+                  {unreadCount > 0 && (
+                    <span className="absolute -top-0.5 -right-0.5 min-w-[16px] h-4 bg-emerald-500 rounded-full flex items-center justify-center text-[9px] font-bold text-white px-1">
+                      {unreadCount > 99 ? '99+' : unreadCount}
+                    </span>
+                  )}
+                </button>
+                {notifOpen && (
+                  <div className={`${GLASS} absolute right-0 mt-2 w-[340px] rounded-2xl shadow-xl overflow-hidden z-[60] animate-in fade-in slide-in-from-top-1 duration-150`}>
+                    <div className="px-4 py-3 border-b border-slate-200/50 flex items-center justify-between">
+                      <p className="text-[12px] font-semibold text-slate-900">Notificaciones</p>
+                      <button onClick={() => { setNotifOpen(false); navigate('/alertas') }} className="text-[11px] text-emerald-700 hover:underline">Ver todas →</button>
+                    </div>
+                    <div className="max-h-[360px] overflow-y-auto">
+                      {recentAlerts.length === 0 ? (
+                        <p className="px-4 py-8 text-center text-[12px] text-slate-400 italic">Sin notificaciones</p>
+                      ) : recentAlerts.map(a => (
+                        <button
+                          key={a.id}
+                          onClick={() => { setNotifOpen(false); navigate(`/alertas?id=${a.id}`) }}
+                          className="w-full text-left px-4 py-3 hover:bg-white/60 border-b border-slate-100/60 last:border-b-0"
+                        >
+                          <div className="flex items-start gap-2">
+                            <span className={`mt-1 w-1.5 h-1.5 rounded-full shrink-0 ${
+                              a.severity === 'critical' ? 'bg-rose-500' :
+                              a.severity === 'high' ? 'bg-amber-500' :
+                              a.severity === 'medium' ? 'bg-sky-500' : 'bg-slate-400'
+                            }`}/>
+                            <div className="flex-1 min-w-0">
+                              <p className="text-[12px] font-medium text-slate-900 truncate">{a.title}</p>
+                              <p className="text-[10px] text-slate-500 mt-0.5">
+                                {new Date(a.createdAt).toLocaleString('es-MX', { dateStyle: 'short', timeStyle: 'short' })}
+                                {a.affectedFraction && <span className="ml-2 font-mono">{a.affectedFraction}</span>}
+                              </p>
+                            </div>
+                          </div>
+                        </button>
+                      ))}
+                    </div>
+                  </div>
                 )}
-              </button>
-              <button className="hidden sm:flex w-9 h-9 rounded-full bg-white/50 items-center justify-center hover:bg-white/70 transition-colors">
-                <Settings className="w-4 h-4 text-slate-500" />
-              </button>
-              <div className="w-9 h-9 rounded-full bg-gradient-to-br from-emerald-400 to-emerald-600 flex items-center justify-center ml-1 cursor-pointer">
-                <span className="text-white text-[11px] font-bold">U</span>
+              </div>
+
+              {/* Engrane */}
+              <div className="relative hidden sm:block" ref={settingsMenuRef}>
+                <button
+                  onClick={() => { setSettingsMenuOpen(prev => !prev); setNotifOpen(false); setUserMenuOpen(false) }}
+                  aria-label="Configuración"
+                  aria-expanded={settingsMenuOpen}
+                  className="w-9 h-9 rounded-full bg-white/50 flex items-center justify-center hover:bg-white/70 transition-colors"
+                >
+                  <Settings className="w-4 h-4 text-slate-500" />
+                </button>
+                {settingsMenuOpen && (
+                  <div className={`${GLASS} absolute right-0 mt-2 w-[240px] rounded-2xl shadow-xl overflow-hidden z-[60] animate-in fade-in slide-in-from-top-1 duration-150`}>
+                    <DropdownItem icon={UserCircle2} label="Mi perfil" onClick={() => { setSettingsMenuOpen(false); navigate('/settings/profile') }}/>
+                    <DropdownItem icon={Building2} label="Empresa" onClick={() => { setSettingsMenuOpen(false); navigate('/settings/empresa') }}/>
+                    <DropdownItem icon={Shield} label="Mis padrones SAT" onClick={() => { setSettingsMenuOpen(false); navigate('/settings/padrones') }}/>
+                    <DropdownItem icon={BadgeCheck} label="Verificación profesional" onClick={() => { setSettingsMenuOpen(false); navigate('/verificacion') }}/>
+                    <DropdownItem icon={Bell} label="Notificaciones" onClick={() => { setSettingsMenuOpen(false); navigate('/settings/notifications') }}/>
+                    <div className="border-t border-slate-200/50 my-1"/>
+                    <DropdownItem icon={HelpCircle} label="Centro de ayuda" onClick={() => { setSettingsMenuOpen(false); navigate('/help') }}/>
+                    <DropdownItem icon={MessageCircle} label="Soporte" href="mailto:soporte@aduanai.mx"/>
+                    <div className="border-t border-slate-200/50 my-1"/>
+                    <DropdownItem icon={LogOut} label="Cerrar sesión" onClick={() => { setSettingsMenuOpen(false); onLogout() }} danger/>
+                  </div>
+                )}
+              </div>
+
+              {/* Avatar usuario */}
+              <div className="relative ml-1" ref={userMenuRef}>
+                <button
+                  onClick={() => { setUserMenuOpen(prev => !prev); setNotifOpen(false); setSettingsMenuOpen(false) }}
+                  aria-label="Menú de usuario"
+                  aria-expanded={userMenuOpen}
+                  className="w-9 h-9 rounded-full bg-gradient-to-br from-emerald-400 to-emerald-600 flex items-center justify-center hover:ring-2 hover:ring-emerald-300/50 transition-all"
+                >
+                  <span className="text-white text-[11px] font-bold">{initial}</span>
+                </button>
+                {userMenuOpen && (
+                  <div className={`${GLASS} absolute right-0 mt-2 w-[260px] rounded-2xl shadow-xl overflow-hidden z-[60] animate-in fade-in slide-in-from-top-1 duration-150`}>
+                    <div className="px-4 py-3 border-b border-slate-200/50">
+                      <p className="text-[13px] font-semibold text-slate-900 truncate">{userName ?? '—'}</p>
+                      {userEmail && <p className="text-[11px] text-slate-500 truncate">{userEmail}</p>}
+                      <div className="flex items-center gap-1.5 mt-1.5 flex-wrap">
+                        {userRole && <span className="text-[9px] font-bold uppercase px-1.5 py-0.5 bg-slate-100 rounded">{userRole}</span>}
+                        {tenantName && <span className="text-[10px] text-slate-500 truncate">· {tenantName}</span>}
+                      </div>
+                    </div>
+                    <DropdownItem icon={UserCircle2} label="Mi perfil" onClick={() => { setUserMenuOpen(false); navigate('/settings/profile') }}/>
+                    <DropdownItem icon={Building2} label="Empresa" onClick={() => { setUserMenuOpen(false); navigate('/settings/empresa') }}/>
+                    <DropdownItem icon={Shield} label="Mis padrones SAT" onClick={() => { setUserMenuOpen(false); navigate('/settings/padrones') }}/>
+                    <div className="border-t border-slate-200/50 my-1"/>
+                    <DropdownItem icon={LogOut} label="Cerrar sesión" onClick={() => { setUserMenuOpen(false); onLogout() }} danger/>
+                  </div>
+                )}
               </div>
             </div>
           </div>

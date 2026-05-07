@@ -316,6 +316,25 @@ export const api = {
   incidentUpdate: (id: string, data: { update?: string; status?: string; resolution?: string; rootCause?: string }) =>
     request<{ status: string; data: SystemIncidentRecord }>(`/admin/incidents/${id}`, { method: 'PATCH', body: JSON.stringify(data) }),
 
+  // Glosa Simulator
+  glosaSimulate: (input: GlosaSimulationInput) =>
+    request<{ status: string; data: GlosaSimulationResult }>('/glosa/simulate', { method: 'POST', body: JSON.stringify(input) }),
+  glosaHistory: () =>
+    request<{ status: string; data: GlosaSimulationListItem[] }>('/glosa/history'),
+  glosaGet: (id: string) =>
+    request<{ status: string; data: GlosaSimulationFull }>(`/glosa/${id}`),
+  glosaOutcome: (id: string, outcome: 'ra_yes' | 'ra_no' | 'documental' | 'free', notes?: string) =>
+    request<{ status: string }>(`/glosa/${id}/outcome`, { method: 'POST', body: JSON.stringify({ outcome, notes }) }),
+  glosaRules: () =>
+    request<{ status: string; data: GlosaRiskRuleRecord[] }>('/glosa/rules/list'),
+
+  glosaAdminStats: () =>
+    request<{ status: string; data: GlosaStats }>('/admin/glosa/stats'),
+  glosaAdminRules: () =>
+    request<{ status: string; data: GlosaRiskRuleRecord[] }>('/admin/glosa/rules'),
+  glosaAdminUpdateRule: (id: string, body: { weight?: number; severity?: 'low' | 'medium' | 'high' | 'critical'; active?: boolean }) =>
+    request<{ status: string; data: GlosaRiskRuleRecord }>(`/admin/glosa/rules/${id}`, { method: 'PATCH', body: JSON.stringify(body) }),
+
   // Padrones SAT
   padronesList: (type?: string) =>
     request<{ status: string; data: SATPadronRecord[] }>(`/padrones/list${type ? `?type=${type}` : ''}`),
@@ -1437,6 +1456,112 @@ export interface HealthStatus {
     anthropic_api: { ok: boolean; error?: string };
     resend_email: { ok: boolean; error?: string };
   };
+}
+
+export interface GlosaSimulationInput {
+  fractionCode: string;
+  fractionDescription?: string;
+  productDescription?: string;
+  countryOrigin: string;
+  countryProvider: string;
+  customsCode: string;
+  regimenCode: string;
+  unitValueUSD: number;
+  unitMeasure?: string;
+  units?: number;
+  weightKg: number;
+  totalValueUSD: number;
+  totalValueMXN?: number;
+  declaresAntidumping?: boolean;
+  declaresLink?: boolean;
+  appliesTMEC?: boolean;
+  hasTMECCertificate?: boolean;
+  declaresNOMs?: boolean;
+  hasIVAIEPSCertification?: boolean;
+  documents?: {
+    invoice?: boolean;
+    bl?: boolean;
+    packingList?: boolean;
+    originCertificate?: boolean;
+    mve?: boolean;
+    permits?: boolean;
+    nomCertificates?: boolean;
+  };
+}
+
+export interface GlosaRiskFlag {
+  ruleCode: string;
+  severity: 'low' | 'medium' | 'high' | 'critical';
+  category: string;
+  name: string;
+  reason: string;
+  recommendation: string;
+  legalBasis: string | null;
+  weight: number;
+}
+
+export interface GlosaSimulationResult {
+  simulationId: string;
+  riskScore: number;
+  riskLevel: 'low' | 'medium' | 'high' | 'critical';
+  raProbability: number;
+  cotejoProb: number;
+  glosaProb: number;
+  flags: GlosaRiskFlag[];
+  recommendations: { priority: 'critical' | 'recommended'; items: string[] }[];
+  industryAverage: number | null;
+  yourHistory: number | null;
+  disclaimer: string;
+}
+
+export interface GlosaSimulationListItem {
+  id: string;
+  fractionCode: string;
+  countryOrigin: string;
+  customsCode: string;
+  regimenCode: string;
+  valueUSD: number;
+  riskScore: number;
+  riskLevel: string;
+  raProbability: number;
+  actualOutcome: string | null;
+  createdAt: string;
+  feedbackAt: string | null;
+}
+
+export interface GlosaSimulationFull extends GlosaSimulationListItem {
+  pedimentoData: GlosaSimulationInput;
+  riskFlags: GlosaRiskFlag[];
+  recommendations: { priority: 'critical' | 'recommended'; items: string[] }[];
+  industryAverage: number | null;
+  yourHistory: number | null;
+  cotejoProb: number;
+  glosaProb: number;
+  weightKg: number;
+  units: number | null;
+  unitMeasure: string | null;
+  countryProvider: string;
+}
+
+export interface GlosaRiskRuleRecord {
+  id: string;
+  ruleCode: string;
+  category: string;
+  name: string;
+  description: string;
+  weight: number;
+  severity: 'low' | 'medium' | 'high' | 'critical';
+  recommendation: string;
+  legalBasis: string | null;
+  active: boolean;
+}
+
+export interface GlosaStats {
+  total: number;
+  byLevel: { level: string; count: number }[];
+  topRules: { ruleCode: string; name: string; activations: number }[];
+  customsRA: { customs: string; ra: number; total: number }[];
+  modelCalibration: { predictedAvg: number; actualRA: number; total: number };
 }
 
 export interface SATPadronRecord {

@@ -50,6 +50,7 @@ import { antidumpingRouter, antidumpingAdminRouter } from './routes/antidumping'
 import { regimesRouter } from './routes/regimes';
 import { verifyTimestampPublicRouter, timestampsAdminRouter } from './routes/timestamps';
 import { padronesRouter, padronesAdminRouter } from './routes/padrones';
+import { glosaRouter, glosaAdminRouter } from './routes/glosa';
 import { statusRouter } from './routes/status';
 import { performBackup, cleanupExpiredBackups } from './services/backup';
 import {
@@ -176,6 +177,8 @@ app.use('/api/regimes', regimesRouter);
 app.use('/api/admin/timestamps', timestampsAdminRouter);
 app.use('/api/padrones', padronesRouter);
 app.use('/api/admin/padrones', padronesAdminRouter);
+app.use('/api/glosa', glosaRouter);
+app.use('/api/admin/glosa', glosaAdminRouter);
 app.use('/api/status', statusRouter);
 
 // ── SPA fallback ──

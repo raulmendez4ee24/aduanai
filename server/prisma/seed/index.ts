@@ -18,6 +18,7 @@ import { seedLegalDocuments } from './legal-documents';
 import { seedAntidumpingUPCI } from './antidumping-upci';
 import { seedRegimesPrograms } from './regimes-programs';
 import { seedSATPadrones } from './sat-padrones';
+import { seedGlosaRiskRules } from './glosa-risk-rules';
 import { seedSyntheticHistory } from '../../src/services/exchange-rate';
 
 dotenv.config({ path: path.join(__dirname, '..', '..', '.env') });
@@ -250,6 +251,11 @@ async function main() {
   console.log('📜 Sembrando Padrones SAT (Anexo 10 RGCE)...');
   const padrones = await seedSATPadrones(prisma);
   console.log(`   ✅ ${padrones.created} creados, ${padrones.updated} actualizados (1 general + 17 sectoriales)\n`);
+
+  // 4.b.16 Reglas de riesgo del Simulador de Glosa
+  console.log('🎯 Sembrando reglas de riesgo del Simulador de Glosa...');
+  const glosaRules = await seedGlosaRiskRules(prisma);
+  console.log(`   ✅ ${glosaRules.created} creadas, ${glosaRules.updated} actualizadas\n`);
 
   // 4.b.3 Histórico sintético de TC (90 días) para selector "TC histórico"
   console.log('💱 Sembrando histórico de tipo de cambio (90 días)...');
