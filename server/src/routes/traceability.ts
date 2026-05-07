@@ -281,7 +281,9 @@ table.data td { padding: 8px 10px; border: 1px solid #d1d5db; }
 
 complianceReportRouter.get('/compliance-report/:tenantId', authenticate, async (req: AuthRequest, res, next) => {
   try {
-    if (req.userRole !== 'ADMIN' && req.userRole !== 'SUPERADMIN' && req.tenantId !== req.params.tenantId) {
+    // ADMIN ya no es rol del sistema (es admin del tenant cliente). Solo SUPERADMIN
+    // puede ver compliance-report de otros tenants. Cualquier otro rol está limitado a su propio tenant.
+    if (req.userRole !== 'SUPERADMIN' && req.tenantId !== req.params.tenantId) {
       return res.status(403).json({ status: 'error', message: 'Acceso denegado' });
     }
     const tenantId = String(req.params.tenantId);

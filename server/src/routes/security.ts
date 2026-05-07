@@ -8,7 +8,7 @@ import { prisma } from '../lib/prisma';
 import { unblockIP } from '../lib/security';
 
 export const securityRouter = Router();
-const adminOnly = [authenticate, requireRole('ADMIN', 'SUPERADMIN')];
+const adminOnly = [authenticate, requireRole('SUPERADMIN')];
 const HOUR = 60 * 60 * 1000;
 const DAY = 24 * HOUR;
 

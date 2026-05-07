@@ -14,7 +14,7 @@ import { verifyTimestamp, getProofBytes, checkPendingTimestamps } from '../servi
 
 export const verifyTimestampPublicRouter = Router();
 export const timestampsAdminRouter = Router();
-const adminOnly = [authenticate, requireRole('ADMIN', 'SUPERADMIN')];
+const adminOnly = [authenticate, requireRole('SUPERADMIN')];
 
 const escape = (s: string) => String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]!));
 

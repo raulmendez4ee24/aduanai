@@ -11,7 +11,7 @@ import { recordAudit, verifyChain, computeReportHash } from '../services/audit-s
 
 export const auditAdminRouter = Router();
 auditAdminRouter.use(authenticate);
-auditAdminRouter.use(requireRole('ADMIN', 'SUPERADMIN'));
+auditAdminRouter.use(requireRole('SUPERADMIN'));
 
 // ── GET /api/admin/audit ──────────────────────────────────────────────────
 auditAdminRouter.get('/', async (req: AuthRequest, res: Response, next: NextFunction) => {
@@ -77,8 +77,8 @@ auditAdminRouter.post('/verify-chain', async (req: AuthRequest, res: Response, n
 // Body: { periodStart, periodEnd } — genera dataset + hash final firmado
 auditAdminRouter.post('/report', async (req: AuthRequest, res: Response, next: NextFunction) => {
   try {
-    if (req.userRole !== 'SUPERADMIN' && req.userRole !== 'ADMIN') {
-      return res.status(403).json({ status: 'error', message: 'Solo ADMIN/SUPERADMIN' });
+    if (req.userRole !== 'SUPERADMIN') {
+      return res.status(403).json({ status: 'error', message: 'Solo SUPERADMIN' });
     }
     const { periodStart, periodEnd } = req.body as { periodStart?: string; periodEnd?: string };
     const start = periodStart ? new Date(periodStart) : new Date(Date.now() - 30 * 86400000);

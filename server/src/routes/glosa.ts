@@ -24,7 +24,7 @@ import {
 
 export const glosaRouter = Router();
 export const glosaAdminRouter = Router();
-const adminOnly = [authenticate, requireRole('ADMIN', 'SUPERADMIN')];
+const adminOnly = [authenticate, requireRole('SUPERADMIN')];
 
 const simulateSchema = z.object({
   fractionCode: z.string().min(8).max(15),

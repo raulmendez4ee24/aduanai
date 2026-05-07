@@ -21,7 +21,7 @@ export const adminRouter = Router();
 
 // All admin routes require auth + ADMIN or SUPERADMIN role
 adminRouter.use(authenticate);
-adminRouter.use(requireRole('ADMIN', 'SUPERADMIN'));
+adminRouter.use(requireRole('SUPERADMIN'));
 
 // ── Industry product mapping ──────────────────────────────────────────────────
 

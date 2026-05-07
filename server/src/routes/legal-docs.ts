@@ -16,7 +16,7 @@ import { prisma } from '../lib/prisma';
 import { generateEmbedding } from '../lib/embeddings';
 
 export const legalDocsRouter = Router();
-const adminOnly = [authenticate, requireRole('ADMIN', 'SUPERADMIN')];
+const adminOnly = [authenticate, requireRole('SUPERADMIN')];
 
 legalDocsRouter.get('/', adminOnly, async (req: AuthRequest, res: Response, next: NextFunction) => {
   try {

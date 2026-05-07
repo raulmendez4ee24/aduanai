@@ -14,7 +14,7 @@ import {
 } from '../services/backup';
 
 export const backupsRouter = Router();
-const adminOnly = [authenticate, requireRole('ADMIN', 'SUPERADMIN')];
+const adminOnly = [authenticate, requireRole('SUPERADMIN')];
 
 backupsRouter.get('/', adminOnly, async (req: AuthRequest, res: Response, next: NextFunction) => {
   try {

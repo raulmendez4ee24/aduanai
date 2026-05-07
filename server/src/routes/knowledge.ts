@@ -5,7 +5,7 @@ import { prisma } from '../lib/prisma';
 export const knowledgeRouter = Router();
 
 knowledgeRouter.use(authenticate);
-knowledgeRouter.use(requireRole('ADMIN', 'SUPERADMIN'));
+knowledgeRouter.use(requireRole('SUPERADMIN'));
 
 const KNOWLEDGE_TYPES = [
   'CASO_CLASIFICACION', 'CRITERIO_SAT', 'RESOLUCION_SCJN', 'NOTA_EXPLICATIVA_OMA',

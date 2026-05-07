@@ -98,7 +98,9 @@ export function AppLayout({ children, onLogout, userRole, userName, userEmail, t
   const [settingsMenuOpen, setSettingsMenuOpen] = useState(false)
   const [userMenuOpen, setUserMenuOpen] = useState(false)
   const [recentAlerts, setRecentAlerts] = useState<RecentAlert[]>([])
-  const isAdmin = userRole === 'ADMIN' || userRole === 'SUPERADMIN'
+  // El nav admin del sistema solo es para SUPERADMIN.
+  // ADMIN está reservado para "admin de empresa cliente" (sin acceso a paneles del sistema).
+  const isAdmin = userRole === 'SUPERADMIN'
   const searchRef = useRef<HTMLDivElement>(null)
   const searchInputRef = useRef<HTMLInputElement>(null)
   const notifRef = useRef<HTMLDivElement>(null)

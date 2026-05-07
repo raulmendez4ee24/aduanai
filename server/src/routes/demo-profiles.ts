@@ -15,7 +15,7 @@ import { loadDemoIntoTenant, clearDemoFromTenant } from '../services/demo-loader
 import { logger } from '../lib/logger';
 
 export const demoProfilesRouter = Router();
-const adminOnly = [authenticate, requireRole('ADMIN', 'SUPERADMIN')];
+const adminOnly = [authenticate, requireRole('SUPERADMIN')];
 
 demoProfilesRouter.get('/profiles', adminOnly, async (_req: AuthRequest, res: Response, next: NextFunction) => {
   try {

@@ -63,10 +63,17 @@ export function requestLogger(req: Request, res: Response, next: NextFunction): 
 }
 
 /** Error handler que captura stack traces y los persiste antes de devolver al cliente. */
-export function errorLogger(err: Error & { status?: number }, req: Request, res: Response, _next: NextFunction): void {
+export function errorLogger(err: Error & { status?: number; statusCode?: number; isOperational?: boolean }, req: Request, res: Response, _next: NextFunction): void {
   const ar = req as AuthRequest;
-  const status = err.status ?? 500;
-  logger.critical(err.message || 'Unhandled error', {
+  // AppError usa statusCode; algunos errores externos usan status
+  const status = err.statusCode ?? err.status ?? 500;
+  // Solo log severo cuando es 5xx; los 4xx (auth/validación) son INFO/WARN
+  const level: 'info' | 'warn' | 'error' | 'critical' =
+    status >= 500 ? (status >= 502 ? 'critical' : 'error')
+    : status === 401 || status === 403 ? 'warn'
+    : status >= 400 ? 'warn'
+    : 'info';
+  logger[level](err.message || 'Unhandled error', {
     requestId: req.requestId,
     method: req.method,
     endpoint: req.originalUrl.split('?')[0],
@@ -74,13 +81,14 @@ export function errorLogger(err: Error & { status?: number }, req: Request, res:
     tenantId: ar.tenantId,
     userId: ar.userId,
     errorMessage: err.message,
-    errorStack: err.stack,
+    errorStack: status >= 500 ? err.stack : undefined,
     metadata: { name: err.name },
   });
   if (!res.headersSent) {
     res.status(status).json({
       status: 'error',
-      message: process.env.NODE_ENV === 'production' ? 'Error interno' : err.message,
+      // Mostrar el mensaje real para 4xx (orienta al cliente); ocultar 5xx en prod
+      message: status < 500 || process.env.NODE_ENV !== 'production' ? err.message : 'Error interno',
       requestId: req.requestId,
     });
   }

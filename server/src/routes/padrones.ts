@@ -26,7 +26,7 @@ import {
 
 export const padronesRouter = Router();
 export const padronesAdminRouter = Router();
-const adminOnly = [authenticate, requireRole('ADMIN', 'SUPERADMIN')];
+const adminOnly = [authenticate, requireRole('SUPERADMIN')];
 
 // ─────────────────────── Tenant ───────────────────────
 

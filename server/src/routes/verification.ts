@@ -23,7 +23,7 @@ import {
 } from '../services/verification';
 
 export const verificationRouter = Router();
-const adminOnly = [authenticate, requireRole('ADMIN', 'SUPERADMIN')];
+const adminOnly = [authenticate, requireRole('SUPERADMIN')];
 
 // ─────────────────────── Usuario ────────────────────────
 

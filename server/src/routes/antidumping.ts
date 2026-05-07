@@ -16,7 +16,7 @@ import { checkAntidumpingDuty, calculateExposure } from '../services/antidumping
 
 export const antidumpingRouter = Router();
 export const antidumpingAdminRouter = Router();
-const adminOnly = [authenticate, requireRole('ADMIN', 'SUPERADMIN')];
+const adminOnly = [authenticate, requireRole('SUPERADMIN')];
 
 // ─────────────────────── Usuario ───────────────────────
 
