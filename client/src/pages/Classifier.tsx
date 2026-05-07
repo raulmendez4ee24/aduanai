@@ -1,17 +1,38 @@
 import { useState } from 'react'
 import { api } from '../lib/api'
-import type { ClassificationResult } from '../lib/api'
+import type { ClassificationResult, IndustrialSector, ImporterType } from '../lib/api'
 import { Search, Sparkles, AlertCircle, ThumbsUp, ThumbsDown, Copy, Check, Scale, ChevronDown, AlertTriangle, ShieldCheck, Car, Link as LinkIcon } from 'lucide-react'
 import { formatFraction } from '../lib/format'
 import { ROITile } from '../components/ROIBanner'
+import { NOMExceptionPanel } from '../components/NOMExceptionPanel'
+import { PadronCheckBanner, PadronOkBadge } from './Settings/Padrones'
 
 const GLASS = 'bg-white/70 backdrop-blur-xl border border-white/50 shadow-[0_8px_30px_rgb(0,0,0,0.04)]'
+
+const SECTOR_OPTIONS: { value: IndustrialSector; label: string }[] = [
+  { value: 'general', label: 'General / Comercializadora' },
+  { value: 'automotive_terminal', label: 'Automotriz — armadora terminal (OEM)' },
+  { value: 'automotive_parts', label: 'Automotriz — autopartista (Tier 1/2/3)' },
+  { value: 'aeronautic', label: 'Aeronáutico / Aeroespacial' },
+  { value: 'consumer_electronics', label: 'Electrónica de consumo' },
+  { value: 'medical_pharma', label: 'Médico / Farmacéutico' },
+  { value: 'construction', label: 'Construcción' },
+  { value: 'textile_apparel', label: 'Textil / Confección' },
+  { value: 'food_beverage', label: 'Alimentos y bebidas' },
+  { value: 'industrial_machinery', label: 'Maquinaria industrial' },
+  { value: 'agriculture', label: 'Agropecuario' },
+  { value: 'oil_gas', label: 'Petróleo y gas' },
+  { value: 'chemicals', label: 'Químicos' },
+]
 
 export function ClassifierPage() {
   const [query, setQuery] = useState('')
   const [context, setContext] = useState('')
   const [country, setCountry] = useState('')
   const [declaredValue, setDeclaredValue] = useState('')
+  const [useCase, setUseCase] = useState('')
+  const [sector, setSector] = useState<IndustrialSector | ''>('')
+  const [importerType, setImporterType] = useState<ImporterType | ''>('')
   const [result, setResult] = useState<ClassificationResult | null>(null)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
@@ -25,7 +46,12 @@ export function ClassifierPage() {
     setLoading(true); setError(''); setResult(null); setFeedbackSent(false)
     try {
       const declared = declaredValue ? parseFloat(declaredValue) : undefined
-      const res = await api.classify(query, context || undefined, country || undefined, declared)
+      const extras = {
+        useCase: useCase || undefined,
+        sector: sector || undefined,
+        importerType: importerType || undefined,
+      }
+      const res = await api.classify(query, context || undefined, country || undefined, declared, extras)
       setResult(res.data)
       if (res.classificationId) setClassificationId(res.classificationId)
       else {
@@ -108,6 +134,52 @@ export function ClassifierPage() {
               />
             </div>
           </div>
+
+          {/* Contexto operacional — uso destinado, sector, tipo de importador */}
+          <details className="rounded-xl bg-violet-50/30 border border-violet-100 p-3 group" open>
+            <summary className="text-[12px] font-semibold text-violet-700 cursor-pointer flex items-center gap-2">
+              <Sparkles className="w-3.5 h-3.5"/> Contexto operacional (mejora la precisión por uso destinado)
+            </summary>
+            <div className="mt-3 grid grid-cols-1 md:grid-cols-3 gap-3">
+              <div>
+                <label className="text-[11px] font-medium text-slate-600 mb-1 block">Uso destinado</label>
+                <input
+                  type="text"
+                  value={useCase}
+                  onChange={e => setUseCase(e.target.value)}
+                  placeholder="Ensamble vehicular, equipo médico, uso industrial..."
+                  className="w-full bg-white border border-slate-200 rounded-lg px-3 py-2 text-[13px] text-slate-900 placeholder:text-slate-400 outline-none focus:ring-2 focus:ring-violet-500/30"
+                />
+              </div>
+              <div>
+                <label className="text-[11px] font-medium text-slate-600 mb-1 block">Sector industrial</label>
+                <select
+                  value={sector}
+                  onChange={e => setSector(e.target.value as IndustrialSector | '')}
+                  className="w-full bg-white border border-slate-200 rounded-lg px-3 py-2 text-[13px] text-slate-900 outline-none focus:ring-2 focus:ring-violet-500/30">
+                  <option value="">— Sin declarar —</option>
+                  {SECTOR_OPTIONS.map(s => (
+                    <option key={s.value} value={s.value}>{s.label}</option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <label className="text-[11px] font-medium text-slate-600 mb-1 block">Tipo de importador</label>
+                <select
+                  value={importerType}
+                  onChange={e => setImporterType(e.target.value as ImporterType | '')}
+                  className="w-full bg-white border border-slate-200 rounded-lg px-3 py-2 text-[13px] text-slate-900 outline-none focus:ring-2 focus:ring-violet-500/30">
+                  <option value="">— Sin declarar —</option>
+                  <option value="IMMEX">IMMEX</option>
+                  <option value="DEFINITIVO">Definitivo</option>
+                  <option value="PERSONA_FISICA">Persona física</option>
+                </select>
+              </div>
+            </div>
+            <p className="text-[10px] text-slate-500 mt-2 italic">
+              El uso destinado y sector pueden cambiar la fracción (ej. tornillo genérico cap 73 vs autoparte específica cap 87 si lo importa una armadora).
+            </p>
+          </details>
           <button
             onClick={handleClassify}
             disabled={loading || !query.trim()}
@@ -162,6 +234,10 @@ export function ClassifierPage() {
             </div>
           </div>
 
+          {/* Padrones SAT — bloqueo si no inscrito */}
+          {result.padronCheck && <PadronCheckBanner check={result.padronCheck}/>}
+          {result.padronCheck?.canOperate && result.padronCheck.totalRequired > 0 && <PadronOkBadge totalRequired={result.padronCheck.totalRequired}/>}
+
           {/* Alertas defensivas */}
           {result.alerts && result.alerts.length > 0 && (
             <div className="space-y-2">
@@ -201,6 +277,103 @@ export function ClassifierPage() {
             <p className="text-[11px] text-slate-500">Capítulo {result.fraction.chapter} — Sección {result.fraction.section}</p>
           </div>
 
+          {/* Alerta de litigios activos en la fracción/capítulo */}
+          {result.litigationAlert?.active && result.litigationAlert.cases.length > 0 && (
+            <div className="rounded-xl border border-rose-200 bg-rose-50 p-4">
+              <p className="text-[12px] font-bold text-rose-800 mb-2 flex items-center gap-2">
+                <AlertTriangle className="w-4 h-4"/> ⚖️ Esta fracción ha sido objeto de litigios en TFJA
+              </p>
+              <ul className="space-y-1.5">
+                {result.litigationAlert.cases.slice(0, 3).map(c => (
+                  <li key={c.id} className="text-[11px] text-rose-700">
+                    <span className="font-mono">[{c.type} {c.reference}]</span> {c.title}
+                  </li>
+                ))}
+              </ul>
+              <p className="text-[11px] text-rose-700 mt-2 italic">
+                Considerar consulta vinculante al SAT (Art. 47 CFF) antes de operar volumen.
+              </p>
+            </div>
+          )}
+
+          {/* Precedentes legales aplicables */}
+          {result.precedents && result.precedents.length > 0 && (
+            <details className="rounded-xl border border-violet-200 bg-violet-50/30 group" open>
+              <summary className="cursor-pointer p-4 text-[12px] font-bold text-violet-800 flex items-center gap-2">
+                <Scale className="w-4 h-4"/> Precedentes y criterios aplicables ({result.precedents.length})
+              </summary>
+              <div className="px-4 pb-4 space-y-2">
+                {result.precedents.map(p => (
+                  <div key={p.id} className="rounded-lg bg-white border border-violet-100 p-3">
+                    <div className="flex items-start gap-2 flex-wrap mb-1">
+                      <span className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-violet-100 text-violet-800">{p.type}</span>
+                      <span className="text-[9px] font-mono text-slate-500">{p.reference}</span>
+                      <span className="text-[9px] text-slate-400">· {p.yearPublished}</span>
+                      {p.litigated && <span className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-rose-50 text-rose-700">⚖️</span>}
+                      <span className="ml-auto text-[9px] uppercase tracking-wider text-slate-400">{p.topic}</span>
+                    </div>
+                    <p className="text-[12px] font-semibold text-slate-900">{p.title}</p>
+                    <p className="text-[11px] text-slate-600 mt-1 leading-relaxed">{p.summary}</p>
+                    {p.applicability && (
+                      <div className="mt-2 rounded bg-emerald-50 border border-emerald-100 p-2">
+                        <p className="text-[10px] font-semibold text-emerald-700 uppercase tracking-wider mb-0.5">Cómo aplica</p>
+                        <p className="text-[11px] text-emerald-900">{p.applicability}</p>
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
+            </details>
+          )}
+
+          {/* Análisis por uso — material vs uso destinado */}
+          {result.useBasedAnalysis && (
+            <div className="rounded-xl border border-violet-200 bg-violet-50/40 p-4">
+              <p className="text-[12px] font-bold text-violet-800 mb-3 flex items-center gap-2">
+                <Scale className="w-4 h-4"/> Análisis por uso destinado — dualidad de clasificación
+              </p>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mb-3">
+                <div className="rounded-lg bg-white border border-slate-200 p-3">
+                  <p className="text-[10px] font-semibold uppercase tracking-wider text-slate-500">Por material</p>
+                  <p className="font-mono text-[16px] font-bold text-slate-900 mt-1">{result.useBasedAnalysis.byMaterial.code}</p>
+                  <p className="text-[11px] text-slate-600 mt-1">{result.useBasedAnalysis.byMaterial.description}</p>
+                  <p className="text-[10px] text-slate-400 mt-1">Confianza: {result.useBasedAnalysis.byMaterial.confidence}%</p>
+                </div>
+                <div className="rounded-lg bg-white border border-amber-200 p-3">
+                  <p className="text-[10px] font-semibold uppercase tracking-wider text-amber-700">Por uso destinado</p>
+                  <p className="font-mono text-[16px] font-bold text-amber-900 mt-1">{result.useBasedAnalysis.byUse.code}</p>
+                  <p className="text-[11px] text-slate-700 mt-1">{result.useBasedAnalysis.byUse.description}</p>
+                  <p className="text-[10px] text-slate-400 mt-1">Confianza: {result.useBasedAnalysis.byUse.confidence}%</p>
+                </div>
+              </div>
+
+              <div className="space-y-2 text-[11px]">
+                <div>
+                  <p className="font-semibold text-slate-700">Criterio:</p>
+                  <p className="text-slate-600 leading-relaxed">{result.useBasedAnalysis.criterion}</p>
+                </div>
+                <div>
+                  <p className="font-semibold text-slate-700">Recomendación:</p>
+                  <p className="text-slate-600 leading-relaxed">{result.useBasedAnalysis.recommendation}</p>
+                </div>
+                <div className="rounded-lg bg-rose-50 border border-rose-100 p-2">
+                  <p className="font-semibold text-rose-700">⚠ Riesgo:</p>
+                  <p className="text-rose-700 leading-relaxed">{result.useBasedAnalysis.riskNote}</p>
+                </div>
+                {result.useBasedAnalysis.precedents.length > 0 && (
+                  <div>
+                    <p className="font-semibold text-slate-700">Precedentes:</p>
+                    <ul className="mt-0.5 space-y-0.5">
+                      {result.useBasedAnalysis.precedents.map((p, i) => (
+                        <li key={i} className="text-slate-600 text-[10px] font-mono">• {p}</li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+
           {/* Tariffs */}
           <div>
             <p className="text-[12px] font-semibold text-slate-700 mb-3">Aranceles</p>
@@ -231,6 +404,16 @@ export function ClassifierPage() {
                 ))}
               </div>
             </div>
+          )}
+
+          {/* NOMs y excepciones Anexo 2.4.1 */}
+          {result.regulations.noms.length > 0 && (
+            <NOMExceptionPanel
+              fractionCode={result.fraction.code}
+              countryOfOrigin={country || undefined}
+              knownNoms={result.regulations.noms.map(code => ({ code, authority: 'SE' }))}
+              productDescription={query}
+            />
           )}
 
           {/* Explanation */}
@@ -349,23 +532,45 @@ export function ClassifierPage() {
             )}
           </div>
 
-          {/* Footer regulatorio + verifiable */}
+          {/* Footer regulatorio + verificable + dictamen */}
           {result.meta && (
-            <div className="rounded-xl bg-slate-50 border border-slate-200 p-3 text-[10px] text-slate-600 space-y-1">
-              <p>
-                <span className="font-semibold">Consultado:</span> TIGIE {result.meta.tigieVersion} · LIGIE {result.meta.ligieVersion}
-                {' · '}
-                <span className="font-mono">{new Date(result.meta.consultedAt).toLocaleString('es-MX')}</span>
-              </p>
-              <p className="font-mono break-all">
-                <span className="font-semibold font-sans">Hash:</span> SHA256-{result.meta.consultHash.slice(0, 16)}…
-              </p>
-              <p className="flex items-center gap-1">
-                <LinkIcon className="w-2.5 h-2.5"/>
-                <a href={result.meta.verifyUrl} target="_blank" rel="noreferrer" className="text-emerald-600 hover:underline font-mono">
-                  Verificable en {result.meta.verifyUrl}
-                </a>
-              </p>
+            <div className="rounded-xl bg-slate-50 border border-slate-200 p-3 text-[10px] text-slate-600 space-y-1.5">
+              <div className="flex items-center justify-between flex-wrap gap-2">
+                <div>
+                  <p>
+                    <span className="font-semibold">Consultado:</span> TIGIE {result.meta.tigieVersion} · LIGIE {result.meta.ligieVersion}
+                    {result.meta.rgceVersion ? ` · RGCE ${result.meta.rgceVersion}` : ''}
+                    {' · '}
+                    <span className="font-mono">{new Date(result.meta.consultedAt).toLocaleString('es-MX')}</span>
+                  </p>
+                  {result.meta.modelUsed && (
+                    <p className="text-slate-500">
+                      <span className="font-semibold text-slate-600">Modelo:</span> {result.meta.modelUsed} ({result.meta.modelProvider})
+                    </p>
+                  )}
+                </div>
+                <div className="flex items-center gap-2">
+                  <a href={result.meta.verifyUrl} target="_blank" rel="noreferrer"
+                    className="inline-flex items-center gap-1 bg-white border border-emerald-300 text-emerald-700 hover:bg-emerald-50 text-[10px] font-medium px-2.5 py-1.5 rounded-full transition">
+                    <LinkIcon className="w-3 h-3"/> Verificar
+                  </a>
+                  {classificationId && (
+                    <a href={api.dictamenURL(classificationId)} target="_blank" rel="noreferrer"
+                      className="inline-flex items-center gap-1 bg-emerald-500 hover:bg-emerald-600 text-white text-[10px] font-medium px-2.5 py-1.5 rounded-full transition">
+                      📄 Dictamen
+                    </a>
+                  )}
+                </div>
+              </div>
+              <details className="group">
+                <summary className="cursor-pointer text-slate-500 hover:text-slate-700 text-[10px]">Hashes de integridad</summary>
+                <div className="mt-1.5 font-mono break-all space-y-0.5 text-slate-500">
+                  <p><span className="text-slate-400">consult:</span> {result.meta.consultHash}</p>
+                  {result.meta.inputHash && <p><span className="text-slate-400">input:</span> {result.meta.inputHash}</p>}
+                  {result.meta.outputHash && <p><span className="text-slate-400">output:</span> {result.meta.outputHash}</p>}
+                  {result.meta.knowledgeBaseHash && <p><span className="text-slate-400">kb:</span> {result.meta.knowledgeBaseHash}</p>}
+                </div>
+              </details>
             </div>
           )}
 

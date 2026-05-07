@@ -5,7 +5,8 @@ import {
   Boxes, Calculator, Bot, Clock, FolderOpen, ShieldCheck, FileText,
   Truck, Megaphone, LineChart, Warehouse, RefreshCw, Globe, Package,
   HelpCircle, MessageCircle, Users, Rocket, Building2, TrendingUp, RotateCcw,
-  Shield, BookOpen, Database, Sparkles
+  Shield, BookOpen, Database, Sparkles, Scale, BadgeCheck, Briefcase, AlertTriangle,
+  Anchor
 } from 'lucide-react'
 import { api } from '../lib/api'
 import type { FractionSearchResult } from '../lib/api'
@@ -27,8 +28,11 @@ const NAV_ITEMS = [
   { label: 'Inventario IMMEX', path: '/inventario', icon: Warehouse },
   { label: 'Fiscal Guardian', path: '/fiscal', icon: Package },
   { label: 'Auto MVE', path: '/mve', icon: FileText },
+  { label: 'Origen TMEC', path: '/origen-tmec', icon: Globe },
+  { label: 'Precedentes', path: '/precedentes', icon: Scale },
   { label: 'Logística', path: '/logistics', icon: Truck },
   { label: 'Actualizaciones', path: '/updates', icon: RefreshCw },
+  { label: 'Mis padrones SAT', path: '/settings/padrones', icon: Shield },
 ]
 
 const ADMIN_NAV_ITEMS = [
@@ -41,6 +45,16 @@ const ADMIN_NAV_ITEMS = [
   { label: 'Métricas', path: '/admin/metricas', icon: LineChart },
   { label: 'Datos Demo', path: '/admin/demo', icon: Database },
   { label: 'Audit Trail', path: '/admin/audit', icon: Shield },
+  { label: 'Cumplimiento normativo', path: '/admin/compliance', icon: ShieldCheck },
+  { label: 'Monitoreo', path: '/admin/monitoring', icon: LineChart },
+  { label: 'Seguridad', path: '/admin/security', icon: Shield },
+  { label: 'Verificaciones', path: '/admin/verifications', icon: BadgeCheck },
+  { label: 'Backups', path: '/admin/backups', icon: Database },
+  { label: 'Demos por sector', path: '/admin/demo-profiles', icon: Briefcase },
+  { label: 'Docs legales (RAG)', path: '/admin/legal-docs', icon: BookOpen },
+  { label: 'Cuotas compensatorias', path: '/admin/antidumping', icon: AlertTriangle },
+  { label: 'Anclajes Bitcoin (OTS)', path: '/admin/timestamps', icon: Anchor },
+  { label: 'Padrones SAT', path: '/admin/padrones', icon: BadgeCheck },
 ]
 
 interface Props {

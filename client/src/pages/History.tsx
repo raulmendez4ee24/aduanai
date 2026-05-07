@@ -30,8 +30,9 @@ export function HistoryPage() {
     try { await api.classifyFeedback(id, fb); load() } catch {}
   }
 
+  // confidence ya viene en 0-100 desde el backend (ver format.ts)
   const confBadge = (c: number) => {
-    const pct = Math.round(c * 100)
+    const pct = Math.round(c)
     if (pct >= 90) return 'bg-emerald-50 text-emerald-600'
     if (pct >= 75) return 'bg-emerald-50/50 text-emerald-500'
     if (pct >= 50) return 'bg-amber-50 text-amber-600'

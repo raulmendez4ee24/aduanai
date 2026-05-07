@@ -1,8 +1,9 @@
 import { Router } from 'express';
 import rateLimit from 'express-rate-limit';
 import { authenticate, AuthRequest } from '../middlewares/auth';
-import { classifyProduct } from '../services/classifier';
+import { classifyProduct, type IndustrialSector, type ImporterType } from '../services/classifier';
 import { buildClassifierAlerts, computeConsultHash, TIGIE_VERSION, LIGIE_VERSION } from '../services/classifier-alerts';
+import { recordConsult, verifyConsult } from '../services/traceability';
 import { prisma } from '../lib/prisma';
 
 export const classifyRouter = Router();
@@ -91,8 +92,14 @@ classifyRouter.post('/demo', demoClassifyLimit, async (req, res, next) => {
 // POST /api/classify — con auth + alertas defensivas + verificabilidad
 classifyRouter.post('/', authenticate, async (req: AuthRequest, res, next) => {
   try {
-    const { description, context, countryOfOrigin, declaredValueUSD } = req.body as {
-      description?: string; context?: string; countryOfOrigin?: string; declaredValueUSD?: number;
+    const { description, context, countryOfOrigin, declaredValueUSD, useCase, sector, importerType } = req.body as {
+      description?: string;
+      context?: string;
+      countryOfOrigin?: string;
+      declaredValueUSD?: number;
+      useCase?: string;
+      sector?: IndustrialSector;
+      importerType?: ImporterType;
     };
 
     if (!description || description.trim().length < 3) {
@@ -102,7 +109,7 @@ classifyRouter.post('/', authenticate, async (req: AuthRequest, res, next) => {
       });
     }
 
-    const result = await classifyProduct(description, context);
+    const result = await classifyProduct(description, context, { useCase, sector, importerType });
 
     // Alertas defensivas (cuotas comp + NOMs + padrón + automotive + subvaloración)
     const alerts = await buildClassifierAlerts({
@@ -123,6 +130,18 @@ classifyRouter.post('/', authenticate, async (req: AuthRequest, res, next) => {
       tigieVersion: TIGIE_VERSION,
     });
 
+    // Registro de trazabilidad versional — captura inputs, outputs, versiones,
+    // knowledge base y modelo usados, generando un consultHash auditable.
+    const trace = await recordConsult({
+      tenantId: req.tenantId!,
+      userId: req.userId!,
+      inputs: { description, context, countryOfOrigin, declaredValueUSD, useCase, sector, importerType },
+      outputs: { ...result, _trace: undefined, alerts },
+      modelUsed: result._trace?.modelUsed ?? 'unknown',
+      modelProvider: result._trace?.modelProvider ?? 'unknown',
+      knowledgeUsed: result._trace?.knowledgeUsed ?? [],
+    });
+
     const record = await prisma.classification.create({
       data: {
         tenantId: req.tenantId!,
@@ -131,6 +150,10 @@ classifyRouter.post('/', authenticate, async (req: AuthRequest, res, next) => {
         inputContext: context,
         inputCountryOfOrigin: countryOfOrigin,
         inputDeclaredValueUSD: declaredValueUSD,
+        inputUseCase: useCase,
+        inputSector: sector,
+        inputImporterType: importerType,
+        useBasedAnalysis: result.useBasedAnalysis ? (result.useBasedAnalysis as unknown as object) : undefined,
         fractionCode: result.fraction.code,
         fractionDescription: result.fraction.description,
         confidence: result.confidence,
@@ -138,25 +161,44 @@ classifyRouter.post('/', authenticate, async (req: AuthRequest, res, next) => {
         alternatives: JSON.stringify(result.alternatives),
         legalBasis: result.legalBasis ? (result.legalBasis as unknown as object) : undefined,
         fullResponse: JSON.stringify(result),
-        tigieVersion: TIGIE_VERSION,
-        ligieVersion: LIGIE_VERSION,
-        consultHash,
-        consultedAt,
+        tigieVersion: trace.versions.tigie,
+        ligieVersion: trace.versions.ligie,
+        consultHash: trace.consultHash, // hash combinado de trazabilidad
+        consultedAt: trace.consultedAt,
         alertsJson: alerts as unknown as object,
       },
     });
+
+    // Vincular el consult al classification creado (one-shot)
+    await prisma.classificationConsult.update({
+      where: { id: trace.id },
+      data: { classificationId: record.id },
+    });
+
+    // Verificación de Padrones SAT — bloquea operación si no está inscrito
+    const { checkRequiredPadrones } = await import('../services/padron-checker');
+    const padronCheck = await checkRequiredPadrones(req.tenantId!, result.fraction.code, 'classify', record.id);
 
     res.json({
       status: 'ok',
       data: {
         ...result,
+        _trace: undefined,
         alerts,
+        padronCheck,
         meta: {
-          tigieVersion: TIGIE_VERSION,
-          ligieVersion: LIGIE_VERSION,
-          consultHash,
-          consultedAt: consultedAt.toISOString(),
-          verifyUrl: `/verify/classify/${consultHash}`,
+          tigieVersion: trace.versions.tigie,
+          ligieVersion: trace.versions.ligie,
+          rgceVersion: trace.versions.rgce,
+          modelUsed: result._trace?.modelUsed,
+          modelProvider: result._trace?.modelProvider,
+          inputHash: trace.inputHash,
+          outputHash: trace.outputHash,
+          knowledgeBaseHash: trace.knowledgeBaseHash,
+          legacyHash: consultHash,
+          consultHash: trace.consultHash,
+          consultedAt: trace.consultedAt.toISOString(),
+          verifyUrl: `/verify/${trace.consultHash}`,
         },
       },
       classificationId: record.id,

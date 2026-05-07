@@ -1,10 +1,19 @@
 import { useState, useRef, useEffect } from 'react'
 import { api } from '../lib/api'
-import { Bot, Send, User } from 'lucide-react'
+import type { CopilotCitation } from '../lib/api'
+import { Bot, Send, User, ExternalLink, ThumbsUp, ThumbsDown, Scale, AlertTriangle } from 'lucide-react'
 
 const GLASS = 'bg-white/70 backdrop-blur-xl border border-white/50 shadow-[0_8px_30px_rgb(0,0,0,0.04)]'
 
-interface Message { role: 'user' | 'assistant'; content: string }
+interface Message {
+  role: 'user' | 'assistant';
+  content: string;
+  citations?: CopilotCitation[];
+  confidence?: number;
+  consultHash?: string;
+  hallucinationWarning?: { count: number; refs: string[] } | null;
+  feedback?: 'helpful' | 'unhelpful' | null;
+}
 
 export function CopilotPage() {
   const [messages, setMessages] = useState<Message[]>([])
@@ -24,11 +33,27 @@ export function CopilotPage() {
     try {
       const res = await api.chat(msg, conversationId)
       setConversationId(res.data.conversationId)
-      setMessages(prev => [...prev, { role: 'assistant', content: res.data.reply }])
+      setMessages(prev => [...prev, {
+        role: 'assistant',
+        content: res.data.reply,
+        citations: res.data.citations,
+        confidence: res.data.confidence,
+        consultHash: res.data.consultHash,
+        hallucinationWarning: res.data.hallucinationWarning,
+      }])
     } catch (e) {
       setMessages(prev => [...prev, { role: 'assistant', content: `Error: ${e instanceof Error ? e.message : 'No se pudo conectar'}` }])
     }
     setLoading(false)
+  }
+
+  async function sendFeedback(idx: number, helpful: boolean) {
+    const msg = messages[idx]
+    if (!msg?.consultHash || msg.feedback) return
+    try {
+      await api.copilotFeedback(msg.consultHash, helpful)
+      setMessages(prev => prev.map((m, i) => i === idx ? { ...m, feedback: helpful ? 'helpful' : 'unhelpful' } : m))
+    } catch { /* silent */ }
   }
 
   return (
@@ -39,10 +64,16 @@ export function CopilotPage() {
           <div className="w-9 h-9 rounded-xl bg-emerald-500 flex items-center justify-center">
             <Bot className="w-5 h-5 text-white" />
           </div>
-          <div>
+          <div className="flex-1">
             <h1 className="text-[15px] font-bold text-slate-900">Copilot Regulatorio</h1>
             <p className="text-[11px] text-slate-500">Pregunta sobre normatividad aduanera mexicana</p>
           </div>
+        </div>
+        {/* Disclaimer permanente */}
+        <div className="bg-amber-50 border-b border-amber-100 px-6 py-2">
+          <p className="text-[10px] text-amber-800 leading-snug">
+            ⚖️ Este asistente cita textos legales reales pero <strong>NO sustituye consulta profesional</strong>. Las normas pueden actualizarse. Verifica siempre en fuente oficial (DOF, SAT). Cualquier acción legal debe ser validada con tu agente aduanal o abogado especialista.
+          </p>
         </div>
 
         {/* Messages */}
@@ -75,6 +106,63 @@ export function CopilotPage() {
                   : 'bg-white/60 text-slate-800'
               }`}>
                 <p className="text-[13px] leading-relaxed whitespace-pre-wrap">{msg.content}</p>
+
+                {/* Citas y feedback en respuestas del asistente */}
+                {msg.role === 'assistant' && msg.citations && msg.citations.length > 0 && (
+                  <div className="mt-3 pt-3 border-t border-slate-200/50">
+                    <p className="text-[10px] font-bold uppercase tracking-wider text-slate-500 mb-2 flex items-center gap-1.5">
+                      <Scale className="w-3 h-3"/> Fuentes consultadas
+                      {msg.confidence != null && (
+                        <span className={`ml-auto px-1.5 py-0.5 rounded text-[9px] font-bold ${
+                          msg.confidence >= 70 ? 'bg-emerald-100 text-emerald-800' :
+                          msg.confidence >= 40 ? 'bg-amber-100 text-amber-800' :
+                          'bg-rose-100 text-rose-800'
+                        }`}>{msg.confidence}% confianza</span>
+                      )}
+                    </p>
+                    <ul className="space-y-1.5">
+                      {msg.citations.map((c, k) => (
+                        <li key={k} className="rounded-lg bg-white/50 border border-slate-200/40 p-2">
+                          <div className="flex items-start gap-1">
+                            <span className="text-[9px] font-mono text-slate-400">[{k + 1}]</span>
+                            <div className="flex-1 min-w-0">
+                              <p className="text-[11px] font-semibold text-slate-800">{c.reference}</p>
+                              <p className="text-[10px] text-slate-600 mt-0.5 italic line-clamp-2">"{c.excerpt}"</p>
+                              {c.officialUrl && (
+                                <a href={c.officialUrl} target="_blank" rel="noreferrer" className="text-[10px] text-emerald-600 hover:underline flex items-center gap-1 mt-1">
+                                  <ExternalLink className="w-2.5 h-2.5"/> {c.source}
+                                </a>
+                              )}
+                            </div>
+                          </div>
+                        </li>
+                      ))}
+                    </ul>
+
+                    {msg.hallucinationWarning && (
+                      <div className="mt-2 rounded-lg bg-amber-50 border border-amber-200 p-2 flex items-start gap-1.5">
+                        <AlertTriangle className="w-3 h-3 text-amber-600 shrink-0 mt-0.5"/>
+                        <p className="text-[10px] text-amber-800">
+                          Citas detectadas no verificables: {msg.hallucinationWarning.refs.join(', ')}. Verifica directamente en DOF/SAT.
+                        </p>
+                      </div>
+                    )}
+
+                    {msg.consultHash && (
+                      <div className="flex items-center gap-2 mt-2 pt-2 border-t border-slate-200/40">
+                        <span className="text-[10px] text-slate-500">¿Útil?</span>
+                        <button onClick={() => sendFeedback(i, true)} disabled={!!msg.feedback}
+                          className={`text-[10px] px-2 py-1 rounded-full flex items-center gap-1 ${msg.feedback === 'helpful' ? 'bg-emerald-500 text-white' : 'bg-white border border-slate-200 text-slate-600 hover:bg-emerald-50'}`}>
+                          <ThumbsUp className="w-2.5 h-2.5"/> Sí
+                        </button>
+                        <button onClick={() => sendFeedback(i, false)} disabled={!!msg.feedback}
+                          className={`text-[10px] px-2 py-1 rounded-full flex items-center gap-1 ${msg.feedback === 'unhelpful' ? 'bg-rose-500 text-white' : 'bg-white border border-slate-200 text-slate-600 hover:bg-rose-50'}`}>
+                          <ThumbsDown className="w-2.5 h-2.5"/> No
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                )}
               </div>
               {msg.role === 'user' && (
                 <div className="w-7 h-7 rounded-lg bg-slate-200 flex items-center justify-center shrink-0 mt-0.5">

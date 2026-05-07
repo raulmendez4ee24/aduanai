@@ -28,7 +28,7 @@ quoteRouter.post('/', authenticate, async (req: AuthRequest, res, next) => {
       igiRateOverride: igiRateOverride != null ? Number(igiRateOverride) : undefined,
     });
 
-    await prisma.quote.create({
+    const created = await prisma.quote.create({
       data: {
         tenantId: req.tenantId!,
         userId: req.userId!,
@@ -41,7 +41,10 @@ quoteRouter.post('/', authenticate, async (req: AuthRequest, res, next) => {
       },
     });
 
-    res.json({ status: 'ok', data: result });
+    const { checkRequiredPadrones } = await import('../services/padron-checker');
+    const padronCheck = await checkRequiredPadrones(req.tenantId!, fractionCode, 'quote', created.id);
+
+    res.json({ status: 'ok', data: { ...result, padronCheck } });
   } catch (err) {
     next(err);
   }

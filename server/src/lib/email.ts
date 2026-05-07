@@ -9,6 +9,22 @@ function getResend(): Resend | null {
 const FROM = process.env.EMAIL_FROM || 'ADUANAI <noreply@aduanai.mx>';
 const APP_URL = process.env.APP_URL || 'https://kanaduana-production.up.railway.app';
 
+/** Envío genérico de email — usado por alertas de monitoring y otros casos no plantilla. */
+export async function sendEmail(opts: { to: string; subject: string; html: string; text?: string }): Promise<void> {
+  const r = getResend();
+  if (!r) {
+    console.warn(`[email] Resend not configured — skipping send to ${opts.to}: ${opts.subject}`);
+    return;
+  }
+  await r.emails.send({
+    from: FROM,
+    to: opts.to,
+    subject: opts.subject,
+    html: emailBase(opts.subject, opts.html),
+    text: opts.text,
+  });
+}
+
 function emailBase(title: string, body: string): string {
   return `<!DOCTYPE html>
 <html lang="es">

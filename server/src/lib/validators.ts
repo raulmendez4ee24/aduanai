@@ -25,25 +25,15 @@ export async function hasMXRecords(email: string): Promise<boolean> {
   }
 }
 
-// RFC validation
-// Persona moral: 3 letters + 6 digits + 3 alphanum = 12 chars
-// Persona física: 4 letters + 6 digits + 3 alphanum = 13 chars
-const RFC_MORAL_REGEX = /^[A-ZÑ&]{3}[0-9]{6}[A-Z0-9]{3}$/i;
-const RFC_FISICA_REGEX = /^[A-ZÑ&]{4}[0-9]{6}[A-Z0-9]{3}$/i;
-const RFC_GENERIC = ['XAXX010101000', 'XEXX010101000'];
+// Re-export del validador estricto. Se mantiene la firma legacy
+// (string|null) para no romper callers existentes; nuevos consumidores
+// deben usar `validateRFC` de '../lib/rfc-validator' directamente.
+import { validateRFC as validateRFCStrict } from './rfc-validator';
 
 export function validateRFC(rfc: string): string | null {
-  const normalized = rfc.trim().toUpperCase();
-
-  if (RFC_GENERIC.includes(normalized)) {
-    return 'RFC genérico no permitido';
-  }
-
-  if (RFC_MORAL_REGEX.test(normalized) || RFC_FISICA_REGEX.test(normalized)) {
-    return null;
-  }
-
-  return 'RFC inválido. Debe ser 12 caracteres (persona moral) o 13 (persona física)';
+  const result = validateRFCStrict(rfc, { allowGeneric: false });
+  if (!result.valid) return result.message ?? 'RFC inválido';
+  return null;
 }
 
 export function validatePhone(phone: string): string | null {

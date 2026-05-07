@@ -1,5 +1,7 @@
-import { llmGenerate } from '../lib/llm';
+import { llmGenerate, llmGenerateWithMeta } from '../lib/llm';
 import { prisma } from '../lib/prisma';
+import type { KnowledgeUsedItem } from './traceability';
+import { lookupPrecedents, hasActiveLitigation, type PrecedentMatch } from './precedent-lookup';
 
 interface ClassificationResult {
   fraction: {
@@ -35,8 +37,128 @@ interface ClassificationResult {
     legalNotes: { source: string; text: string }[];
     discardedFractions: { code: string; reason: string }[];
   };
+  /**
+   * Análisis comparativo cuando el USO destinado puede cambiar la clasificación
+   * (típicamente material vs autoparte automotriz, aeronáutico, médico, etc.).
+   * Solo se llena si la dualidad existe — null si no aplica.
+   */
+  useBasedAnalysis: {
+    applies: boolean;
+    byMaterial: { code: string; description: string; confidence: number };
+    byUse: { code: string; description: string; confidence: number };
+    criterion: string;
+    recommendation: string;
+    riskNote: string;
+    precedents: string[];
+  } | null;
   disclaimer: string;
+  /** Trazabilidad — modelo IA y conocimiento aplicado en esta clasificación. */
+  _trace?: {
+    modelUsed: string;
+    modelProvider: string;
+    knowledgeUsed: KnowledgeUsedItem[];
+  };
+  /** Precedentes legales relevantes (TFJA, SCJN, criterios SAT) y alerta de litigio. */
+  precedents?: PrecedentMatch[];
+  litigationAlert?: { active: boolean; cases: PrecedentMatch[] } | null;
 }
+
+export const INDUSTRIAL_SECTORS = [
+  'automotive_terminal',     // armadora
+  'automotive_parts',        // autopartista
+  'aeronautic',
+  'consumer_electronics',
+  'medical_pharma',
+  'construction',
+  'textile_apparel',
+  'food_beverage',
+  'industrial_machinery',
+  'agriculture',
+  'oil_gas',
+  'chemicals',
+  'general',
+] as const;
+
+export type IndustrialSector = typeof INDUSTRIAL_SECTORS[number];
+
+export const IMPORTER_TYPES = ['IMMEX', 'DEFINITIVO', 'PERSONA_FISICA'] as const;
+export type ImporterType = typeof IMPORTER_TYPES[number];
+
+// ============================================
+// USE-BASED RECLASSIFICATION RULES — uso destinado vs material
+// ============================================
+
+const USE_BASED_RULES = `
+CRÍTICO — CLASIFICACIÓN POR USO DESTINADO vs MATERIAL:
+
+El USO destinado y el SECTOR del importador pueden cambiar la clasificación. Ejemplos canónicos:
+
+1) TORNILLERÍA AUTOMOTRIZ:
+   - Tornillo de acero genérico → 7318.15
+   - Mismo tornillo importado por ARMADORA o AUTOPARTISTA para ensamble vehicular,
+     diseñado específicamente para una pieza automotriz (no comercial general)
+     → potencial 8708.99 (partes y accesorios para vehículos)
+   Criterio: Nota 2 de la Sección XVII excluye partes "uso general" cap 73,
+   PERO si el tornillo es identificable como parte específica de un vehículo
+   (forma, dimensiones, material especial), aplica cap 87.
+
+2) CABLES Y ARNESES:
+   - Cable eléctrico genérico → 8544.42 / 8544.49
+   - Arnés automotriz importado por armadora para ensamble vehicular específico
+     → potencial 8708.99 si se identifica como parte específica del vehículo
+   Criterio: distinguir entre cable comercial vs arnés con conectores específicos
+   diseñado para una pieza automotriz identificable.
+
+3) PLÁSTICOS PARA AUTOPARTES:
+   - Pieza plástica genérica → cap 39
+   - Tablero, defensa, manija, parrilla plástica para auto → 8708.XX
+   Criterio: si tiene la forma terminada de una autoparte y se importa para
+   ensamble vehicular, va a cap 87.
+
+4) HULES PARA AUTOPARTES:
+   - Manguera de hule genérica → cap 40
+   - Sello/empaque/manguera específica para motor vehicular → 8708.XX
+   Criterio: identificable como parte de motor o sistema vehicular.
+
+5) COMPONENTES ELECTRÓNICOS:
+   - Componente electrónico genérico → cap 85
+   - Mismo componente para uso AERONÁUTICO o aeroespacial → potencial cap 88
+     (partes de aeronaves) si está diseñado/certificado para aeronave
+   - Componente para equipo MÉDICO certificado → potencial cap 90
+     (instrumentos médicos) si es parte específica del equipo
+
+6) PRODUCTOS FARMACÉUTICOS / MÉDICOS:
+   - Sustancia química → cap 28-29
+   - Misma sustancia presentada como medicamento dosificado → cap 30
+   - Material para dispositivo médico identificable → cap 90
+
+REGLA DE DECISIÓN:
+- Si el USUARIO declara sector ${'AUTOMOTIVE_TERMINAL'} o ${'AUTOMOTIVE_PARTS'} y el producto
+  es susceptible de uso vehicular específico, EVALÚA AMBAS clasificaciones.
+- Si declara IMMEX automotriz + uso específico vehicular, la clasificación
+  por uso (cap 87) GANA peso vs la genérica por material.
+- Si el sector es general/sin declarar, prevalece la clasificación por
+  material salvo que la descripción del producto deje claro el uso (ej. "tablero
+  para Volkswagen Jetta", "arnés ECU motor diésel").
+
+CUANDO LA DUALIDAD APLICA, en tu respuesta DEBES llenar 'useBasedAnalysis':
+{
+  "applies": true,
+  "byMaterial": { "code": "7318.15.99", "description": "Tornillos de acero", "confidence": 75 },
+  "byUse":      { "code": "8708.99.99", "description": "Partes y accesorios para vehículos", "confidence": 60 },
+  "criterion": "Si el tornillo está específicamente diseñado para una pieza vehicular y se importa por la armadora con destino a ensamble, hay precedentes donde el SAT y la OMA reclasifican a cap 87 vía Nota 2 sección XVII.",
+  "recommendation": "Si NO es importación específica para autopartes → 7318.15.99. Si SÍ → considerar 8708.99 con análisis de criterio.",
+  "riskNote": "Reclasificar a 8708 sin sustento puede generar PAMA por incorrecta clasificación. Documentar con plano de pieza, número de parte OEM, contrato de suministro a armadora.",
+  "precedents": ["TFJA Sala Especializada — Tesis V-P-2aS-XX (Reclasificación tornillería automotriz)"]
+}
+
+Si NO hay dualidad de clasificación (producto claro por material o producto claramente específico por uso), useBasedAnalysis = null.
+
+PESO DE LA DECISIÓN según contexto declarado:
+- IMMEX + AUTOMOTIVE_TERMINAL/PARTS + uso "ensamble vehicular": prefiere clasificación por USO (cap 87) si la descripción soporta.
+- DEFINITIVO + sin sector específico: prefiere clasificación por MATERIAL.
+- PERSONA_FISICA + uso personal: clasificación por MATERIAL salvo evidencia clara.
+`;
 
 // ============================================
 // SECTOR-SPECIFIC RULES — Mejora #3
@@ -185,6 +307,8 @@ PROCESO DE CLASIFICACIÓN:
 
 ${SECTOR_RULES}
 
+${USE_BASED_RULES}
+
 IMPORTANTE: Si no tienes certeza alta, indícalo claramente. La clasificación arancelaria tiene implicaciones legales.
 
 Responde SIEMPRE en formato JSON válido con esta estructura:
@@ -209,6 +333,7 @@ Responde SIEMPRE en formato JSON válido con esta estructura:
       { "code": "62.05", "reason": "Se descartó porque el producto es de tejido de punto (cap 61), no de tejido plano (cap 62)" }
     ]
   },
+  "useBasedAnalysis": null,
   "disclaimer": "Esta clasificación es orientativa. La clasificación oficial debe ser validada por un agente aduanal certificado."
 }`;
 
@@ -410,9 +535,35 @@ ${allOptions}
 // MAIN CLASSIFICATION FUNCTION
 // ============================================
 
+export interface ClassifyOptions {
+  /** Uso destinado del producto (texto libre) */
+  useCase?: string;
+  /** Sector industrial declarado por el importador */
+  sector?: IndustrialSector;
+  /** Tipo de importador (afecta peso de la dualidad material vs uso) */
+  importerType?: ImporterType;
+}
+
+const SECTOR_LABELS: Record<IndustrialSector, string> = {
+  automotive_terminal: 'Automotriz — armadora terminal (OEM)',
+  automotive_parts: 'Automotriz — autopartista (Tier 1/2/3)',
+  aeronautic: 'Aeronáutico / Aeroespacial',
+  consumer_electronics: 'Electrónica de consumo',
+  medical_pharma: 'Médico / Farmacéutico',
+  construction: 'Construcción',
+  textile_apparel: 'Textil / Confección',
+  food_beverage: 'Alimentos y bebidas',
+  industrial_machinery: 'Maquinaria industrial',
+  agriculture: 'Agropecuario',
+  oil_gas: 'Petróleo y gas',
+  chemicals: 'Químicos',
+  general: 'General / Comercializadora',
+};
+
 export async function classifyProduct(
   description: string,
-  context?: string
+  context?: string,
+  options?: ClassifyOptions,
 ): Promise<ClassificationResult> {
   // Mejora #2: Better DB search with full chapter context
   const { relatedFractions, chapterFractions, topChapters } = await findRelatedFractions(description);
@@ -420,6 +571,19 @@ export async function classifyProduct(
   // Knowledge base lookup (casos reales, errores comunes, reglas de sector)
   const knowledge = await findRelevantKnowledge(description, topChapters || []);
   const knowledgeContext = formatKnowledgeForPrompt(knowledge);
+
+  // Precedentes legales para alimentar el prompt (TFJA, SCJN, criterios SAT)
+  const searchKeywords = description.toLowerCase().split(/\s+/).filter(w => w.length > 4).slice(0, 5);
+  const promptPrecedents = await lookupPrecedents({
+    chapter: topChapters?.[0],
+    keywords: searchKeywords,
+    limit: 4,
+  });
+  const precedentContext = promptPrecedents.length > 0
+    ? `\n\nPRECEDENTES LEGALES Y CRITERIOS RELEVANTES PARA ESTA CLASIFICACIÓN:\n\n${promptPrecedents.map((p, i) =>
+        `[${p.type} ${p.reference}] ${p.title}\n  Resumen: ${p.summary}\n  Determinación: ${p.ruling}\n  Aplicabilidad: ${p.applicability ?? '—'}`,
+      ).join('\n\n')}\n\nUSA estos precedentes para fundamentar tu decisión. Si un precedente aplica directamente al producto, MENCIÓNALO en el campo legalBasis.griApplied como reasoning.`
+    : '';
 
   // Build context with related fractions (scored by relevance)
   const searchWords = description.toLowerCase().split(/\s+/).filter(w => w.length > 3);
@@ -456,11 +620,20 @@ export async function classifyProduct(
     ? `\n\nFRACCIONES DEL MISMO HEADING Y CAPÍTULO ${topChapters?.join('/')} — REVISA CADA UNA PARA ELEGIR LA MÁS ESPECÍFICA:\n${chapterFractions.slice(0, 150).map(f => `- ${f.codeFormatted}: ${f.description}`).join('\n')}`
     : '';
 
+  // Bloque de contexto operacional (uso destinado, sector, importador)
+  const opsContextLines: string[] = [];
+  if (options?.useCase) opsContextLines.push(`USO DESTINADO: ${options.useCase}`);
+  if (options?.sector) opsContextLines.push(`SECTOR INDUSTRIAL DEL IMPORTADOR: ${SECTOR_LABELS[options.sector] ?? options.sector}`);
+  if (options?.importerType) opsContextLines.push(`TIPO DE IMPORTADOR: ${options.importerType}`);
+  const opsContext = opsContextLines.length > 0
+    ? `\n\nCONTEXTO OPERACIONAL DECLARADO POR EL USUARIO:\n${opsContextLines.join('\n')}\n\nEvalúa si este contexto activa la clasificación POR USO (cap 87 autopartes, cap 88 aeronáutico, cap 90 médico, etc.) vs la clasificación por MATERIAL. Si el sector es automotriz/aeronáutico/médico/farmacéutico Y el producto puede tener doble clasificación, llena obligatoriamente el campo useBasedAnalysis del JSON.`
+    : '';
+
   const userMessage = `Clasifica el siguiente producto para importación a México:
 
 PRODUCTO: ${description}
-${context ? `CONTEXTO ADICIONAL: ${context}` : ''}
-${knowledgeContext}
+${context ? `CONTEXTO ADICIONAL: ${context}` : ''}${opsContext}
+${knowledgeContext}${precedentContext}
 ${relatedContext}
 ${chapterContext}
 
@@ -471,15 +644,17 @@ INSTRUCCIONES:
 4. NO uses fracciones .99 o .00 si hay una más específica disponible
 5. Si alguna fracción de la lista coincide EXACTAMENTE con el producto, úsala
 6. Las alternativas deben ser del MISMO capítulo pero diferentes subpartidas
+7. Si el USO o SECTOR declarado activa una clasificación alternativa (autopartes, aeronáutico, médico), llena 'useBasedAnalysis' con ambas opciones, criterio, recomendación, riesgo y precedentes. Si no aplica, useBasedAnalysis = null.
 
 Responde en JSON válido.`;
 
-  const text = await llmGenerate({
+  const generation = await llmGenerateWithMeta({
     model: 'strong',
     maxTokens: 2000,
     system: SYSTEM_PROMPT,
     user: userMessage,
   });
+  const text = generation.text;
 
   const jsonMatch = text.match(/\{[\s\S]*\}/);
   if (!jsonMatch) {
@@ -487,6 +662,40 @@ Responde en JSON válido.`;
   }
 
   let result = JSON.parse(jsonMatch[0]) as ClassificationResult;
+
+  // Trazabilidad: capturar modelo y conocimiento aplicado
+  result._trace = {
+    modelUsed: generation.model,
+    modelProvider: generation.provider,
+    knowledgeUsed: knowledge.map(k => ({
+      id: k.id,
+      title: k.title,
+      type: String(k.type),
+      fractionCode: k.fractionCode ?? null,
+    })),
+  };
+
+  // Default useBasedAnalysis a null si el LLM lo omite o devuelve {applies:false}
+  if (!result.useBasedAnalysis || result.useBasedAnalysis.applies === false) {
+    result.useBasedAnalysis = null;
+  }
+
+  // Precedentes finales: lookup específico con la fracción ya elegida
+  const finalFraction = result.fraction.code.replace(/[^0-9]/g, '');
+  const topicHints = [
+    options?.sector === 'automotive_terminal' || options?.sector === 'automotive_parts' ? 'reclasificación' : null,
+    options?.sector === 'aeronautic' || options?.sector === 'medical_pharma' ? 'uso_destinado' : null,
+    result.useBasedAnalysis ? 'uso_destinado' : null,
+  ].filter(Boolean) as string[];
+  result.precedents = await lookupPrecedents({
+    fractionCode: finalFraction,
+    chapter: finalFraction.slice(0, 2),
+    topics: topicHints,
+    keywords: searchKeywords,
+    limit: 5,
+  });
+  const litigation = await hasActiveLitigation(finalFraction);
+  result.litigationAlert = litigation.has ? { active: true, cases: litigation.precedents } : null;
 
   // Mejora #4: Second verification with Haiku
   const suggestedCode = result.fraction.code;

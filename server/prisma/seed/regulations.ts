@@ -144,39 +144,10 @@ export const FRACTION_REGULATIONS: RegulationSeed[] = [
 // ──────────────────────────────────────────────────────────────────────────
 
 export async function seedRegulations(prisma: PrismaClient): Promise<{ antidumping: number; regulations: number }> {
-  let adCount = 0;
-  for (const ad of ANTIDUMPING_DUTIES) {
-    await prisma.antidumpingDuty.upsert({
-      where: {
-        antidumping_fraction_country: {
-          fractionCode: ad.fractionCode,
-          countryOfOrigin: ad.countryOfOrigin,
-        },
-      },
-      update: {
-        rate: ad.rate,
-        type: ad.type ?? 'definitiva',
-        decree: ad.decree,
-        publishDate: ad.publishDate ? new Date(ad.publishDate) : null,
-        effectiveDate: ad.effectiveDate ? new Date(ad.effectiveDate) : null,
-        expiryDate: ad.expiryDate ? new Date(ad.expiryDate) : null,
-        notes: ad.notes,
-        active: true,
-      },
-      create: {
-        fractionCode: ad.fractionCode,
-        countryOfOrigin: ad.countryOfOrigin,
-        rate: ad.rate,
-        type: ad.type ?? 'definitiva',
-        decree: ad.decree,
-        publishDate: ad.publishDate ? new Date(ad.publishDate) : null,
-        effectiveDate: ad.effectiveDate ? new Date(ad.effectiveDate) : null,
-        expiryDate: ad.expiryDate ? new Date(ad.expiryDate) : null,
-        notes: ad.notes,
-      },
-    });
-    adCount++;
-  }
+  // El seed de cuotas compensatorias se delegó a `seedAntidumpingUPCI` (resoluciones UPCI completas).
+  // Aquí solo contamos las existentes para el reporte.
+  const adCount = await prisma.antidumpingDuty.count({ where: { status: 'vigente' } });
+  void ANTIDUMPING_DUTIES; // silenciar lint legacy
 
   // Para FractionRegulation no hay unique compuesto — borramos seed-managed y recreamos
   await prisma.fractionRegulation.deleteMany({});

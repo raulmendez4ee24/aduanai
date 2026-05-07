@@ -74,10 +74,16 @@ export const api = {
     }),
 
   // Clasificador
-  classify: (description: string, context?: string, countryOfOrigin?: string, declaredValueUSD?: number) =>
+  classify: (
+    description: string,
+    context?: string,
+    countryOfOrigin?: string,
+    declaredValueUSD?: number,
+    extras?: { useCase?: string; sector?: IndustrialSector; importerType?: ImporterType },
+  ) =>
     request<{ status: string; data: ClassificationResult; classificationId?: string }>('/classify', {
       method: 'POST',
-      body: JSON.stringify({ description, context, countryOfOrigin, declaredValueUSD }),
+      body: JSON.stringify({ description, context, countryOfOrigin, declaredValueUSD, ...extras }),
     }),
 
   classifyHistory: (search?: string, page = 1) =>
@@ -155,6 +161,252 @@ export const api = {
   alertMarkAllRead: () =>
     request<{ status: string }>('/alerts/read-all', { method: 'POST' }),
 
+  alertAcknowledge: (id: string) =>
+    request<{ status: string }>(`/alerts/${id}/acknowledge`, { method: 'PATCH' }),
+
+  alertSnooze: (id: string, days = 7) =>
+    request<{ status: string; data: { snoozedUntil: string } }>(`/alerts/${id}/snooze`, {
+      method: 'PATCH',
+      body: JSON.stringify({ days }),
+    }),
+
+  alertResolve: (id: string) =>
+    request<{ status: string }>(`/alerts/${id}/resolve`, { method: 'PATCH' }),
+
+  alertIgnore: (id: string) =>
+    request<{ status: string }>(`/alerts/${id}/ignore`, { method: 'PATCH' }),
+
+  alertsRegenerate: () =>
+    request<{ status: string; data: { inserted: number; updated: number; specs: number } }>('/alerts/regenerate', { method: 'POST' }),
+
+  // Monitoring (admin)
+  monitoringOverview: () =>
+    request<{ status: string; data: MonitoringOverview }>('/admin/monitoring/overview'),
+
+  monitoringLogs: (filters: { level?: string; endpoint?: string; tenantId?: string; userId?: string; since?: string; limit?: number; cursor?: string } = {}) => {
+    const qs = new URLSearchParams();
+    Object.entries(filters).forEach(([k, v]) => { if (v != null && v !== '') qs.set(k, String(v)); });
+    return request<{ status: string; data: SystemLogRecord[]; nextCursor: string | null }>(`/admin/monitoring/logs?${qs.toString()}`);
+  },
+
+  monitoringErrors: (since?: string) =>
+    request<{ status: string; data: ErrorGroup[] }>(`/admin/monitoring/errors${since ? `?since=${encodeURIComponent(since)}` : ''}`),
+
+  monitoringAICosts: (range: 'day' | 'week' | 'month' | 'year' = 'month') =>
+    request<{ status: string; data: AICostsReport }>(`/admin/monitoring/ai-costs?range=${range}`),
+
+  monitoringBusiness: () =>
+    request<{ status: string; data: BusinessMetrics }>('/admin/monitoring/business'),
+
+  monitoringHealth: () =>
+    request<HealthStatus>('/health'),
+
+  // Security panel (admin)
+  securityOverview: () =>
+    request<{ status: string; data: SecurityOverview }>('/admin/security/overview'),
+
+  securityEvents: (filters: { type?: string; severity?: string; ip?: string; since?: string; limit?: number } = {}) => {
+    const qs = new URLSearchParams();
+    Object.entries(filters).forEach(([k, v]) => { if (v != null && v !== '') qs.set(k, String(v)); });
+    return request<{ status: string; data: SecurityEventRecord[] }>(`/admin/security/events?${qs.toString()}`);
+  },
+
+  securityBlockedIPs: () =>
+    request<{ status: string; data: BlockedIPRecord[] }>('/admin/security/blocked-ips'),
+
+  securityUnblockIP: (ip: string) =>
+    request<{ status: string }>(`/admin/security/blocked-ips/${encodeURIComponent(ip)}/unblock`, { method: 'POST' }),
+
+  securityLockedUsers: () =>
+    request<{ status: string; data: LockedUserRecord[] }>('/admin/security/locked-users'),
+
+  securityUnlockUser: (id: string) =>
+    request<{ status: string }>(`/admin/security/users/${id}/unlock`, { method: 'POST' }),
+
+  securityTenantsRFC: () =>
+    request<{ status: string; data: TenantRFCFlag[] }>('/admin/security/tenants-rfc'),
+
+  validateRFC: (rfc: string, options: { allowGeneric?: boolean; expectedType?: 'moral' | 'fisica' } = {}) =>
+    request<{ status: string; data: RFCValidationResult }>('/validate/rfc', {
+      method: 'POST',
+      body: JSON.stringify({ rfc, ...options }),
+    }),
+
+  // Verificación profesional
+  verificationMe: () =>
+    request<{ status: string; data: UserVerificationRecord | null }>('/verification/me'),
+
+  verificationLookup: (patente: string) =>
+    request<{ status: string; data: PatenteLookup }>('/verification/lookup', {
+      method: 'POST',
+      body: JSON.stringify({ patente }),
+    }),
+
+  verificationSubmit: (input: {
+    professionalType: 'agent_customs' | 'broker' | 'importer' | 'consultant' | 'other';
+    agentPatente?: string;
+    agentSocialName?: string;
+    agentPort?: string;
+    patenteDocUrl?: string;
+    rfcDocUrl?: string;
+    cspDocUrl?: string;
+    notes?: string;
+  }) =>
+    request<{ status: string; data: { id: string; preApproved: boolean } }>('/verification/submit', {
+      method: 'POST',
+      body: JSON.stringify(input),
+    }),
+
+  verificationPending: () =>
+    request<{ status: string; data: UserVerificationWithUser[] }>('/verification/pending'),
+
+  verificationAll: (status?: string) =>
+    request<{ status: string; data: UserVerificationWithUser[] }>(`/verification/all${status ? `?status=${status}` : ''}`),
+
+  verificationExpiring: () =>
+    request<{ status: string; data: UserVerificationWithUser[] }>('/verification/expiring'),
+
+  verificationApprove: (id: string) =>
+    request<{ status: string }>(`/verification/${id}/approve`, { method: 'POST' }),
+
+  verificationReject: (id: string, reason: string) =>
+    request<{ status: string }>(`/verification/${id}/reject`, {
+      method: 'POST',
+      body: JSON.stringify({ reason }),
+    }),
+
+  // Backups & Restores
+  backupsList: (filters: { type?: string; status?: string } = {}) => {
+    const qs = new URLSearchParams();
+    Object.entries(filters).forEach(([k, v]) => { if (v) qs.set(k, String(v)); });
+    return request<{ status: string; data: BackupRecord[] }>(`/admin/backups?${qs.toString()}`);
+  },
+
+  backupConfig: () =>
+    request<{ status: string; data: BackupConfig }>('/admin/backups/config'),
+
+  backupRun: (type: 'daily' | 'weekly' | 'monthly' | 'manual' = 'manual') =>
+    request<{ status: string; data: { success: boolean; backupId: string; error?: string } }>('/admin/backups/run', {
+      method: 'POST',
+      body: JSON.stringify({ type }),
+    }),
+
+  backupCleanup: () =>
+    request<{ status: string; data: { deleted: number } }>('/admin/backups/cleanup', { method: 'POST' }),
+
+  backupRestore: (id: string, type: 'full' | 'partial' | 'test', reason?: string, confirm?: string) =>
+    request<{ status: string; data: { success: boolean; restoreId: string; error?: string } }>(`/admin/backups/${id}/restore`, {
+      method: 'POST',
+      body: JSON.stringify({ type, reason, confirm }),
+    }),
+
+  backupRestoreLog: () =>
+    request<{ status: string; data: RestoreLogRecord[] }>('/admin/backups/restores'),
+
+  backupDelete: (id: string) =>
+    request<{ status: string }>(`/admin/backups/${id}`, { method: 'DELETE' }),
+
+  // Incidents (admin)
+  incidentsList: () =>
+    request<{ status: string; data: SystemIncidentRecord[] }>('/admin/incidents'),
+
+  incidentCreate: (data: { title: string; description: string; severity: string; components?: string[]; publicVisible?: boolean }) =>
+    request<{ status: string; data: SystemIncidentRecord }>('/admin/incidents', { method: 'POST', body: JSON.stringify(data) }),
+
+  incidentUpdate: (id: string, data: { update?: string; status?: string; resolution?: string; rootCause?: string }) =>
+    request<{ status: string; data: SystemIncidentRecord }>(`/admin/incidents/${id}`, { method: 'PATCH', body: JSON.stringify(data) }),
+
+  // Padrones SAT
+  padronesList: (type?: string) =>
+    request<{ status: string; data: SATPadronRecord[] }>(`/padrones/list${type ? `?type=${type}` : ''}`),
+  padronesCheck: (fraction: string) =>
+    request<{ status: string; data: PadronCheckResultData }>(`/padrones/check?fraction=${encodeURIComponent(fraction)}`),
+  padronesMine: () =>
+    request<{ status: string; data: TenantPadronStatusRecord[] }>('/padrones/me'),
+  padronesDeclare: (input: PadronDeclareInput) =>
+    request<{ status: string; data: TenantPadronStatusRecord }>('/padrones/me/declare', { method: 'POST', body: JSON.stringify(input) }),
+  padronesLetterURL: (padronId: string) => `/api/padrones/me/letter/${padronId}`,
+
+  padronesAdminList: (status?: string) =>
+    request<{ status: string; data: (TenantPadronStatusRecord & { tenant: { id: string; name: string; rfc: string | null } | null })[] }>(`/admin/padrones${status ? `?status=${status}` : ''}`),
+  padronesAdminByPadron: () =>
+    request<{ status: string; data: { padron: SATPadronRecord; total: number; breakdown: Record<string, number> }[] }>('/admin/padrones/by-padron'),
+  padronesAdminPending: () =>
+    request<{ status: string; data: (TenantPadronStatusRecord & { tenant: { id: string; name: string; rfc: string | null } | null })[] }>('/admin/padrones/pending'),
+  padronesAdminApprove: (id: string) =>
+    request<{ status: string; data: TenantPadronStatusRecord }>(`/admin/padrones/${id}/approve`, { method: 'POST' }),
+  padronesAdminReject: (id: string, reason: string) =>
+    request<{ status: string; data: TenantPadronStatusRecord }>(`/admin/padrones/${id}/reject`, { method: 'POST', body: JSON.stringify({ reason }) }),
+  padronesAdminExposure: (tenantId: string) =>
+    request<{ status: string; data: PadronExposureReport }>(`/admin/padrones/exposure/${tenantId}`),
+
+  // OpenTimestamps (Bitcoin anchor)
+  timestampVerifyURL: (hash: string) => `/verify/timestamp/${hash}`,
+  timestampDownloadURL: (hash: string) => `/verify/timestamp/${hash}/proof.ots`,
+
+  timestampsList: (filters: { status?: string; resourceType?: string } = {}) => {
+    const qs = new URLSearchParams();
+    Object.entries(filters).forEach(([k, v]) => { if (v) qs.set(k, String(v)); });
+    return request<{ status: string; data: TimestampProofRecord[] }>(`/admin/timestamps?${qs.toString()}`);
+  },
+
+  timestampsStats: () =>
+    request<{ status: string; data: TimestampStats }>('/admin/timestamps/stats'),
+
+  timestampsCheckPending: () =>
+    request<{ status: string; data: { checked: number; confirmed: number; reSubmitted: number } }>('/admin/timestamps/check-pending', { method: 'POST' }),
+
+  // Antidumping
+  antidumpingCheck: (input: { fractionCode: string; countryOfOrigin: string; valueUSD?: number; weightKg?: number; units?: number }) =>
+    request<{ status: string; data: AntidumpingCheckResult[] }>('/antidumping/check', { method: 'POST', body: JSON.stringify(input) }),
+
+  antidumpingExposure: () =>
+    request<{ status: string; data: ExposureReport }>('/antidumping/exposure'),
+
+  antidumpingList: (filters: { country?: string; fraction?: string; status?: string } = {}) => {
+    const qs = new URLSearchParams();
+    Object.entries(filters).forEach(([k, v]) => { if (v) qs.set(k, String(v)); });
+    return request<{ status: string; data: AntidumpingDutyRecord[] }>(`/admin/antidumping?${qs.toString()}`);
+  },
+
+  antidumpingExpiring: () =>
+    request<{ status: string; data: AntidumpingDutyRecord[] }>('/admin/antidumping/expiring'),
+
+  antidumpingExposureByTenant: (tenantId: string) =>
+    request<{ status: string; data: ExposureReport }>(`/admin/antidumping/exposure-by-tenant?tenantId=${encodeURIComponent(tenantId)}`),
+
+  antidumpingPatch: (id: string, data: Partial<{ status: string; expiryDate: string; rate: number; notes: string; active: boolean }>) =>
+    request<{ status: string }>(`/admin/antidumping/${id}`, { method: 'PATCH', body: JSON.stringify(data) }),
+
+  // Demo profiles (admin)
+  demoProfiles: () =>
+    request<{ status: string; data: DemoProfile[] }>('/admin/demo/profiles'),
+
+  demoProfileLoad: (profileCode: string, tenantId: string) =>
+    request<{ status: string; data: { profile: { code: string; name: string }; imports: number; classifications: number; quotes: number; alerts: number } }>('/admin/demo/load', {
+      method: 'POST',
+      body: JSON.stringify({ profileCode, tenantId }),
+    }),
+
+  demoProfileClear: (tenantId: string) =>
+    request<{ status: string }>('/admin/demo/clear', {
+      method: 'POST',
+      body: JSON.stringify({ tenantId }),
+    }),
+
+  demoProfileCreateAll: () =>
+    request<{ status: string; data: { created: { profileCode: string; tenantId: string; email: string; userId: string }[]; password: string } }>('/admin/demo/tenants/create-all', { method: 'POST' }),
+
+  // Status pública (sin auth)
+  statusPublic: () =>
+    fetch('/api/status').then(r => r.json() as Promise<{ status: string; data: PublicStatus }>),
+
+  statusIncidents: () =>
+    fetch('/api/status/incidents').then(r => r.json() as Promise<{ status: string; data: SystemIncidentRecord[] }>),
+
+  statusSubscribe: (email: string) =>
+    fetch('/api/status/subscribe', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ email }) }).then(r => r.json()),
+
   // Fracciones
   searchFractions: (q: string) =>
     request<{ status: string; data: FractionSearchResult[] }>(`/fractions/search?q=${encodeURIComponent(q)}`),
@@ -171,12 +423,46 @@ export const api = {
   watchedFractions: () =>
     request<{ status: string; data: FractionSearchResult[] }>('/alerts/watched'),
 
-  // Copilot
+  // Copilot (RAG)
   chat: (message: string, conversationId?: string) =>
-    request<{ status: string; data: { reply: string; conversationId: string } }>('/copilot', {
+    request<{ status: string; data: CopilotChatResponse }>('/copilot', {
       method: 'POST',
       body: JSON.stringify({ message, conversationId }),
     }),
+
+  copilotFeedback: (consultHash: string, helpful: boolean, note?: string) =>
+    request<{ status: string }>(`/copilot/feedback/${consultHash}`, {
+      method: 'PATCH',
+      body: JSON.stringify({ helpful, note }),
+    }),
+
+  // Legal docs admin
+  legalDocsList: (filters: { type?: string; source?: string; search?: string } = {}) => {
+    const qs = new URLSearchParams();
+    Object.entries(filters).forEach(([k, v]) => { if (v) qs.set(k, String(v)); });
+    return request<{ status: string; data: LegalDocumentMeta[] }>(`/admin/legal-docs?${qs.toString()}`);
+  },
+
+  legalDocsStats: () =>
+    request<{ status: string; data: LegalDocsStats }>('/admin/legal-docs/stats'),
+
+  legalDocsCopilotQuality: () =>
+    request<{ status: string; data: CopilotQuality }>('/admin/legal-docs/copilot-quality'),
+
+  legalDocsReindex: () =>
+    request<{ status: string; data: { updated: number } }>('/admin/legal-docs/reindex', { method: 'POST' }),
+
+  legalDocsCreate: (doc: {
+    type: string; source: string; title: string; reference: string; content: string;
+    officialUrl?: string; publishedDate?: string; effectiveDate?: string; expiryDate?: string;
+    version?: string; topics?: string[]; keywords?: string[]; fractionRefs?: string[];
+  }) =>
+    request<{ status: string; data: { id: string; contentHash: string } }>('/admin/legal-docs', {
+      method: 'POST', body: JSON.stringify(doc),
+    }),
+
+  legalDocsDelete: (id: string) =>
+    request<{ status: string }>(`/admin/legal-docs/${id}`, { method: 'DELETE' }),
 
   // Inventario IMMEX
   inventoryStats: () =>
@@ -305,6 +591,75 @@ export const api = {
 
   exchangeRateRecent: (days = 90) =>
     request<{ status: string; data: { date: string; rate: number; source: string }[] }>(`/quote/exchange-rate/recent?days=${days}`),
+
+  // Origen TMEC / TLCUEM / CPTPP
+  originAgreements: () =>
+    request<{ status: string; data: string[] }>('/origin/agreements'),
+
+  originRule: (fraction: string, agreement = 'TMEC') =>
+    request<{ status: string; data: { rule: OriginRule | null; disclaimer: string } }>(
+      `/origin/rule/${encodeURIComponent(fraction)}?agreement=${encodeURIComponent(agreement)}`,
+    ),
+
+  originAnalyze: (input: OriginAnalysisInput) =>
+    request<{ status: string; data: OriginAnalysisResult }>('/origin/analyze', {
+      method: 'POST',
+      body: JSON.stringify(input),
+    }),
+
+  originHistory: (limit = 20) =>
+    request<{ status: string; data: OriginAnalysisRecord[] }>(`/origin/history?limit=${limit}`),
+
+  originCertificateCreate: (data: OriginCertificateInput) =>
+    request<{ status: string; data: { id: string; certificateNumber: string; contentHash: string } }>('/origin/certificates', {
+      method: 'POST', body: JSON.stringify(data),
+    }),
+
+  originCertificatesList: () =>
+    request<{ status: string; data: OriginCertificateRecord[] }>('/origin/certificates'),
+
+  originCertificatePdfURL: (id: string) => `/api/origin/certificates/${id}/pdf`,
+
+  // NOMs
+  nomsEvaluate: (input: {
+    fractionCode?: string;
+    countryOfOrigin?: string;
+    context?: NOMOperationContext;
+    noms?: { code: string; authority?: string; description?: string }[];
+  }) =>
+    request<{ status: string; data: { fractionCode: string; context: NOMOperationContext; evaluations: NOMEvaluation[] } }>('/noms/evaluate', {
+      method: 'POST',
+      body: JSON.stringify(input),
+    }),
+
+  /** Devuelve URL para abrir la carta en nueva pestaña (POST + redirect manual) */
+  nomsCartaURL: () => '/api/noms/carta-no-comercializacion',
+
+  // Trazabilidad versional
+  /** URL pública de verificación de un consultHash */
+  verifyConsultURL: (hash: string) => `/verify/${hash}`,
+
+  /** URL del dictamen HTML imprimible para una clasificación */
+  dictamenURL: (classificationId: string) => `/api/classify/${classificationId}/dictamen.html`,
+
+  complianceReport: (tenantId: string) =>
+    request<{ status: string; data: ComplianceReport }>(`/admin/compliance-report/${tenantId}`),
+
+  // Precedentes legales
+  precedentsList: (filters: { search?: string; type?: string; topic?: string; fraction?: string; yearFrom?: number; litigated?: boolean; page?: number; limit?: number } = {}) => {
+    const qs = new URLSearchParams();
+    Object.entries(filters).forEach(([k, v]) => { if (v !== undefined && v !== '') qs.set(k, String(v)); });
+    return request<{ status: string; data: LegalPrecedent[]; pagination: { page: number; limit: number; total: number } }>(`/precedents?${qs.toString()}`);
+  },
+
+  precedentDetail: (id: string) =>
+    request<{ status: string; data: LegalPrecedent }>(`/precedents/${id}`),
+
+  precedentLookup: (input: { fractionCode?: string; chapter?: string; topics?: string[]; keywords?: string[]; limit?: number }) =>
+    request<{ status: string; data: { precedents: PrecedentMatch[]; litigation: { has: boolean; precedents: PrecedentMatch[] } } }>('/precedents/lookup', {
+      method: 'POST',
+      body: JSON.stringify(input),
+    }),
 
   // Pre-validador v2 (Pedimento Anexo 22)
   pedimentoValidate: (pedimento: PedimentoInputV2, aiCheck = false) =>
@@ -794,9 +1149,51 @@ export interface ClassifierAlert {
 export interface ClassificationMeta {
   tigieVersion: string;
   ligieVersion: string;
+  rgceVersion?: string | null;
+  modelUsed?: string;
+  modelProvider?: string;
+  inputHash?: string;
+  outputHash?: string;
+  knowledgeBaseHash?: string;
+  legacyHash?: string;
   consultHash: string;
   consultedAt: string;
   verifyUrl: string;
+}
+
+export interface ComplianceBreakdown {
+  version: string;
+  count: number;
+  outdated: boolean;
+  consultIds: string[];
+  firstAt: string;
+  lastAt: string;
+}
+
+export interface ComplianceReport {
+  tenant: { name: string; rfc: string | null };
+  activeVersions: { tigie: string; ligie: string; rgce: string | null; acuerdoNoms: string | null; tmec: string | null };
+  totals: { consults: number; outdatedConsults: number; uniqueTigieVersions: number };
+  breakdown: ComplianceBreakdown[];
+  recommendations: string[];
+  recent: { id: string; classificationId: string | null; tigieVersion: string; ligieVersion: string; modelUsed: string; consultHash: string; consultedAt: string }[];
+}
+
+export type IndustrialSector =
+  | 'automotive_terminal' | 'automotive_parts' | 'aeronautic' | 'consumer_electronics'
+  | 'medical_pharma' | 'construction' | 'textile_apparel' | 'food_beverage'
+  | 'industrial_machinery' | 'agriculture' | 'oil_gas' | 'chemicals' | 'general';
+
+export type ImporterType = 'IMMEX' | 'DEFINITIVO' | 'PERSONA_FISICA';
+
+export interface UseBasedAnalysis {
+  applies: boolean;
+  byMaterial: { code: string; description: string; confidence: number };
+  byUse: { code: string; description: string; confidence: number };
+  criterion: string;
+  recommendation: string;
+  riskNote: string;
+  precedents: string[];
 }
 
 export interface ClassificationResult {
@@ -813,8 +1210,12 @@ export interface ClassificationResult {
     legalNotes: { source: string; text: string }[];
     discardedFractions: { code: string; reason: string }[];
   };
+  useBasedAnalysis?: UseBasedAnalysis | null;
+  precedents?: PrecedentMatch[];
+  litigationAlert?: { active: boolean; cases: PrecedentMatch[] } | null;
   disclaimer: string;
   alerts?: ClassifierAlert[];
+  padronCheck?: PadronCheckResultData;
   meta?: ClassificationMeta;
 }
 
@@ -933,6 +1334,15 @@ export interface QuoteResult {
   alertas: string[];
 }
 
+export type AlertSeverity = 'critical' | 'high' | 'medium' | 'low';
+export type AlertImpactType = 'savings' | 'cost' | 'risk';
+
+export interface AlertSuggestedAction {
+  type: 'recalculate_quotes' | 'review_operation' | 'renew_guarantee' | 'discharge_credit' | 'notify_client' | 'view_fraction' | 'open_module';
+  label: string;
+  payload?: Record<string, unknown>;
+}
+
 export interface Alert {
   id: string;
   channel: string;
@@ -942,6 +1352,495 @@ export interface Alert {
   read: boolean;
   createdAt: string;
   fractionCodes: string[];
+  severity: AlertSeverity;
+  affectedFraction: string | null;
+  affectedOperations: string[];
+  estimatedImpactMXN: number | null;
+  impactType: AlertImpactType | null;
+  actionRequired: string | null;
+  suggestedAction: AlertSuggestedAction | null;
+  dueDate: string | null;
+  daysToDue: number | null;
+  acknowledged: boolean;
+  acknowledgedAt: string | null;
+  snoozedUntil: string | null;
+  ignored: boolean;
+  resolvedAt: string | null;
+}
+
+export interface MonitoringOverview {
+  requests: { hour: number; day: number; week: number };
+  errors: { hour: number; day: number; rateHour: number; rateDay: number };
+  latency: { avgMsDay: number; sparkline: { ts: string; avg: number; count: number }[] };
+  ai: { tokensMonth: number; costUSDMonth: number };
+  topEndpoints: { endpoint: string | null; count: number }[];
+  topErrors: { message: string | null; count: number }[];
+}
+
+export interface SystemLogRecord {
+  id: string;
+  level: string;
+  timestamp: string;
+  tenantId: string | null;
+  userId: string | null;
+  requestId: string | null;
+  method: string | null;
+  endpoint: string | null;
+  statusCode: number | null;
+  latencyMs: number | null;
+  errorMessage: string | null;
+  errorStack: string | null;
+  entity: string | null;
+  entityId: string | null;
+  action: string | null;
+  metadata: unknown;
+  userAgent: string | null;
+  ip: string | null;
+}
+
+export interface ErrorGroup {
+  message: string;
+  count: number;
+  lastSeen: string;
+  affectedTenants: number;
+  affectedUsers: number;
+  sample: SystemLogRecord;
+}
+
+export interface AICostsReport {
+  range: string;
+  since: string;
+  totals: { calls: number; tokens: number; costUSD: number; projectionUSD: number | null };
+  byModel: { model: string; calls: number; inputTokens: number; outputTokens: number; totalTokens: number; costUSD: number }[];
+  byOperation: { operation: string; calls: number; tokens: number; costUSD: number }[];
+  byTenant: { tenantId: string | null; calls: number; tokens: number; costUSD: number }[];
+  daily: { day: string; tokens: number; costUSD: number }[];
+}
+
+export interface BusinessMetrics {
+  users: { dau: number; wau: number; mau: number };
+  activity: { classificationsDay: number; classificationsWeek: number };
+  funnel: { leads30d: number; demoScheduled: number; demoDone: number; pilots: number; converted: number };
+  churn: { last60Days: number; rateMonthly: number };
+  ltvAvgMXN: number;
+  activeTenants: number;
+}
+
+export interface HealthStatus {
+  status: 'ok' | 'degraded';
+  service: string;
+  timestamp: string;
+  uptime: number;
+  nodeVersion: string;
+  checks: {
+    database: { ok: boolean; latencyMs?: number; error?: string };
+    anthropic_api: { ok: boolean; error?: string };
+    resend_email: { ok: boolean; error?: string };
+  };
+}
+
+export interface SATPadronRecord {
+  id: string;
+  type: 'general' | 'sectorial' | 'encargo_conferido';
+  sectorialCode: string | null;
+  sectorialName: string | null;
+  description: string;
+  legalBasis: string;
+  authority: string;
+  fractionCodes: string[];
+  fractionPatterns: string[];
+  estimatedDays: number | null;
+  costMXN: number | null;
+  validityMonths: number;
+  requiresEFirma: boolean;
+  renewalRequired: boolean;
+  renewalAdvance: number;
+  active: boolean;
+}
+
+export interface TenantPadronStatusRecord {
+  id: string;
+  tenantId: string;
+  padronId: string;
+  padron: SATPadronRecord;
+  status: 'active' | 'suspended' | 'expired' | 'rejected' | 'in_process' | 'not_registered';
+  registrationDate: string | null;
+  expirationDate: string | null;
+  lastVerified: string;
+  verifiedBy: string | null;
+  evidence: string | null;
+  notes: string | null;
+  rejectionReason: string | null;
+  suspensionReason: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface PadronCheckItem {
+  padronId: string;
+  type: string;
+  sectorialCode: string | null;
+  sectorialName: string;
+  description: string;
+  legalBasis: string;
+  authority: string;
+  estimatedDays: number | null;
+  status: string;
+  isActive: boolean;
+  isExpiringSoon: boolean;
+  expirationDate: string | null;
+  isBlocking: boolean;
+  daysToExpiration: number | null;
+}
+
+export interface PadronCheckResultData {
+  fractionCode: string;
+  canOperate: boolean;
+  totalRequired: number;
+  required: PadronCheckItem[];
+  blocking: PadronCheckItem[];
+  warnings: PadronCheckItem[];
+  legalConsequences: string[];
+}
+
+export interface PadronDeclareInput {
+  padronId: string;
+  status: 'active' | 'in_process' | 'suspended' | 'expired' | 'rejected';
+  registrationDate?: string;
+  expirationDate?: string;
+  evidence?: string;
+  notes?: string;
+}
+
+export interface PadronExposureReport {
+  tenant: { id: string; name: string; rfc: string | null } | null;
+  totalBlockingChecks: number;
+  byFraction: { fractionCode: string; attempts: number; missingPadrones: string[]; lastCheckedAt: string }[];
+}
+
+export interface TimestampProofRecord {
+  id: string;
+  resourceType: string;
+  resourceId: string;
+  contentHash: string;
+  bitcoinBlock: number | null;
+  bitcoinTimestamp: string | null;
+  status: 'pending' | 'submitted' | 'confirmed' | 'verified' | 'failed';
+  submittedAt: string;
+  confirmedAt: string | null;
+  lastCheckedAt: string | null;
+  verificationCount: number;
+  errorMessage: string | null;
+  calendarUrl: string | null;
+}
+
+export interface TimestampStats {
+  total: number;
+  byStatus: { status: string; count: number }[];
+  lastConfirmed: { confirmedAt: string | null; bitcoinBlock: number | null } | null;
+  avgConfirmationMinutes: number | null;
+}
+
+export interface AntidumpingDutyRecord {
+  id: string;
+  resolutionType: string;
+  resolutionNumber: string | null;
+  expedienteUPCI: string | null;
+  fractionCode: string;
+  countryOfOrigin: string;
+  productDesc: string | null;
+  specificProducer: string | null;
+  rateType: string;
+  rate: number;
+  rateUnit: string;
+  publishDateDOF: string | null;
+  effectiveDate: string | null;
+  expiryDate: string | null;
+  status: string;
+  investigationType: string | null;
+  decree: string | null;
+  dofUrl: string | null;
+  notes: string | null;
+  active: boolean;
+}
+
+export interface AntidumpingCheckResult {
+  duty: AntidumpingDutyRecord;
+  calculatedAmountUSD: number | null;
+  calculation: string;
+  severity: 'critical' | 'high' | 'medium' | 'low';
+  expiringSoon: boolean;
+  daysToExpiry: number | null;
+  appliesToOperation: boolean;
+}
+
+export interface ExposureReport {
+  tenantId: string;
+  totalImports: number;
+  totalExposureUSD: number;
+  potentialMultaUSD: number;
+  byResolution: {
+    resolutionNumber: string | null;
+    fractionCode: string;
+    countryOfOrigin: string;
+    productDesc: string | null;
+    importsCount: number;
+    exposureUSD: number;
+  }[];
+}
+
+export interface CopilotCitation {
+  reference: string;
+  documentId: string;
+  source: string;
+  excerpt: string;
+  officialUrl: string | null;
+  score: number;
+}
+
+export interface CopilotChatResponse {
+  reply: string;
+  conversationId: string;
+  citations: CopilotCitation[];
+  confidence: number;
+  consultHash: string;
+  retrievedDocsCount: number;
+  hallucinationWarning: { count: number; refs: string[] } | null;
+}
+
+export interface LegalDocumentMeta {
+  id: string;
+  type: string;
+  source: string;
+  title: string;
+  reference: string;
+  officialUrl: string | null;
+  publishedDate: string | null;
+  effectiveDate: string | null;
+  expiryDate: string | null;
+  isActive: boolean;
+  supersededBy: string | null;
+  version: string | null;
+  topics: string[];
+  keywords: string[];
+  fractionRefs: string[];
+  contentHash: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface LegalDocsStats {
+  total: number;
+  active: number;
+  inactive: number;
+  byType: { type: string; count: number }[];
+  bySource: { source: string; count: number }[];
+  byTopic: { topic: string; count: number }[];
+  lastUpdate: string | null;
+}
+
+export interface CopilotQuality {
+  period: string;
+  totalConsults: number;
+  feedback: { helpful: number; unhelpful: number; helpfulRate: number };
+  avgConfidence: number;
+  topDocsCited: { reference: string; count: number }[];
+  neverCitedCount: number;
+}
+
+export interface DemoProfile {
+  id: string;
+  industryCode: string;
+  industryName: string;
+  description: string;
+  longDescription: string | null;
+  companyName: string;
+  rfc: string;
+  primarySector: string;
+  immexModality: string | null;
+  certifications: string[] | null;
+  fractionsRange: { chapters: number[]; typical: string[] };
+  countriesOfOrigin: string[];
+  productCatalog: { sku: string; description: string; fraction: string }[];
+  isDefault: boolean;
+  active: boolean;
+}
+
+export interface BackupRecord {
+  id: string;
+  type: string;
+  status: string;
+  startedAt: string;
+  completedAt: string | null;
+  durationMs: number | null;
+  storageProvider: string;
+  storageUrl: string | null;
+  storageKey: string | null;
+  sizeBytes: number | null;
+  recordCount: number | null;
+  checksumSHA256: string | null;
+  encrypted: boolean;
+  errorMessage: string | null;
+  retentionDays: number;
+  expiresAt: string | null;
+  triggeredBy: string | null;
+}
+
+export interface BackupConfig {
+  ok: boolean;
+  details: string;
+  provider: string;
+  backupDir: string;
+  encryptionKeyConfigured: boolean;
+  operationsEmail: string;
+  retention: { daily: number; weekly: number; monthly: number; manual: number };
+  lastSuccessful: { id: string; type: string; completedAt: string } | null;
+}
+
+export interface RestoreLogRecord {
+  id: string;
+  backupId: string;
+  type: string;
+  startedAt: string;
+  completedAt: string | null;
+  status: string;
+  scope: unknown;
+  recordsRestored: number | null;
+  triggeredBy: string;
+  reason: string | null;
+  errorMessage: string | null;
+  backup: { id: string; type: string; completedAt: string | null };
+}
+
+export interface SystemIncidentRecord {
+  id: string;
+  title: string;
+  severity: string;
+  status: string;
+  startedAt: string;
+  resolvedAt: string | null;
+  components: string[];
+  description: string;
+  updates: { ts: string; message: string; status: string }[];
+  affectedUsers: number | null;
+  rootCause: string | null;
+  resolution: string | null;
+  publicVisible: boolean;
+}
+
+export interface PublicStatus {
+  overall: 'operational' | 'degraded' | 'down';
+  timestamp: string;
+  uptime: number;
+  components: { name: string; status: 'operational' | 'degraded' | 'down'; detail?: string }[];
+  uptime90: { day: string; status: 'operational' | 'degraded' | 'down' }[];
+}
+
+export type ProfessionalType = 'agent_customs' | 'broker' | 'importer' | 'consultant' | 'other';
+export type VerificationStatus = 'pending' | 'submitted' | 'verified' | 'rejected' | 'expired';
+
+export interface UserVerificationRecord {
+  id: string;
+  userId: string;
+  professionalType: ProfessionalType | null;
+  agentPatente: string | null;
+  agentSocialName: string | null;
+  agentPort: string | null;
+  agentVerified: boolean;
+  agentExpiry: string | null;
+  patenteDocUrl: string | null;
+  rfcDocUrl: string | null;
+  cspDocUrl: string | null;
+  status: VerificationStatus;
+  submittedAt: string | null;
+  verifiedAt: string | null;
+  verifiedBy: string | null;
+  rejectionReason: string | null;
+  notes: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface UserVerificationWithUser extends UserVerificationRecord {
+  user: { id: string; email: string; name: string; tenantId: string; tenant?: { name: string; rfc: string | null } };
+}
+
+export interface PatenteLookup {
+  exists: boolean;
+  active: boolean;
+  expired: boolean;
+  socialName?: string;
+  port?: string;
+  expiry?: string;
+  source?: string;
+}
+
+export type RFCValidationReason =
+  | 'EMPTY' | 'INVALID_LENGTH' | 'EXPECTED_MORAL' | 'EXPECTED_FISICA'
+  | 'INVALID_PATTERN_MORAL' | 'INVALID_PATTERN_FISICA' | 'INVALID_MONTH' | 'INVALID_DAY'
+  | 'GENERIC_RFC' | 'TEST_PATTERN' | 'SUSPICIOUS_HOMOCLAVE';
+
+export interface RFCValidationResult {
+  valid: boolean;
+  reason?: RFCValidationReason;
+  warning?: RFCValidationReason;
+  message?: string;
+  type?: 'moral' | 'fisica';
+  normalized?: string;
+  isGeneric?: boolean;
+}
+
+export interface TenantRFCFlag {
+  id: string;
+  name: string;
+  rfc: string | null;
+  plan: string;
+  status: string;
+  createdAt: string;
+  rfcValid: boolean;
+  rfcReason: string | null;
+  rfcWarning: string | null;
+  rfcMessage: string | null;
+  isGeneric: boolean;
+}
+
+export interface SecurityEventRecord {
+  id: string;
+  type: string;
+  severity: 'low' | 'medium' | 'high' | 'critical';
+  ip: string;
+  userId: string | null;
+  email: string | null;
+  endpoint: string | null;
+  details: unknown;
+  createdAt: string;
+}
+
+export interface BlockedIPRecord {
+  id: string;
+  ip: string;
+  reason: string;
+  expiresAt: string;
+  active: boolean;
+  createdAt: string;
+}
+
+export interface LockedUserRecord {
+  id: string;
+  email: string;
+  name: string;
+  failedLoginAttempts: number;
+  lockedUntil: string | null;
+  lastLoginIp: string | null;
+}
+
+export interface SecurityOverview {
+  events: { day: number; week: number; month: number };
+  blocks: { active: number; last24h: number; last7d: number };
+  bySeverity: { severity: string; count: number }[];
+  byType: { type: string; count: number }[];
+  lockedUsers: number;
+  recentFailedLogins: { id: string; email: string; ip: string; reason: string | null; createdAt: string }[];
 }
 
 export interface FractionSearchResult {
@@ -1219,6 +2118,13 @@ export interface AuditReportData {
   logCount: number;
   logs: AuditLogRecord[];
   reportHash: string;
+  cryptoCertification?: {
+    anchoredCount: number;
+    confirmedCount: number;
+    lastBitcoinBlock: number | null;
+    lastConfirmedAt: string | null;
+    legalNotice: string;
+  };
   generatedAt: string;
   disclaimer: string;
 }
@@ -1310,6 +2216,32 @@ export interface MultiQuoteItemInput {
   freightUSD?: number;
   insuranceUSD?: number;
   igiRateOverride?: number;
+  applyTreaty?: 'TMEC' | 'TLCUEM' | 'CPTPP';
+  hasCertificadoOrigen?: boolean;
+  applyPROSEC?: boolean;
+  applyRegla8va?: boolean;
+  regla8vaParentFraction?: string;
+  isVehicle?: boolean;
+  vehiclePriceMXN?: number;
+  isElectric?: boolean;
+}
+
+export interface ItemPrograms {
+  prosec: { eligible: boolean; applied: boolean; sector: string | null; prosecRate: number | null; savingsMXN: number };
+  regla8va: { eligible: boolean; applied: boolean; vehicleFraction: string | null; preferentialRate: number | null };
+  ieps: { applies: boolean; category: string | null; rate: number; rateType: string; amountMXN: number; calculation: string };
+  isan: { applies: boolean; exempt: boolean; amountMXN: number; calculation: string; tier: { fixedAmount: number; marginalRate: number } | null };
+}
+
+export interface ItemTreaty {
+  requested: string | null;
+  applied: string | null;
+  hasCertificate: boolean;
+  nmfRate: number;
+  preferentialRate: number | null;
+  appliedRate: number;
+  savingsMXN: number;
+  note: string | null;
 }
 
 export interface DispatchCostsInput {
@@ -1332,6 +2264,31 @@ export interface MultiQuoteInput {
   exchangeRate?: number;
   items: MultiQuoteItemInput[];
   dispatch?: DispatchCostsInput;
+}
+
+export interface EstimatedPriceMatch {
+  fractionCode: string;
+  countryOfOrigin: string | null;
+  estimatedValue: number;
+  unit: string;
+  decree: string | null;
+  publishDate: string;
+  effectiveDate: string;
+  source: string;
+  notes: string | null;
+}
+
+export interface PriceCheckResult {
+  hasEstimatedPrice: boolean;
+  estimated: EstimatedPriceMatch | null;
+  declaredUnitValueUSD: number | null;
+  ratio: number | null;
+  deltaPct: number | null;
+  severity: 'critical' | 'warning' | 'ok' | 'no_data';
+  message: string | null;
+  guaranteeMXN: number | null;
+  action: string | null;
+  disclaimer: string | null;
 }
 
 export interface MultiQuoteItem {
@@ -1362,6 +2319,9 @@ export interface MultiQuoteItem {
   hasAntidumping: boolean;
   antidumpingDecree: string | null;
   alertas: string[];
+  priceCheck: PriceCheckResult | null;
+  treaty: ItemTreaty;
+  programs: ItemPrograms;
 }
 
 export interface MultiQuoteResult {
@@ -1399,6 +2359,225 @@ export interface ScenarioVariant {
   weightMultiplier?: number;
   exchangeRateOverride?: number;
   countryOverride?: string;
+}
+
+// ── Precedentes legales ──
+export interface LegalPrecedent {
+  id: string;
+  type: 'TFJA' | 'SCJN' | 'CRITERIO_SAT' | 'CONSULTA_SAT' | 'OMA' | 'RESOLUCION_UPCI';
+  reference: string;
+  title: string;
+  fractionCodes: string[];
+  chapterCodes: string[];
+  topic: string;
+  summary: string;
+  ruling: string;
+  reasoning: string;
+  applicability: string | null;
+  yearPublished: number;
+  isVigente: boolean;
+  litigated: boolean;
+  source: string | null;
+  createdAt?: string;
+}
+
+export interface PrecedentMatch extends LegalPrecedent {
+  relevanceScore: number;
+}
+
+// ── NOMs y Anexo 2.4.1 ──
+export interface NOMOperationContext {
+  immex?: boolean;
+  productive?: boolean;
+  consumerFinal?: boolean;
+  automotive?: boolean;
+  industrialEquipment?: boolean;
+  ownUse?: boolean;
+  personalUse?: boolean;
+  samples?: boolean;
+  repair?: boolean;
+  reExport?: boolean;
+  governmentImport?: boolean;
+  willLabelInMexico?: boolean;
+  fair?: boolean;
+}
+
+export interface NOMExceptionMatch {
+  exceptionId: string;
+  exceptionCode: string;
+  fraction: string;
+  description: string;
+  requiredDoc: string | null;
+  legalBasis: string | null;
+}
+
+export interface NOMEvaluation {
+  nomCode: string;
+  authority: string;
+  description: string;
+  required: boolean;
+  exception: NOMExceptionMatch | null;
+  fullComplianceRequirements: string[] | null;
+  message: string;
+  severity: 'critical' | 'warning' | 'info' | 'ok';
+}
+
+export interface CartaNoComercializacionInput {
+  empresa: string;
+  rfc: string;
+  immexNumber?: string;
+  domicilioFiscal?: string;
+  representanteLegal: string;
+  representanteCargo?: string;
+  fractionCode: string;
+  productDescription: string;
+  noms: string[];
+  destination: string;
+  exceptionCode: string;
+}
+
+// ── Origen TMEC ──
+export interface OriginRule {
+  id: string;
+  fractionCode: string;
+  matchType: string;
+  agreement: string;
+  ruleType: 'wholly_obtained' | 'tariff_shift' | 'rvc' | 'specific_process' | 'combined';
+  description: string;
+  rvcRequired: number | null;
+  rvcMethod: string | null;
+  tariffShift: string | null;
+  tariffShiftCode: string | null;
+  specificProcess: string | null;
+  annex: string | null;
+  isAutomotive: boolean;
+  autoCategory: 'vehicle' | 'core_part' | 'principal_part' | 'complementary_part' | null;
+  laborValueContent: number | null;
+  steelAluminumPercent: number | null;
+  textileRule: string | null;
+  notes: string | null;
+}
+
+export interface OriginCertificateInput {
+  fractionCode: string;
+  productDescription: string;
+  exporterName: string;
+  exporterAddress?: string;
+  exporterTaxId?: string;
+  importerName?: string;
+  importerAddress?: string;
+  importerTaxId?: string;
+  producerName?: string;
+  producerAddress?: string;
+  producerTaxId?: string;
+  originCountry: 'MX' | 'US' | 'CA';
+  preferenceCriterion: 'A' | 'B' | 'C' | 'D' | 'E';
+  blanketPeriodFrom?: string;
+  blanketPeriodTo?: string;
+  signedBy: string;
+  signedByRole: string;
+  originAnalysisId?: string;
+}
+
+export interface OriginCertificateRecord {
+  id: string;
+  certificateNumber: string;
+  fractionCode: string;
+  productDescription: string;
+  exporterName: string;
+  exporterAddress: string | null;
+  exporterTaxId: string | null;
+  importerName: string | null;
+  importerAddress: string | null;
+  importerTaxId: string | null;
+  producerName: string | null;
+  producerAddress: string | null;
+  producerTaxId: string | null;
+  originCountry: string;
+  preferenceCriterion: string;
+  blanketPeriodFrom: string | null;
+  blanketPeriodTo: string | null;
+  signedDate: string;
+  signedBy: string;
+  signedByRole: string;
+  status: string;
+  contentHash: string | null;
+  createdAt: string;
+}
+
+export interface OriginRecommendation {
+  type: 'reduce_vnm' | 'increase_originating' | 'change_method' | 'check_specific_process' | 'tariff_shift_audit' | 'wholly_obtained';
+  message: string;
+  deltaUSD?: number;
+}
+
+export interface OriginMaterial { description: string; value: number; fraction?: string; origin?: string }
+
+export interface OriginAnalysisInput {
+  fractionCode: string;
+  productDescription?: string;
+  agreement?: string;
+  productValue: number;
+  originatingValue?: number;
+  nonOriginatingValue?: number;
+  originatingMaterials?: OriginMaterial[];
+  nonOriginatingMaterials?: OriginMaterial[];
+  laborCost?: number;
+  highWageLaborCost?: number;
+  overheadCost?: number;
+  profit?: number;
+  packagingCost?: number;
+  royalties?: number;
+  rvcMethod?: 'transaction_value' | 'net_cost' | 'build_up' | 'build_down';
+  totalSteelAluminumValue?: number;
+  northAmericanSteelAluminumValue?: number;
+  persist?: boolean;
+}
+
+export interface OriginAnalysisResult {
+  fractionCode: string;
+  agreement: string;
+  rule: OriginRule | null;
+  rvc: { transactionValue: number | null; netCost: number | null; buildUp: number | null; buildDown: number | null };
+  rvcRequired: number | null;
+  rvcMethodApplied: 'transaction_value' | 'net_cost' | 'build_up' | 'build_down';
+  netCost: number | null;
+  totalOriginatingValue: number;
+  totalNonOriginatingValue: number;
+  laborValueContentPct: number | null;
+  lvcRequired: number | null;
+  lvcCompliance: boolean | null;
+  steelAluminumNAPct: number | null;
+  saRequired: number | null;
+  saCompliance: boolean | null;
+  tariffShiftCompliance: boolean | null;
+  qualifies: boolean;
+  qualifyingMethod: string | null;
+  reason: string;
+  reasons: string[];
+  recommendations: OriginRecommendation[];
+  formula: string;
+  disclaimer: string;
+  analysisId?: string | null;
+  consultHash?: string;
+  // legacy compat
+  rvcMethod?: string;
+  rvcCalculated?: number | null;
+}
+
+export interface OriginAnalysisRecord {
+  id: string;
+  fractionCode: string;
+  agreement: string;
+  productValue: number;
+  originatingValue: number;
+  nonOriginatingValue: number;
+  rvcCalculated: number | null;
+  ruleApplied: string | null;
+  qualifies: boolean;
+  reason: string;
+  recommendations: unknown;
+  createdAt: string;
 }
 
 export interface ScenarioComparison {

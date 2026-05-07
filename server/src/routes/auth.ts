@@ -437,6 +437,26 @@ authRouter.post('/login', authLoginLimiter, async (req, res, next) => {
 
       await logAttempt(email, ip, ua, false, 'invalid_password');
 
+      // Registrar SecurityEvent
+      const { recordSecurityEvent, blockIP } = await import('../lib/security');
+      await recordSecurityEvent({
+        type: 'failed_login',
+        severity: attempts >= HARD_LOCK_THRESHOLD ? 'high' : attempts >= MAX_ATTEMPTS ? 'medium' : 'low',
+        ip,
+        userId: user.id,
+        email,
+        details: { attempts, willBeLocked: lockedUntil != null },
+      });
+
+      // Bloqueo de IP: ≥10 intentos fallidos desde misma IP en última hora → 24h block
+      const oneHourAgo = new Date(Date.now() - 60 * 60 * 1000);
+      const ipFailures = await prisma.loginAttempt.count({
+        where: { ip, success: false, createdAt: { gte: oneHourAgo } },
+      });
+      if (ipFailures >= 10) {
+        await blockIP(ip, `${ipFailures} login fails en última hora`, 24 * 60 * 60 * 1000);
+      }
+
       if (lockedUntil) {
         const mins = attempts >= HARD_LOCK_THRESHOLD ? LOCK_MINUTES_LONG : LOCK_MINUTES;
         throw new AppError(`Demasiados intentos fallidos. Cuenta bloqueada por ${mins} minutos.`, 423);

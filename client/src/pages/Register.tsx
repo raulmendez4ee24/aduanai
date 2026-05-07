@@ -3,6 +3,7 @@ import { Link, useNavigate } from 'react-router-dom'
 import { Mail, Lock, User, Building2, Phone, Eye, EyeOff, Check, ArrowRight, ArrowLeft } from 'lucide-react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { AuthLayout } from '../components/AuthLayout'
+import { RFCInput } from '../components/RFCInput'
 import { PasswordStrength } from '../components/PasswordStrength'
 import { api } from '../lib/api'
 
@@ -25,7 +26,8 @@ function formatPhone(raw: string): string {
   return `(${digits.slice(0, 2)}) ${digits.slice(2, 6)}-${digits.slice(6)}`
 }
 
-function validateRFC(rfc: string): string | null {
+// validateRFC legacy reemplazado por <RFCInput /> con endpoint /api/validate/rfc
+function _legacyValidateRFC(rfc: string): string | null {
   if (!rfc) return null
   const upper = rfc.toUpperCase()
   if (upper === 'XAXX010101000' || upper === 'XEXX010101000') return 'RFC genérico no permitido'
@@ -84,12 +86,14 @@ export function RegisterPage({ onLogin }: Props) {
     setPhone(formatPhone(digits))
   }
 
-  function handleRfcChange(val: string) {
+  // handleRfcChange legacy: el RFCInput maneja onChange + onValidate ahora.
+  function _legacyHandleRfcChange(val: string) {
     const upper = val.toUpperCase()
     setRfc(upper)
-    const err = validateRFC(upper)
+    const err = _legacyValidateRFC(upper)
     setRfcError(err || '')
   }
+  void _legacyHandleRfcChange; void rfcHint
 
   function goNext() {
     setDirection(1)
@@ -275,26 +279,19 @@ export function RegisterPage({ onLogin }: Props) {
                 </div>
               </div>
 
-              {/* RFC */}
-              <div>
-                <label className="text-[12px] font-medium text-[#999] mb-1.5 block">
-                  RFC <span className="text-gray-300">(opcional)</span>
-                  {rfc && !rfcError && (
-                    <span className="ml-2 text-emerald-600 font-medium">{rfcHint(rfc)}</span>
-                  )}
-                </label>
-                <div className="relative">
-                  <input
-                    type="text"
-                    value={rfc}
-                    onChange={e => handleRfcChange(e.target.value)}
-                    placeholder="ABC123456789"
-                    maxLength={13}
-                    className={`w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl text-[14px] font-mono text-[#1a1a1a] uppercase placeholder:text-gray-400 outline-none focus:ring-2 focus:ring-emerald-100 focus:border-emerald-500 transition-all ${rfcError ? 'border-red-300' : rfc && !rfcError ? 'border-emerald-400' : ''}`}
-                  />
-                </div>
-                {rfcError && <p className="text-[11px] text-red-500 mt-1">{rfcError}</p>}
-              </div>
+              {/* RFC con validación reforzada (bloquea genéricos XAXX/XEXX) */}
+              <RFCInput
+                value={rfc}
+                onChange={setRfc}
+                onValidate={(r) => {
+                  if (rfc.length === 0) { setRfcError(''); return }
+                  if (r && !r.valid) setRfcError(r.message ?? 'RFC inválido')
+                  else setRfcError('')
+                }}
+                label="RFC (opcional)"
+                placeholder="ABC123456789"
+                allowGeneric={false}
+              />
 
               <div className="flex gap-3 pt-2">
                 <button

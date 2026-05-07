@@ -26,6 +26,21 @@ import { LogisticsPage } from './pages/Logistics'
 import { UpdatesPage } from './pages/Updates'
 import { PreValidatorPage } from './pages/PreValidator'
 import { FractionsPage } from './pages/Fractions'
+import { OrigenTMECPage } from './pages/OrigenTMEC'
+import { AdminCompliancePage } from './pages/Admin/AdminCompliance'
+import { AdminMonitoringPage } from './pages/Admin/AdminMonitoring'
+import { AdminSecurityPage } from './pages/Admin/AdminSecurity'
+import { AdminVerificationsPage } from './pages/Admin/AdminVerifications'
+import { VerificacionPage } from './pages/Verificacion'
+import { AdminBackupsPage } from './pages/Admin/AdminBackups'
+import { AdminDemoProfilesPage } from './pages/Admin/AdminDemoProfiles'
+import { AdminLegalDocsPage } from './pages/Admin/AdminLegalDocs'
+import { AdminAntidumpingPage } from './pages/Admin/AdminAntidumping'
+import { AdminTimestampsPage } from './pages/Admin/AdminTimestamps'
+import { AdminPadronesPage } from './pages/Admin/AdminPadrones'
+import { PadronesPage } from './pages/Settings/Padrones'
+import { StatusPage } from './pages/Public/Status'
+import { PrecedentsPage } from './pages/Precedents'
 import { AdminLeadsPage } from './pages/Admin/AdminLeads'
 import { AdminKnowledgePage } from './pages/Admin/AdminKnowledge'
 import { AdminDashboardPage } from './pages/Admin/AdminDashboard'
@@ -237,6 +252,77 @@ export function App() {
           <AppLayout onLogout={handleLogout} userRole={user?.role}><FractionsPage /></AppLayout>
         </RequireAuth>
       } />
+      <Route path="/origen-tmec" element={
+        <RequireAuth token={token} user={user}>
+          <AppLayout onLogout={handleLogout} userRole={user?.role}><OrigenTMECPage /></AppLayout>
+        </RequireAuth>
+      } />
+      <Route path="/admin/compliance" element={
+        <RequireAuth token={token} user={user}>
+          <AppLayout onLogout={handleLogout} userRole={user?.role}><AdminCompliancePage /></AppLayout>
+        </RequireAuth>
+      } />
+      <Route path="/precedentes" element={
+        <RequireAuth token={token} user={user}>
+          <AppLayout onLogout={handleLogout} userRole={user?.role}><PrecedentsPage /></AppLayout>
+        </RequireAuth>
+      } />
+      <Route path="/admin/monitoring" element={
+        <RequireAuth token={token} user={user}>
+          <AppLayout onLogout={handleLogout} userRole={user?.role}><AdminMonitoringPage /></AppLayout>
+        </RequireAuth>
+      } />
+      <Route path="/admin/security" element={
+        <RequireAuth token={token} user={user}>
+          <AppLayout onLogout={handleLogout} userRole={user?.role}><AdminSecurityPage /></AppLayout>
+        </RequireAuth>
+      } />
+      <Route path="/admin/verifications" element={
+        <RequireAuth token={token} user={user}>
+          <AppLayout onLogout={handleLogout} userRole={user?.role}><AdminVerificationsPage /></AppLayout>
+        </RequireAuth>
+      } />
+      <Route path="/verificacion" element={
+        <RequireAuth token={token} user={user}>
+          <AppLayout onLogout={handleLogout} userRole={user?.role}><VerificacionPage /></AppLayout>
+        </RequireAuth>
+      } />
+      <Route path="/admin/backups" element={
+        <RequireAuth token={token} user={user}>
+          <AppLayout onLogout={handleLogout} userRole={user?.role}><AdminBackupsPage /></AppLayout>
+        </RequireAuth>
+      } />
+      <Route path="/admin/demo-profiles" element={
+        <RequireAuth token={token} user={user}>
+          <AppLayout onLogout={handleLogout} userRole={user?.role}><AdminDemoProfilesPage /></AppLayout>
+        </RequireAuth>
+      } />
+      <Route path="/admin/legal-docs" element={
+        <RequireAuth token={token} user={user}>
+          <AppLayout onLogout={handleLogout} userRole={user?.role}><AdminLegalDocsPage /></AppLayout>
+        </RequireAuth>
+      } />
+      <Route path="/admin/antidumping" element={
+        <RequireAuth token={token} user={user}>
+          <AppLayout onLogout={handleLogout} userRole={user?.role}><AdminAntidumpingPage /></AppLayout>
+        </RequireAuth>
+      } />
+      <Route path="/admin/timestamps" element={
+        <RequireAuth token={token} user={user}>
+          <AppLayout onLogout={handleLogout} userRole={user?.role}><AdminTimestampsPage /></AppLayout>
+        </RequireAuth>
+      } />
+      <Route path="/admin/padrones" element={
+        <RequireAuth token={token} user={user}>
+          <AppLayout onLogout={handleLogout} userRole={user?.role}><AdminPadronesPage /></AppLayout>
+        </RequireAuth>
+      } />
+      <Route path="/settings/padrones" element={
+        <RequireAuth token={token} user={user}>
+          <AppLayout onLogout={handleLogout} userRole={user?.role}><PadronesPage /></AppLayout>
+        </RequireAuth>
+      } />
+      <Route path="/status" element={<StatusPage />} />
 
       <Route path="/admin" element={
         <RequireAuth token={token} user={user}>

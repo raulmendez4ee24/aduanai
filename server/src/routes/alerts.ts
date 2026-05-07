@@ -1,17 +1,46 @@
 import { Router } from 'express';
 import { authenticate, AuthRequest } from '../middlewares/auth';
 import { prisma } from '../lib/prisma';
+import { regenerateAlerts } from '../services/alert-generator';
 
 export const alertsRouter = Router();
 
-// Listar alertas del tenant
+const SEVERITY_ORDER: Record<string, number> = { critical: 0, high: 1, medium: 2, low: 3 };
+
+// Listar alertas activas del tenant — ordenadas por severidad y vencimiento
 alertsRouter.get('/', authenticate, async (req: AuthRequest, res, next) => {
   try {
-    const alerts = await prisma.alert.findMany({
-      where: { tenantId: req.tenantId! },
-      orderBy: { createdAt: 'desc' },
-      take: 50,
+    const includeResolved = req.query.includeResolved === 'true';
+    const includeIgnored = req.query.includeIgnored === 'true';
+    const where: Record<string, unknown> = { tenantId: req.tenantId! };
+    if (!includeResolved) where.resolvedAt = null;
+    if (!includeIgnored) where.ignored = false;
+    // Filtra snoozed: si snoozedUntil > now, no mostrar
+    const now = new Date();
+    where.OR = [{ snoozedUntil: null }, { snoozedUntil: { lt: now } }];
+
+    const rows = await prisma.alert.findMany({
+      where,
+      orderBy: [{ createdAt: 'desc' }],
+      take: 100,
     });
+
+    // Recalcular daysToDue dinámico antes de enviar (para precisión)
+    const alerts = rows
+      .map(a => ({
+        ...a,
+        daysToDue: a.dueDate
+          ? Math.ceil((a.dueDate.getTime() - now.getTime()) / (1000 * 60 * 60 * 24))
+          : null,
+      }))
+      .sort((a, b) => {
+        const sa = SEVERITY_ORDER[a.severity] ?? 9;
+        const sb = SEVERITY_ORDER[b.severity] ?? 9;
+        if (sa !== sb) return sa - sb;
+        const da = a.daysToDue ?? 9999;
+        const db = b.daysToDue ?? 9999;
+        return da - db;
+      });
 
     res.json({ status: 'ok', data: alerts });
   } catch (err) {
@@ -46,6 +75,61 @@ alertsRouter.post('/read-all', authenticate, async (req: AuthRequest, res, next)
   } catch (err) {
     next(err);
   }
+});
+
+// Acknowledge / snooze / resolve / ignore — acciones inteligentes
+alertsRouter.patch('/:id/acknowledge', authenticate, async (req: AuthRequest, res, next) => {
+  try {
+    const id = String(req.params.id);
+    await prisma.alert.update({
+      where: { id },
+      data: { acknowledged: true, acknowledgedAt: new Date(), read: true },
+    });
+    res.json({ status: 'ok' });
+  } catch (err) { next(err); }
+});
+
+alertsRouter.patch('/:id/snooze', authenticate, async (req: AuthRequest, res, next) => {
+  try {
+    const id = String(req.params.id);
+    const days = Math.max(1, Math.min(30, Number(req.body?.days) || 7));
+    const until = new Date(Date.now() + days * 24 * 60 * 60 * 1000);
+    await prisma.alert.update({
+      where: { id },
+      data: { snoozedUntil: until, read: true },
+    });
+    res.json({ status: 'ok', data: { snoozedUntil: until } });
+  } catch (err) { next(err); }
+});
+
+alertsRouter.patch('/:id/resolve', authenticate, async (req: AuthRequest, res, next) => {
+  try {
+    const id = String(req.params.id);
+    await prisma.alert.update({
+      where: { id },
+      data: { resolvedAt: new Date(), read: true, acknowledged: true, acknowledgedAt: new Date() },
+    });
+    res.json({ status: 'ok' });
+  } catch (err) { next(err); }
+});
+
+alertsRouter.patch('/:id/ignore', authenticate, async (req: AuthRequest, res, next) => {
+  try {
+    const id = String(req.params.id);
+    await prisma.alert.update({
+      where: { id },
+      data: { ignored: true, read: true },
+    });
+    res.json({ status: 'ok' });
+  } catch (err) { next(err); }
+});
+
+// Regenerar alertas inteligentes para el tenant — calcula impacto sobre datos reales
+alertsRouter.post('/regenerate', authenticate, async (req: AuthRequest, res, next) => {
+  try {
+    const result = await regenerateAlerts(req.tenantId!, false);
+    res.json({ status: 'ok', data: result });
+  } catch (err) { next(err); }
 });
 
 // Contar alertas sin leer

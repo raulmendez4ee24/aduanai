@@ -1,9 +1,10 @@
 import { useEffect, useState } from 'react'
 import { api } from '../lib/api'
 import type { MultiQuoteInput, MultiQuoteItemInput, MultiQuoteResult, ScenarioComparison, ScenarioVariant } from '../lib/api'
-import { Calculator, DollarSign, AlertCircle, AlertTriangle, ShieldCheck, FileWarning, Plus, Trash2, GitCompare } from 'lucide-react'
+import { Calculator, DollarSign, AlertCircle, AlertTriangle, ShieldCheck, FileWarning, Plus, Trash2, GitCompare, Globe } from 'lucide-react'
 import { formatFraction } from '../lib/format'
 import { ROITile } from '../components/ROIBanner'
+import { NOMExceptionPanel } from '../components/NOMExceptionPanel'
 
 const GLASS = 'bg-white/70 backdrop-blur-xl border border-white/50 shadow-[0_8px_30px_rgb(0,0,0,0.04)]'
 
@@ -144,7 +145,71 @@ export function QuoterPage() {
                   <Field label="Flete USD"><input type="number" step="0.01" className="w-full text-[12px] border border-slate-200 rounded-lg px-2 py-1.5" value={it.freightUSD ?? 0} onChange={e => updateItem(idx, { freightUSD: parseFloat(e.target.value) || 0 })}/></Field>
                   <Field label="Seguro USD"><input type="number" step="0.01" className="w-full text-[12px] border border-slate-200 rounded-lg px-2 py-1.5" value={it.insuranceUSD ?? 0} onChange={e => updateItem(idx, { insuranceUSD: parseFloat(e.target.value) || 0 })}/></Field>
                   <Field label="Override IGI %"><input type="number" step="0.1" placeholder="auto" className="w-full text-[12px] border border-slate-200 rounded-lg px-2 py-1.5" value={it.igiRateOverride ?? ''} onChange={e => updateItem(idx, { igiRateOverride: e.target.value === '' ? undefined : parseFloat(e.target.value) })}/></Field>
+                  <Field label="Tratado">
+                    <select className="w-full text-[12px] border border-slate-200 rounded-lg px-2 py-1.5 bg-white"
+                      value={it.applyTreaty ?? ''}
+                      onChange={e => updateItem(idx, { applyTreaty: (e.target.value || undefined) as 'TMEC' | 'TLCUEM' | 'CPTPP' | undefined })}>
+                      <option value="">Sin tratado (NMF)</option>
+                      <option value="TMEC">TMEC</option>
+                      <option value="TLCUEM">TLCUEM</option>
+                      <option value="CPTPP">CPTPP</option>
+                    </select>
+                  </Field>
                 </div>
+                {it.applyTreaty && (
+                  <label className="mt-2 flex items-center gap-2 text-[11px] text-slate-700 cursor-pointer">
+                    <input type="checkbox" checked={it.hasCertificadoOrigen ?? false}
+                      onChange={e => updateItem(idx, { hasCertificadoOrigen: e.target.checked })}
+                      className="rounded border-slate-300"/>
+                    <Globe className="w-3 h-3 text-emerald-600"/>
+                    Certificado de origen {it.applyTreaty} vigente disponible
+                  </label>
+                )}
+
+                {/* Régimenes y programas */}
+                <details className="mt-2 rounded-lg bg-violet-50/40 border border-violet-100 p-2.5" open>
+                  <summary className="cursor-pointer text-[11px] font-semibold text-violet-800">🎯 Regímenes y programas</summary>
+                  <div className="mt-2 space-y-1.5">
+                    <label className="flex items-center gap-2 text-[11px] text-slate-700 cursor-pointer">
+                      <input type="checkbox" checked={it.applyPROSEC ?? false}
+                        onChange={e => updateItem(idx, { applyPROSEC: e.target.checked })}
+                        className="rounded border-slate-300"/>
+                      Aplicar PROSEC (requiere registro vigente ante SE)
+                    </label>
+                    <label className="flex items-center gap-2 text-[11px] text-slate-700 cursor-pointer">
+                      <input type="checkbox" checked={it.applyRegla8va ?? false}
+                        onChange={e => updateItem(idx, { applyRegla8va: e.target.checked })}
+                        className="rounded border-slate-300"/>
+                      Importación bajo Regla 8va
+                    </label>
+                    {it.applyRegla8va && (
+                      <input type="text" value={it.regla8vaParentFraction ?? ''}
+                        onChange={e => updateItem(idx, { regla8vaParentFraction: e.target.value })}
+                        placeholder="Fracción del producto terminado (ej. 8703)"
+                        className="w-full text-[11px] font-mono border border-slate-200 rounded px-2 py-1"/>
+                    )}
+                    <label className="flex items-center gap-2 text-[11px] text-slate-700 cursor-pointer">
+                      <input type="checkbox" checked={it.isVehicle ?? false}
+                        onChange={e => updateItem(idx, { isVehicle: e.target.checked })}
+                        className="rounded border-slate-300"/>
+                      🚗 Vehículo nuevo (calcular ISAN)
+                    </label>
+                    {it.isVehicle && (
+                      <div className="grid grid-cols-2 gap-2">
+                        <input type="number" value={it.vehiclePriceMXN ?? ''}
+                          onChange={e => updateItem(idx, { vehiclePriceMXN: parseFloat(e.target.value) || undefined })}
+                          placeholder="Precio sugerido MXN"
+                          className="text-[11px] border border-slate-200 rounded px-2 py-1"/>
+                        <label className="flex items-center gap-1.5 text-[10px] text-slate-700">
+                          <input type="checkbox" checked={it.isElectric ?? false}
+                            onChange={e => updateItem(idx, { isElectric: e.target.checked })}
+                            className="rounded border-slate-300"/>
+                          Eléctrico/híbrido (exento)
+                        </label>
+                      </div>
+                    )}
+                  </div>
+                </details>
               </div>
             ))}
           </div>
@@ -281,6 +346,172 @@ function QuoteResult({ result }: { result: MultiQuoteResult }) {
           </table>
         </div>
       </div>
+
+      {/* Precios Estimados SAT por partida (Art. 84-A LA) */}
+      {result.items.some(i => i.priceCheck?.hasEstimatedPrice) && (
+        <div>
+          <p className="text-[12px] font-semibold text-slate-700 mb-2 flex items-center gap-2">
+            <DollarSign className="w-4 h-4 text-amber-600"/> Precios Estimados SAT (Art. 84-A LA)
+          </p>
+          <div className="space-y-2">
+            {result.items.filter(i => i.priceCheck?.hasEstimatedPrice).map(it => {
+              const pc = it.priceCheck!
+              const palette = pc.severity === 'critical'
+                ? 'bg-rose-50 border-rose-200 text-rose-800'
+                : pc.severity === 'warning'
+                  ? 'bg-amber-50 border-amber-200 text-amber-800'
+                  : 'bg-emerald-50 border-emerald-200 text-emerald-800'
+              return (
+                <div key={it.numeroPartida} className={`rounded-xl border p-3 ${palette}`}>
+                  <div className="flex items-start gap-3">
+                    <AlertTriangle className="w-4 h-4 shrink-0 mt-0.5"/>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-[12px] font-bold">
+                        Partida {it.numeroPartida} · {formatFraction(it.fractionCode)} · {it.countryOfOrigin}
+                      </p>
+                      <div className="grid grid-cols-2 md:grid-cols-4 gap-2 mt-2 text-[11px]">
+                        <div>
+                          <p className="opacity-70">Declarado</p>
+                          <p className="font-mono font-semibold">${pc.declaredUnitValueUSD?.toFixed(2)} {pc.estimated?.unit.split('/')[1]}</p>
+                        </div>
+                        <div>
+                          <p className="opacity-70">Estimado SAT</p>
+                          <p className="font-mono font-semibold">${pc.estimated?.estimatedValue.toFixed(2)} {pc.estimated?.unit.split('/')[1]}</p>
+                        </div>
+                        <div>
+                          <p className="opacity-70">Diferencia</p>
+                          <p className="font-mono font-semibold">{pc.deltaPct != null && pc.deltaPct > 0 ? '−' : ''}{Math.abs(pc.deltaPct ?? 0).toFixed(1)}%</p>
+                        </div>
+                        <div>
+                          <p className="opacity-70">Fuente</p>
+                          <p className="font-mono text-[10px]">{pc.estimated?.decree ?? pc.estimated?.source}</p>
+                        </div>
+                      </div>
+                      {pc.message && <p className="text-[11px] mt-2 leading-relaxed">{pc.message}</p>}
+                      {pc.action && <p className="text-[11px] mt-1 font-semibold">→ {pc.action}</p>}
+                      {pc.guaranteeMXN != null && pc.guaranteeMXN > 0 && (
+                        <div className="mt-2 inline-flex items-center gap-2 bg-white/60 rounded-lg px-3 py-1.5">
+                          <span className="text-[10px] uppercase tracking-wider opacity-70">Garantía estimada</span>
+                          <span className="font-mono font-bold text-[13px]">${mxn(pc.guaranteeMXN)} MXN</span>
+                        </div>
+                      )}
+                      {pc.disclaimer && <p className="text-[10px] mt-1 opacity-70 italic">{pc.disclaimer}</p>}
+                    </div>
+                  </div>
+                </div>
+              )
+            })}
+          </div>
+        </div>
+      )}
+
+      {/* Tratados preferenciales por partida */}
+      {result.items.some(i => i.treaty.requested) && (
+        <div>
+          <p className="text-[12px] font-semibold text-slate-700 mb-2 flex items-center gap-2">
+            <Globe className="w-4 h-4 text-emerald-600"/> Tratados preferenciales
+          </p>
+          <div className="space-y-2">
+            {result.items.filter(i => i.treaty.requested).map(it => {
+              const t = it.treaty
+              const isApplied = !!t.applied
+              const palette = isApplied
+                ? 'bg-emerald-50 border-emerald-200 text-emerald-800'
+                : 'bg-amber-50 border-amber-200 text-amber-800'
+              return (
+                <div key={it.numeroPartida} className={`rounded-xl border p-3 ${palette}`}>
+                  <div className="flex items-start gap-3">
+                    {isApplied
+                      ? <ShieldCheck className="w-4 h-4 shrink-0 mt-0.5"/>
+                      : <AlertTriangle className="w-4 h-4 shrink-0 mt-0.5"/>}
+                    <div className="flex-1 min-w-0">
+                      <p className="text-[12px] font-bold">
+                        Partida {it.numeroPartida} · {formatFraction(it.fractionCode)} · {it.countryOfOrigin} · {t.requested}
+                      </p>
+                      <div className="grid grid-cols-2 md:grid-cols-4 gap-2 mt-2 text-[11px]">
+                        <div>
+                          <p className="opacity-70">Arancel NMF</p>
+                          <p className="font-mono font-semibold">{t.nmfRate}%</p>
+                        </div>
+                        <div>
+                          <p className="opacity-70">Preferencial {t.requested}</p>
+                          <p className="font-mono font-semibold">{t.preferentialRate ?? '—'}%</p>
+                        </div>
+                        <div>
+                          <p className="opacity-70">Aplicado</p>
+                          <p className="font-mono font-semibold">{t.appliedRate}%</p>
+                        </div>
+                        <div>
+                          <p className="opacity-70">Ahorro</p>
+                          <p className="font-mono font-semibold">{t.savingsMXN > 0 ? `$${mxn(t.savingsMXN)} MXN` : '—'}</p>
+                        </div>
+                      </div>
+                      {t.note && <p className="text-[11px] mt-2 leading-relaxed">{t.note}</p>}
+                    </div>
+                  </div>
+                </div>
+              )
+            })}
+          </div>
+        </div>
+      )}
+
+      {/* NOMs y excepciones por partida */}
+      {result.items.map(it => (
+        <NOMExceptionPanel
+          key={`nom-${it.numeroPartida}-${it.fractionCode}`}
+          fractionCode={it.fractionCode}
+          countryOfOrigin={it.countryOfOrigin}
+          productDescription={it.description ?? `Partida ${it.numeroPartida}`}
+        />
+      ))}
+
+      {/* Desglose de impuestos por programas (PROSEC, IEPS, ISAN) */}
+      {result.items.some(i => i.programs.prosec.eligible || i.programs.ieps.applies || i.programs.isan.applies || i.programs.regla8va.eligible) && (
+        <div className="rounded-xl bg-violet-50/30 border border-violet-200 p-4">
+          <p className="text-[12px] font-bold text-violet-900 mb-3">💰 Desglose de impuestos por programas</p>
+          {result.items.map(it => {
+            const p = it.programs
+            const hasContent = p.prosec.eligible || p.regla8va.eligible || p.ieps.applies || p.isan.applies
+            if (!hasContent) return null
+            return (
+              <div key={it.numeroPartida} className="rounded-lg bg-white/70 border border-violet-100 p-3 mb-2">
+                <p className="text-[11px] font-bold text-slate-900 mb-2">Partida {it.numeroPartida} · {formatFraction(it.fractionCode)}</p>
+                <div className="space-y-1.5 text-[11px]">
+                  {p.prosec.eligible && (
+                    <div className={`rounded p-2 ${p.prosec.applied ? 'bg-emerald-50 border border-emerald-200' : 'bg-amber-50 border border-amber-200'}`}>
+                      <p className="font-semibold">PROSEC sector {p.prosec.sector ?? '—'}</p>
+                      {p.prosec.applied
+                        ? <p className="text-emerald-800">✓ Aplicado · Tasa preferencial {p.prosec.prosecRate}% · <strong>Ahorro: ${mxn(p.prosec.savingsMXN)} MXN</strong></p>
+                        : <p className="text-amber-800">💡 OPORTUNIDAD: con registro PROSEC ahorrarías hasta el {it.treaty.appliedRate - (p.prosec.prosecRate ?? 0)}% del IGI. Trámite ante SE 30-45 días.</p>}
+                    </div>
+                  )}
+                  {p.regla8va.eligible && (
+                    <div className={`rounded p-2 ${p.regla8va.applied ? 'bg-emerald-50 border border-emerald-200' : 'bg-sky-50 border border-sky-200'}`}>
+                      <p className="font-semibold">Regla 8va — parte para {p.regla8va.vehicleFraction}</p>
+                      <p>{p.regla8va.applied ? `✓ Aplicada · Tasa ${p.regla8va.preferentialRate}%` : `Disponible — tasa preferencial ${p.regla8va.preferentialRate}%`}</p>
+                    </div>
+                  )}
+                  {p.ieps.applies && (
+                    <div className="rounded p-2 bg-rose-50 border border-rose-200">
+                      <p className="font-semibold text-rose-900">🚨 IEPS aplicable — {p.ieps.category}</p>
+                      <p className="text-rose-800">{p.ieps.calculation || `${p.ieps.rate} ${p.ieps.rateType}`}</p>
+                      {p.ieps.amountMXN > 0 && <p className="text-rose-900 font-bold">Monto: ${mxn(p.ieps.amountMXN)} MXN</p>}
+                    </div>
+                  )}
+                  {p.isan.applies && (
+                    <div className={`rounded p-2 ${p.isan.exempt ? 'bg-emerald-50 border border-emerald-200' : 'bg-amber-50 border border-amber-200'}`}>
+                      <p className="font-semibold">🚗 ISAN — {p.isan.exempt ? 'Vehículo eléctrico EXENTO' : 'Vehículo nuevo'}</p>
+                      <p>{p.isan.calculation}</p>
+                      {!p.isan.exempt && p.isan.amountMXN > 0 && <p className="font-bold">Monto: ${mxn(p.isan.amountMXN)} MXN</p>}
+                    </div>
+                  )}
+                </div>
+              </div>
+            )
+          })}
+        </div>
+      )}
 
       {/* Costos de despacho */}
       <div className="rounded-xl border border-amber-100 bg-amber-50/30 p-4">

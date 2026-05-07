@@ -59,6 +59,8 @@ export async function seedDemoFixtures(prisma: PrismaClient | Prisma.Transaction
 interface LoadOptions {
   /** Si true, borra demo data existente antes de cargar. Default: true */
   replaceExisting?: boolean;
+  /** Sector industrial — overridea descripciones y fracciones con el catálogo del perfil. */
+  profileCode?: string;
 }
 
 export interface LoadResult {
@@ -388,23 +390,9 @@ export async function loadDemoIntoTenant(
     result.loadPlans++;
   }
 
-  // 11) Alerts
-  for (const a of dataset.alerts) {
-    await prisma.alert.create({
-      data: {
-        type: a.type,
-        channel: a.channel,
-        title: a.title,
-        content: a.content,
-        read: a.read,
-        fractionCodes: a.fractionCodes,
-        createdAt: new Date(a.createdAt),
-        isDemoData: true,
-        tenantId,
-      },
-    });
-    result.alerts++;
-  }
+  // 11) Alerts inteligentes — generadas a partir de los datos reales del tenant
+  //    (imports/credits/guarantees ya cargados arriba). Reemplaza el viejo
+  //    fixture de plantillas genéricas con cálculo de impacto específico.
 
   // 12) Products + BOM + Assemblies (BOM consume del inventario IMMEX FIFO)
   if (dataset.products?.length) {
@@ -466,6 +454,72 @@ export async function loadDemoIntoTenant(
     }
   }
 
+  // Si hay profileCode, sobreescribe descripciones/fracciones de imports y clasificaciones
+  // recientes con productos del catálogo del perfil, para que el demo sea temático.
+  if (opts.profileCode) {
+    try {
+      const profile = await prisma.demoProfile.findUnique({ where: { industryCode: opts.profileCode } });
+      if (profile) {
+        const catalog = (profile.productCatalog as { sku: string; description: string; fraction: string }[]) ?? [];
+        if (catalog.length > 0) {
+          // Update imports recientes (últimos 50)
+          const imports = await prisma.temporaryImport.findMany({
+            where: { tenantId, isDemoData: true },
+            orderBy: { createdAt: 'desc' },
+            take: 50,
+            select: { id: true },
+          });
+          for (let i = 0; i < imports.length; i++) {
+            const item = catalog[i % catalog.length]!;
+            await prisma.temporaryImport.update({
+              where: { id: imports[i]!.id },
+              data: { description: item.description, fractionCode: item.fraction },
+            });
+          }
+          // Update classifications recientes (top 30)
+          const classes = await prisma.classification.findMany({
+            where: { tenantId, isDemoData: true },
+            orderBy: { createdAt: 'desc' },
+            take: 30,
+            select: { id: true },
+          });
+          for (let i = 0; i < classes.length; i++) {
+            const item = catalog[i % catalog.length]!;
+            await prisma.classification.update({
+              where: { id: classes[i]!.id },
+              data: { inputDescription: item.description, fractionCode: item.fraction },
+            });
+          }
+          // Update quotes recientes (top 20)
+          const quotes = await prisma.quote.findMany({
+            where: { tenantId, isDemoData: true },
+            orderBy: { createdAt: 'desc' },
+            take: 20,
+            select: { id: true },
+          });
+          for (let i = 0; i < quotes.length; i++) {
+            const item = catalog[i % catalog.length]!;
+            await prisma.quote.update({
+              where: { id: quotes[i]!.id },
+              data: { fractionCode: item.fraction },
+            });
+          }
+        }
+      }
+    } catch (e) {
+      console.warn('[demo-loader] No se pudo aplicar profile override:', e instanceof Error ? e.message : e);
+    }
+  }
+
+  // Regenera alertas inteligentes ahora que imports/credits/guarantees están cargados
+  try {
+    const { regenerateAlerts } = await import('./alert-generator');
+    const alertResult = await regenerateAlerts(tenantId, true);
+    result.alerts = alertResult.inserted + alertResult.updated;
+  } catch (e) {
+    console.warn('[demo-loader] No se pudieron regenerar alertas inteligentes:', e instanceof Error ? e.message : e);
+  }
+
   return result;
 }
 
@@ -501,7 +555,16 @@ export async function clearDemoFromTenant(prisma: PrismaClient, tenantId: string
 
   // Assemblies y AssemblyConsumption primero (cascade en consumptions)
   const assemblies = await prisma.assembly.deleteMany({ where });
-  // Products: BOM y assemblies cascadean — borra después de assemblies
+  // ProductComponent: la relación `component` NO cascadea, hay que borrar manualmente
+  // las componentes que apuntan a productos demo del tenant.
+  const demoProductIds = (await prisma.product.findMany({
+    where, select: { id: true },
+  })).map(p => p.id);
+  if (demoProductIds.length > 0) {
+    await prisma.productComponent.deleteMany({
+      where: { OR: [{ productId: { in: demoProductIds } }, { componentId: { in: demoProductIds } }] },
+    });
+  }
   const products = await prisma.product.deleteMany({ where });
 
   const discharges = await prisma.discharge.deleteMany({ where });

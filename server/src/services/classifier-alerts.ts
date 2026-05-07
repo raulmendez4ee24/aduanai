@@ -11,6 +11,7 @@
 
 import crypto from 'crypto';
 import { lookupCompliance } from './compliance-lookup';
+import { lookupEstimatedPrice } from './price-validator';
 
 // Versiones publicadas — se actualiza con el monitor DOF/SAT.
 export const TIGIE_VERSION = '2026-01-01';
@@ -107,18 +108,40 @@ export async function buildClassifierAlerts(input: BuildAlertsInput): Promise<Cl
     }
   }
 
-  // 2) Alerta de subvaloración
-  if (
-    input.declaredValueUSD != null && input.declaredValueUSD > 0 &&
-    input.estimatedUnitPriceUSD != null && input.estimatedUnitPriceUSD > 0
-  ) {
-    const ratio = input.declaredValueUSD / input.estimatedUnitPriceUSD;
-    if (ratio < 0.5) {
+  // 2) Alerta de subvaloración contra precio estimado SAT (Art. 84-A LA)
+  if (input.declaredValueUSD != null && input.declaredValueUSD > 0 && cleanFraction.length === 8) {
+    const estimated = await lookupEstimatedPrice(cleanFraction, input.countryOfOrigin);
+    if (estimated) {
+      const ratio = input.declaredValueUSD / estimated.estimatedValue;
+      const deltaPct = Math.round((1 - ratio) * 100);
+      if (ratio < 0.80) {
+        alerts.push({
+          type: 'undervalue',
+          severity: 'critical',
+          title: '🚨 Posible subvaluación — Garantía requerida',
+          message: `Valor declarado ($${input.declaredValueUSD.toFixed(2)} ${estimated.unit}) está ${deltaPct}% debajo del precio estimado SAT ($${estimated.estimatedValue.toFixed(2)} ${estimated.unit}, ${estimated.decree ?? 'referencia interna'}). Requiere constituir garantía en cuenta aduanera (Art. 84-A Ley Aduanera). Riesgo de glosa por subvaluación.`,
+          metadata: { declared: input.declaredValueUSD, estimated: estimated.estimatedValue, ratio, source: estimated.source, decree: estimated.decree },
+        });
+      } else if (ratio < 0.95) {
+        alerts.push({
+          type: 'undervalue',
+          severity: 'warning',
+          title: 'Valor cercano al umbral de garantía',
+          message: `Valor declarado ($${input.declaredValueUSD.toFixed(2)} ${estimated.unit}) está ${deltaPct}% debajo del precio estimado SAT ($${estimated.estimatedValue.toFixed(2)} ${estimated.unit}). Documenta precio comercial con factura/contrato.`,
+          metadata: { declared: input.declaredValueUSD, estimated: estimated.estimatedValue, ratio, source: estimated.source },
+        });
+      }
+    } else if (
+      input.estimatedUnitPriceUSD != null && input.estimatedUnitPriceUSD > 0 &&
+      input.declaredValueUSD / input.estimatedUnitPriceUSD < 0.5
+    ) {
+      // Fallback al precio sugerido por el LLM si no hay registro SAT
+      const ratio = input.declaredValueUSD / input.estimatedUnitPriceUSD;
       alerts.push({
         type: 'undervalue',
         severity: 'warning',
-        title: 'Posible subvaloración',
-        message: `Valor unitario declarado ($${input.declaredValueUSD.toFixed(2)} USD) es ${Math.round((1 - ratio) * 100)}% menor al precio típico de mercado ($${input.estimatedUnitPriceUSD.toFixed(2)} USD). Documentación adicional puede ser requerida (Art. 78 LA).`,
+        title: 'Posible subvaluación (sin precio SAT registrado)',
+        message: `Valor declarado ($${input.declaredValueUSD.toFixed(2)} USD) es ${Math.round((1 - ratio) * 100)}% menor al precio típico de mercado ($${input.estimatedUnitPriceUSD.toFixed(2)} USD). Documentación adicional puede ser requerida (Art. 78 LA).`,
         metadata: { declared: input.declaredValueUSD, expected: input.estimatedUnitPriceUSD, ratio },
       });
     }

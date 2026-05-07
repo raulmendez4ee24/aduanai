@@ -6,6 +6,18 @@ import { SECTIONS, CHAPTERS, FRACTIONS } from './tigie-data';
 import { KNOWLEDGE_BASE } from './knowledge-base';
 import { seedDemoFixtures, loadDemoIntoTenant, clearDemoFromTenant, DEMO_TENANT_ID } from '../../src/services/demo-loader';
 import { seedRegulations } from './regulations';
+import { seedEstimatedPrices } from './estimated-prices';
+import { seedOriginRules } from './origin-rules';
+import { seedNOMExceptions } from './nom-exceptions';
+import { seedUseCaseKnowledge } from './knowledge-use-cases';
+import { seedVersionSnapshots } from './version-snapshots';
+import { seedLegalPrecedents } from './legal-precedents';
+import { seedProfessionalRegistry } from './professional-registry';
+import { seedDemoProfiles } from './demo-profiles';
+import { seedLegalDocuments } from './legal-documents';
+import { seedAntidumpingUPCI } from './antidumping-upci';
+import { seedRegimesPrograms } from './regimes-programs';
+import { seedSATPadrones } from './sat-padrones';
 import { seedSyntheticHistory } from '../../src/services/exchange-rate';
 
 dotenv.config({ path: path.join(__dirname, '..', '..', '.env') });
@@ -178,6 +190,66 @@ async function main() {
   console.log('⚖️  Sembrando cuotas compensatorias y regulaciones...');
   const regs = await seedRegulations(prisma);
   console.log(`   ✅ ${regs.antidumping} cuotas compensatorias, ${regs.regulations} regulaciones\n`);
+
+  // 4.b.4 Precios estimados SAT (Art. 84-A LA)
+  console.log('💵 Sembrando precios estimados SAT...');
+  const ep = await seedEstimatedPrices(prisma);
+  console.log(`   ✅ ${ep.inserted} precios estimados (DOF + referencia interna)\n`);
+
+  // 4.b.5 Reglas de origen TMEC / TLCUEM / CPTPP
+  console.log('🌎 Sembrando reglas de origen...');
+  const orig = await seedOriginRules(prisma);
+  console.log(`   ✅ ${orig.inserted} reglas de origen\n`);
+
+  // 4.b.6 Excepciones del Anexo 2.4.1 de NOMs
+  console.log('📋 Sembrando excepciones Anexo 2.4.1 NOMs...');
+  const noms = await seedNOMExceptions(prisma);
+  console.log(`   ✅ ${noms.inserted} excepciones de NOMs\n`);
+
+  // 4.b.7 Conocimiento — casos de reclasificación por uso destinado
+  console.log('🎯 Sembrando casos de reclasificación por uso (cap 73→87, 39→87, etc.)...');
+  const useCases = await seedUseCaseKnowledge(prisma);
+  console.log(`   ✅ ${useCases.inserted} casos nuevos (${useCases.skipped} ya existían)\n`);
+
+  // 4.b.8 Snapshots de versiones normativas (TIGIE, LIGIE, RGCE, TMEC)
+  console.log('📌 Sembrando snapshots de versiones normativas...');
+  const versions = await seedVersionSnapshots(prisma);
+  console.log(`   ✅ ${versions.inserted} versiones registradas\n`);
+
+  // 4.b.9 Precedentes legales — TFJA, SCJN, criterios SAT, OMA, UPCI
+  console.log('⚖️  Sembrando precedentes legales y criterios...');
+  const precedents = await seedLegalPrecedents(prisma);
+  console.log(`   ✅ ${precedents.inserted} precedentes nuevos (${precedents.skipped} ya existían)\n`);
+
+  // 4.b.10 Registro de profesionales — patentes CAAAREM placeholder
+  console.log('🪪  Sembrando registro de profesionales aduanales...');
+  const reg = await seedProfessionalRegistry(prisma);
+  console.log(`   ✅ ${reg.inserted + reg.updated} patentes en registro\n`);
+
+  // 4.b.11 Perfiles demo segmentados por sector
+  console.log('🎯 Sembrando perfiles demo por sector industrial...');
+  const profiles = await seedDemoProfiles(prisma);
+  console.log(`   ✅ ${profiles.inserted + profiles.updated} perfiles (${profiles.inserted} nuevos)\n`);
+
+  // 4.b.12 Documentos legales para RAG del Copilot
+  console.log('📚 Sembrando documentos legales (RAG Copilot)...');
+  const legal = await seedLegalDocuments(prisma);
+  console.log(`   ✅ ${legal.inserted} documentos indexados (${legal.skipped} sin cambios)\n`);
+
+  // 4.b.13 Resoluciones UPCI antidumping (reemplaza al seed básico de regulations)
+  console.log('🚨 Sembrando resoluciones UPCI antidumping...');
+  const ad = await seedAntidumpingUPCI(prisma);
+  console.log(`   ✅ ${ad.inserted} resoluciones UPCI vigentes\n`);
+
+  // 4.b.14 PROSEC / Regla 8va / IEPS / ISAN
+  console.log('🎯 Sembrando programas y regímenes (PROSEC, Regla 8va, IEPS, ISAN)...');
+  const regimes = await seedRegimesPrograms(prisma);
+  console.log(`   ✅ PROSEC: ${regimes.prosec} fracciones · Regla 8va: ${regimes.regla8va} mappings · IEPS: ${regimes.ieps} tasas · ISAN: ${regimes.isan} tarifas\n`);
+
+  // 4.b.15 Padrones SAT (Anexo 10 RGCE)
+  console.log('📜 Sembrando Padrones SAT (Anexo 10 RGCE)...');
+  const padrones = await seedSATPadrones(prisma);
+  console.log(`   ✅ ${padrones.created} creados, ${padrones.updated} actualizados (1 general + 17 sectoriales)\n`);
 
   // 4.b.3 Histórico sintético de TC (90 días) para selector "TC histórico"
   console.log('💱 Sembrando histórico de tipo de cambio (90 días)...');

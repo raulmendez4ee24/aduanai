@@ -164,7 +164,7 @@ export async function lookupCompliance(
     antidumping: ad
       ? {
           rate: ad.rate,
-          type: ad.type,
+          type: ad.resolutionType,
           decree: ad.decree,
           country: country,
           countryNormalized: ad.countryOfOrigin,

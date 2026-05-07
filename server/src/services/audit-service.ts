@@ -136,6 +136,18 @@ export async function recordAudit(input: RecordAuditInput): Promise<{ id: string
       },
     });
 
+    // Anclaje a OpenTimestamps para acciones críticas (fire-and-forget, no bloquea)
+    void (async () => {
+      try {
+        const { shouldAnchor, anchorContent } = await import('./timestamp');
+        if (shouldAnchor(input.action)) {
+          await anchorContent('audit_log', created.id, stableStringify(content));
+        }
+      } catch (err) {
+        console.error('[audit] anchor failed:', err instanceof Error ? err.message : err);
+      }
+    })();
+
     return { id: created.id, hash };
   } catch (err) {
     // Logging audit no debe tirar el request original

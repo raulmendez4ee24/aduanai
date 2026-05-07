@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { Shield, Search, ChevronDown, ChevronUp, CheckCircle2, AlertTriangle, FileDown, Printer, Link as LinkIcon } from 'lucide-react'
+import { Shield, Search, ChevronDown, ChevronUp, CheckCircle2, AlertTriangle, FileDown, Printer, Link as LinkIcon, Anchor } from 'lucide-react'
 import { api } from '../../lib/api'
 import type { AuditLogRecord, AuditReportData } from '../../lib/api'
 import { Disclaimer } from '../../components/Disclaimer'
@@ -19,6 +19,13 @@ const ACTION_PALETTE: Record<string, string> = {
   QUOTE_MULTI: 'bg-emerald-50 text-emerald-700',
   PEDIMENTO_VALIDATION: 'bg-amber-50 text-amber-700',
 }
+
+// Acciones que se anclan automáticamente al blockchain Bitcoin (debe coincidir con
+// CRITICAL_AUDIT_ACTIONS del backend en services/timestamp.ts)
+const ANCHORED_ACTIONS = new Set([
+  'CLASSIFICATION_CREATE', 'QUOTE_CREATE', 'PEDIMENTO_VALIDATE',
+  'CERTIFICATE_ISSUE', 'EXPORT_DICTAMEN', 'VERIFY_PROFESSIONAL', 'REJECT_PROFESSIONAL',
+])
 
 function fmtDate(iso: string): string {
   return new Date(iso).toLocaleString('es-MX', { dateStyle: 'short', timeStyle: 'medium' })
@@ -173,6 +180,20 @@ export function AdminAuditPage() {
             </tbody>
           </table>
 
+          {report.cryptoCertification && report.cryptoCertification.anchoredCount > 0 && (
+            <div className="mt-4 border-2 border-emerald-300 bg-emerald-50/50 rounded-xl p-4 print:break-inside-avoid">
+              <p className="text-[11px] font-bold text-emerald-800 mb-1 flex items-center gap-1.5">
+                <Anchor className="w-3.5 h-3.5"/> CERTIFICACIÓN DE INTEGRIDAD CRIPTOGRÁFICA
+              </p>
+              <p className="text-[10px] text-emerald-900 mb-2">
+                <strong>{report.cryptoCertification.confirmedCount}</strong> de <strong>{report.cryptoCertification.anchoredCount}</strong> acciones críticas
+                confirmadas en el blockchain de Bitcoin
+                {report.cryptoCertification.lastBitcoinBlock && <> · último bloque <strong>#{report.cryptoCertification.lastBitcoinBlock.toLocaleString('en-US')}</strong></>}
+                {report.cryptoCertification.lastConfirmedAt && <> ({fmtDate(report.cryptoCertification.lastConfirmedAt)})</>}
+              </p>
+              <p className="text-[9px] text-emerald-900/80 leading-relaxed">{report.cryptoCertification.legalNotice}</p>
+            </div>
+          )}
           <div className="mt-4">
             <Disclaimer hash={report.reportHash}/>
           </div>
@@ -198,7 +219,18 @@ export function AdminAuditPage() {
                   <tr key={l.id} className="border-b border-slate-100 hover:bg-slate-50/50">
                     <td className="px-3 py-2 font-mono text-slate-700">{fmtDate(l.createdAt)}</td>
                     <td className="px-3 py-2"><span className="text-[11px]">{l.user?.email ?? '—'}</span></td>
-                    <td className="px-3 py-2"><span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${ACTION_PALETTE[l.action] ?? 'bg-slate-100 text-slate-600'}`}>{l.action}</span></td>
+                    <td className="px-3 py-2">
+                      <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${ACTION_PALETTE[l.action] ?? 'bg-slate-100 text-slate-600'}`}>{l.action}</span>
+                      {ANCHORED_ACTIONS.has(l.action) && (
+                        <a
+                          href="/admin/timestamps"
+                          title="Anclado al blockchain Bitcoin via OpenTimestamps"
+                          className="ml-1 inline-flex items-center gap-0.5 text-[9px] font-bold px-1.5 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200 hover:bg-emerald-100"
+                        >
+                          <Anchor className="w-2.5 h-2.5"/>BTC
+                        </a>
+                      )}
+                    </td>
                     <td className="px-3 py-2 font-mono text-slate-700">{l.entity}{l.entityId && <span className="text-slate-400 ml-1">:{l.entityId.slice(-8)}</span>}</td>
                     <td className="px-3 py-2 font-mono text-[11px] text-slate-500">{l.method} {l.endpoint}</td>
                     <td className="px-3 py-2 font-mono text-[10px] text-slate-400">{l.hash.slice(0, 10)}…</td>

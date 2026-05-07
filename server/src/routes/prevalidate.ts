@@ -31,7 +31,31 @@ prevalidateRouter.post('/', authenticate, async (req: AuthRequest, res, next) =>
       invoiceNumber,
     });
 
-    res.json({ status: 'ok', data: result });
+    const { checkRequiredPadrones } = await import('../services/padron-checker');
+    const padronCheck = await checkRequiredPadrones(req.tenantId!, fractionCode, 'prevalidate');
+
+    // Inyectar PEDIMENTO_PADRON_MISSING como error bloqueante por cada padrón faltante
+    const padronErrors = padronCheck.blocking.map(b => ({
+      code: 'PEDIMENTO_PADRON_MISSING',
+      severity: 'error' as const,
+      field: 'importerRFC',
+      message: `Padrón ${b.type === 'general' ? 'General de Importadores' : `Sectorial ${b.sectorialCode} (${b.sectorialName})`} no vigente. Sin esta inscripción el SAT puede embargar la mercancía y aplicar multa 70-100% del valor.`,
+      rule: `${b.legalBasis} · Art. 144 LA · Art. 178 LA`,
+    }));
+
+    const blockingValid = padronErrors.length === 0 && result.valid;
+    const blockingScore = padronErrors.length > 0 ? Math.min(result.score, 30) : result.score;
+
+    res.json({
+      status: 'ok',
+      data: {
+        ...result,
+        valid: blockingValid,
+        score: blockingScore,
+        errors: [...result.errors, ...padronErrors],
+        padronCheck,
+      },
+    });
   } catch (err) {
     next(err);
   }
@@ -59,6 +83,19 @@ prevalidateRouter.post('/pedimento', authenticate, async (req: AuthRequest, res,
     const { pedimento, aiCheck } = req.body as { pedimento: PedimentoInput; aiCheck?: boolean };
     if (!pedimento) {
       return res.status(400).json({ status: 'error', message: 'pedimento requerido' });
+    }
+
+    // RFC del importador NO puede ser genérico ni inválido en operaciones formales
+    const { validateRFC } = await import('../lib/rfc-validator');
+    const rfcCheck = validateRFC(pedimento.rfcImportador, { allowGeneric: false });
+    if (!rfcCheck.valid) {
+      return res.status(400).json({
+        status: 'error',
+        message: rfcCheck.reason === 'GENERIC_RFC'
+          ? 'RFC genérico no permitido para operaciones formales. Use el RFC del importador real.'
+          : `RFC del importador inválido: ${rfcCheck.message}`,
+        details: { field: 'rfcImportador', reason: rfcCheck.reason },
+      });
     }
 
     const validation = await validatePedimento(pedimento, { aiCheck: !!aiCheck });

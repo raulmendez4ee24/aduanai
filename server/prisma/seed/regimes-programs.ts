@@ -1,0 +1,393 @@
+/**
+ * Seed: PROSEC, Regla 8va, IEPS, ISAN.
+ *
+ * Datos basados en publicaciones DOF y Decreto PROSEC vigentes. Las cifras
+ * pueden cambiar en cada ejercicio fiscal — verifica DOF antes de operar real.
+ */
+
+import { PrismaClient } from '@prisma/client';
+
+// ════════════════════════════════════════════════════════════════════
+// PROSEC — 24 sectores
+// ════════════════════════════════════════════════════════════════════
+
+interface PROSECSeed {
+  fractionCode: string;
+  matchType?: 'exact' | 'prefix';
+  sector: string;
+  prosecRate?: number;
+  conditions?: Record<string, unknown>;
+  effectiveDate?: string;
+  notes?: string;
+}
+
+export const PROSEC_ELIGIBILITY: PROSECSeed[] = [
+  // Sector ELÉCTRICO
+  { fractionCode: '85', matchType: 'prefix', sector: 'electric', notes: 'Productos eléctricos del cap 85' },
+  { fractionCode: '8501', matchType: 'prefix', sector: 'electric' },
+  { fractionCode: '8504', matchType: 'prefix', sector: 'electric' },
+  { fractionCode: '8536', matchType: 'prefix', sector: 'electric' },
+  { fractionCode: '8544', matchType: 'prefix', sector: 'electric' },
+
+  // Sector ELECTRÓNICO
+  { fractionCode: '8471', matchType: 'prefix', sector: 'electronics', notes: 'Computadoras' },
+  { fractionCode: '8473', matchType: 'prefix', sector: 'electronics', notes: 'Partes computadoras' },
+  { fractionCode: '8517', matchType: 'prefix', sector: 'electronics', notes: 'Telefonía y comunicaciones' },
+  { fractionCode: '8528', matchType: 'prefix', sector: 'electronics', notes: 'Monitores/TV' },
+  { fractionCode: '8541', matchType: 'prefix', sector: 'electronics', notes: 'Semiconductores' },
+  { fractionCode: '8542', matchType: 'prefix', sector: 'electronics', notes: 'Circuitos integrados' },
+
+  // Sector MUEBLE
+  { fractionCode: '94', matchType: 'prefix', sector: 'furniture', notes: 'Muebles cap 94' },
+
+  // Sector JUGUETES
+  { fractionCode: '95', matchType: 'prefix', sector: 'toys', notes: 'Juguetes cap 95' },
+
+  // Sector CALZADO
+  { fractionCode: '64', matchType: 'prefix', sector: 'footwear', notes: 'Calzado cap 64' },
+
+  // Sector MINERO/METALÚRGICO
+  { fractionCode: '71', matchType: 'prefix', sector: 'mining_metallurgy' },
+  { fractionCode: '74', matchType: 'prefix', sector: 'mining_metallurgy' },
+  { fractionCode: '75', matchType: 'prefix', sector: 'mining_metallurgy' },
+  { fractionCode: '76', matchType: 'prefix', sector: 'mining_metallurgy', notes: 'Aluminio' },
+  { fractionCode: '78', matchType: 'prefix', sector: 'mining_metallurgy' },
+  { fractionCode: '79', matchType: 'prefix', sector: 'mining_metallurgy' },
+
+  // Sector BIENES DE CAPITAL
+  { fractionCode: '8413', matchType: 'prefix', sector: 'capital_goods', notes: 'Bombas' },
+  { fractionCode: '8414', matchType: 'prefix', sector: 'capital_goods' },
+  { fractionCode: '8418', matchType: 'prefix', sector: 'capital_goods' },
+  { fractionCode: '8419', matchType: 'prefix', sector: 'capital_goods' },
+  { fractionCode: '8421', matchType: 'prefix', sector: 'capital_goods' },
+
+  // Sector FOTOGRÁFICO
+  { fractionCode: '9006', matchType: 'prefix', sector: 'photographic' },
+  { fractionCode: '9007', matchType: 'prefix', sector: 'photographic' },
+
+  // Sector MAQUINARIA AGRÍCOLA
+  { fractionCode: '8432', matchType: 'prefix', sector: 'agricultural_machinery' },
+  { fractionCode: '8433', matchType: 'prefix', sector: 'agricultural_machinery' },
+  { fractionCode: '8436', matchType: 'prefix', sector: 'agricultural_machinery' },
+
+  // Sector QUÍMICO
+  { fractionCode: '28', matchType: 'prefix', sector: 'chemical', notes: 'Químicos inorgánicos' },
+  { fractionCode: '29', matchType: 'prefix', sector: 'chemical', notes: 'Químicos orgánicos' },
+  { fractionCode: '32', matchType: 'prefix', sector: 'chemical' },
+  { fractionCode: '34', matchType: 'prefix', sector: 'chemical' },
+  { fractionCode: '38', matchType: 'prefix', sector: 'chemical' },
+
+  // Sector MANUFACTURAS DE CAUCHO Y PLÁSTICO
+  { fractionCode: '39', matchType: 'prefix', sector: 'rubber_plastic', notes: 'Plásticos' },
+  { fractionCode: '40', matchType: 'prefix', sector: 'rubber_plastic', notes: 'Caucho' },
+
+  // Sector SIDERÚRGICO
+  { fractionCode: '72', matchType: 'prefix', sector: 'steel', notes: 'Acero cap 72' },
+  { fractionCode: '73', matchType: 'prefix', sector: 'steel', notes: 'Manufacturas de acero cap 73' },
+
+  // Sector PRODUCTOS FARMOQUÍMICOS
+  { fractionCode: '2933', matchType: 'prefix', sector: 'pharma_chemicals' },
+  { fractionCode: '2934', matchType: 'prefix', sector: 'pharma_chemicals' },
+  { fractionCode: '2941', matchType: 'prefix', sector: 'pharma_chemicals' },
+  { fractionCode: '30', matchType: 'prefix', sector: 'pharma_chemicals', notes: 'Productos farmacéuticos' },
+
+  // Sector ALIMENTOS
+  { fractionCode: '15', matchType: 'prefix', sector: 'food' },
+  { fractionCode: '16', matchType: 'prefix', sector: 'food' },
+  { fractionCode: '17', matchType: 'prefix', sector: 'food' },
+  { fractionCode: '19', matchType: 'prefix', sector: 'food' },
+  { fractionCode: '20', matchType: 'prefix', sector: 'food' },
+  { fractionCode: '21', matchType: 'prefix', sector: 'food' },
+
+  // Sector FERTILIZANTES
+  { fractionCode: '31', matchType: 'prefix', sector: 'fertilizers' },
+
+  // Sector CERÁMICA
+  { fractionCode: '69', matchType: 'prefix', sector: 'ceramic' },
+
+  // Sector VIDRIO
+  { fractionCode: '70', matchType: 'prefix', sector: 'glass' },
+
+  // Sector HULE (separado de plásticos)
+  { fractionCode: '4001', matchType: 'prefix', sector: 'rubber' },
+  { fractionCode: '4002', matchType: 'prefix', sector: 'rubber' },
+
+  // Sector TABACO
+  { fractionCode: '24', matchType: 'prefix', sector: 'tobacco' },
+
+  // Sector PAPEL Y CARTÓN
+  { fractionCode: '47', matchType: 'prefix', sector: 'paper' },
+  { fractionCode: '48', matchType: 'prefix', sector: 'paper' },
+
+  // Sector MADERA
+  { fractionCode: '44', matchType: 'prefix', sector: 'wood' },
+
+  // Sector CUERO Y PIELES
+  { fractionCode: '41', matchType: 'prefix', sector: 'leather' },
+  { fractionCode: '42', matchType: 'prefix', sector: 'leather' },
+  { fractionCode: '43', matchType: 'prefix', sector: 'leather' },
+
+  // Sector AUTOMOTRIZ Y AUTOPARTES
+  { fractionCode: '8407', matchType: 'prefix', sector: 'automotive' },
+  { fractionCode: '8408', matchType: 'prefix', sector: 'automotive' },
+  { fractionCode: '8483', matchType: 'prefix', sector: 'automotive' },
+  { fractionCode: '8703', matchType: 'prefix', sector: 'automotive' },
+  { fractionCode: '8704', matchType: 'prefix', sector: 'automotive' },
+  { fractionCode: '8708', matchType: 'prefix', sector: 'automotive', notes: 'Autopartes' },
+
+  // Sector TEXTIL Y CONFECCIÓN
+  { fractionCode: '50', matchType: 'prefix', sector: 'textile_apparel' },
+  { fractionCode: '51', matchType: 'prefix', sector: 'textile_apparel' },
+  { fractionCode: '52', matchType: 'prefix', sector: 'textile_apparel' },
+  { fractionCode: '53', matchType: 'prefix', sector: 'textile_apparel' },
+  { fractionCode: '54', matchType: 'prefix', sector: 'textile_apparel' },
+  { fractionCode: '55', matchType: 'prefix', sector: 'textile_apparel' },
+  { fractionCode: '60', matchType: 'prefix', sector: 'textile_apparel' },
+  { fractionCode: '61', matchType: 'prefix', sector: 'textile_apparel' },
+  { fractionCode: '62', matchType: 'prefix', sector: 'textile_apparel' },
+];
+
+// ════════════════════════════════════════════════════════════════════
+// REGLA 8VA — Componentes para producto terminado
+// ════════════════════════════════════════════════════════════════════
+
+interface Regla8vaSeed {
+  vehicleFraction: string;
+  vehicleDesc: string;
+  partsAllowed: { fraction: string; desc: string; maxValue?: number }[];
+  preferentialRate: number;
+  conditions?: string;
+}
+
+export const REGLA_8VA_MAPPINGS: Regla8vaSeed[] = [
+  {
+    vehicleFraction: '8703',
+    vehicleDesc: 'Vehículos automóviles para transporte de personas',
+    partsAllowed: [
+      { fraction: '8407', desc: 'Motores de émbolo (gasolina)' },
+      { fraction: '8408', desc: 'Motores diésel' },
+      { fraction: '8708', desc: 'Partes y accesorios de vehículos' },
+      { fraction: '7318', desc: 'Tornillería para ensamble' },
+      { fraction: '8536', desc: 'Conectores eléctricos' },
+      { fraction: '8544', desc: 'Cables y arneses' },
+      { fraction: '4011', desc: 'Llantas neumáticas' },
+    ],
+    preferentialRate: 0,
+    conditions: 'Empresa con programa IMMEX o registro PROSEC sector automotriz. Documentar uso final en ensamble vehicular.',
+  },
+  {
+    vehicleFraction: '8704',
+    vehicleDesc: 'Vehículos para transporte de mercancías',
+    partsAllowed: [
+      { fraction: '8407', desc: 'Motores' },
+      { fraction: '8408', desc: 'Motores diésel' },
+      { fraction: '8708', desc: 'Partes' },
+    ],
+    preferentialRate: 0,
+    conditions: 'Mismas que 8703.',
+  },
+  {
+    vehicleFraction: '8517',
+    vehicleDesc: 'Smartphones y equipos de telecomunicación',
+    partsAllowed: [
+      { fraction: '8542', desc: 'Circuitos integrados' },
+      { fraction: '8541', desc: 'Semiconductores' },
+      { fraction: '8528', desc: 'Pantallas' },
+      { fraction: '8504', desc: 'Cargadores y fuentes' },
+    ],
+    preferentialRate: 0,
+    conditions: 'IMMEX electrónico o PROSEC electrónica.',
+  },
+  {
+    vehicleFraction: '8471',
+    vehicleDesc: 'Máquinas automáticas para procesamiento de datos (computadoras)',
+    partsAllowed: [
+      { fraction: '8473', desc: 'Partes y accesorios computadoras' },
+      { fraction: '8542', desc: 'Procesadores' },
+      { fraction: '8534', desc: 'Circuitos impresos' },
+    ],
+    preferentialRate: 0,
+  },
+  {
+    vehicleFraction: '8528',
+    vehicleDesc: 'Monitores y receptores de televisión',
+    partsAllowed: [
+      { fraction: '8529', desc: 'Partes para receptores TV' },
+      { fraction: '8542', desc: 'Circuitos integrados' },
+    ],
+    preferentialRate: 0,
+  },
+  {
+    vehicleFraction: '8804',
+    vehicleDesc: 'Paracaídas',
+    partsAllowed: [
+      { fraction: '5407', desc: 'Tejidos sintéticos' },
+      { fraction: '5607', desc: 'Cordeles y cuerdas' },
+    ],
+    preferentialRate: 0,
+    conditions: 'Industria aeroespacial / militar.',
+  },
+];
+
+// ════════════════════════════════════════════════════════════════════
+// IEPS — tasas vigentes
+// ════════════════════════════════════════════════════════════════════
+
+interface IEPSSeed {
+  fractionCode: string;
+  matchType?: 'exact' | 'prefix';
+  productCategory: string;
+  rate: number;
+  rateType: 'ad_valorem' | 'specific';
+  unit?: string;
+  description?: string;
+  effectiveDate?: string;
+  notes?: string;
+}
+
+export const IEPS_RATES: IEPSSeed[] = [
+  // Combustibles
+  { fractionCode: '27101201', matchType: 'exact', productCategory: 'gasoline', rate: 5.4917, rateType: 'specific', unit: 'MXN/L', description: 'Gasolina magna' },
+  { fractionCode: '27101202', matchType: 'exact', productCategory: 'gasoline', rate: 4.6371, rateType: 'specific', unit: 'MXN/L', description: 'Gasolina premium' },
+  { fractionCode: '27101905', matchType: 'exact', productCategory: 'diesel', rate: 6.0354, rateType: 'specific', unit: 'MXN/L', description: 'Diésel' },
+
+  // Bebidas alcohólicas
+  { fractionCode: '2203', matchType: 'prefix', productCategory: 'alcohol', rate: 26.5, rateType: 'ad_valorem', unit: '%', description: 'Cerveza' },
+  { fractionCode: '2204', matchType: 'prefix', productCategory: 'alcohol', rate: 26.5, rateType: 'ad_valorem', unit: '%', description: 'Vino — graduación <14°' },
+  { fractionCode: '2208', matchType: 'prefix', productCategory: 'alcohol', rate: 53, rateType: 'ad_valorem', unit: '%', description: 'Bebidas destiladas >20° (whisky, tequila, vodka)' },
+  { fractionCode: '22082001', matchType: 'exact', productCategory: 'alcohol', rate: 53, rateType: 'ad_valorem', unit: '%', description: 'Tequila' },
+  { fractionCode: '22082002', matchType: 'exact', productCategory: 'alcohol', rate: 53, rateType: 'ad_valorem', unit: '%', description: 'Mezcal' },
+  { fractionCode: '22083004', matchType: 'exact', productCategory: 'alcohol', rate: 53, rateType: 'ad_valorem', unit: '%', description: 'Whisky' },
+
+  // Tabacos labrados
+  { fractionCode: '2402', matchType: 'prefix', productCategory: 'tobacco', rate: 160, rateType: 'ad_valorem', unit: '%', description: 'Cigarros, puros, cigarrillos' },
+  { fractionCode: '2403', matchType: 'prefix', productCategory: 'tobacco', rate: 160, rateType: 'ad_valorem', unit: '%', description: 'Otros tabacos labrados' },
+
+  // Bebidas saborizadas con azúcares añadidos
+  { fractionCode: '22021000', matchType: 'exact', productCategory: 'soda', rate: 1.6451, rateType: 'specific', unit: 'MXN/L', description: 'Refrescos / aguas saborizadas' },
+  { fractionCode: '22029999', matchType: 'exact', productCategory: 'soda', rate: 1.6451, rateType: 'specific', unit: 'MXN/L', description: 'Bebidas no alcohólicas' },
+
+  // Alimentos alta densidad calórica
+  { fractionCode: '17049099', matchType: 'exact', productCategory: 'high_calorie', rate: 8, rateType: 'ad_valorem', unit: '%', description: 'Confites/dulces ≥275 kcal/100g' },
+  { fractionCode: '18063299', matchType: 'exact', productCategory: 'high_calorie', rate: 8, rateType: 'ad_valorem', unit: '%', description: 'Chocolate >70% cacao' },
+  { fractionCode: '19053101', matchType: 'exact', productCategory: 'high_calorie', rate: 8, rateType: 'ad_valorem', unit: '%', description: 'Galletas con alta densidad calórica' },
+  { fractionCode: '21069099', matchType: 'exact', productCategory: 'high_calorie', rate: 8, rateType: 'ad_valorem', unit: '%', description: 'Preparaciones alimenticias densas' },
+
+  // Plaguicidas (variable según toxicidad)
+  { fractionCode: '3808', matchType: 'prefix', productCategory: 'pesticide', rate: 9, rateType: 'ad_valorem', unit: '%', description: 'Plaguicidas categoría toxicidad alta' },
+];
+
+// ════════════════════════════════════════════════════════════════════
+// ISAN — tarifa progresiva 2026 (representativa)
+// ════════════════════════════════════════════════════════════════════
+
+interface ISANSeed {
+  fractionCode: string;
+  vehicleType: string;
+  priceRangeMin: number;
+  priceRangeMax: number | null;
+  fixedAmount: number;
+  marginalRate: number;
+  exempt?: boolean;
+  fiscalYear?: number;
+  notes?: string;
+}
+
+export const ISAN_RATES: ISANSeed[] = [
+  // Tarifa progresiva ISAN 2026 (cifras representativas — verificar DOF antes de operar)
+  { fractionCode: '8703', vehicleType: 'passenger', priceRangeMin: 0, priceRangeMax: 258944.32, fixedAmount: 0, marginalRate: 2 },
+  { fractionCode: '8703', vehicleType: 'passenger', priceRangeMin: 258944.33, priceRangeMax: 310733.16, fixedAmount: 5178.89, marginalRate: 6.5 },
+  { fractionCode: '8703', vehicleType: 'passenger', priceRangeMin: 310733.17, priceRangeMax: 362521.99, fixedAmount: 8545.18, marginalRate: 7 },
+  { fractionCode: '8703', vehicleType: 'passenger', priceRangeMin: 362522.00, priceRangeMax: 466099.66, fixedAmount: 12170.36, marginalRate: 8 },
+  { fractionCode: '8703', vehicleType: 'passenger', priceRangeMin: 466099.67, priceRangeMax: null, fixedAmount: 20456.66, marginalRate: 17 },
+
+  // Vehículos eléctricos / híbridos — exentos
+  { fractionCode: '870380', vehicleType: 'electric', priceRangeMin: 0, priceRangeMax: null, fixedAmount: 0, marginalRate: 0, exempt: true, notes: 'Vehículos eléctricos puros' },
+  { fractionCode: '870340', vehicleType: 'electric', priceRangeMin: 0, priceRangeMax: null, fixedAmount: 0, marginalRate: 0, exempt: true, notes: 'Vehículos híbridos enchufables' },
+
+  // Vehículos comerciales — exentos en ciertos casos
+  { fractionCode: '8704', vehicleType: 'commercial', priceRangeMin: 0, priceRangeMax: null, fixedAmount: 0, marginalRate: 5, notes: 'Tarifa simplificada para comercial — verificar Art. 8 LISAN' },
+];
+
+// ════════════════════════════════════════════════════════════════════
+// Seed runner
+// ════════════════════════════════════════════════════════════════════
+
+export async function seedRegimesPrograms(prisma: PrismaClient): Promise<{ prosec: number; regla8va: number; ieps: number; isan: number }> {
+  // PROSEC
+  await prisma.pROSECEligibility.deleteMany({});
+  let prosec = 0;
+  for (const p of PROSEC_ELIGIBILITY) {
+    await prisma.pROSECEligibility.create({
+      data: {
+        fractionCode: p.fractionCode,
+        matchType: p.matchType ?? 'exact',
+        sector: p.sector,
+        prosecRate: p.prosecRate ?? 0,
+        conditions: p.conditions as never,
+        effectiveDate: new Date(p.effectiveDate ?? '2026-01-01'),
+        notes: p.notes,
+      },
+    });
+    prosec++;
+  }
+
+  // Regla 8va
+  await prisma.regla8vaMapping.deleteMany({});
+  let regla8va = 0;
+  for (const r of REGLA_8VA_MAPPINGS) {
+    await prisma.regla8vaMapping.create({
+      data: {
+        vehicleFraction: r.vehicleFraction,
+        vehicleDesc: r.vehicleDesc,
+        partsAllowed: r.partsAllowed as never,
+        preferentialRate: r.preferentialRate,
+        conditions: r.conditions,
+        effectiveDate: new Date('2026-01-01'),
+      },
+    });
+    regla8va++;
+  }
+
+  // IEPS
+  await prisma.iEPSRate.deleteMany({});
+  let ieps = 0;
+  for (const i of IEPS_RATES) {
+    await prisma.iEPSRate.create({
+      data: {
+        fractionCode: i.fractionCode,
+        matchType: i.matchType ?? 'exact',
+        productCategory: i.productCategory,
+        rate: i.rate,
+        rateType: i.rateType,
+        unit: i.unit,
+        description: i.description,
+        effectiveDate: new Date(i.effectiveDate ?? '2026-01-01'),
+        notes: i.notes,
+      },
+    });
+    ieps++;
+  }
+
+  // ISAN
+  await prisma.iSANRate.deleteMany({});
+  let isan = 0;
+  for (const r of ISAN_RATES) {
+    await prisma.iSANRate.create({
+      data: {
+        fractionCode: r.fractionCode,
+        vehicleType: r.vehicleType,
+        priceRangeMin: r.priceRangeMin,
+        priceRangeMax: r.priceRangeMax,
+        fixedAmount: r.fixedAmount,
+        marginalRate: r.marginalRate,
+        exempt: r.exempt ?? false,
+        fiscalYear: r.fiscalYear ?? 2026,
+        notes: r.notes,
+      },
+    });
+    isan++;
+  }
+
+  return { prosec, regla8va, ieps, isan };
+}

@@ -102,6 +102,27 @@ auditAdminRouter.post('/report', async (req: AuthRequest, res: Response, next: N
     const chainCheck = await verifyChain(req.tenantId!);
     const reportHash = computeReportHash(req.tenantId!, start, end, logs.map(l => l.hash));
 
+    // Certificación criptográfica: anclajes a Bitcoin via OpenTimestamps
+    const auditIds = logs.map(l => l.id);
+    const anchors = auditIds.length > 0
+      ? await prisma.timestampProof.findMany({
+          where: { resourceType: 'audit_log', resourceId: { in: auditIds } },
+          select: { resourceId: true, status: true, bitcoinBlock: true, confirmedAt: true, contentHash: true },
+        })
+      : [];
+    const confirmedAnchors = anchors.filter(a => a.status === 'confirmed' || a.status === 'verified');
+    const lastConfirmed = confirmedAnchors.reduce<typeof confirmedAnchors[number] | null>(
+      (acc, cur) => (!acc || (cur.confirmedAt && acc.confirmedAt && cur.confirmedAt > acc.confirmedAt) ? cur : acc),
+      null,
+    );
+    const cryptoCertification = {
+      anchoredCount: anchors.length,
+      confirmedCount: confirmedAnchors.length,
+      lastBitcoinBlock: lastConfirmed?.bitcoinBlock ?? null,
+      lastConfirmedAt: lastConfirmed?.confirmedAt?.toISOString() ?? null,
+      legalNotice: 'CERTIFICACIÓN DE INTEGRIDAD CRIPTOGRÁFICA: Las acciones críticas de este reporte han sido ancladas al blockchain de Bitcoin mediante OpenTimestamps, generando un sello de tiempo no-repudiable conforme a los principios de la NOM-151-SCFI sobre conservación de mensajes de datos. Cualquier verificador independiente puede validar la integridad descargando el proof .ots desde /verify/timestamp/<hash> y ejecutando `ots verify` con el cliente oficial.',
+    };
+
     // Registrar la generación del reporte (auto-auditable)
     await recordAudit({
       tenantId: req.tenantId!,
@@ -124,6 +145,7 @@ auditAdminRouter.post('/report', async (req: AuthRequest, res: Response, next: N
         logCount: logs.length,
         logs,
         reportHash,
+        cryptoCertification,
         generatedAt: new Date().toISOString(),
         disclaimer: 'Este documento es generado por ADUANAI con inteligencia artificial. La responsabilidad legal de la operación corresponde al importador y su agente aduanal conforme al Art. 54 de la Ley Aduanera.',
       },
