@@ -12,6 +12,7 @@ import type { LucideIcon } from 'lucide-react'
 import { api } from '../lib/api'
 import type { FractionSearchResult } from '../lib/api'
 import { PilotBanner } from './PilotBanner'
+import { ToastHost } from './Toast'
 
 const GLASS = 'bg-white/70 backdrop-blur-xl border border-white/50 shadow-[0_8px_30px_rgb(0,0,0,0.04)]'
 
@@ -21,49 +22,128 @@ function DropdownItem({ icon: Icon, label, onClick, href, danger }: { icon: Luci
   return <button onClick={onClick} className={cls}><Icon className="w-3.5 h-3.5"/>{label}</button>
 }
 
-const NAV_ITEMS = [
-  { label: 'Vista General', path: '/app', icon: LayoutDashboard },
-  { label: 'Clasificador IA', path: '/clasificador', icon: Boxes },
-  { label: 'Cotizador', path: '/cotizador', icon: Calculator },
-  { label: 'Copilot', path: '/copilot', icon: Bot },
-  { label: 'Historial', path: '/historial', icon: Clock },
-  { label: 'Expedientes', path: '/expediente', icon: FolderOpen },
-  { label: 'Expedientes IA', path: '/expediente-ia', icon: Sparkles },
-  { label: 'Pre-validador', path: '/prevalidador', icon: ShieldCheck },
-  { label: 'Alertas', path: '/alertas', icon: Megaphone },
-  { label: 'Analytics', path: '/analytics', icon: LineChart },
-  { label: 'Inventario IMMEX', path: '/inventario', icon: Warehouse },
-  { label: 'Fiscal Guardian', path: '/fiscal', icon: Package },
-  { label: 'Auto MVE', path: '/mve', icon: FileText },
-  { label: 'Origen TMEC', path: '/origen-tmec', icon: Globe },
-  { label: 'Precedentes', path: '/precedentes', icon: Scale },
-  { label: 'Logística', path: '/logistics', icon: Truck },
-  { label: 'Actualizaciones', path: '/updates', icon: RefreshCw },
-  { label: 'Mis padrones SAT', path: '/settings/padrones', icon: Shield },
-  { label: 'Simulador de Glosa', path: '/simulador-glosa', icon: Target },
+function NavSection({
+  group, collapsed, isCollapsedSection, onToggle, onItemClick, linkClass, isAdminGroup,
+}: {
+  group: { section: string; items: { label: string; path: string; icon: LucideIcon }[] }
+  collapsed: boolean
+  isCollapsedSection: boolean
+  onToggle: () => void
+  onItemClick: () => void
+  linkClass: (a: boolean) => string
+  isAdminGroup?: boolean
+}) {
+  return (
+    <div className={isAdminGroup ? 'pt-3' : 'pt-2 first:pt-0'}>
+      {!collapsed ? (
+        <button
+          onClick={onToggle}
+          className="w-full flex items-center gap-1.5 px-3 mb-1 text-[10px] font-medium uppercase tracking-[0.12em] text-slate-400 hover:text-slate-600"
+        >
+          <span className="truncate">{group.section}</span>
+          <ChevronLeft className={`w-3 h-3 ml-auto transition-transform ${!isCollapsedSection ? '-rotate-90' : 'rotate-180'}`}/>
+        </button>
+      ) : (
+        <div className="h-px bg-slate-200/60 mx-2 my-1.5"/>
+      )}
+      {(!isCollapsedSection || collapsed) && group.items.map(item => (
+        <NavLink
+          key={item.path}
+          to={item.path}
+          end={item.path === '/admin' || item.path === '/app'}
+          onClick={onItemClick}
+          className={({ isActive }) => linkClass(isActive)}
+          title={collapsed ? item.label : undefined}
+        >
+          <item.icon className="w-4 h-4 shrink-0"/>
+          {!collapsed && <span className="truncate">{item.label}</span>}
+        </NavLink>
+      ))}
+    </div>
+  )
+}
+
+interface NavItem { label: string; path: string; icon: LucideIcon }
+interface NavGroup { section: string; items: NavItem[] }
+
+const USER_NAV_GROUPS: NavGroup[] = [
+  {
+    section: 'Operación diaria',
+    items: [
+      { label: 'Dashboard', path: '/app', icon: LayoutDashboard },
+      { label: 'Clasificador IA', path: '/clasificador', icon: Boxes },
+      { label: 'Cotizador', path: '/cotizador', icon: Calculator },
+      { label: 'Pre-validador', path: '/prevalidador', icon: ShieldCheck },
+      { label: 'Auto MVE', path: '/mve', icon: FileText },
+      { label: 'Origen TMEC', path: '/origen-tmec', icon: Globe },
+      { label: 'Simulador de Glosa', path: '/simulador-glosa', icon: Target },
+      { label: 'Expedientes IA', path: '/expediente-ia', icon: Sparkles },
+      { label: 'Copilot', path: '/copilot', icon: Bot },
+    ],
+  },
+  {
+    section: 'Gestión',
+    items: [
+      { label: 'Inventario IMMEX', path: '/inventario', icon: Warehouse },
+      { label: 'Logística', path: '/logistics', icon: Truck },
+      { label: 'Fiscal Guardian', path: '/fiscal', icon: Package },
+      { label: 'Alertas', path: '/alertas', icon: Megaphone },
+      { label: 'Analytics', path: '/analytics', icon: LineChart },
+      { label: 'Historial', path: '/historial', icon: Clock },
+      { label: 'Expedientes', path: '/expediente', icon: FolderOpen },
+    ],
+  },
+  {
+    section: 'Consulta normativa',
+    items: [
+      { label: 'Precedentes', path: '/precedentes', icon: Scale },
+      { label: 'Actualizaciones', path: '/updates', icon: RefreshCw },
+    ],
+  },
+  {
+    section: 'Mi empresa',
+    items: [
+      { label: 'Mis padrones SAT', path: '/settings/padrones', icon: Shield },
+    ],
+  },
 ]
 
-const ADMIN_NAV_ITEMS = [
-  { label: 'Panel Admin', path: '/admin', icon: TrendingUp },
-  { label: 'Leads', path: '/admin/leads', icon: Users },
-  { label: 'Conocimiento', path: '/admin/knowledge', icon: BookOpen },
-  { label: 'Pilotos', path: '/admin/pilotos', icon: Rocket },
-  { label: 'Empresas', path: '/admin/empresas', icon: Building2 },
-  { label: 'Renovaciones', path: '/admin/renovaciones', icon: RotateCcw },
-  { label: 'Métricas', path: '/admin/metricas', icon: LineChart },
-  { label: 'Datos Demo', path: '/admin/demo', icon: Database },
-  { label: 'Audit Trail', path: '/admin/audit', icon: Shield },
-  { label: 'Cumplimiento normativo', path: '/admin/compliance', icon: ShieldCheck },
-  { label: 'Monitoreo', path: '/admin/monitoring', icon: LineChart },
-  { label: 'Seguridad', path: '/admin/security', icon: Shield },
-  { label: 'Verificaciones', path: '/admin/verifications', icon: BadgeCheck },
-  { label: 'Backups', path: '/admin/backups', icon: Database },
-  { label: 'Demos por sector', path: '/admin/demo-profiles', icon: Briefcase },
-  { label: 'Docs legales (RAG)', path: '/admin/legal-docs', icon: BookOpen },
-  { label: 'Cuotas compensatorias', path: '/admin/antidumping', icon: AlertTriangle },
-  { label: 'Anclajes Bitcoin (OTS)', path: '/admin/timestamps', icon: Anchor },
-  { label: 'Padrones SAT', path: '/admin/padrones', icon: BadgeCheck },
-  { label: 'Glosa Simulator', path: '/admin/glosa-simulations', icon: Target },
+const ADMIN_NAV_GROUPS: NavGroup[] = [
+  {
+    section: 'Administración',
+    items: [
+      { label: 'Panel Admin', path: '/admin', icon: TrendingUp },
+      { label: 'Empresas', path: '/admin/empresas', icon: Building2 },
+      { label: 'Leads', path: '/admin/leads', icon: Users },
+      { label: 'Pilotos', path: '/admin/pilotos', icon: Rocket },
+      { label: 'Renovaciones', path: '/admin/renovaciones', icon: RotateCcw },
+      { label: 'Métricas', path: '/admin/metricas', icon: LineChart },
+      { label: 'Datos Demo', path: '/admin/demo', icon: Database },
+      { label: 'Demos por sector', path: '/admin/demo-profiles', icon: Briefcase },
+      { label: 'Verificaciones', path: '/admin/verifications', icon: BadgeCheck },
+      { label: 'Glosa Simulator', path: '/admin/glosa-simulations', icon: Target },
+    ],
+  },
+  {
+    section: 'Sistema',
+    items: [
+      { label: 'Audit Trail', path: '/admin/audit', icon: Shield },
+      { label: 'Cumplimiento normativo', path: '/admin/compliance', icon: ShieldCheck },
+      { label: 'Monitoreo', path: '/admin/monitoring', icon: LineChart },
+      { label: 'Seguridad', path: '/admin/security', icon: Shield },
+      { label: 'Backups', path: '/admin/backups', icon: Database },
+    ],
+  },
+  {
+    section: 'Catálogos maestros',
+    items: [
+      { label: 'Conocimiento', path: '/admin/knowledge', icon: BookOpen },
+      { label: 'Catálogo Docs Legales', path: '/admin/legal-docs', icon: BookOpen },
+      { label: 'Catálogo Cuotas Compensatorias', path: '/admin/antidumping', icon: AlertTriangle },
+      { label: 'Catálogo Padrones SAT', path: '/admin/padrones', icon: BadgeCheck },
+      { label: 'Anclajes Bitcoin (OTS)', path: '/admin/timestamps', icon: Anchor },
+    ],
+  },
 ]
 
 interface Props {
@@ -93,7 +173,20 @@ export function AppLayout({ children, onLogout, userRole, userName, userEmail, t
   const [searchResults, setSearchResults] = useState<FractionSearchResult[]>([])
   const [searching, setSearching] = useState(false)
   const [unreadCount, setUnreadCount] = useState(0)
-  const [adminExpanded, setAdminExpanded] = useState(true)
+  const [collapsedSections, setCollapsedSections] = useState<Set<string>>(() => {
+    try {
+      const raw = localStorage.getItem('sidebar:collapsedSections:v1')
+      return raw ? new Set(JSON.parse(raw) as string[]) : new Set()
+    } catch { return new Set() }
+  })
+  function toggleSection(name: string) {
+    setCollapsedSections(prev => {
+      const next = new Set(prev)
+      if (next.has(name)) next.delete(name); else next.add(name)
+      try { localStorage.setItem('sidebar:collapsedSections:v1', JSON.stringify(Array.from(next))) } catch {}
+      return next
+    })
+  }
   const [notifOpen, setNotifOpen] = useState(false)
   const [settingsMenuOpen, setSettingsMenuOpen] = useState(false)
   const [userMenuOpen, setUserMenuOpen] = useState(false)
@@ -250,50 +343,30 @@ export function AppLayout({ children, onLogout, userRole, userName, userEmail, t
 
           {/* Nav */}
           <nav className="flex-1 overflow-y-auto px-3 pb-3 space-y-0.5">
-            {NAV_ITEMS.map(item => (
-              <NavLink
-                key={item.path}
-                to={item.path}
-                onClick={() => setMobileOpen(false)}
-                className={({ isActive }) => linkClass(isActive)}
-                title={collapsed ? item.label : undefined}
-              >
-                <item.icon className="w-4 h-4 shrink-0" />
-                {!collapsed && <span className="truncate">{item.label}</span>}
-              </NavLink>
+            {USER_NAV_GROUPS.map(group => (
+              <NavSection
+                key={group.section}
+                group={group}
+                collapsed={collapsed}
+                isCollapsedSection={collapsedSections.has(group.section)}
+                onToggle={() => toggleSection(group.section)}
+                onItemClick={() => setMobileOpen(false)}
+                linkClass={linkClass}
+              />
             ))}
 
-            {isAdmin && (
-              <>
-                <div className="pt-3 pb-1">
-                  {!collapsed ? (
-                    <button
-                      onClick={() => setAdminExpanded(!adminExpanded)}
-                      className="w-full flex items-center gap-2 px-3 text-[10px] uppercase tracking-widest text-slate-400 hover:text-slate-600"
-                    >
-                      <Shield className="w-3 h-3" />
-                      <span>Administración</span>
-                      <ChevronLeft className={`w-3 h-3 ml-auto transition-transform ${adminExpanded ? '-rotate-90' : 'rotate-180'}`} />
-                    </button>
-                  ) : (
-                    <div className="h-px bg-slate-200/60 mx-2" />
-                  )}
-                </div>
-                {(adminExpanded || collapsed) && ADMIN_NAV_ITEMS.map(item => (
-                  <NavLink
-                    key={item.path}
-                    to={item.path}
-                    end={item.path === '/admin'}
-                    onClick={() => setMobileOpen(false)}
-                    className={({ isActive }) => linkClass(isActive)}
-                    title={collapsed ? item.label : undefined}
-                  >
-                    <item.icon className="w-4 h-4 shrink-0" />
-                    {!collapsed && <span className="truncate">{item.label}</span>}
-                  </NavLink>
-                ))}
-              </>
-            )}
+            {isAdmin && ADMIN_NAV_GROUPS.map(group => (
+              <NavSection
+                key={group.section}
+                group={group}
+                collapsed={collapsed}
+                isCollapsedSection={collapsedSections.has(group.section)}
+                onToggle={() => toggleSection(group.section)}
+                onItemClick={() => setMobileOpen(false)}
+                linkClass={linkClass}
+                isAdminGroup
+              />
+            ))}
           </nav>
 
           {/* Footer */}
@@ -436,6 +509,7 @@ export function AppLayout({ children, onLogout, userRole, userName, userEmail, t
 
         {/* Pilot banner (only shown to PILOT tenants) */}
         <PilotBanner />
+        <ToastHost />
 
         {/* Content */}
         <div className="flex-1 overflow-y-auto p-3">

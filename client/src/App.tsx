@@ -74,6 +74,21 @@ function RequireAuth({ token, user, children }: { token: string | null; user: Us
   return <>{children}</>
 }
 
+function RequireSuperAdmin({ user, children }: { user: User | null; children: React.ReactNode }) {
+  if (user && user.role !== 'SUPERADMIN') {
+    // Flash message via toast — leído por ToastHost al montarse en /app
+    try {
+      sessionStorage.setItem('aduanai:flash', JSON.stringify({
+        message: 'No tienes permisos para acceder a esa página',
+        severity: 'error',
+        ts: Date.now(),
+      }))
+    } catch { /* silent */ }
+    return <Navigate to="/app" replace />
+  }
+  return <>{children}</>
+}
+
 function RequireVerifyOnly({ token, children }: { token: string | null; children: React.ReactNode }) {
   if (!token) return <Navigate to="/login" replace />
   return <>{children}</>
@@ -261,7 +276,9 @@ export function App() {
       } />
       <Route path="/admin/compliance" element={
         <RequireAuth token={token} user={user}>
-          <AppLayout onLogout={handleLogout} userRole={user?.role} userName={user?.name} userEmail={user?.email} tenantName={user?.tenant?.name}><AdminCompliancePage /></AppLayout>
+          <RequireSuperAdmin user={user}>
+            <AppLayout onLogout={handleLogout} userRole={user?.role} userName={user?.name} userEmail={user?.email} tenantName={user?.tenant?.name}><AdminCompliancePage /></AppLayout>
+          </RequireSuperAdmin>
         </RequireAuth>
       } />
       <Route path="/precedentes" element={
@@ -271,17 +288,23 @@ export function App() {
       } />
       <Route path="/admin/monitoring" element={
         <RequireAuth token={token} user={user}>
-          <AppLayout onLogout={handleLogout} userRole={user?.role} userName={user?.name} userEmail={user?.email} tenantName={user?.tenant?.name}><AdminMonitoringPage /></AppLayout>
+          <RequireSuperAdmin user={user}>
+            <AppLayout onLogout={handleLogout} userRole={user?.role} userName={user?.name} userEmail={user?.email} tenantName={user?.tenant?.name}><AdminMonitoringPage /></AppLayout>
+          </RequireSuperAdmin>
         </RequireAuth>
       } />
       <Route path="/admin/security" element={
         <RequireAuth token={token} user={user}>
-          <AppLayout onLogout={handleLogout} userRole={user?.role} userName={user?.name} userEmail={user?.email} tenantName={user?.tenant?.name}><AdminSecurityPage /></AppLayout>
+          <RequireSuperAdmin user={user}>
+            <AppLayout onLogout={handleLogout} userRole={user?.role} userName={user?.name} userEmail={user?.email} tenantName={user?.tenant?.name}><AdminSecurityPage /></AppLayout>
+          </RequireSuperAdmin>
         </RequireAuth>
       } />
       <Route path="/admin/verifications" element={
         <RequireAuth token={token} user={user}>
-          <AppLayout onLogout={handleLogout} userRole={user?.role} userName={user?.name} userEmail={user?.email} tenantName={user?.tenant?.name}><AdminVerificationsPage /></AppLayout>
+          <RequireSuperAdmin user={user}>
+            <AppLayout onLogout={handleLogout} userRole={user?.role} userName={user?.name} userEmail={user?.email} tenantName={user?.tenant?.name}><AdminVerificationsPage /></AppLayout>
+          </RequireSuperAdmin>
         </RequireAuth>
       } />
       <Route path="/verificacion" element={
@@ -291,32 +314,44 @@ export function App() {
       } />
       <Route path="/admin/backups" element={
         <RequireAuth token={token} user={user}>
-          <AppLayout onLogout={handleLogout} userRole={user?.role} userName={user?.name} userEmail={user?.email} tenantName={user?.tenant?.name}><AdminBackupsPage /></AppLayout>
+          <RequireSuperAdmin user={user}>
+            <AppLayout onLogout={handleLogout} userRole={user?.role} userName={user?.name} userEmail={user?.email} tenantName={user?.tenant?.name}><AdminBackupsPage /></AppLayout>
+          </RequireSuperAdmin>
         </RequireAuth>
       } />
       <Route path="/admin/demo-profiles" element={
         <RequireAuth token={token} user={user}>
-          <AppLayout onLogout={handleLogout} userRole={user?.role} userName={user?.name} userEmail={user?.email} tenantName={user?.tenant?.name}><AdminDemoProfilesPage /></AppLayout>
+          <RequireSuperAdmin user={user}>
+            <AppLayout onLogout={handleLogout} userRole={user?.role} userName={user?.name} userEmail={user?.email} tenantName={user?.tenant?.name}><AdminDemoProfilesPage /></AppLayout>
+          </RequireSuperAdmin>
         </RequireAuth>
       } />
       <Route path="/admin/legal-docs" element={
         <RequireAuth token={token} user={user}>
-          <AppLayout onLogout={handleLogout} userRole={user?.role} userName={user?.name} userEmail={user?.email} tenantName={user?.tenant?.name}><AdminLegalDocsPage /></AppLayout>
+          <RequireSuperAdmin user={user}>
+            <AppLayout onLogout={handleLogout} userRole={user?.role} userName={user?.name} userEmail={user?.email} tenantName={user?.tenant?.name}><AdminLegalDocsPage /></AppLayout>
+          </RequireSuperAdmin>
         </RequireAuth>
       } />
       <Route path="/admin/antidumping" element={
         <RequireAuth token={token} user={user}>
-          <AppLayout onLogout={handleLogout} userRole={user?.role} userName={user?.name} userEmail={user?.email} tenantName={user?.tenant?.name}><AdminAntidumpingPage /></AppLayout>
+          <RequireSuperAdmin user={user}>
+            <AppLayout onLogout={handleLogout} userRole={user?.role} userName={user?.name} userEmail={user?.email} tenantName={user?.tenant?.name}><AdminAntidumpingPage /></AppLayout>
+          </RequireSuperAdmin>
         </RequireAuth>
       } />
       <Route path="/admin/timestamps" element={
         <RequireAuth token={token} user={user}>
-          <AppLayout onLogout={handleLogout} userRole={user?.role} userName={user?.name} userEmail={user?.email} tenantName={user?.tenant?.name}><AdminTimestampsPage /></AppLayout>
+          <RequireSuperAdmin user={user}>
+            <AppLayout onLogout={handleLogout} userRole={user?.role} userName={user?.name} userEmail={user?.email} tenantName={user?.tenant?.name}><AdminTimestampsPage /></AppLayout>
+          </RequireSuperAdmin>
         </RequireAuth>
       } />
       <Route path="/admin/padrones" element={
         <RequireAuth token={token} user={user}>
-          <AppLayout onLogout={handleLogout} userRole={user?.role} userName={user?.name} userEmail={user?.email} tenantName={user?.tenant?.name}><AdminPadronesPage /></AppLayout>
+          <RequireSuperAdmin user={user}>
+            <AppLayout onLogout={handleLogout} userRole={user?.role} userName={user?.name} userEmail={user?.email} tenantName={user?.tenant?.name}><AdminPadronesPage /></AppLayout>
+          </RequireSuperAdmin>
         </RequireAuth>
       } />
       <Route path="/settings/padrones" element={
@@ -331,54 +366,74 @@ export function App() {
       } />
       <Route path="/admin/glosa-simulations" element={
         <RequireAuth token={token} user={user}>
-          <AppLayout onLogout={handleLogout} userRole={user?.role} userName={user?.name} userEmail={user?.email} tenantName={user?.tenant?.name}><AdminGlosaPage /></AppLayout>
+          <RequireSuperAdmin user={user}>
+            <AppLayout onLogout={handleLogout} userRole={user?.role} userName={user?.name} userEmail={user?.email} tenantName={user?.tenant?.name}><AdminGlosaPage /></AppLayout>
+          </RequireSuperAdmin>
         </RequireAuth>
       } />
       <Route path="/status" element={<StatusPage />} />
 
       <Route path="/admin" element={
         <RequireAuth token={token} user={user}>
-          <AppLayout onLogout={handleLogout} userRole={user?.role} userName={user?.name} userEmail={user?.email} tenantName={user?.tenant?.name}><AdminDashboardPage /></AppLayout>
+          <RequireSuperAdmin user={user}>
+            <AppLayout onLogout={handleLogout} userRole={user?.role} userName={user?.name} userEmail={user?.email} tenantName={user?.tenant?.name}><AdminDashboardPage /></AppLayout>
+          </RequireSuperAdmin>
         </RequireAuth>
       } />
       <Route path="/admin/leads" element={
         <RequireAuth token={token} user={user}>
-          <AppLayout onLogout={handleLogout} userRole={user?.role} userName={user?.name} userEmail={user?.email} tenantName={user?.tenant?.name}><AdminLeadsPage /></AppLayout>
+          <RequireSuperAdmin user={user}>
+            <AppLayout onLogout={handleLogout} userRole={user?.role} userName={user?.name} userEmail={user?.email} tenantName={user?.tenant?.name}><AdminLeadsPage /></AppLayout>
+          </RequireSuperAdmin>
         </RequireAuth>
       } />
       <Route path="/admin/knowledge" element={
         <RequireAuth token={token} user={user}>
-          <AppLayout onLogout={handleLogout} userRole={user?.role} userName={user?.name} userEmail={user?.email} tenantName={user?.tenant?.name}><AdminKnowledgePage /></AppLayout>
+          <RequireSuperAdmin user={user}>
+            <AppLayout onLogout={handleLogout} userRole={user?.role} userName={user?.name} userEmail={user?.email} tenantName={user?.tenant?.name}><AdminKnowledgePage /></AppLayout>
+          </RequireSuperAdmin>
         </RequireAuth>
       } />
       <Route path="/admin/pilotos" element={
         <RequireAuth token={token} user={user}>
-          <AppLayout onLogout={handleLogout} userRole={user?.role} userName={user?.name} userEmail={user?.email} tenantName={user?.tenant?.name}><AdminPilotosPage /></AppLayout>
+          <RequireSuperAdmin user={user}>
+            <AppLayout onLogout={handleLogout} userRole={user?.role} userName={user?.name} userEmail={user?.email} tenantName={user?.tenant?.name}><AdminPilotosPage /></AppLayout>
+          </RequireSuperAdmin>
         </RequireAuth>
       } />
       <Route path="/admin/empresas" element={
         <RequireAuth token={token} user={user}>
-          <AppLayout onLogout={handleLogout} userRole={user?.role} userName={user?.name} userEmail={user?.email} tenantName={user?.tenant?.name}><AdminEmpresasPage /></AppLayout>
+          <RequireSuperAdmin user={user}>
+            <AppLayout onLogout={handleLogout} userRole={user?.role} userName={user?.name} userEmail={user?.email} tenantName={user?.tenant?.name}><AdminEmpresasPage /></AppLayout>
+          </RequireSuperAdmin>
         </RequireAuth>
       } />
       <Route path="/admin/renovaciones" element={
         <RequireAuth token={token} user={user}>
-          <AppLayout onLogout={handleLogout} userRole={user?.role} userName={user?.name} userEmail={user?.email} tenantName={user?.tenant?.name}><AdminRenovacionesPage /></AppLayout>
+          <RequireSuperAdmin user={user}>
+            <AppLayout onLogout={handleLogout} userRole={user?.role} userName={user?.name} userEmail={user?.email} tenantName={user?.tenant?.name}><AdminRenovacionesPage /></AppLayout>
+          </RequireSuperAdmin>
         </RequireAuth>
       } />
       <Route path="/admin/metricas" element={
         <RequireAuth token={token} user={user}>
-          <AppLayout onLogout={handleLogout} userRole={user?.role} userName={user?.name} userEmail={user?.email} tenantName={user?.tenant?.name}><AdminMetricasPage /></AppLayout>
+          <RequireSuperAdmin user={user}>
+            <AppLayout onLogout={handleLogout} userRole={user?.role} userName={user?.name} userEmail={user?.email} tenantName={user?.tenant?.name}><AdminMetricasPage /></AppLayout>
+          </RequireSuperAdmin>
         </RequireAuth>
       } />
       <Route path="/admin/demo" element={
         <RequireAuth token={token} user={user}>
-          <AppLayout onLogout={handleLogout} userRole={user?.role} userName={user?.name} userEmail={user?.email} tenantName={user?.tenant?.name}><AdminDemoPage /></AppLayout>
+          <RequireSuperAdmin user={user}>
+            <AppLayout onLogout={handleLogout} userRole={user?.role} userName={user?.name} userEmail={user?.email} tenantName={user?.tenant?.name}><AdminDemoPage /></AppLayout>
+          </RequireSuperAdmin>
         </RequireAuth>
       } />
       <Route path="/admin/audit" element={
         <RequireAuth token={token} user={user}>
-          <AppLayout onLogout={handleLogout} userRole={user?.role} userName={user?.name} userEmail={user?.email} tenantName={user?.tenant?.name}><AdminAuditPage /></AppLayout>
+          <RequireSuperAdmin user={user}>
+            <AppLayout onLogout={handleLogout} userRole={user?.role} userName={user?.name} userEmail={user?.email} tenantName={user?.tenant?.name}><AdminAuditPage /></AppLayout>
+          </RequireSuperAdmin>
         </RequireAuth>
       } />
 
