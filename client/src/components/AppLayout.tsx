@@ -193,10 +193,14 @@ export function AppLayout({ children, onLogout, userRole, userName, userEmail, t
       return next
     })
   }
-  const [notifOpen, setNotifOpen] = useState(false)
-  const [settingsMenuOpen, setSettingsMenuOpen] = useState(false)
-  const [userMenuOpen, setUserMenuOpen] = useState(false)
+  const [openDropdown, setOpenDropdown] = useState<'notifications' | 'settings' | 'user' | null>(null)
   const [recentAlerts, setRecentAlerts] = useState<RecentAlert[]>([])
+  const notifOpen = openDropdown === 'notifications'
+  const settingsMenuOpen = openDropdown === 'settings'
+  const userMenuOpen = openDropdown === 'user'
+  const closeDropdown = () => setOpenDropdown(null)
+  const toggleDropdown = (which: 'notifications' | 'settings' | 'user') =>
+    setOpenDropdown(prev => prev === which ? null : which)
   // El nav admin del sistema solo es para SUPERADMIN.
   // ADMIN está reservado para "admin de empresa cliente" (sin acceso a paneles del sistema).
   const isAdmin = userRole === 'SUPERADMIN'
@@ -260,17 +264,19 @@ export function AppLayout({ children, onLogout, userRole, userName, userEmail, t
     return () => document.removeEventListener('mousedown', handler)
   }, [])
 
-  // Close dropdowns on outside click / Escape
+  // Close header dropdowns on outside click — uno solo abierto a la vez
   useEffect(() => {
+    if (!openDropdown) return
     function handler(e: MouseEvent) {
       const t = e.target as Node
-      if (notifRef.current && !notifRef.current.contains(t)) setNotifOpen(false)
-      if (settingsMenuRef.current && !settingsMenuRef.current.contains(t)) setSettingsMenuOpen(false)
-      if (userMenuRef.current && !userMenuRef.current.contains(t)) setUserMenuOpen(false)
+      const inNotif = notifRef.current?.contains(t)
+      const inSettings = settingsMenuRef.current?.contains(t)
+      const inUser = userMenuRef.current?.contains(t)
+      if (!inNotif && !inSettings && !inUser) setOpenDropdown(null)
     }
     document.addEventListener('mousedown', handler)
     return () => document.removeEventListener('mousedown', handler)
-  }, [])
+  }, [openDropdown])
 
   // Keyboard shortcut: Cmd+K + Escape para todos los dropdowns
   useEffect(() => {
@@ -281,9 +287,7 @@ export function AppLayout({ children, onLogout, userRole, userName, userEmail, t
       }
       if (e.key === 'Escape') {
         setSearchOpen(false)
-        setNotifOpen(false)
-        setSettingsMenuOpen(false)
-        setUserMenuOpen(false)
+        setOpenDropdown(null)
       }
     }
     document.addEventListener('keydown', handler)
@@ -407,10 +411,10 @@ export function AppLayout({ children, onLogout, userRole, userName, userEmail, t
               {/* Campana */}
               <div className="relative" ref={notifRef}>
                 <button
-                  onClick={() => { setNotifOpen(prev => !prev); setSettingsMenuOpen(false); setUserMenuOpen(false) }}
+                  onClick={() => { toggleDropdown('notifications') }}
                   aria-label={`Notificaciones${unreadCount > 0 ? ` (${unreadCount} sin leer)` : ''}`}
                   aria-expanded={notifOpen}
-                  className="w-9 h-9 rounded-full bg-white/50 flex items-center justify-center hover:bg-white/70 transition-colors relative"
+                  className={`w-9 h-9 rounded-full flex items-center justify-center hover:bg-white/80 transition-colors relative ${notifOpen ? 'bg-white/90 ring-1 ring-slate-300' : 'bg-white/50'}`}
                 >
                   <Bell className="w-4 h-4 text-slate-500" />
                   {unreadCount > 0 && (
@@ -423,7 +427,7 @@ export function AppLayout({ children, onLogout, userRole, userName, userEmail, t
                   <div className={`${GLASS} absolute right-0 mt-2 w-[340px] rounded-2xl shadow-xl overflow-hidden z-[60] animate-in fade-in slide-in-from-top-1 duration-150`}>
                     <div className="px-4 py-3 border-b border-slate-200/50 flex items-center justify-between">
                       <p className="text-[12px] font-semibold text-slate-900">Notificaciones</p>
-                      <button onClick={() => { setNotifOpen(false); navigate('/alertas') }} className="text-[11px] text-emerald-700 hover:underline">Ver todas →</button>
+                      <button onClick={() => { closeDropdown(); navigate('/alertas') }} className="text-[11px] text-emerald-700 hover:underline">Ver todas →</button>
                     </div>
                     <div className="max-h-[360px] overflow-y-auto">
                       {recentAlerts.length === 0 ? (
@@ -431,7 +435,7 @@ export function AppLayout({ children, onLogout, userRole, userName, userEmail, t
                       ) : recentAlerts.map(a => (
                         <button
                           key={a.id}
-                          onClick={() => { setNotifOpen(false); navigate(`/alertas?id=${a.id}`) }}
+                          onClick={() => { closeDropdown(); navigate(`/alertas?id=${a.id}`) }}
                           className="w-full text-left px-4 py-3 hover:bg-white/60 border-b border-slate-100/60 last:border-b-0"
                         >
                           <div className="flex items-start gap-2">
@@ -458,25 +462,25 @@ export function AppLayout({ children, onLogout, userRole, userName, userEmail, t
               {/* Engrane */}
               <div className="relative hidden sm:block" ref={settingsMenuRef}>
                 <button
-                  onClick={() => { setSettingsMenuOpen(prev => !prev); setNotifOpen(false); setUserMenuOpen(false) }}
+                  onClick={() => { toggleDropdown('settings') }}
                   aria-label="Configuración"
                   aria-expanded={settingsMenuOpen}
-                  className="w-9 h-9 rounded-full bg-white/50 flex items-center justify-center hover:bg-white/70 transition-colors"
+                  className={`w-9 h-9 rounded-full flex items-center justify-center hover:bg-white/80 transition-colors ${settingsMenuOpen ? 'bg-white/90 ring-1 ring-slate-300' : 'bg-white/50'}`}
                 >
                   <Settings className="w-4 h-4 text-slate-500" />
                 </button>
                 {settingsMenuOpen && (
                   <div className={`${GLASS} absolute right-0 mt-2 w-[240px] rounded-2xl shadow-xl overflow-hidden z-[60] animate-in fade-in slide-in-from-top-1 duration-150`}>
-                    <DropdownItem icon={UserCircle2} label="Mi perfil" onClick={() => { setSettingsMenuOpen(false); navigate('/settings/profile') }}/>
-                    <DropdownItem icon={Building2} label="Empresa" onClick={() => { setSettingsMenuOpen(false); navigate('/settings/empresa') }}/>
-                    <DropdownItem icon={Shield} label="Mis padrones SAT" onClick={() => { setSettingsMenuOpen(false); navigate('/settings/padrones') }}/>
-                    <DropdownItem icon={BadgeCheck} label="Verificación profesional" onClick={() => { setSettingsMenuOpen(false); navigate('/verificacion') }}/>
-                    <DropdownItem icon={Bell} label="Notificaciones" onClick={() => { setSettingsMenuOpen(false); navigate('/settings/notifications') }}/>
+                    <DropdownItem icon={UserCircle2} label="Mi perfil" onClick={() => { closeDropdown(); navigate('/settings/profile') }}/>
+                    <DropdownItem icon={Building2} label="Empresa" onClick={() => { closeDropdown(); navigate('/settings/empresa') }}/>
+                    <DropdownItem icon={Shield} label="Mis padrones SAT" onClick={() => { closeDropdown(); navigate('/settings/padrones') }}/>
+                    <DropdownItem icon={BadgeCheck} label="Verificación profesional" onClick={() => { closeDropdown(); navigate('/verificacion') }}/>
+                    <DropdownItem icon={Bell} label="Notificaciones" onClick={() => { closeDropdown(); navigate('/settings/notifications') }}/>
                     <div className="border-t border-slate-200/50 my-1"/>
-                    <DropdownItem icon={HelpCircle} label="Centro de ayuda" onClick={() => { setSettingsMenuOpen(false); navigate('/help') }}/>
+                    <DropdownItem icon={HelpCircle} label="Centro de ayuda" onClick={() => { closeDropdown(); navigate('/help') }}/>
                     <DropdownItem icon={MessageCircle} label="Soporte" href="mailto:soporte@aduanai.mx"/>
                     <div className="border-t border-slate-200/50 my-1"/>
-                    <DropdownItem icon={LogOut} label="Cerrar sesión" onClick={() => { setSettingsMenuOpen(false); onLogout() }} danger/>
+                    <DropdownItem icon={LogOut} label="Cerrar sesión" onClick={() => { closeDropdown(); onLogout() }} danger/>
                   </div>
                 )}
               </div>
@@ -484,10 +488,10 @@ export function AppLayout({ children, onLogout, userRole, userName, userEmail, t
               {/* Avatar usuario */}
               <div className="relative ml-1" ref={userMenuRef}>
                 <button
-                  onClick={() => { setUserMenuOpen(prev => !prev); setNotifOpen(false); setSettingsMenuOpen(false) }}
+                  onClick={() => { toggleDropdown('user') }}
                   aria-label="Menú de usuario"
                   aria-expanded={userMenuOpen}
-                  className="w-9 h-9 rounded-full bg-gradient-to-br from-emerald-400 to-emerald-600 flex items-center justify-center hover:ring-2 hover:ring-emerald-300/50 transition-all"
+                  className={`w-9 h-9 rounded-full bg-gradient-to-br from-emerald-400 to-emerald-600 flex items-center justify-center transition-all ${userMenuOpen ? 'ring-2 ring-emerald-300' : 'hover:ring-2 hover:ring-emerald-300/50'}`}
                 >
                   <span className="text-white text-[11px] font-bold">{initial}</span>
                 </button>
@@ -501,11 +505,11 @@ export function AppLayout({ children, onLogout, userRole, userName, userEmail, t
                         {tenantName && <span className="text-[10px] text-slate-500 truncate">· {tenantName}</span>}
                       </div>
                     </div>
-                    <DropdownItem icon={UserCircle2} label="Mi perfil" onClick={() => { setUserMenuOpen(false); navigate('/settings/profile') }}/>
-                    <DropdownItem icon={Building2} label="Empresa" onClick={() => { setUserMenuOpen(false); navigate('/settings/empresa') }}/>
-                    <DropdownItem icon={Shield} label="Mis padrones SAT" onClick={() => { setUserMenuOpen(false); navigate('/settings/padrones') }}/>
+                    <DropdownItem icon={UserCircle2} label="Mi perfil" onClick={() => { closeDropdown(); navigate('/settings/profile') }}/>
+                    <DropdownItem icon={Building2} label="Empresa" onClick={() => { closeDropdown(); navigate('/settings/empresa') }}/>
+                    <DropdownItem icon={Shield} label="Mis padrones SAT" onClick={() => { closeDropdown(); navigate('/settings/padrones') }}/>
                     <div className="border-t border-slate-200/50 my-1"/>
-                    <DropdownItem icon={LogOut} label="Cerrar sesión" onClick={() => { setUserMenuOpen(false); onLogout() }} danger/>
+                    <DropdownItem icon={LogOut} label="Cerrar sesión" onClick={() => { closeDropdown(); onLogout() }} danger/>
                   </div>
                 )}
               </div>
