@@ -18,6 +18,62 @@ import { generateEmbedding } from '../lib/embeddings';
 export const legalDocsRouter = Router();
 const adminOnly = [authenticate, requireRole('SUPERADMIN')];
 
+// ── Biblioteca Legal (vista usuario, solo lectura) ──
+export const legalLibraryRouter = Router();
+legalLibraryRouter.use(authenticate);
+
+legalLibraryRouter.get('/', async (req: AuthRequest, res: Response, next: NextFunction) => {
+  try {
+    const type = req.query.type ? String(req.query.type) : undefined;
+    const source = req.query.source ? String(req.query.source) : undefined;
+    const q = req.query.q ? String(req.query.q) : undefined;
+    const where: Record<string, unknown> = { isActive: true };
+    if (type) where.type = type;
+    if (source) where.source = source;
+    if (q) where.OR = [
+      { title: { contains: q, mode: 'insensitive' } },
+      { reference: { contains: q, mode: 'insensitive' } },
+      { content: { contains: q, mode: 'insensitive' } },
+      { keywords: { has: q.toLowerCase() } },
+    ];
+    const items = await prisma.legalDocument.findMany({
+      where,
+      orderBy: [{ source: 'asc' }, { reference: 'asc' }],
+      take: 200,
+      select: {
+        id: true, type: true, source: true, title: true, reference: true,
+        officialUrl: true, publishedDate: true, effectiveDate: true,
+        topics: true, keywords: true,
+      },
+    });
+    res.json({ status: 'ok', data: items });
+  } catch (err) { next(err); }
+});
+
+legalLibraryRouter.get('/:id', async (req: AuthRequest, res: Response, next: NextFunction) => {
+  try {
+    const doc = await prisma.legalDocument.findFirst({
+      where: { id: String(req.params.id ?? ''), isActive: true },
+      select: {
+        id: true, type: true, source: true, title: true, reference: true,
+        content: true, officialUrl: true, publishedDate: true, effectiveDate: true,
+        topics: true, keywords: true,
+      },
+    });
+    if (!doc) return res.status(404).json({ status: 'error', message: 'Documento no encontrado' });
+    res.json({ status: 'ok', data: doc });
+  } catch (err) { next(err); }
+});
+
+legalLibraryRouter.get('/sources/list', async (_req: AuthRequest, res: Response, next: NextFunction) => {
+  try {
+    const sources = await prisma.legalDocument.groupBy({
+      by: ['source'], where: { isActive: true }, _count: { _all: true },
+    });
+    res.json({ status: 'ok', data: sources.map(s => ({ source: s.source, count: s._count._all })) });
+  } catch (err) { next(err); }
+});
+
 legalDocsRouter.get('/', adminOnly, async (req: AuthRequest, res: Response, next: NextFunction) => {
   try {
     const type = req.query.type ? String(req.query.type) : undefined;

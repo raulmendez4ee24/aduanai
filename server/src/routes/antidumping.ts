@@ -41,6 +41,42 @@ antidumpingRouter.get('/exposure', authenticate, async (req: AuthRequest, res: R
   } catch (err) { next(err); }
 });
 
+// Listado de cuotas vigentes — filtrable; por defecto retorna las relevantes para
+// las fracciones que el tenant ha operado en los últimos 12 meses.
+antidumpingRouter.get('/active', authenticate, async (req: AuthRequest, res: Response, next: NextFunction) => {
+  try {
+    const country = req.query.country ? String(req.query.country).toUpperCase() : undefined;
+    const fraction = req.query.fraction ? String(req.query.fraction) : undefined;
+    const onlyMine = req.query.scope !== 'all';
+
+    const where: Record<string, unknown> = { status: 'vigente' };
+    if (country) where.countryOfOrigin = country;
+    if (fraction) where.fractionCode = { contains: fraction };
+
+    if (onlyMine && !fraction) {
+      // Deducir fracciones del tenant — clasificaciones + cotizaciones últimos 12 meses
+      const since = new Date(Date.now() - 365 * 86400000);
+      const [cls, qts] = await Promise.all([
+        prisma.classification.findMany({
+          where: { tenantId: req.tenantId!, createdAt: { gte: since } },
+          select: { fractionCode: true }, take: 1000,
+        }),
+        prisma.quote.findMany({
+          where: { tenantId: req.tenantId!, createdAt: { gte: since } },
+          select: { fractionCode: true }, take: 1000,
+        }),
+      ]);
+      const fractions = Array.from(new Set([...cls, ...qts].map(c => c.fractionCode).filter(Boolean) as string[]));
+      if (fractions.length > 0) where.fractionCode = { in: fractions };
+    }
+
+    const items = await prisma.antidumpingDuty.findMany({
+      where, orderBy: [{ effectiveDate: 'desc' }], take: 500,
+    });
+    res.json({ status: 'ok', data: items, scope: onlyMine && !fraction ? 'tenant' : 'all' });
+  } catch (err) { next(err); }
+});
+
 // ─────────────────────── Admin ───────────────────────
 
 antidumpingAdminRouter.get('/', adminOnly, async (req: AuthRequest, res: Response, next: NextFunction) => {

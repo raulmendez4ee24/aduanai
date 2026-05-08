@@ -13,6 +13,73 @@ export const auditAdminRouter = Router();
 auditAdminRouter.use(authenticate);
 auditAdminRouter.use(requireRole('SUPERADMIN'));
 
+// Router usuario: cualquier autenticado puede ver SUS PROPIOS logs (filtrados por tenantId del JWT)
+export const auditUserRouter = Router();
+auditUserRouter.use(authenticate);
+
+auditUserRouter.get('/', async (req: AuthRequest, res: Response, next: NextFunction) => {
+  try {
+    const { entity, action, dateFrom, dateTo, q } = req.query as Record<string, string | undefined>;
+    const page = Math.max(1, Number(req.query.page) || 1);
+    const limit = Math.min(100, Math.max(1, Number(req.query.limit) || 30));
+    const where: Record<string, unknown> = { tenantId: req.tenantId! };
+    if (entity) where.entity = entity;
+    if (action) where.action = action;
+    if (dateFrom || dateTo) {
+      const range: Record<string, Date> = {};
+      if (dateFrom) range.gte = new Date(dateFrom);
+      if (dateTo) range.lte = new Date(dateTo);
+      where.createdAt = range;
+    }
+    if (q) {
+      where.OR = [
+        { entityId: { contains: q, mode: 'insensitive' } },
+        { endpoint: { contains: q, mode: 'insensitive' } },
+        { action: { contains: q, mode: 'insensitive' } },
+      ];
+    }
+    const [data, total] = await Promise.all([
+      prisma.auditLog.findMany({
+        where, orderBy: { createdAt: 'desc' }, skip: (page - 1) * limit, take: limit,
+        include: { user: { select: { id: true, email: true, name: true, role: true } } },
+      }),
+      prisma.auditLog.count({ where }),
+    ]);
+    res.json({ status: 'ok', data, pagination: { page, limit, total } });
+  } catch (err) { next(err); }
+});
+
+auditUserRouter.get('/verify-chain', async (req: AuthRequest, res: Response, next: NextFunction) => {
+  try {
+    const result = await verifyChain(req.tenantId!);
+    res.json({ status: 'ok', data: result });
+  } catch (err) { next(err); }
+});
+
+auditUserRouter.get('/timestamps', async (req: AuthRequest, res: Response, next: NextFunction) => {
+  try {
+    // Audit logs de este tenant
+    const logs = await prisma.auditLog.findMany({
+      where: { tenantId: req.tenantId! },
+      select: { id: true },
+      take: 1000,
+      orderBy: { createdAt: 'desc' },
+    });
+    const ids = logs.map(l => l.id);
+    if (ids.length === 0) return res.json({ status: 'ok', data: [] });
+    // Sus anclajes Bitcoin
+    const anchors = await prisma.timestampProof.findMany({
+      where: { resourceType: 'audit_log', resourceId: { in: ids } },
+      select: {
+        resourceId: true, contentHash: true, status: true,
+        bitcoinBlock: true, bitcoinTimestamp: true,
+        submittedAt: true, confirmedAt: true,
+      },
+    });
+    res.json({ status: 'ok', data: anchors });
+  } catch (err) { next(err); }
+});
+
 // ── GET /api/admin/audit ──────────────────────────────────────────────────
 auditAdminRouter.get('/', async (req: AuthRequest, res: Response, next: NextFunction) => {
   try {

@@ -335,6 +335,43 @@ export const api = {
   glosaAdminUpdateRule: (id: string, body: { weight?: number; severity?: 'low' | 'medium' | 'high' | 'critical'; active?: boolean }) =>
     request<{ status: string; data: GlosaRiskRuleRecord }>(`/admin/glosa/rules/${id}`, { method: 'PATCH', body: JSON.stringify(body) }),
 
+  // Settings (datos de mi empresa)
+  settingsEmpresa: () =>
+    request<{ status: string; data: TenantSettings }>('/settings/empresa'),
+  settingsEmpresaUpdate: (body: { name?: string; rfc?: string }) =>
+    request<{ status: string; data: { id: string; name: string; rfc: string | null; plan: string; status: string } }>('/settings/empresa', { method: 'PATCH', body: JSON.stringify(body) }),
+  settingsUsers: () =>
+    request<{ status: string; data: TenantUser[] }>('/settings/users'),
+
+  // Cuotas activas (vista usuario filtrada por sector del tenant)
+  antidumpingActive: (filters: { country?: string; fraction?: string; scope?: 'tenant' | 'all' } = {}) => {
+    const qs = new URLSearchParams()
+    Object.entries(filters).forEach(([k, v]) => { if (v) qs.set(k, String(v)) })
+    return request<{ status: string; data: AntidumpingDutyRecord[]; scope: string }>(`/antidumping/active?${qs.toString()}`)
+  },
+
+  // Biblioteca Legal (búsqueda en RAG)
+  legalLibraryList: (filters: { type?: string; source?: string; q?: string } = {}) => {
+    const qs = new URLSearchParams()
+    Object.entries(filters).forEach(([k, v]) => { if (v) qs.set(k, String(v)) })
+    return request<{ status: string; data: LegalDocSummary[] }>(`/legal-library?${qs.toString()}`)
+  },
+  legalLibraryGet: (id: string) =>
+    request<{ status: string; data: LegalDocFull }>(`/legal-library/${id}`),
+  legalLibrarySources: () =>
+    request<{ status: string; data: { source: string; count: number }[] }>('/legal-library/sources/list'),
+
+  // Audit Trail (vista usuario — endpoints user-side, distintos a los admin de arriba)
+  myAuditList: (filters: { entity?: string; action?: string; q?: string; page?: number; limit?: number; dateFrom?: string; dateTo?: string } = {}) => {
+    const qs = new URLSearchParams()
+    Object.entries(filters).forEach(([k, v]) => { if (v !== undefined && v !== '') qs.set(k, String(v)) })
+    return request<{ status: string; data: AuditLogRecord[]; pagination: { page: number; limit: number; total: number } }>(`/audit?${qs.toString()}`)
+  },
+  myAuditVerifyChain: () =>
+    request<{ status: string; data: { valid: boolean; brokenAt?: string; checkedCount: number } }>('/audit/verify-chain'),
+  myAuditTimestamps: () =>
+    request<{ status: string; data: { resourceId: string; contentHash: string; status: string; bitcoinBlock: number | null; bitcoinTimestamp: string | null; submittedAt: string; confirmedAt: string | null }[] }>('/audit/timestamps'),
+
   // Padrones SAT
   padronesList: (type?: string) =>
     request<{ status: string; data: SATPadronRecord[] }>(`/padrones/list${type ? `?type=${type}` : ''}`),
@@ -1562,6 +1599,57 @@ export interface GlosaStats {
   topRules: { ruleCode: string; name: string; activations: number }[];
   customsRA: { customs: string; ra: number; total: number }[];
   modelCalibration: { predictedAvg: number; actualRA: number; total: number };
+}
+
+export interface TenantSettings {
+  id: string;
+  name: string;
+  rfc: string | null;
+  plan: string;
+  status: string;
+  pilotStartedAt: string | null;
+  pilotEndsAt: string | null;
+  classificationLimit: number | null;
+  userLimit: number | null;
+  contractStartedAt: string | null;
+  contractEndsAt: string | null;
+  monthlyPrice: number | null;
+  contractModules: string[];
+  lastActivityAt: string | null;
+  healthScore: number;
+  createdAt: string;
+  updatedAt: string;
+  userCount: number;
+  classificationCount: number;
+  quoteCount: number;
+}
+
+export interface TenantUser {
+  id: string;
+  email: string;
+  name: string;
+  role: string;
+  status: string;
+  emailVerified: boolean;
+  lastLoginAt: string | null;
+  createdAt: string;
+}
+
+export interface LegalDocSummary {
+  id: string;
+  type: string;
+  source: string;
+  title: string;
+  reference: string;
+  officialUrl: string | null;
+  publishedDate: string | null;
+  effectiveDate: string | null;
+  topics: string[];
+  keywords: string[];
+}
+
+export interface LegalDocFull extends LegalDocSummary {
+  content: string;
 }
 
 export interface SATPadronRecord {

@@ -98,12 +98,18 @@ const USER_NAV_GROUPS: NavGroup[] = [
     items: [
       { label: 'Precedentes', path: '/precedentes', icon: Scale },
       { label: 'Actualizaciones', path: '/updates', icon: RefreshCw },
+      { label: 'Biblioteca Legal', path: '/biblioteca-legal', icon: BookOpen },
+      { label: 'Cuotas activas', path: '/cuotas-activas', icon: AlertTriangle },
+      { label: 'Cumplimiento', path: '/cumplimiento', icon: ShieldCheck },
     ],
   },
   {
     section: 'Mi empresa',
     items: [
+      { label: 'Empresa', path: '/settings/empresa', icon: Building2 },
       { label: 'Mis padrones SAT', path: '/settings/padrones', icon: Shield },
+      { label: 'Audit Trail', path: '/audit', icon: FileText },
+      { label: 'Verificación profesional', path: '/verificacion', icon: BadgeCheck },
     ],
   },
 ]

@@ -41,6 +41,12 @@ import { AdminPadronesPage } from './pages/Admin/AdminPadrones'
 import { PadronesPage } from './pages/Settings/Padrones'
 import { GlosaSimulatorPage } from './pages/GlosaSimulator'
 import { AdminGlosaPage } from './pages/Admin/AdminGlosa'
+import { AuditTrailPage } from './pages/AuditTrail'
+import { EmpresaPage } from './pages/Settings/Empresa'
+import { SettingsIndexPage } from './pages/Settings/Index'
+import { BibliotecaLegalPage } from './pages/BibliotecaLegal'
+import { CuotasActivasPage } from './pages/CuotasActivas'
+import { CumplimientoPage } from './pages/Cumplimiento'
 import { StatusPage } from './pages/Public/Status'
 import { PrecedentsPage } from './pages/Precedents'
 import { AdminLeadsPage } from './pages/Admin/AdminLeads'
@@ -362,6 +368,36 @@ export function App() {
       <Route path="/simulador-glosa" element={
         <RequireAuth token={token} user={user}>
           <AppLayout onLogout={handleLogout} userRole={user?.role} userName={user?.name} userEmail={user?.email} tenantName={user?.tenant?.name}><GlosaSimulatorPage /></AppLayout>
+        </RequireAuth>
+      } />
+      <Route path="/audit" element={
+        <RequireAuth token={token} user={user}>
+          <AppLayout onLogout={handleLogout} userRole={user?.role} userName={user?.name} userEmail={user?.email} tenantName={user?.tenant?.name}><AuditTrailPage /></AppLayout>
+        </RequireAuth>
+      } />
+      <Route path="/settings" element={
+        <RequireAuth token={token} user={user}>
+          <AppLayout onLogout={handleLogout} userRole={user?.role} userName={user?.name} userEmail={user?.email} tenantName={user?.tenant?.name}><SettingsIndexPage /></AppLayout>
+        </RequireAuth>
+      } />
+      <Route path="/settings/empresa" element={
+        <RequireAuth token={token} user={user}>
+          <AppLayout onLogout={handleLogout} userRole={user?.role} userName={user?.name} userEmail={user?.email} tenantName={user?.tenant?.name}><EmpresaPage /></AppLayout>
+        </RequireAuth>
+      } />
+      <Route path="/biblioteca-legal" element={
+        <RequireAuth token={token} user={user}>
+          <AppLayout onLogout={handleLogout} userRole={user?.role} userName={user?.name} userEmail={user?.email} tenantName={user?.tenant?.name}><BibliotecaLegalPage /></AppLayout>
+        </RequireAuth>
+      } />
+      <Route path="/cuotas-activas" element={
+        <RequireAuth token={token} user={user}>
+          <AppLayout onLogout={handleLogout} userRole={user?.role} userName={user?.name} userEmail={user?.email} tenantName={user?.tenant?.name}><CuotasActivasPage /></AppLayout>
+        </RequireAuth>
+      } />
+      <Route path="/cumplimiento" element={
+        <RequireAuth token={token} user={user}>
+          <AppLayout onLogout={handleLogout} userRole={user?.role} userName={user?.name} userEmail={user?.email} tenantName={user?.tenant?.name}><CumplimientoPage /></AppLayout>
         </RequireAuth>
       } />
       <Route path="/admin/glosa-simulations" element={
