@@ -1,5 +1,6 @@
 import { Router } from 'express';
 import { authenticate, AuthRequest } from '../middlewares/auth';
+import { requirePermission } from '../middlewares/requirePermission';
 import { prisma } from '../lib/prisma';
 import {
   extractInvoiceData,
@@ -37,7 +38,7 @@ mveRouter.post('/extract-invoice', authenticate, async (req: AuthRequest, res, n
 // ============================================
 
 // Crear MVE
-mveRouter.post('/', authenticate, async (req: AuthRequest, res, next) => {
+mveRouter.post('/', authenticate, requirePermission('autoMVE', 'create'), async (req: AuthRequest, res, next) => {
   try {
     const {
       pedimento, providerName, providerCountry, invoiceNumber,

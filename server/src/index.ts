@@ -53,6 +53,7 @@ import { padronesRouter, padronesAdminRouter } from './routes/padrones';
 import { legalLibraryRouter } from './routes/legal-docs';
 import { settingsRouter } from './routes/settings';
 import { glosaRouter, glosaAdminRouter } from './routes/glosa';
+import { permissionsRouter } from './routes/permissions';
 import { statusRouter } from './routes/status';
 import { performBackup, cleanupExpiredBackups } from './services/backup';
 import {
@@ -183,6 +184,7 @@ app.use('/api/legal-library', legalLibraryRouter);
 app.use('/api/settings', settingsRouter);
 app.use('/api/admin/padrones', padronesAdminRouter);
 app.use('/api/glosa', glosaRouter);
+app.use('/api/permissions', permissionsRouter);
 app.use('/api/admin/glosa', glosaAdminRouter);
 app.use('/api/status', statusRouter);
 

@@ -107,6 +107,7 @@ const USER_NAV_GROUPS: NavGroup[] = [
     section: 'Mi empresa',
     items: [
       { label: 'Empresa', path: '/settings/empresa', icon: Building2 },
+      { label: 'Usuarios y roles', path: '/settings/users', icon: Users },
       { label: 'Mis padrones SAT', path: '/settings/padrones', icon: Shield },
       { label: 'Audit Trail', path: '/audit', icon: FileText },
       { label: 'Verificación profesional', path: '/verificacion', icon: BadgeCheck },

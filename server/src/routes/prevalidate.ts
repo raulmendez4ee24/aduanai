@@ -1,5 +1,6 @@
 import { Router } from 'express';
 import { authenticate, AuthRequest } from '../middlewares/auth';
+import { requirePermission } from '../middlewares/requirePermission';
 import { prevalidatePedimento } from '../services/prevalidator';
 import { validatePedimento, type PedimentoInput } from '../services/prevalidator-v2';
 import { prisma } from '../lib/prisma';
@@ -78,7 +79,7 @@ prevalidateRouter.post('/pedimento/validate', authenticate, async (req: AuthRequ
 });
 
 // Crear / actualizar pedimento + correr validación
-prevalidateRouter.post('/pedimento', authenticate, async (req: AuthRequest, res, next) => {
+prevalidateRouter.post('/pedimento', authenticate, requirePermission('expedientes', 'create'), async (req: AuthRequest, res, next) => {
   try {
     const { pedimento, aiCheck } = req.body as { pedimento: PedimentoInput; aiCheck?: boolean };
     if (!pedimento) {

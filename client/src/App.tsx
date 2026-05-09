@@ -44,6 +44,7 @@ import { AdminGlosaPage } from './pages/Admin/AdminGlosa'
 import { AuditTrailPage } from './pages/AuditTrail'
 import { EmpresaPage } from './pages/Settings/Empresa'
 import { SettingsIndexPage } from './pages/Settings/Index'
+import { UsersAndRolesPage } from './pages/Settings/Users'
 import { BibliotecaLegalPage } from './pages/BibliotecaLegal'
 import { CuotasActivasPage } from './pages/CuotasActivas'
 import { CumplimientoPage } from './pages/Cumplimiento'
@@ -383,6 +384,11 @@ export function App() {
       <Route path="/settings/empresa" element={
         <RequireAuth token={token} user={user}>
           <AppLayout onLogout={handleLogout} userRole={user?.role} userName={user?.name} userEmail={user?.email} tenantName={user?.tenant?.name}><EmpresaPage /></AppLayout>
+        </RequireAuth>
+      } />
+      <Route path="/settings/users" element={
+        <RequireAuth token={token} user={user}>
+          <AppLayout onLogout={handleLogout} userRole={user?.role} userName={user?.name} userEmail={user?.email} tenantName={user?.tenant?.name}><UsersAndRolesPage /></AppLayout>
         </RequireAuth>
       } />
       <Route path="/biblioteca-legal" element={

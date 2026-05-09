@@ -335,6 +335,27 @@ export const api = {
   glosaAdminUpdateRule: (id: string, body: { weight?: number; severity?: 'low' | 'medium' | 'high' | 'critical'; active?: boolean }) =>
     request<{ status: string; data: GlosaRiskRuleRecord }>(`/admin/glosa/rules/${id}`, { method: 'PATCH', body: JSON.stringify(body) }),
 
+  // Permisos granulares
+  permissionsMe: () =>
+    request<{ status: string; data: UserPermissions }>('/permissions/me'),
+  permissionsRoles: () =>
+    request<{ status: string; data: TenantRoleRecord[] }>('/permissions/roles'),
+  permissionsUsers: () =>
+    request<{ status: string; data: TenantUserWithRoles[] }>('/permissions/users'),
+  permissionsAssign: (input: { userId: string; roleCode: string; reason?: string; forceOverrideConflict?: boolean }) =>
+    request<{ status: string; data: { userRoleId: string; conflict?: SODConflict | null } }>('/permissions/assign', { method: 'POST', body: JSON.stringify(input) }),
+  permissionsRemove: (input: { userId: string; roleId: string; reason?: string }) =>
+    request<{ status: string }>('/permissions/remove', { method: 'POST', body: JSON.stringify(input) }),
+  permissionsCheckConflict: (userId: string, roleCode: string) =>
+    request<{ status: string; data: SODConflict }>('/permissions/check-conflict', { method: 'POST', body: JSON.stringify({ userId, roleCode }) }),
+  permissionsAudit: (filters: { action?: string; userId?: string } = {}) => {
+    const qs = new URLSearchParams()
+    Object.entries(filters).forEach(([k, v]) => { if (v) qs.set(k, String(v)) })
+    return request<{ status: string; data: PermissionAuditEntry[] }>(`/permissions/audit?${qs.toString()}`)
+  },
+  permissionsOEAReport: () =>
+    request<{ status: string; data: OEAReport }>('/permissions/oea-report'),
+
   // Settings (datos de mi empresa)
   settingsEmpresa: () =>
     request<{ status: string; data: TenantSettings }>('/settings/empresa'),
@@ -1599,6 +1620,68 @@ export interface GlosaStats {
   topRules: { ruleCode: string; name: string; activations: number }[];
   customsRA: { customs: string; ra: number; total: number }[];
   modelCalibration: { predictedAvg: number; actualRA: number; total: number };
+}
+
+export interface TenantRoleRecord {
+  id: string;
+  code: string;
+  name: string;
+  description: string | null;
+  isSystem: boolean;
+  isCustom: boolean;
+  permissions: { modules: Record<string, Record<string, boolean>>; features: Record<string, boolean>; limits?: Record<string, number | null> };
+  conflictsWith: string[];
+  active: boolean;
+}
+
+export interface UserPermissions {
+  legacyRole: string | undefined;
+  roles: { code: string; name: string; description: string | null }[];
+  permissions: { modules: Record<string, Record<string, boolean>>; features: Record<string, boolean>; limits?: Record<string, number | null> };
+}
+
+export interface TenantUserWithRoles {
+  id: string;
+  email: string;
+  name: string;
+  role: string;
+  status: string;
+  lastLoginAt: string | null;
+  createdAt: string;
+  roles: { assignmentId: string; code: string; name: string; assignedAt: string }[];
+}
+
+export interface SODConflict {
+  hasConflict: boolean;
+  conflictingRoles: { id: string; code: string; name: string }[];
+}
+
+export interface PermissionAuditEntry {
+  id: string;
+  tenantId: string;
+  userId: string;
+  action: string;
+  targetUserId: string | null;
+  roleId: string | null;
+  details: Record<string, unknown>;
+  ipAddress: string | null;
+  userAgent: string | null;
+  createdAt: string;
+  actor: { id: string; email: string; name: string } | null;
+  target: { id: string; email: string; name: string } | null;
+  role: { id: string; code: string; name: string } | null;
+}
+
+export interface OEAReport {
+  generatedAt: string;
+  period: { since: string; until: string };
+  sodConflicts: {
+    usersWithConflicts: { userId: string; email: string; name: string; roles: { code: string; name: string }[]; conflicts: string[] }[];
+    totalUsersChecked: number;
+  };
+  roleDistribution: { code: string; count: number }[];
+  activity: { permissionDenials: number; roleAssignments: number; roleRemovals: number };
+  recommendations: string[];
 }
 
 export interface TenantSettings {

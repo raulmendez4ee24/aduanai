@@ -2445,6 +2445,81 @@ model TenantPadronStatus {
 }
 
 // ──────────────────────────────────────────────────────────────────
+// Roles granulares por tenant (segregación de funciones / OEA)
+// ──────────────────────────────────────────────────────────────────
+
+model TenantRole {
+  id              String @id @default(cuid())
+  tenantId        String
+
+  code            String   // "TENANT_ADMIN", "CLASSIFIER", "VALIDATOR", "FINANCIAL", "AUDITOR", "VIEWER"
+  name            String
+  description     String?
+
+  isSystem        Boolean @default(false)
+  isCustom        Boolean @default(false)
+
+  permissions     Json
+  conflictsWith   String[] @default([])
+
+  active          Boolean @default(true)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  userRoles       UserTenantRole[]
+
+  @@unique([tenantId, code])
+  @@index([tenantId, active])
+  @@map("tenant_roles")
+}
+
+model UserTenantRole {
+  id              String @id @default(cuid())
+  userId          String
+  tenantId        String
+  roleId          String
+  role            TenantRole @relation(fields: [roleId], references: [id], onDelete: Cascade)
+
+  scopeRestrictions Json?
+
+  effectiveFrom   DateTime @default(now())
+  effectiveUntil  DateTime?
+
+  assignedBy      String
+  assignedAt      DateTime @default(now())
+  reason          String?
+
+  active          Boolean @default(true)
+
+  @@unique([userId, tenantId, roleId])
+  @@index([userId, tenantId, active])
+  @@index([tenantId, active])
+  @@map("user_tenant_roles")
+}
+
+model PermissionAuditLog {
+  id              String @id @default(cuid())
+  tenantId        String
+  userId          String
+
+  action          String   // "ROLE_ASSIGNED", "ROLE_REMOVED", "PERMISSION_DENIED", "ROLE_CREATED", "ROLE_UPDATED"
+
+  targetUserId    String?
+  roleId          String?
+
+  details         Json
+  ipAddress       String?
+  userAgent       String?
+
+  createdAt       DateTime @default(now())
+
+  @@index([tenantId, createdAt])
+  @@index([userId, createdAt])
+  @@index([action, createdAt])
+  @@map("permission_audit_log")
+}
+
+// ──────────────────────────────────────────────────────────────────
 // Simulador de Glosa — predice probabilidad de RA
 // ──────────────────────────────────────────────────────────────────
 

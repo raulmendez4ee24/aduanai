@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import rateLimit from 'express-rate-limit';
 import { authenticate, AuthRequest } from '../middlewares/auth';
+import { requirePermission } from '../middlewares/requirePermission';
 import { classifyProduct, type IndustrialSector, type ImporterType } from '../services/classifier';
 import { buildClassifierAlerts, computeConsultHash, TIGIE_VERSION, LIGIE_VERSION } from '../services/classifier-alerts';
 import { recordConsult, verifyConsult } from '../services/traceability';
@@ -90,7 +91,7 @@ classifyRouter.post('/demo', demoClassifyLimit, async (req, res, next) => {
 });
 
 // POST /api/classify — con auth + alertas defensivas + verificabilidad
-classifyRouter.post('/', authenticate, async (req: AuthRequest, res, next) => {
+classifyRouter.post('/', authenticate, requirePermission('classifier', 'create'), async (req: AuthRequest, res, next) => {
   try {
     const { description, context, countryOfOrigin, declaredValueUSD, useCase, sector, importerType } = req.body as {
       description?: string;

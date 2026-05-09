@@ -1,5 +1,6 @@
 import { Router } from 'express';
 import { authenticate, AuthRequest } from '../middlewares/auth';
+import { requirePermission } from '../middlewares/requirePermission';
 import { calculateQuote } from '../services/quoter';
 import { calculateMultiQuote, compareScenarios, type MultiQuoteInput, type ScenarioVariant } from '../services/quoter-multi';
 import { getRecentRates, seedSyntheticHistory } from '../services/exchange-rate';
@@ -7,7 +8,7 @@ import { prisma } from '../lib/prisma';
 
 export const quoteRouter = Router();
 
-quoteRouter.post('/', authenticate, async (req: AuthRequest, res, next) => {
+quoteRouter.post('/', authenticate, requirePermission('quoter', 'create'), async (req: AuthRequest, res, next) => {
   try {
     const { fractionCode, customsValue, origin, incoterm, currency, exchangeRate, igiRateOverride } = req.body;
 
