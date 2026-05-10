@@ -4,6 +4,7 @@ import type { InventoryStats, InventoryBalance, TemporaryImportRecord, Discharge
 import { Warehouse, AlertTriangle, ChevronLeft, ChevronRight, Boxes, Package, ChevronDown, ChevronUp, Plus, Workflow, GitBranch } from 'lucide-react'
 import { formatFraction } from '../lib/format'
 import { ROITile } from '../components/ROIBanner'
+import { usePermissions } from '../hooks/usePermissions'
 
 const GLASS = 'bg-white/70 backdrop-blur-xl border border-white/50 shadow-[0_8px_30px_rgb(0,0,0,0.04)]'
 type Tab = 'dashboard' | 'imports' | 'discharges' | 'bom' | 'reports'
@@ -240,6 +241,7 @@ function BomTab() {
   const [traceImportId, setTraceImportId] = useState('')
   const [recordedResult, setRecordedResult] = useState<AssemblyResultRecord | null>(null)
   const [error, setError] = useState('')
+  const { can } = usePermissions()
 
   async function refresh() {
     setLoading(true)
@@ -278,14 +280,18 @@ function BomTab() {
           <Kpi icon={Workflow} label="Ensambles registrados" value={assemblies.length} />
         </div>
         <div className="flex gap-2">
-          <button onClick={() => setShowRecordAssembly(true)} disabled={finished.length === 0}
-            className="text-[12px] font-medium px-4 py-2 rounded-full bg-emerald-500 text-white hover:bg-emerald-600 disabled:opacity-40 flex items-center gap-1.5">
-            <Workflow className="w-3.5 h-3.5" /> Registrar ensamble
-          </button>
-          <button onClick={() => setShowCreateProduct(true)}
-            className="text-[12px] font-medium px-4 py-2 rounded-full bg-white border border-slate-200 text-slate-700 hover:bg-slate-50 flex items-center gap-1.5">
-            <Plus className="w-3.5 h-3.5" /> Nuevo producto
-          </button>
+          {can('inventory', 'discharge') && (
+            <button onClick={() => setShowRecordAssembly(true)} disabled={finished.length === 0}
+              className="text-[12px] font-medium px-4 py-2 rounded-full bg-emerald-500 text-white hover:bg-emerald-600 disabled:opacity-40 flex items-center gap-1.5">
+              <Workflow className="w-3.5 h-3.5" /> Registrar ensamble
+            </button>
+          )}
+          {can('inventory', 'adjust') && (
+            <button onClick={() => setShowCreateProduct(true)}
+              className="text-[12px] font-medium px-4 py-2 rounded-full bg-white border border-slate-200 text-slate-700 hover:bg-slate-50 flex items-center gap-1.5">
+              <Plus className="w-3.5 h-3.5" /> Nuevo producto
+            </button>
+          )}
         </div>
       </div>
 

@@ -97,6 +97,12 @@ export const api = {
       body: JSON.stringify({ feedback, feedbackNote }),
     }),
 
+  classifyApprove: (id: string) =>
+    request<{ status: string; data: ClassificationRecord }>(`/classify/${id}/approve`, { method: 'POST' }),
+
+  quoteApprove: (id: string) =>
+    request<{ status: string; data: { id: string; status: string; approvedAt: string | null } }>(`/quote/${id}/approve`, { method: 'POST' }),
+
   // Knowledge base (admin)
   knowledgeList: (filters: { type?: string; chapter?: string; verified?: boolean; search?: string } = {}) => {
     const qs = new URLSearchParams();
@@ -1334,6 +1340,9 @@ export interface ClassificationRecord {
   confidence: number;
   feedback?: string | null;
   feedbackNote?: string | null;
+  status?: 'approved' | 'pending_approval' | 'rejected';
+  approvedAt?: string | null;
+  approvedById?: string | null;
   createdAt: string;
 }
 

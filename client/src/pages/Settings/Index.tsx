@@ -1,10 +1,14 @@
 import { Link } from 'react-router-dom'
-import { Building2, Shield, BadgeCheck, Bell, FileText, Settings as SettingsIcon } from 'lucide-react'
+import { Building2, Shield, BadgeCheck, Bell, FileText, Users, Settings as SettingsIcon } from 'lucide-react'
+import { usePermissions } from '../../hooks/usePermissions'
 
 const GLASS = 'bg-white/70 backdrop-blur-xl border border-white/50 shadow-[0_8px_30px_rgb(0,0,0,0.04)]'
 
-const TILES = [
+type Tile = { to: string; icon: typeof Building2; label: string; desc: string; requiresSettings?: boolean }
+
+const TILES: Tile[] = [
   { to: '/settings/empresa', icon: Building2, label: 'Empresa', desc: 'Razón social, RFC, plan, usuarios' },
+  { to: '/settings/users', icon: Users, label: 'Usuarios y roles', desc: 'Permisos granulares y SOD (OEA)', requiresSettings: true },
   { to: '/settings/padrones', icon: Shield, label: 'Padrones SAT', desc: 'General y sectoriales (Anexo 10)' },
   { to: '/verificacion', icon: BadgeCheck, label: 'Verificación profesional', desc: 'Credenciales del agente aduanal' },
   { to: '/audit', icon: FileText, label: 'Audit Trail', desc: 'Registro inmutable de eventos' },
@@ -12,6 +16,8 @@ const TILES = [
 ]
 
 export function SettingsIndexPage() {
+  const { can } = usePermissions()
+  const tiles = TILES.filter(t => !t.requiresSettings || can('classifier', 'settings'))
   return (
     <div className="max-w-4xl mx-auto space-y-4">
       <div className={`${GLASS} rounded-[2rem] p-6`}>
@@ -23,7 +29,7 @@ export function SettingsIndexPage() {
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-        {TILES.map(t => {
+        {tiles.map(t => {
           const Icon = t.icon
           return (
             <Link key={t.to} to={t.to} className={`${GLASS} rounded-2xl p-5 hover:bg-white/90 transition-colors flex items-start gap-3`}>

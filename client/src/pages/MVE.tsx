@@ -1,8 +1,9 @@
 import { useState, useEffect } from 'react'
 import { api } from '../lib/api'
 import type { MVEDashboard, ExtractedInvoiceData, CreateMVEInput } from '../lib/api'
-import { FileText, Sparkles, AlertCircle, Check } from 'lucide-react'
+import { FileText, Sparkles, AlertCircle, Check, Lock } from 'lucide-react'
 import { formatFraction } from '../lib/format'
+import { usePermissions } from '../hooks/usePermissions'
 
 const GLASS = 'bg-white/70 backdrop-blur-xl border border-white/50 shadow-[0_8px_30px_rgb(0,0,0,0.04)]'
 
@@ -17,6 +18,7 @@ export function MVEPage() {
   const [creating, setCreating] = useState(false)
   const [error, setError] = useState('')
   const [mveId, setMveId] = useState('')
+  const { can, cannot } = usePermissions()
 
   useEffect(() => {
     api.mveDashboard().then(r => setDashboard(r.data)).catch(() => {})
@@ -161,9 +163,11 @@ export function MVEPage() {
 
             <div className="flex gap-3">
               <button onClick={() => setStep('paste')} className="text-[12px] text-slate-600 px-5 py-2.5 rounded-full bg-white/50 hover:bg-white/70 transition-colors">Regresar</button>
-              <button onClick={handleCreate} disabled={creating}
+              <button onClick={handleCreate} disabled={creating || cannot('autoMVE', 'create')}
+                title={cannot('autoMVE', 'create') ? 'Requiere rol con permiso autoMVE:create' : ''}
                 className="flex items-center gap-2 bg-emerald-500 hover:bg-emerald-600 disabled:opacity-50 text-white text-[13px] font-semibold px-6 py-2.5 rounded-full transition-all">
-                {creating ? <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" /> : <Check className="w-4 h-4" />}
+                {creating ? <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" /> :
+                  can('autoMVE', 'create') ? <Check className="w-4 h-4" /> : <Lock className="w-4 h-4" />}
                 {creating ? 'Creando...' : 'Crear MVE'}
               </button>
             </div>

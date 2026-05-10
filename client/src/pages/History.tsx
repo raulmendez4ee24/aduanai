@@ -1,8 +1,9 @@
 import { useState, useEffect } from 'react'
 import { api } from '../lib/api'
 import type { ClassificationRecord } from '../lib/api'
-import { Clock, Search, ChevronLeft, ChevronRight, ChevronDown, ChevronUp } from 'lucide-react'
+import { Clock, Search, ChevronLeft, ChevronRight, ChevronDown, ChevronUp, ShieldCheck } from 'lucide-react'
 import { formatFraction } from '../lib/format'
+import { usePermissions } from '../hooks/usePermissions'
 
 const GLASS = 'bg-white/70 backdrop-blur-xl border border-white/50 shadow-[0_8px_30px_rgb(0,0,0,0.04)]'
 
@@ -13,6 +14,7 @@ export function HistoryPage() {
   const [page, setPage] = useState(1)
   const [total, setTotal] = useState(0)
   const [expandedId, setExpandedId] = useState<string | null>(null)
+  const { can } = usePermissions()
 
   useEffect(() => { load() }, [page, search])
 
@@ -28,6 +30,10 @@ export function HistoryPage() {
 
   async function sendFeedback(id: string, fb: 'correct' | 'incorrect') {
     try { await api.classifyFeedback(id, fb); load() } catch {}
+  }
+
+  async function approve(id: string) {
+    try { await api.classifyApprove(id); load() } catch (e) { alert(e instanceof Error ? e.message : 'Error') }
   }
 
   // confidence ya viene en 0-100 desde el backend (ver format.ts)
@@ -118,6 +124,17 @@ export function HistoryPage() {
                           <p className="text-[12px] font-medium text-slate-800">{new Date(r.createdAt).toLocaleString('es-MX')}</p>
                         </div>
                       </div>
+                      {r.status === 'pending_approval' && (
+                        <div className="flex items-center gap-3 bg-amber-50/50 rounded-xl p-3 border border-amber-100">
+                          <ShieldCheck className="w-4 h-4 text-amber-600"/>
+                          <p className="text-[11px] text-amber-800 flex-1">Pendiente de aprobación SOD — un validador debe revisar antes de operar.</p>
+                          {can('classifier', 'approve') && (
+                            <button onClick={() => approve(r.id)} className="text-[10px] font-semibold text-white bg-emerald-600 hover:bg-emerald-700 px-3 py-1.5 rounded-full">
+                              Aprobar
+                            </button>
+                          )}
+                        </div>
+                      )}
                       {!r.feedback && (
                         <div className="flex items-center gap-3">
                           <p className="text-[11px] text-slate-500">¿Resultado correcto?</p>
