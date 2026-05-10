@@ -56,6 +56,7 @@ import { glosaRouter, glosaAdminRouter } from './routes/glosa';
 import { permissionsRouter } from './routes/permissions';
 import { statusRouter } from './routes/status';
 import { performBackup, cleanupExpiredBackups } from './services/backup';
+import { seedAllTenantsRoles } from './services/permissions';
 import {
   ipBlockGuard, authLimiter, classifierLimiter, quoterLimiter,
   copilotLimiter as copilotLim, leadLimiter, publicLimiter, adminLimiter,
@@ -292,5 +293,17 @@ setInterval(async () => {
 app.listen(PORT, () => {
   console.log(`🚀 ADUANAI server running on port ${PORT}`);
 });
+
+// Idempotent: garantiza que cada tenant tenga los 6 roles del sistema sembrados
+void (async () => {
+  try {
+    const r = await seedAllTenantsRoles();
+    logger.info(`[permissions] Seeded roles for ${r.tenants} tenants — ${r.created} created, ${r.updated} updated`, {
+      action: 'seed_tenant_roles', metadata: r,
+    });
+  } catch (err) {
+    logger.error('[permissions] seedAllTenantsRoles failed', { errorMessage: err instanceof Error ? err.message : String(err) });
+  }
+})();
 
 export default app;

@@ -2,6 +2,7 @@ import { Router, Response, NextFunction } from 'express';
 import { authenticate, AuthRequest, requireRole } from '../middlewares/auth';
 import { prisma } from '../lib/prisma';
 import { AppError } from '../middlewares/error';
+import { seedTenantRoles } from '../services/permissions';
 import bcrypt from 'bcryptjs';
 import crypto from 'crypto';
 import {
@@ -131,6 +132,8 @@ adminRouter.post('/demo/prepare', async (req: AuthRequest, res: Response, next: 
         plan: 'STARTER',
       },
     });
+
+    await seedTenantRoles(tenant.id);
 
     // Create user
     const user = await prisma.user.create({
@@ -443,6 +446,8 @@ adminRouter.post('/pilots/activate', async (req: AuthRequest, res: Response, nex
       },
       include: { users: true },
     });
+
+    await seedTenantRoles(tenant.id);
 
     await prisma.lead.update({
       where: { id: leadId },

@@ -20,6 +20,7 @@ import { seedRegimesPrograms } from './regimes-programs';
 import { seedSATPadrones } from './sat-padrones';
 import { seedGlosaRiskRules } from './glosa-risk-rules';
 import { seedSyntheticHistory } from '../../src/services/exchange-rate';
+import { seedAllTenantsRoles } from '../../src/services/permissions';
 
 dotenv.config({ path: path.join(__dirname, '..', '..', '.env') });
 
@@ -256,6 +257,11 @@ async function main() {
   console.log('🎯 Sembrando reglas de riesgo del Simulador de Glosa...');
   const glosaRules = await seedGlosaRiskRules(prisma);
   console.log(`   ✅ ${glosaRules.created} creadas, ${glosaRules.updated} actualizadas\n`);
+
+  // 4.b.17 Roles del sistema por tenant (TENANT_ADMIN, CLASSIFIER, VALIDATOR, FINANCIAL, AUDITOR, VIEWER)
+  console.log('🔐 Sembrando roles granulares (SOD/OEA) para todos los tenants...');
+  const rolesSeed = await seedAllTenantsRoles();
+  console.log(`   ✅ ${rolesSeed.tenants} tenants — ${rolesSeed.created} roles creados, ${rolesSeed.updated} actualizados\n`);
 
   // 4.b.3 Histórico sintético de TC (90 días) para selector "TC histórico"
   console.log('💱 Sembrando histórico de tipo de cambio (90 días)...');
