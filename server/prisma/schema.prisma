@@ -366,6 +366,12 @@ model Classification {
   // Alertas generadas durante la clasificación (cuotas comp, NOMs, automotive, etc.)
   alertsJson          Json?
 
+  // SOD workflow — clasificador crea, validador aprueba
+  // status: "approved" (default, legacy) | "pending_approval" | "rejected"
+  status         String    @default("approved")
+  approvedAt     DateTime?
+  approvedById   String?
+
   isDemoData          Boolean  @default(false)
   createdAt           DateTime @default(now())
 
@@ -380,6 +386,7 @@ model Classification {
   @@index([createdAt])
   @@index([isDemoData])
   @@index([consultHash])
+  @@index([tenantId, status])
   @@map("classifications")
 }
 
@@ -418,6 +425,11 @@ model Quote {
   totalDispatch   Float? // Suma de despacho aduanero
   totalAll        Float? // landed + despacho
 
+  // SOD workflow — cotizador crea, validador aprueba
+  status         String    @default("approved")
+  approvedAt     DateTime?
+  approvedById   String?
+
   isDemoData Boolean  @default(false)
   createdAt  DateTime @default(now())
 
@@ -431,6 +443,7 @@ model Quote {
   @@index([tenantId])
   @@index([createdAt])
   @@index([isDemoData])
+  @@index([tenantId, status])
   @@map("quotes")
 }
 

@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import { authenticate, AuthRequest } from '../middlewares/auth';
 import { requirePermission } from '../middlewares/requirePermission';
+import { getUserPermissions, hasPermission } from '../services/permissions';
 import { calculateQuote } from '../services/quoter';
 import { calculateMultiQuote, compareScenarios, type MultiQuoteInput, type ScenarioVariant } from '../services/quoter-multi';
 import { getRecentRates, seedSyntheticHistory } from '../services/exchange-rate';
@@ -29,6 +30,10 @@ quoteRouter.post('/', authenticate, requirePermission('quoter', 'create'), async
       igiRateOverride: igiRateOverride != null ? Number(igiRateOverride) : undefined,
     });
 
+    const perms = await getUserPermissions(req.userId!, req.tenantId!, req.userRole);
+    const canApprove = hasPermission(perms, 'quoter', 'approve');
+    const status = canApprove ? 'approved' : 'pending_approval';
+
     const created = await prisma.quote.create({
       data: {
         tenantId: req.tenantId!,
@@ -39,6 +44,9 @@ quoteRouter.post('/', authenticate, requirePermission('quoter', 'create'), async
         incoterm: incoterm || 'CIF',
         currency: currency || 'USD',
         result: JSON.stringify(result),
+        status,
+        approvedAt: canApprove ? new Date() : null,
+        approvedById: canApprove ? req.userId! : null,
       },
     });
 
@@ -60,6 +68,10 @@ quoteRouter.post('/multi', authenticate, async (req: AuthRequest, res, next) => 
     }
     const result = await calculateMultiQuote(input);
 
+    const permsMulti = await getUserPermissions(req.userId!, req.tenantId!, req.userRole);
+    const canApproveMulti = hasPermission(permsMulti, 'quoter', 'approve');
+    const statusMulti = canApproveMulti ? 'approved' : 'pending_approval';
+
     // Persistir Quote + items
     const firstItem = input.items[0];
     const created = await prisma.quote.create({
@@ -72,6 +84,9 @@ quoteRouter.post('/multi', authenticate, async (req: AuthRequest, res, next) => 
         incoterm: input.incoterm ?? 'CIF',
         currency: input.currency ?? 'USD',
         result: JSON.stringify(result),
+        status: statusMulti,
+        approvedAt: canApproveMulti ? new Date() : null,
+        approvedById: canApproveMulti ? req.userId! : null,
         name: input.name,
         client: input.client,
         destination: input.destination,
@@ -160,6 +175,43 @@ quoteRouter.post('/exchange-rate/seed-history', authenticate, async (req: AuthRe
     const days = Math.max(1, Math.min(365, Number(req.body?.days) || 90));
     const inserted = await seedSyntheticHistory(days);
     res.json({ status: 'ok', data: { inserted } });
+  } catch (err) {
+    next(err);
+  }
+});
+
+// POST /api/quote/:id/approve — VALIDATOR aprueba cotización creada por CLASSIFIER/CLASSIFIER
+quoteRouter.post('/:id/approve', authenticate, requirePermission('quoter', 'approve'), async (req: AuthRequest, res, next) => {
+  try {
+    const id = String(req.params.id);
+    const existing = await prisma.quote.findFirst({
+      where: { id, tenantId: req.tenantId! },
+    });
+    if (!existing) return res.status(404).json({ status: 'error', message: 'Cotización no encontrada' });
+    if (existing.status === 'approved') {
+      return res.status(400).json({ status: 'error', message: 'La cotización ya está aprobada' });
+    }
+
+    const updated = await prisma.quote.update({
+      where: { id },
+      data: { status: 'approved', approvedAt: new Date(), approvedById: req.userId! },
+    });
+
+    if (existing.userId === req.userId) {
+      await prisma.permissionAuditLog.create({
+        data: {
+          tenantId: req.tenantId!,
+          userId: req.userId!,
+          action: 'SELF_APPROVAL_SOD',
+          targetUserId: existing.userId,
+          details: { module: 'quoter', resource: 'quote', resourceId: id, fractionCode: existing.fractionCode },
+          ipAddress: req.ip ?? null,
+          userAgent: req.headers['user-agent'] ?? null,
+        },
+      });
+    }
+
+    res.json({ status: 'ok', data: updated });
   } catch (err) {
     next(err);
   }
