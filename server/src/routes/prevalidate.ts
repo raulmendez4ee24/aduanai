@@ -202,7 +202,7 @@ prevalidateRouter.get('/pedimento/:id', authenticate, async (req: AuthRequest, r
 });
 
 // Eliminar
-prevalidateRouter.delete('/pedimento/:id', authenticate, async (req: AuthRequest, res, next) => {
+prevalidateRouter.delete('/pedimento/:id', authenticate, requirePermission('expedientes', 'delete'), async (req: AuthRequest, res, next) => {
   try {
     const ped = await prisma.pedimento.findFirst({
       where: { id: String(req.params.id), tenantId: req.tenantId! },

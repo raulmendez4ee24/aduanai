@@ -1,5 +1,6 @@
 import { Router } from 'express';
 import { authenticate, AuthRequest } from '../middlewares/auth';
+import { requirePermission } from '../middlewares/requirePermission';
 import { prisma } from '../lib/prisma';
 import {
   getInventoryBalances,
@@ -18,7 +19,7 @@ export const inventoryRouter = Router();
 // ============================================
 
 // Crear importación temporal
-inventoryRouter.post('/imports', authenticate, async (req: AuthRequest, res, next) => {
+inventoryRouter.post('/imports', authenticate, requirePermission('inventory', 'adjust'), async (req: AuthRequest, res, next) => {
   try {
     const {
       pedimento, fractionCode, description, quantity, unit,
@@ -123,7 +124,7 @@ inventoryRouter.get('/imports/:id', authenticate, async (req: AuthRequest, res, 
 });
 
 // Actualizar importación temporal
-inventoryRouter.patch('/imports/:id', authenticate, async (req: AuthRequest, res, next) => {
+inventoryRouter.patch('/imports/:id', authenticate, requirePermission('inventory', 'adjust'), async (req: AuthRequest, res, next) => {
   try {
     const existing = await prisma.temporaryImport.findFirst({
       where: { id: String(req.params.id), tenantId: req.tenantId! },
@@ -157,7 +158,7 @@ inventoryRouter.patch('/imports/:id', authenticate, async (req: AuthRequest, res
 });
 
 // Eliminar importación temporal
-inventoryRouter.delete('/imports/:id', authenticate, async (req: AuthRequest, res, next) => {
+inventoryRouter.delete('/imports/:id', authenticate, requirePermission('inventory', 'adjust'), async (req: AuthRequest, res, next) => {
   try {
     const existing = await prisma.temporaryImport.findFirst({
       where: { id: String(req.params.id), tenantId: req.tenantId! },
@@ -189,7 +190,7 @@ inventoryRouter.delete('/imports/:id', authenticate, async (req: AuthRequest, re
 // ============================================
 
 // Crear descargo
-inventoryRouter.post('/discharges', authenticate, async (req: AuthRequest, res, next) => {
+inventoryRouter.post('/discharges', authenticate, requirePermission('inventory', 'discharge'), async (req: AuthRequest, res, next) => {
   try {
     const {
       temporaryImportId, type, pedimento, quantity, unit,
@@ -291,7 +292,7 @@ inventoryRouter.get('/discharges', authenticate, async (req: AuthRequest, res, n
 });
 
 // Eliminar descargo
-inventoryRouter.delete('/discharges/:id', authenticate, async (req: AuthRequest, res, next) => {
+inventoryRouter.delete('/discharges/:id', authenticate, requirePermission('inventory', 'discharge'), async (req: AuthRequest, res, next) => {
   try {
     const discharge = await prisma.discharge.findFirst({
       where: { id: String(req.params.id), tenantId: req.tenantId! },

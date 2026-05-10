@@ -10,6 +10,7 @@
 import { Router, type Response, type NextFunction } from 'express';
 import { z } from 'zod';
 import { authenticate, AuthRequest } from '../middlewares/auth';
+import { requirePermission } from '../middlewares/requirePermission';
 import { prisma } from '../lib/prisma';
 
 export const settingsRouter = Router();
@@ -39,7 +40,7 @@ const updateSchema = z.object({
   rfc: z.string().min(12).max(13).regex(/^[A-ZÑ&]{3,4}[0-9]{6}[A-Z0-9]{3}$/i).optional(),
 });
 
-settingsRouter.patch('/empresa', async (req: AuthRequest, res: Response, next: NextFunction) => {
+settingsRouter.patch('/empresa', requirePermission('classifier', 'settings'), async (req: AuthRequest, res: Response, next: NextFunction) => {
   try {
     if (req.userRole !== 'ADMIN' && req.userRole !== 'SUPERADMIN') {
       return res.status(403).json({ status: 'error', message: 'Solo administradores pueden editar datos de la empresa' });

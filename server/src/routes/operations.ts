@@ -1,12 +1,13 @@
 import { Router } from 'express';
 import { authenticate, AuthRequest } from '../middlewares/auth';
+import { requirePermission } from '../middlewares/requirePermission';
 import { prisma } from '../lib/prisma';
 import { getRequiredDocuments, calculateCompleteness, getMissingDocuments } from '../services/expediente';
 
 export const operationsRouter = Router();
 
 // Crear operación
-operationsRouter.post('/', authenticate, async (req: AuthRequest, res, next) => {
+operationsRouter.post('/', authenticate, requirePermission('expedientes', 'create'), async (req: AuthRequest, res, next) => {
   try {
     const { reference, type, description, fractionCode, origin, destination, customsValue, currency, customsBroker, operationDate } = req.body;
 
@@ -112,7 +113,7 @@ operationsRouter.get('/:id', authenticate, async (req: AuthRequest, res, next) =
 });
 
 // Subir/marcar documento como uploaded
-operationsRouter.patch('/:opId/documents/:docId', authenticate, async (req: AuthRequest, res, next) => {
+operationsRouter.patch('/:opId/documents/:docId', authenticate, requirePermission('expedientes', 'create'), async (req: AuthRequest, res, next) => {
   try {
     const opId = String(req.params.opId);
     const docId = String(req.params.docId);
@@ -183,7 +184,7 @@ operationsRouter.get('/alerts/expiring', authenticate, async (req: AuthRequest, 
 });
 
 // Eliminar operación
-operationsRouter.delete('/:id', authenticate, async (req: AuthRequest, res, next) => {
+operationsRouter.delete('/:id', authenticate, requirePermission('expedientes', 'delete'), async (req: AuthRequest, res, next) => {
   try {
     const id = String(req.params.id);
 

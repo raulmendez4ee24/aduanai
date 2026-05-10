@@ -230,7 +230,7 @@ mveRouter.patch('/:id', authenticate, async (req: AuthRequest, res, next) => {
 });
 
 // Eliminar MVE
-mveRouter.delete('/:id', authenticate, async (req: AuthRequest, res, next) => {
+mveRouter.delete('/:id', authenticate, requirePermission('autoMVE', 'delete'), async (req: AuthRequest, res, next) => {
   try {
     const existing = await prisma.manifestacionValor.findFirst({
       where: { id: String(req.params.id), tenantId: req.tenantId! },
@@ -260,7 +260,7 @@ mveRouter.post('/:id/validate', authenticate, async (req: AuthRequest, res, next
   }
 });
 
-mveRouter.post('/:id/sign', authenticate, async (req: AuthRequest, res, next) => {
+mveRouter.post('/:id/sign', authenticate, requirePermission('autoMVE', 'sign'), async (req: AuthRequest, res, next) => {
   try {
     const existing = await prisma.manifestacionValor.findFirst({
       where: { id: String(req.params.id), tenantId: req.tenantId! },
@@ -280,7 +280,7 @@ mveRouter.post('/:id/sign', authenticate, async (req: AuthRequest, res, next) =>
   }
 });
 
-mveRouter.post('/:id/transmit', authenticate, async (req: AuthRequest, res, next) => {
+mveRouter.post('/:id/transmit', authenticate, requirePermission('autoMVE', 'sign'), async (req: AuthRequest, res, next) => {
   try {
     const existing = await prisma.manifestacionValor.findFirst({
       where: { id: String(req.params.id), tenantId: req.tenantId! },
