@@ -8,6 +8,7 @@ import { validateEmail, validatePhone, validateRFC, hasMXRecords } from '../lib/
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 import { recordAudit } from '../services/audit-service';
+import { seedTenantRoles } from '../services/permissions';
 
 export const authRouter = Router();
 
@@ -103,6 +104,8 @@ authRouter.post('/register', authRegisterLimiter, async (req, res, next) => {
       },
       include: { users: true },
     });
+
+    await seedTenantRoles(tenant.id);
 
     const user = tenant.users[0]!;
 
