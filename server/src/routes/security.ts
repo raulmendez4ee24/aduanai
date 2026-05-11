@@ -5,7 +5,8 @@
 import { Router, type Response, type NextFunction } from 'express';
 import { authenticate, AuthRequest, requireRole } from '../middlewares/auth';
 import { prisma } from '../lib/prisma';
-import { unblockIP } from '../lib/security';
+import { unblockIP, getClientIP } from '../lib/security';
+import { authLimiter } from '../middlewares/rateLimit';
 
 export const securityRouter = Router();
 const adminOnly = [authenticate, requireRole('SUPERADMIN')];
@@ -177,5 +178,34 @@ securityRouter.get('/locked-users', adminOnly, async (_req: AuthRequest, res: Re
       take: 100,
     });
     res.json({ status: 'ok', data: users });
+  } catch (err) { next(err); }
+});
+
+// Autodesbloqueo: cualquier usuario autenticado puede resetear el rate-limit
+// de su propia IP y el contador de fails de su propio user (caso típico:
+// NAT compartido bloqueado por fails de otra persona, o el propio usuario
+// se logea correctamente pero la IP sigue penalizada de intentos previos).
+securityRouter.post('/unlock-current', authenticate, async (req: AuthRequest, res: Response, next: NextFunction) => {
+  try {
+    const ip = getClientIP(req as never);
+    const limiter = authLimiter as unknown as { resetKey?: (key: string) => Promise<void> | void };
+    if (typeof limiter.resetKey === 'function') {
+      await limiter.resetKey('ip:' + ip);
+    }
+    await prisma.user.update({
+      where: { id: req.userId! },
+      data: { failedLoginAttempts: 0, lockedUntil: null },
+    });
+    await prisma.securityEvent.create({
+      data: {
+        type: 'self_unlock',
+        severity: 'low',
+        ip,
+        userId: req.userId,
+        endpoint: '/api/admin/security/unlock-current',
+        details: { triggeredBy: req.userId } as unknown as object,
+      },
+    });
+    res.json({ status: 'ok', data: { ip, message: 'Rate limit reseteado para esta IP y user' } });
   } catch (err) { next(err); }
 });
