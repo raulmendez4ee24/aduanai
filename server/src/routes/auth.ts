@@ -50,7 +50,7 @@ function generateCode(): string {
 // ── REGISTER ──
 authRouter.post('/register', authRegisterLimiter, async (req, res, next) => {
   try {
-    const { email, password, name, companyName, phone, rfc } = req.body;
+    const { email, password, name, companyName, phone, rfc } = req.body ?? {};
 
     if (!email || !password || !name) {
       throw new AppError('Email, contraseña y nombre son requeridos', 400);
@@ -150,7 +150,7 @@ authRouter.post('/register', authRegisterLimiter, async (req, res, next) => {
 // ── VERIFY EMAIL ──
 authRouter.post('/verify-email', authenticate, async (req: AuthRequest, res, next) => {
   try {
-    const { code } = req.body;
+    const { code } = req.body ?? {};
     if (!code) throw new AppError('Código requerido', 400);
 
     const verification = await prisma.verificationCode.findFirst({
@@ -218,7 +218,7 @@ authRouter.post('/verify-email', authenticate, async (req: AuthRequest, res, nex
 // ── RESEND CODE ──
 authRouter.post('/resend-code', authenticate, async (req: AuthRequest, res, next) => {
   try {
-    const type: string = req.body.type || 'email_verify';
+    const type: string = (req.body ?? {}).type || 'email_verify';
 
     // Check cooldown
     const lastCode = await prisma.verificationCode.findFirst({
@@ -272,7 +272,7 @@ authRouter.post('/resend-code', authenticate, async (req: AuthRequest, res, next
 // ── FORGOT PASSWORD ──
 authRouter.post('/forgot-password', forgotPasswordLimiter, async (req, res, next) => {
   try {
-    const { email } = req.body;
+    const { email } = req.body ?? {};
     if (!email) throw new AppError('Email requerido', 400);
 
     const user = await prisma.user.findUnique({ where: { email } });
@@ -309,7 +309,7 @@ authRouter.post('/forgot-password', forgotPasswordLimiter, async (req, res, next
 // ── VERIFY RESET CODE ──
 authRouter.post('/verify-reset-code', async (req, res, next) => {
   try {
-    const { email, code } = req.body;
+    const { email, code } = req.body ?? {};
     if (!email || !code) throw new AppError('Email y código requeridos', 400);
 
     const user = await prisma.user.findUnique({ where: { email } });
@@ -366,7 +366,7 @@ authRouter.post('/verify-reset-code', async (req, res, next) => {
 // ── RESET PASSWORD ──
 authRouter.post('/reset-password', async (req, res, next) => {
   try {
-    const { resetToken, newPassword } = req.body;
+    const { resetToken, newPassword } = req.body ?? {};
     if (!resetToken || !newPassword) throw new AppError('Token y nueva contraseña requeridos', 400);
 
     let decoded: { userId: string; type: string };
@@ -396,7 +396,7 @@ authRouter.post('/reset-password', async (req, res, next) => {
 // ── LOGIN ──
 authRouter.post('/login', authLoginLimiter, async (req, res, next) => {
   try {
-    const { email, password, rememberMe } = req.body;
+    const { email, password, rememberMe } = req.body ?? {};
     const ip = getIp(req);
     const ua = req.headers['user-agent'];
 
@@ -535,7 +535,7 @@ authRouter.post('/login', authLoginLimiter, async (req, res, next) => {
 // ── REFRESH TOKEN ──
 authRouter.post('/refresh', async (req, res, next) => {
   try {
-    const { refreshToken } = req.body;
+    const { refreshToken } = req.body ?? {};
     if (!refreshToken) throw new AppError('Refresh token requerido', 400);
 
     // Check blacklist
@@ -570,7 +570,7 @@ authRouter.post('/logout', authenticate, async (req: AuthRequest, res, next) => 
       });
     }
 
-    const { refreshToken } = req.body;
+    const { refreshToken } = req.body ?? {};
     if (refreshToken) {
       const decoded = jwt.decode(refreshToken) as { exp?: number } | null;
       const expiresAt = decoded?.exp ? new Date(decoded.exp * 1000) : new Date(Date.now() + 7 * 86400000);
@@ -602,7 +602,7 @@ authRouter.post('/logout', authenticate, async (req: AuthRequest, res, next) => 
 // ── CHANGE PASSWORD ──
 authRouter.post('/change-password', authenticate, async (req: AuthRequest, res, next) => {
   try {
-    const { currentPassword, newPassword } = req.body;
+    const { currentPassword, newPassword } = req.body ?? {};
     if (!currentPassword || !newPassword) throw new AppError('Contraseña actual y nueva requeridas', 400);
 
     const pwError = validatePassword(newPassword);
@@ -695,7 +695,7 @@ authRouter.get('/tenant-status', authenticate, async (req: AuthRequest, res, nex
 // ── ONBOARDING PROGRESS ──
 authRouter.patch('/onboarding', authenticate, async (req: AuthRequest, res, next) => {
   try {
-    const { step, completed } = req.body as { step?: number; completed?: boolean };
+    const { step, completed } = (req.body ?? {}) as { step?: number; completed?: boolean };
     const data: Record<string, unknown> = {};
     if (typeof step === 'number') data.onboardingStep = step;
     if (typeof completed === 'boolean') data.onboardingCompleted = completed;
@@ -713,7 +713,7 @@ authRouter.patch('/onboarding', authenticate, async (req: AuthRequest, res, next
 // ── ACCEPT INVITATION (público — el invitado crea su cuenta) ──
 authRouter.post('/accept-invitation', async (req, res, next) => {
   try {
-    const { token, password } = req.body as { token?: string; password?: string };
+    const { token, password } = (req.body ?? {}) as { token?: string; password?: string };
     if (!token || !password) throw new AppError('Token y contraseña requeridos', 400);
 
     const inv = await prisma.invitation.findUnique({ where: { token } });
