@@ -109,10 +109,35 @@ securityRouter.post('/blocked-ips/:ip/unblock', adminOnly, async (req: AuthReque
 securityRouter.post('/users/:id/unlock', adminOnly, async (req: AuthRequest, res: Response, next: NextFunction) => {
   try {
     const id = String(req.params.id);
+    const reason: string = ((req.body ?? {}) as { reason?: string }).reason ?? 'manual_admin_unlock';
+
+    const target = await prisma.user.findUnique({
+      where: { id }, select: { email: true, failedLoginAttempts: true, lockedUntil: true },
+    });
+    if (!target) return res.status(404).json({ status: 'error', message: 'Usuario no encontrado' });
+
     await prisma.user.update({
       where: { id },
       data: { lockedUntil: null, failedLoginAttempts: 0 },
     });
+
+    await prisma.securityEvent.create({
+      data: {
+        type: 'user_unlocked',
+        severity: 'medium',
+        ip: req.ip ?? '0.0.0.0',
+        userId: id,
+        email: target.email,
+        endpoint: '/api/admin/security/users/:id/unlock',
+        details: {
+          unlockedBy: req.userId,
+          reason,
+          previousFailedAttempts: target.failedLoginAttempts,
+          previousLockedUntil: target.lockedUntil?.toISOString() ?? null,
+        } as unknown as object,
+      },
+    });
+
     res.json({ status: 'ok' });
   } catch (err) { next(err); }
 });
