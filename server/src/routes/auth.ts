@@ -710,6 +710,75 @@ authRouter.patch('/onboarding', authenticate, async (req: AuthRequest, res, next
   }
 });
 
+// ── ACCEPT INVITATION (público — el invitado crea su cuenta) ──
+authRouter.post('/accept-invitation', async (req, res, next) => {
+  try {
+    const { token, password } = req.body as { token?: string; password?: string };
+    if (!token || !password) throw new AppError('Token y contraseña requeridos', 400);
+
+    const inv = await prisma.invitation.findUnique({ where: { token } });
+    if (!inv) throw new AppError('Invitación no encontrada o inválida', 404);
+    if (inv.status !== 'PENDING') throw new AppError(`Invitación ya ${inv.status.toLowerCase()}`, 400);
+    if (inv.expiresAt < new Date()) {
+      await prisma.invitation.update({ where: { id: inv.id }, data: { status: 'EXPIRED' } });
+      throw new AppError('Invitación expirada — pide a tu admin que reenvíe', 410);
+    }
+
+    const pwError = validatePassword(password);
+    if (pwError) throw new AppError(pwError, 400);
+
+    const dup = await prisma.user.findUnique({ where: { email: inv.email }, select: { id: true } });
+    if (dup) throw new AppError('Ya existe una cuenta con este email — usa "Olvidé contraseña"', 409);
+
+    const hashedPassword = await bcrypt.hash(password, 12);
+
+    // Crear usuario en el tenant de la invitación
+    const user = await prisma.user.create({
+      data: {
+        email: inv.email, password: hashedPassword, name: inv.name,
+        role: 'USER', emailVerified: true, status: 'VERIFIED',
+        tenantId: inv.tenantId, lastLoginAt: new Date(), lastLoginIp: getIp(req),
+      },
+    });
+
+    // Asignar roles iniciales (la invitación ya pasó validación SOD al crearse)
+    const tenantRoles = await prisma.tenantRole.findMany({
+      where: { tenantId: inv.tenantId, code: { in: inv.initialRoleCodes }, active: true },
+      select: { id: true, code: true },
+    });
+    for (const r of tenantRoles) {
+      await prisma.userTenantRole.create({
+        data: {
+          userId: user.id, tenantId: inv.tenantId, roleId: r.id,
+          assignedBy: inv.invitedBy, reason: `invitation:${inv.id}`, active: true,
+        },
+      });
+      await prisma.permissionAuditLog.create({
+        data: {
+          tenantId: inv.tenantId, userId: inv.invitedBy,
+          action: 'ROLE_ASSIGNED', targetUserId: user.id, roleId: r.id,
+          details: { roleCode: r.code, viaInvitation: inv.id } as unknown as object,
+          ipAddress: getIp(req) ?? null,
+        },
+      });
+    }
+
+    await prisma.invitation.update({
+      where: { id: inv.id },
+      data: { status: 'ACCEPTED', acceptedAt: new Date(), acceptedUserId: user.id },
+    });
+
+    const jwtToken = jwt.sign({ userId: user.id, tenantId: inv.tenantId }, JWT_SECRET, { expiresIn: JWT_EXPIRES });
+    const refreshToken = jwt.sign({ userId: user.id, tenantId: inv.tenantId, type: 'refresh' }, JWT_SECRET, { expiresIn: REFRESH_EXPIRES });
+
+    res.status(201).json({
+      token: jwtToken, refreshToken, expiresIn: 8 * 60 * 60,
+      user: { id: user.id, email: user.email, name: user.name, role: user.role, emailVerified: true, status: 'VERIFIED' },
+      assignedRoles: tenantRoles.map(r => r.code),
+    });
+  } catch (err) { next(err); }
+});
+
 // ── LOGIN HISTORY ──
 authRouter.get('/login-history', authenticate, async (req: AuthRequest, res, next) => {
   try {

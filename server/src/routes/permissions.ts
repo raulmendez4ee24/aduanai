@@ -16,6 +16,7 @@
 
 import { Router, type Response, type NextFunction } from 'express';
 import { z } from 'zod';
+import crypto from 'crypto';
 import { authenticate, AuthRequest } from '../middlewares/auth';
 import { prisma } from '../lib/prisma';
 import {
@@ -23,6 +24,11 @@ import {
   detectSODConflictsForTenant, mergePermissions, type RolePermissions,
 } from '../services/permissions';
 import { requirePermission } from '../middlewares/requirePermission';
+import { sendInvitationEmail } from '../lib/email';
+import { validateEmail } from '../lib/validators';
+
+const APP_URL = process.env.APP_URL || 'https://kanaduana-production.up.railway.app';
+const INVITATION_TTL_DAYS = 7;
 
 export const permissionsRouter = Router();
 permissionsRouter.use(authenticate);
@@ -316,3 +322,132 @@ permissionsRouter.patch('/roles/:id', requirePermission('classifier', 'settings'
 });
 
 void mergePermissions; // exported for downstream consumers
+
+// ──────────────────────────────────────────────────────────────────
+// Invitations — invitar usuarios al tenant con roles iniciales
+// ──────────────────────────────────────────────────────────────────
+
+const inviteSchema = z.object({
+  email: z.string().email(),
+  name: z.string().min(2).max(100),
+  initialRoleCodes: z.array(z.string()).min(1).max(6),
+});
+
+async function detectSODAmongCodes(tenantId: string, codes: string[]): Promise<{ a: string; b: string }[]> {
+  const roles = await prisma.tenantRole.findMany({
+    where: { tenantId, code: { in: codes }, active: true },
+    select: { code: true, conflictsWith: true },
+  });
+  const conflicts: { a: string; b: string }[] = [];
+  for (const r of roles) {
+    for (const c of r.conflictsWith) {
+      if (codes.includes(c)) conflicts.push({ a: r.code, b: c });
+    }
+  }
+  return conflicts;
+}
+
+permissionsRouter.post('/users/invite', requirePermission('classifier', 'settings'), async (req: AuthRequest, res: Response, next: NextFunction) => {
+  try {
+    const body = inviteSchema.parse(req.body);
+    const emailError = validateEmail(body.email);
+    if (emailError) return res.status(400).json({ status: 'error', message: emailError });
+
+    // Bloquear si el email ya existe en cualquier tenant
+    const existing = await prisma.user.findUnique({ where: { email: body.email }, select: { id: true, tenantId: true } });
+    if (existing) {
+      return res.status(409).json({ status: 'error', code: 'EMAIL_ALREADY_REGISTERED', message: 'Este email ya tiene cuenta en ADUANAI. Pídele que se una a tu tenant manualmente.' });
+    }
+
+    // Verificar que los roles existan y no tengan conflictos SOD entre sí
+    const tenantRoles = await prisma.tenantRole.findMany({
+      where: { tenantId: req.tenantId!, code: { in: body.initialRoleCodes }, active: true },
+      select: { code: true },
+    });
+    const foundCodes = new Set(tenantRoles.map(r => r.code));
+    const missing = body.initialRoleCodes.filter(c => !foundCodes.has(c));
+    if (missing.length > 0) {
+      return res.status(400).json({ status: 'error', message: `Roles inexistentes: ${missing.join(', ')}` });
+    }
+    const sodConflicts = await detectSODAmongCodes(req.tenantId!, body.initialRoleCodes);
+    if (sodConflicts.length > 0) {
+      return res.status(409).json({
+        status: 'conflict',
+        code: 'SOD_CONFLICT_IN_INVITATION',
+        message: 'Los roles iniciales tienen conflictos de segregación de funciones entre sí.',
+        data: { conflicts: sodConflicts },
+      });
+    }
+
+    const token = crypto.randomBytes(32).toString('hex');
+    const expiresAt = new Date(Date.now() + INVITATION_TTL_DAYS * 86400000);
+    const inv = await prisma.invitation.create({
+      data: {
+        tenantId: req.tenantId!, email: body.email, name: body.name,
+        invitedBy: req.userId!, initialRoleCodes: body.initialRoleCodes,
+        token, expiresAt, status: 'PENDING', lastSentAt: new Date(),
+      },
+    });
+
+    const inviter = await prisma.user.findUnique({ where: { id: req.userId! }, select: { name: true } });
+    const tenant = await prisma.tenant.findUnique({ where: { id: req.tenantId! }, select: { name: true } });
+    const acceptUrl = `${APP_URL}/invite/accept?token=${token}`;
+    sendInvitationEmail({
+      to: body.email, name: body.name,
+      inviterName: inviter?.name ?? 'Tu equipo',
+      tenantName: tenant?.name ?? 'ADUANAI',
+      roles: body.initialRoleCodes,
+      acceptUrl, expiresAt,
+    }).catch(err => console.error('[email] sendInvitationEmail error:', err));
+
+    res.status(201).json({ status: 'ok', data: { id: inv.id, email: inv.email, expiresAt: inv.expiresAt, acceptUrl } });
+  } catch (err) { next(err); }
+});
+
+permissionsRouter.get('/users/invitations', requirePermission('classifier', 'settings'), async (req: AuthRequest, res: Response, next: NextFunction) => {
+  try {
+    const items = await prisma.invitation.findMany({
+      where: { tenantId: req.tenantId! },
+      orderBy: { createdAt: 'desc' },
+      take: 100,
+    });
+    res.json({ status: 'ok', data: items });
+  } catch (err) { next(err); }
+});
+
+permissionsRouter.post('/users/invitations/:id/resend', requirePermission('classifier', 'settings'), async (req: AuthRequest, res: Response, next: NextFunction) => {
+  try {
+    const id = String(req.params.id ?? '');
+    const inv = await prisma.invitation.findFirst({ where: { id, tenantId: req.tenantId! } });
+    if (!inv) return res.status(404).json({ status: 'error', message: 'Invitación no encontrada' });
+    if (inv.status !== 'PENDING') return res.status(400).json({ status: 'error', message: `No se puede reenviar (status: ${inv.status})` });
+
+    const newExpiry = new Date(Date.now() + INVITATION_TTL_DAYS * 86400000);
+    await prisma.invitation.update({
+      where: { id }, data: { lastSentAt: new Date(), expiresAt: newExpiry },
+    });
+
+    const inviter = await prisma.user.findUnique({ where: { id: req.userId! }, select: { name: true } });
+    const tenant = await prisma.tenant.findUnique({ where: { id: req.tenantId! }, select: { name: true } });
+    const acceptUrl = `${APP_URL}/invite/accept?token=${inv.token}`;
+    sendInvitationEmail({
+      to: inv.email, name: inv.name,
+      inviterName: inviter?.name ?? 'Tu equipo',
+      tenantName: tenant?.name ?? 'ADUANAI',
+      roles: inv.initialRoleCodes,
+      acceptUrl, expiresAt: newExpiry,
+    }).catch(err => console.error('[email] sendInvitationEmail error:', err));
+
+    res.json({ status: 'ok', data: { id: inv.id, expiresAt: newExpiry } });
+  } catch (err) { next(err); }
+});
+
+permissionsRouter.delete('/users/invitations/:id', requirePermission('classifier', 'settings'), async (req: AuthRequest, res: Response, next: NextFunction) => {
+  try {
+    const id = String(req.params.id ?? '');
+    const inv = await prisma.invitation.findFirst({ where: { id, tenantId: req.tenantId! } });
+    if (!inv) return res.status(404).json({ status: 'error', message: 'Invitación no encontrada' });
+    await prisma.invitation.update({ where: { id }, data: { status: 'CANCELED' } });
+    res.json({ status: 'ok' });
+  } catch (err) { next(err); }
+});

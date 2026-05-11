@@ -2532,6 +2532,36 @@ model PermissionAuditLog {
   @@map("permission_audit_log")
 }
 
+model Invitation {
+  id                String    @id @default(cuid())
+  tenantId          String
+  email             String
+  name              String
+
+  invitedBy         String
+
+  // Roles a asignar cuando el invitado acepte. Se guardan como códigos
+  // para evitar dependencia de IDs específicos de tenant role records.
+  initialRoleCodes  String[]  @default([])
+
+  token             String    @unique
+  expiresAt         DateTime
+
+  // PENDING | ACCEPTED | EXPIRED | CANCELED
+  status            String    @default("PENDING")
+  acceptedAt        DateTime?
+  acceptedUserId    String?
+
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+  lastSentAt        DateTime?
+
+  @@index([tenantId, status])
+  @@index([token])
+  @@index([email])
+  @@map("invitations")
+}
+
 // ──────────────────────────────────────────────────────────────────
 // Simulador de Glosa — predice probabilidad de RA
 // ──────────────────────────────────────────────────────────────────

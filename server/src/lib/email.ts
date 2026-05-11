@@ -132,6 +132,36 @@ export async function sendWelcomeEmail(to: string, name: string): Promise<void> 
   await getResend()!.emails.send({ from: FROM, to, subject, html });
 }
 
+export async function sendInvitationEmail(opts: {
+  to: string;
+  name: string;
+  inviterName: string;
+  tenantName: string;
+  roles: string[];
+  acceptUrl: string;
+  expiresAt: Date;
+}): Promise<void> {
+  const subject = `${opts.inviterName} te invitó a ${opts.tenantName} en ADUANAI`;
+  const expiry = opts.expiresAt.toLocaleDateString('es-MX', { day: 'numeric', month: 'long', year: 'numeric' });
+  const body = `
+    <h2 style="margin:0 0 8px;color:#1a1a1a;font-size:24px;font-weight:700;">Hola, ${opts.name}</h2>
+    <p style="margin:0 0 20px;color:#555;font-size:15px;line-height:1.6;"><strong>${opts.inviterName}</strong> te invitó a unirte a <strong>${opts.tenantName}</strong> en ADUANAI con el siguiente rol:</p>
+    <div style="background:#f5f5f5;border-radius:8px;padding:16px;margin:0 0 20px;">
+      <p style="margin:0;color:#1a1a1a;font-size:14px;font-family:'Courier New',monospace;">${opts.roles.join(', ')}</p>
+    </div>
+    <div style="text-align:center;margin:0 0 20px;">
+      <a href="${opts.acceptUrl}" style="display:inline-block;background:#059669;color:#ffffff;font-size:15px;font-weight:600;padding:14px 32px;border-radius:6px;text-decoration:none;">Aceptar invitación</a>
+    </div>
+    <p style="margin:0;color:#888;font-size:13px;text-align:center;">Esta invitación expira el ${expiry}.</p>
+  `;
+  const html = emailBase(subject, body);
+  if (!process.env.RESEND_API_KEY) {
+    console.log(`[EMAIL DEV] To: ${opts.to} | Invitation to ${opts.tenantName} | Accept: ${opts.acceptUrl}`);
+    return;
+  }
+  await getResend()!.emails.send({ from: FROM, to: opts.to, subject, html });
+}
+
 export async function sendDemoInviteEmail(to: string, name: string, demoEmail: string, demoPassword: string, expiresAt: Date): Promise<void> {
   const subject = 'Tu acceso demo a ADUANAI';
   const expiryStr = expiresAt.toLocaleDateString('es-MX', { day: 'numeric', month: 'long', year: 'numeric', hour: '2-digit', minute: '2-digit' });

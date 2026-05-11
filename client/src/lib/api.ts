@@ -362,6 +362,18 @@ export const api = {
   permissionsOEAReport: () =>
     request<{ status: string; data: OEAReport }>('/permissions/oea-report'),
 
+  // Invitations
+  permissionsInvite: (input: { email: string; name: string; initialRoleCodes: string[] }) =>
+    request<{ status: string; data: { id: string; email: string; expiresAt: string; acceptUrl: string } }>('/permissions/users/invite', { method: 'POST', body: JSON.stringify(input) }),
+  permissionsInvitations: () =>
+    request<{ status: string; data: InvitationRecord[] }>('/permissions/users/invitations'),
+  permissionsInvitationResend: (id: string) =>
+    request<{ status: string; data: { id: string; expiresAt: string } }>(`/permissions/users/invitations/${id}/resend`, { method: 'POST' }),
+  permissionsInvitationCancel: (id: string) =>
+    request<{ status: string }>(`/permissions/users/invitations/${id}`, { method: 'DELETE' }),
+  acceptInvitation: (token: string, password: string) =>
+    request<{ token: string; refreshToken: string; expiresIn: number; user: { id: string; email: string; name: string; role: string; emailVerified: boolean; status: string }; assignedRoles: string[] }>('/auth/accept-invitation', { method: 'POST', body: JSON.stringify({ token, password }) }),
+
   // Settings (datos de mi empresa)
   settingsEmpresa: () =>
     request<{ status: string; data: TenantSettings }>('/settings/empresa'),
@@ -1679,6 +1691,23 @@ export interface PermissionAuditEntry {
   actor: { id: string; email: string; name: string } | null;
   target: { id: string; email: string; name: string } | null;
   role: { id: string; code: string; name: string } | null;
+}
+
+export interface InvitationRecord {
+  id: string;
+  tenantId: string;
+  email: string;
+  name: string;
+  invitedBy: string;
+  initialRoleCodes: string[];
+  token: string;
+  expiresAt: string;
+  status: 'PENDING' | 'ACCEPTED' | 'EXPIRED' | 'CANCELED';
+  acceptedAt: string | null;
+  acceptedUserId: string | null;
+  createdAt: string;
+  updatedAt: string;
+  lastSentAt: string | null;
 }
 
 export interface OEAReport {

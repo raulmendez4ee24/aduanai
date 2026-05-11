@@ -45,6 +45,7 @@ import { AuditTrailPage } from './pages/AuditTrail'
 import { EmpresaPage } from './pages/Settings/Empresa'
 import { SettingsIndexPage } from './pages/Settings/Index'
 import { UsersAndRolesPage } from './pages/Settings/Users'
+import { InviteAcceptPage } from './pages/InviteAccept'
 import { BibliotecaLegalPage } from './pages/BibliotecaLegal'
 import { CuotasActivasPage } from './pages/CuotasActivas'
 import { CumplimientoPage } from './pages/Cumplimiento'
@@ -184,6 +185,7 @@ export function App() {
       />
       <Route path="/forgot-password" element={<ForgotPasswordPage />} />
       <Route path="/reset-password" element={<ResetPasswordPage />} />
+      <Route path="/invite/accept" element={<InviteAcceptPage onLogin={handleLogin} />} />
 
       {/* Verify — requires token but NOT emailVerified */}
       <Route

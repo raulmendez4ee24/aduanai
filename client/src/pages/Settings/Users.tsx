@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
-import { Users, Shield, AlertTriangle, FileSearch, CheckCircle2, XCircle, ChevronDown, ChevronUp } from 'lucide-react'
+import { Users, Shield, AlertTriangle, FileSearch, CheckCircle2, XCircle, ChevronDown, ChevronUp, UserPlus, Mail, RotateCw, Trash2 } from 'lucide-react'
 import { api } from '../../lib/api'
-import type { TenantRoleRecord, TenantUserWithRoles, PermissionAuditEntry, OEAReport, SODConflict } from '../../lib/api'
+import type { TenantRoleRecord, TenantUserWithRoles, PermissionAuditEntry, OEAReport, SODConflict, InvitationRecord } from '../../lib/api'
 
 const GLASS = 'bg-white/70 backdrop-blur-xl border border-white/50 shadow-[0_8px_30px_rgb(0,0,0,0.04)]'
 
@@ -45,26 +45,46 @@ export function UsersAndRolesPage() {
 function UsersTab() {
   const [users, setUsers] = useState<TenantUserWithRoles[]>([])
   const [roles, setRoles] = useState<TenantRoleRecord[]>([])
+  const [invitations, setInvitations] = useState<InvitationRecord[]>([])
   const [assignFor, setAssignFor] = useState<TenantUserWithRoles | null>(null)
+  const [showInvite, setShowInvite] = useState(false)
   const [loading, setLoading] = useState(true)
   const [err, setErr] = useState('')
 
   async function load() {
     setLoading(true); setErr('')
     try {
-      const [u, r] = await Promise.all([api.permissionsUsers(), api.permissionsRoles()])
-      setUsers(u.data); setRoles(r.data)
+      const [u, r, inv] = await Promise.all([
+        api.permissionsUsers(), api.permissionsRoles(), api.permissionsInvitations(),
+      ])
+      setUsers(u.data); setRoles(r.data); setInvitations(inv.data)
     } catch (e) { setErr(e instanceof Error ? e.message : 'Error') }
     setLoading(false)
   }
   useEffect(() => { load() }, [])
 
+  async function resendInv(id: string) {
+    try { await api.permissionsInvitationResend(id); load() } catch (e) { alert(e instanceof Error ? e.message : 'Error') }
+  }
+  async function cancelInv(id: string) {
+    if (!confirm('¿Cancelar invitación?')) return
+    try { await api.permissionsInvitationCancel(id); load() } catch (e) { alert(e instanceof Error ? e.message : 'Error') }
+  }
+
   if (loading) return <div className={`${GLASS} rounded-2xl p-6 text-center text-[12px] text-slate-500`}>Cargando…</div>
   if (err) return <div className={`${GLASS} rounded-2xl p-6 text-center text-[12px] text-rose-700`}>{err}</div>
+
+  const pending = invitations.filter(i => i.status === 'PENDING')
 
   return (
     <>
       <div className={`${GLASS} rounded-2xl p-5`}>
+        <div className="flex items-center justify-between mb-3">
+          <p className="text-[13px] font-semibold text-slate-900">Usuarios del tenant ({users.length})</p>
+          <button onClick={() => setShowInvite(true)} className="text-[11px] font-medium bg-emerald-600 hover:bg-emerald-700 text-white px-3 py-1.5 rounded-lg flex items-center gap-1.5">
+            <UserPlus className="w-3.5 h-3.5"/>Invitar usuario
+          </button>
+        </div>
         <table className="w-full text-[11px]">
           <thead>
             <tr className="text-left border-b border-slate-100">
@@ -112,10 +132,128 @@ function UsersTab() {
         </table>
       </div>
 
+      {pending.length > 0 && (
+        <div className={`${GLASS} rounded-2xl p-5`}>
+          <p className="text-[12px] font-semibold text-slate-700 mb-2 flex items-center gap-1.5"><Mail className="w-3.5 h-3.5"/>Invitaciones pendientes ({pending.length})</p>
+          <table className="w-full text-[11px]">
+            <thead>
+              <tr className="text-left border-b border-slate-100">
+                <th className="py-1.5 text-slate-500 font-medium">Email</th>
+                <th className="py-1.5 text-slate-500 font-medium">Roles iniciales</th>
+                <th className="py-1.5 text-slate-500 font-medium">Expira</th>
+                <th className="py-1.5 text-slate-500 font-medium text-right">Acciones</th>
+              </tr>
+            </thead>
+            <tbody>
+              {pending.map(inv => (
+                <tr key={inv.id} className="border-b border-slate-100/50">
+                  <td className="py-1.5">
+                    <p className="text-slate-800">{inv.name}</p>
+                    <p className="font-mono text-[10px] text-slate-500">{inv.email}</p>
+                  </td>
+                  <td className="py-1.5 font-mono text-[10px]">{inv.initialRoleCodes.join(', ')}</td>
+                  <td className="py-1.5 text-slate-500">{new Date(inv.expiresAt).toLocaleDateString('es-MX')}</td>
+                  <td className="py-1.5 text-right">
+                    <button onClick={() => resendInv(inv.id)} title="Reenviar" className="text-emerald-700 hover:text-emerald-900 mr-2"><RotateCw className="w-3.5 h-3.5 inline"/></button>
+                    <button onClick={() => cancelInv(inv.id)} title="Cancelar" className="text-rose-700 hover:text-rose-900"><Trash2 className="w-3.5 h-3.5 inline"/></button>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+
       {assignFor && (
         <AssignRoleModal user={assignFor} roles={roles} onClose={() => setAssignFor(null)} onSaved={() => { setAssignFor(null); load() }}/>
       )}
+
+      {showInvite && (
+        <InviteUserModal roles={roles} onClose={() => setShowInvite(false)} onSaved={() => { setShowInvite(false); load() }}/>
+      )}
     </>
+  )
+}
+
+function InviteUserModal({ roles, onClose, onSaved }: { roles: TenantRoleRecord[]; onClose: () => void; onSaved: () => void }) {
+  const [email, setEmail] = useState('')
+  const [name, setName] = useState('')
+  const [selected, setSelected] = useState<string[]>(['CLASSIFIER'])
+  const [saving, setSaving] = useState(false)
+  const [err, setErr] = useState('')
+
+  function toggleRole(code: string) {
+    setSelected(prev => prev.includes(code) ? prev.filter(c => c !== code) : [...prev, code])
+  }
+
+  // Detectar conflictos SOD entre los roles seleccionados
+  const localConflicts: string[] = []
+  for (const a of selected) {
+    const ra = roles.find(r => r.code === a)
+    if (!ra) continue
+    for (const b of ra.conflictsWith) {
+      if (selected.includes(b)) {
+        const key = [a, b].sort().join(' ↔ ')
+        if (!localConflicts.includes(key)) localConflicts.push(key)
+      }
+    }
+  }
+
+  async function save() {
+    setSaving(true); setErr('')
+    try {
+      await api.permissionsInvite({ email, name, initialRoleCodes: selected })
+      onSaved()
+    } catch (e) {
+      setErr(e instanceof Error ? e.message : 'Error')
+    }
+    setSaving(false)
+  }
+
+  return (
+    <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/30 backdrop-blur-sm" onClick={onClose}>
+      <div className={`${GLASS} rounded-2xl w-full max-w-md mx-4 p-5`} onClick={e => e.stopPropagation()}>
+        <p className="text-[14px] font-bold text-slate-900 mb-3 flex items-center gap-1.5"><UserPlus className="w-4 h-4 text-emerald-600"/>Invitar usuario al tenant</p>
+
+        <label className="text-[10px] text-slate-500 uppercase tracking-wide">Email</label>
+        <input type="email" value={email} onChange={e => setEmail(e.target.value)} placeholder="persona@empresa.com"
+          className="w-full text-[12px] border border-slate-200 rounded-lg px-2 py-1.5 mt-0.5 mb-3"/>
+
+        <label className="text-[10px] text-slate-500 uppercase tracking-wide">Nombre completo</label>
+        <input value={name} onChange={e => setName(e.target.value)} placeholder="María Pérez"
+          className="w-full text-[12px] border border-slate-200 rounded-lg px-2 py-1.5 mt-0.5 mb-3"/>
+
+        <label className="text-[10px] text-slate-500 uppercase tracking-wide block mb-1">Roles iniciales</label>
+        <div className="grid grid-cols-2 gap-1.5 mb-3">
+          {roles.map(r => (
+            <label key={r.code} className="flex items-center gap-1.5 text-[11px] cursor-pointer">
+              <input type="checkbox" checked={selected.includes(r.code)} onChange={() => toggleRole(r.code)} className="accent-emerald-600"/>
+              <span className="font-mono">{r.code}</span>
+            </label>
+          ))}
+        </div>
+
+        {localConflicts.length > 0 && (
+          <div className="rounded-xl border-2 border-rose-300 bg-rose-50 p-2.5 mb-3">
+            <p className="text-[11px] font-bold text-rose-900 flex items-center gap-1.5"><AlertTriangle className="w-3.5 h-3.5"/>Conflicto SOD entre roles seleccionados</p>
+            <ul className="text-[10px] text-rose-800 ml-4 list-disc mt-1">
+              {localConflicts.map(c => <li key={c}>{c}</li>)}
+            </ul>
+            <p className="text-[10px] text-rose-700 mt-1">No se permite invitar con roles en conflicto. Quita uno.</p>
+          </div>
+        )}
+
+        {err && <p className="text-[11px] text-rose-700 mb-2">{err}</p>}
+
+        <div className="flex gap-2 justify-end">
+          <button onClick={onClose} className="text-[12px] text-slate-600 hover:text-slate-900 px-3 py-1.5">Cancelar</button>
+          <button onClick={save} disabled={saving || !email || !name || selected.length === 0 || localConflicts.length > 0}
+            className="text-[12px] bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 text-white px-3 py-1.5 rounded-lg flex items-center gap-1.5">
+            <Mail className="w-3.5 h-3.5"/>{saving ? 'Enviando…' : 'Enviar invitación'}
+          </button>
+        </div>
+      </div>
+    </div>
   )
 }
 
