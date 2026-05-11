@@ -7,6 +7,7 @@ import { authenticate, AuthRequest, requireRole } from '../middlewares/auth';
 import { prisma } from '../lib/prisma';
 import { unblockIP, getClientIP } from '../lib/security';
 import { authLimiter } from '../middlewares/rateLimit';
+import { backfillAntidumpingDates } from '../services/antidumping-backfill';
 
 export const securityRouter = Router();
 const adminOnly = [authenticate, requireRole('SUPERADMIN')];
@@ -179,6 +180,21 @@ securityRouter.get('/locked-users', adminOnly, async (_req: AuthRequest, res: Re
     });
     res.json({ status: 'ok', data: users });
   } catch (err) { next(err); }
+});
+
+// Trigger manual para backfill de fechas UPCI antidumping (diagnóstico).
+// Devuelve {updated, total} para verificar visualmente.
+securityRouter.post('/backfill-antidumping-dates', authenticate, async (_req: AuthRequest, res: Response, next: NextFunction) => {
+  try {
+    const result = await backfillAntidumpingDates();
+    res.json({ status: 'ok', data: result });
+  } catch (err) {
+    res.status(500).json({
+      status: 'error',
+      message: err instanceof Error ? err.message : String(err),
+      stack: err instanceof Error ? err.stack : undefined,
+    });
+  }
 });
 
 // Autodesbloqueo: cualquier usuario autenticado puede resetear el rate-limit
