@@ -63,6 +63,10 @@ export interface AntidumpingMatch {
   effectiveDate: string | null;
   expiryDate: string | null;
   notes: string | null;
+  // Si la cuota se aplicó por prefix-match (subpartida o partida), no
+  // por fracción exacta. UI debe mostrar warning para validar manualmente.
+  matchType?: 'exact' | 'subheading' | 'heading';
+  matchedFraction?: string;
 }
 
 export interface RegulationMatch {
@@ -92,16 +96,30 @@ export async function lookupCompliance(
   const cleanFraction = fractionCode.replace(/[^0-9]/g, '');
   const countryNorm = normalizeCountry(country);
 
-  // 1) Cuota compensatoria — exact match fracción + país
-  const ad = countryNorm
-    ? await prisma.antidumpingDuty.findFirst({
-        where: {
-          fractionCode: cleanFraction,
-          countryOfOrigin: countryNorm,
-          active: true,
-        },
-      })
-    : null;
+  // 1) Cuota compensatoria — exact match fracción + país; si no hay,
+  // fallback por subpartida (6 dígitos) y partida (4 dígitos). UI debe
+  // avisar al usuario cuando el match no es exacto.
+  let ad: Awaited<ReturnType<typeof prisma.antidumpingDuty.findFirst>> | null = null;
+  let adMatchType: 'exact' | 'subheading' | 'heading' = 'exact';
+  if (countryNorm) {
+    ad = await prisma.antidumpingDuty.findFirst({
+      where: { fractionCode: cleanFraction, countryOfOrigin: countryNorm, active: true },
+    });
+    if (!ad && cleanFraction.length >= 6) {
+      const sub = cleanFraction.slice(0, 6);
+      ad = await prisma.antidumpingDuty.findFirst({
+        where: { fractionCode: { startsWith: sub }, countryOfOrigin: countryNorm, active: true },
+      });
+      if (ad) adMatchType = 'subheading';
+    }
+    if (!ad && cleanFraction.length >= 4) {
+      const head = cleanFraction.slice(0, 4);
+      ad = await prisma.antidumpingDuty.findFirst({
+        where: { fractionCode: { startsWith: head }, countryOfOrigin: countryNorm, active: true },
+      });
+      if (ad) adMatchType = 'heading';
+    }
+  }
 
   // 2) Regulaciones — todas las exact + cualquier prefix que matchee
   // Generar prefijos: 2, 4, 6, 8 dígitos
@@ -143,7 +161,10 @@ export async function lookupCompliance(
   const alertas: string[] = [];
   if (ad) {
     const dateStr = ad.publishDate ? ad.publishDate.toISOString().slice(0, 10) : 'fecha s/d';
-    alertas.push(`Cuota compensatoria ${ad.rate}% aplicable a ${ad.countryOfOrigin} — Decreto ${ad.decree ?? 's/n'} (${dateStr})`);
+    const matchNote = adMatchType === 'exact'
+      ? ''
+      : ` ⚠️ Match por ${adMatchType === 'subheading' ? 'subpartida' : 'partida'} (${ad.fractionCode}) — verifica manualmente si tu fracción ${cleanFraction} está cubierta`;
+    alertas.push(`Cuota compensatoria ${ad.rate}% aplicable a ${ad.countryOfOrigin} — Decreto ${ad.decree ?? 's/n'} (${dateStr})${matchNote}`);
   }
   const padron = regulations.find(r => r.type === 'padron_sectorial');
   if (padron) {
@@ -172,6 +193,8 @@ export async function lookupCompliance(
           effectiveDate: ad.effectiveDate?.toISOString() ?? null,
           expiryDate: ad.expiryDate?.toISOString() ?? null,
           notes: ad.notes,
+          matchType: adMatchType,
+          matchedFraction: ad.fractionCode,
         }
       : null,
     regulations,
