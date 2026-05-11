@@ -59,9 +59,11 @@ export async function buildClassifierAlerts(input: BuildAlertsInput): Promise<Cl
   const alerts: ClassifierAlert[] = [];
   const cleanFraction = input.fractionCode.replace(/[^0-9]/g, '');
 
-  // 1) Alertas de compliance (cuotas comp + NOMs + padrón sectorial)
-  if (input.countryOfOrigin && cleanFraction.length === 8) {
-    const compliance = await lookupCompliance(cleanFraction, input.countryOfOrigin);
+  // 1) Alertas de compliance.
+  //    - Padrón sectorial, NOMs, RRNA: aplican por fracción (independiente del país)
+  //    - Cuota compensatoria antidumping: requiere país, solo si está provisto
+  if (cleanFraction.length === 8) {
+    const compliance = await lookupCompliance(cleanFraction, input.countryOfOrigin ?? '');
 
     if (compliance.antidumping) {
       const dateStr = compliance.antidumping.publishDate?.slice(0, 10) ?? 's/d';
@@ -70,7 +72,7 @@ export async function buildClassifierAlerts(input: BuildAlertsInput): Promise<Cl
         severity: 'critical',
         title: `⚠️ Cuota compensatoria ${compliance.antidumping.rate}% — ${compliance.antidumping.countryNormalized}`,
         message: `Decreto ${compliance.antidumping.decree ?? 's/n'} (${dateStr}). ${compliance.antidumping.notes ?? ''}`,
-        metadata: { rate: compliance.antidumping.rate, decree: compliance.antidumping.decree, type: compliance.antidumping.type },
+        metadata: { rate: compliance.antidumping.rate, decree: compliance.antidumping.decree, type: compliance.antidumping.type, matchType: compliance.antidumping.matchType, matchedFraction: compliance.antidumping.matchedFraction },
       });
     }
 
