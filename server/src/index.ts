@@ -158,7 +158,9 @@ app.use('/api/mve', mveRouter);
 app.use('/api/logistics', logisticsRouter);
 app.use('/api/updater', updaterRouter);
 app.use('/api/leads', leadLimiter, leadsRouter);
-app.use('/api/admin', adminLimiter, adminRouter);
+// NOTA: adminRouter (con requireRole SUPERADMIN global) se monta al FINAL
+// para que las subrutas más específicas (/admin/security, /admin/backups,
+// /admin/monitoring, etc.) puedan tener guards menos estrictos.
 app.use('/api/knowledge', knowledgeRouter);
 app.use('/api/roi', roiRouter);
 app.use('/api/admin/audit', auditAdminRouter);
@@ -188,6 +190,9 @@ app.use('/api/admin/padrones', padronesAdminRouter);
 app.use('/api/glosa', glosaRouter);
 app.use('/api/permissions', permissionsRouter);
 app.use('/api/admin/glosa', glosaAdminRouter);
+// Catch-all admin routes (requireRole SUPERADMIN) — debe ir DESPUÉS de
+// los subrouters específicos que tienen guards propios.
+app.use('/api/admin', adminLimiter, adminRouter);
 app.use('/api/status', statusRouter);
 
 // ── SPA fallback ──
