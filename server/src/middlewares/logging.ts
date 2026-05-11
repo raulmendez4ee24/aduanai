@@ -63,8 +63,27 @@ export function requestLogger(req: Request, res: Response, next: NextFunction): 
 }
 
 /** Error handler que captura stack traces y los persiste antes de devolver al cliente. */
-export function errorLogger(err: Error & { status?: number; statusCode?: number; isOperational?: boolean }, req: Request, res: Response, _next: NextFunction): void {
+export function errorLogger(err: Error & { status?: number; statusCode?: number; isOperational?: boolean; issues?: Array<{ path: (string|number)[]; message: string; code?: string }> }, req: Request, res: Response, _next: NextFunction): void {
   const ar = req as AuthRequest;
+  // ZodError → 400 con detalle de fields (no 500 "Error interno")
+  if (err.name === 'ZodError' && Array.isArray(err.issues)) {
+    if (!res.headersSent) {
+      res.status(400).json({
+        status: 'error',
+        code: 'VALIDATION_ERROR',
+        message: 'Datos inválidos en el payload',
+        fields: err.issues.map(i => ({ path: i.path.join('.'), message: i.message, code: i.code })),
+        requestId: req.requestId,
+      });
+    }
+    logger.warn('Validation error', {
+      requestId: req.requestId, method: req.method, endpoint: req.originalUrl.split('?')[0],
+      statusCode: 400, tenantId: ar.tenantId, userId: ar.userId,
+      errorMessage: 'ZodError',
+      metadata: { issues: err.issues.map(i => ({ path: i.path.join('.'), message: i.message })) },
+    });
+    return;
+  }
   // AppError usa statusCode; algunos errores externos usan status
   const status = err.statusCode ?? err.status ?? 500;
   // Solo log severo cuando es 5xx; los 4xx (auth/validación) son INFO/WARN
