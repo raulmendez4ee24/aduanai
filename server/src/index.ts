@@ -57,6 +57,7 @@ import { permissionsRouter } from './routes/permissions';
 import { statusRouter } from './routes/status';
 import { performBackup, cleanupExpiredBackups } from './services/backup';
 import { seedAllTenantsRoles, migrateTenantsWithoutAdmin } from './services/permissions';
+import { backfillAntidumpingDates } from './services/antidumping-backfill';
 import {
   ipBlockGuard, authLimiter, classifierLimiter, quoterLimiter,
   copilotLimiter as copilotLim, leadLimiter, publicLimiter, adminLimiter,
@@ -306,6 +307,12 @@ void (async () => {
     if (m.migrated > 0 || m.skippedExisting === 0) {
       logger.info(`[permissions] TENANT_ADMIN migration: ${m.migrated} migrated, ${m.skippedExisting} already had, ${m.skippedNoUser} skipped (no eligible user)`, {
         action: 'migrate_tenant_admin', metadata: m,
+      });
+    }
+    const bf = await backfillAntidumpingDates();
+    if (bf.updated > 0) {
+      logger.info(`[antidumping] Backfill UPCI dates: ${bf.updated}/${bf.total} registros actualizados`, {
+        action: 'backfill_antidumping_dates', metadata: bf,
       });
     }
   } catch (err) {

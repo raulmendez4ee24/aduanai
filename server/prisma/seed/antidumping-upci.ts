@@ -407,6 +407,36 @@ export const UPCI_RESOLUTIONS: UPCIResolution[] = [
   },
 ];
 
+// Migración runtime una-sola-vez: para registros existentes en producción
+// con publishDate/effectiveDate/expiryDate=null, poblar desde el dataset
+// constante usando match por (fractionCode, countryOfOrigin, resolutionType).
+// Idempotente: si las fechas ya están, no toca el registro.
+export async function backfillAntidumpingDates(prisma: PrismaClient): Promise<{ updated: number; checked: number }> {
+  let updated = 0;
+  let checked = 0;
+  for (const r of UPCI_RESOLUTIONS) {
+    checked++;
+    const res = await prisma.antidumpingDuty.updateMany({
+      where: {
+        fractionCode: r.fractionCode,
+        countryOfOrigin: r.countryOfOrigin,
+        resolutionType: r.resolutionType,
+        OR: [{ publishDate: null }, { effectiveDate: null }],
+      },
+      data: {
+        publishDateDOF: new Date(r.publishDateDOF),
+        publishDate: new Date(r.publishDateDOF),
+        effectiveDate: new Date(r.effectiveDate),
+        expiryDate: r.expiryDate ? new Date(r.expiryDate) : null,
+        decree: `DOF-${r.publishDateDOF}`,
+        dofUrl: r.dofUrl ?? `https://dof.gob.mx/`,
+      },
+    });
+    updated += res.count;
+  }
+  return { updated, checked };
+}
+
 export async function seedAntidumpingUPCI(prisma: PrismaClient): Promise<{ inserted: number }> {
   // Borra todo y recrea para idempotencia con la nueva estructura
   await prisma.antidumpingDuty.deleteMany({});
