@@ -37,11 +37,15 @@ export function validateRFC(rfc: string): string | null {
 }
 
 export function validatePhone(phone: string): string | null {
+  // Permisivo con formato: strip todo no-dígito (+, espacios, guiones, paréntesis).
+  // Acepta: 10 dígitos (MX local), 12 con prefijo país 52, 13 con 521 (móvil MX),
+  // o 11 con prefijo 1 (Norteamérica) por flexibilidad.
   const digits = phone.replace(/\D/g, '');
-  if (digits.length !== 10) {
-    return 'El teléfono debe tener exactamente 10 dígitos';
-  }
-  return null;
+  if (digits.length === 10) return null;
+  if (digits.length === 12 && digits.startsWith('52')) return null;
+  if (digits.length === 13 && digits.startsWith('521')) return null;
+  if (digits.length === 11 && digits.startsWith('1')) return null;
+  return 'El teléfono debe tener 10 dígitos (MX) o incluir prefijo país (+52, +521, +1)';
 }
 
 export function validateEmail(email: string): string | null {
