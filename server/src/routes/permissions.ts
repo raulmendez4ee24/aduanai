@@ -111,12 +111,21 @@ permissionsRouter.post('/assign', requirePermission('classifier', 'settings'), a
       tenantId: req.tenantId!,
       roleCode: body.roleCode,
       assignedBy: req.userId!,
+      actorLegacyRole: req.userRole,
       reason: body.reason,
       forceOverrideConflict: body.forceOverrideConflict,
       ipAddress: req.ip ?? undefined,
       userAgent: req.headers['user-agent'] ?? undefined,
     });
     if (!result.ok) {
+      if ('lockout' in result) {
+        return res.status(409).json({
+          status: 'error',
+          code: 'LAST_ADMIN_LOCKOUT',
+          message: 'Esta asignación dejaría al tenant sin ningún usuario con permisos de administración. Asigna primero TENANT_ADMIN a otro usuario antes de modificar este rol.',
+          suggestion: 'Invita o asigna TENANT_ADMIN a un segundo usuario antes de continuar.',
+        });
+      }
       return res.status(409).json({
         status: 'conflict',
         message: 'Conflicto de segregación de funciones (SOD)',
@@ -136,10 +145,19 @@ const removeSchema = z.object({
 permissionsRouter.post('/remove', requirePermission('classifier', 'settings'), async (req: AuthRequest, res: Response, next: NextFunction) => {
   try {
     const body = removeSchema.parse(req.body);
-    await removeRole({
+    const result = await removeRole({
       userId: body.userId, tenantId: req.tenantId!, roleId: body.roleId,
-      removedBy: req.userId!, reason: body.reason, ipAddress: req.ip ?? undefined,
+      removedBy: req.userId!, actorLegacyRole: req.userRole,
+      reason: body.reason, ipAddress: req.ip ?? undefined,
     });
+    if (!result.ok) {
+      return res.status(409).json({
+        status: 'error',
+        code: 'LAST_ADMIN_LOCKOUT',
+        message: 'Quitar este rol dejaría al tenant sin ningún usuario con permisos de administración.',
+        suggestion: 'Asigna TENANT_ADMIN a otro usuario antes de remover este rol.',
+      });
+    }
     res.json({ status: 'ok' });
   } catch (err) { next(err); }
 });

@@ -338,16 +338,49 @@ export async function checkConflicts(userId: string, tenantId: string, newRoleCo
 // Asignar / remover roles
 // ──────────────────────────────────────────────────────────────────
 
+// ──────────────────────────────────────────────────────────────────
+// Last-admin lockout guard
+// Asegura que la operación no deje al tenant sin ningún usuario con
+// permiso settings (perdiendo la capacidad de gestionar roles).
+// ──────────────────────────────────────────────────────────────────
+
+function rolesProvideSettings(perms: RolePermissions[], legacyRole?: string): boolean {
+  if (perms.length === 0) return legacyRole === 'ADMIN' || legacyRole === 'SUPERADMIN';
+  return mergePermissions(perms).features.settings === true;
+}
+
+async function tenantStillHasAdminAfterChange(
+  tenantId: string,
+  changedUserId: string,
+  changedUserWillHaveSettings: boolean,
+): Promise<boolean> {
+  if (changedUserWillHaveSettings) return true;
+  const others = await prisma.user.findMany({
+    where: { tenantId, active: true, id: { not: changedUserId } },
+    select: { id: true, role: true },
+  });
+  for (const u of others) {
+    const perms = await getUserPermissions(u.id, tenantId, u.role);
+    if (perms.features.settings === true) return true;
+  }
+  return false;
+}
+
 export async function assignRole(input: {
   userId: string;
   tenantId: string;
   roleCode: string;
   assignedBy: string;
+  actorLegacyRole?: string;
   reason?: string;
   forceOverrideConflict?: boolean;
   ipAddress?: string;
   userAgent?: string;
-}): Promise<{ ok: true; userRoleId: string; conflict?: SODConflict } | { ok: false; conflict: SODConflict }> {
+}): Promise<
+  | { ok: true; userRoleId: string; conflict?: SODConflict }
+  | { ok: false; conflict: SODConflict }
+  | { ok: false; lockout: true }
+> {
   const role = await prisma.tenantRole.findUnique({
     where: { tenantId_code: { tenantId: input.tenantId, code: input.roleCode } },
   });
@@ -356,6 +389,28 @@ export async function assignRole(input: {
   const conflict = await checkConflicts(input.userId, input.tenantId, input.roleCode);
   if (conflict.hasConflict && !input.forceOverrideConflict) {
     return { ok: false, conflict };
+  }
+
+  // Lockout guard: si la asignación dejaría al usuario sin settings y nadie
+  // más del tenant tiene settings, bloquear (SUPERADMIN se salta el guard).
+  if (input.actorLegacyRole !== 'SUPERADMIN') {
+    const targetUser = await prisma.user.findUnique({
+      where: { id: input.userId }, select: { role: true },
+    });
+    const currentRoles = await prisma.userTenantRole.findMany({
+      where: { userId: input.userId, tenantId: input.tenantId, active: true },
+      include: { role: true },
+    });
+    const futurePerms: RolePermissions[] = [];
+    let alreadyHas = false;
+    for (const ur of currentRoles) {
+      futurePerms.push(ur.role.permissions as unknown as RolePermissions);
+      if (ur.roleId === role.id) alreadyHas = true;
+    }
+    if (!alreadyHas) futurePerms.push(role.permissions as unknown as RolePermissions);
+    const willHaveSettings = rolesProvideSettings(futurePerms, targetUser?.role);
+    const safe = await tenantStillHasAdminAfterChange(input.tenantId, input.userId, willHaveSettings);
+    if (!safe) return { ok: false, lockout: true };
   }
 
   const created = await prisma.userTenantRole.upsert({
@@ -400,9 +455,26 @@ export async function removeRole(input: {
   tenantId: string;
   roleId: string;
   removedBy: string;
+  actorLegacyRole?: string;
   reason?: string;
   ipAddress?: string;
-}): Promise<void> {
+}): Promise<{ ok: true } | { ok: false; lockout: true }> {
+  if (input.actorLegacyRole !== 'SUPERADMIN') {
+    const targetUser = await prisma.user.findUnique({
+      where: { id: input.userId }, select: { role: true },
+    });
+    const currentRoles = await prisma.userTenantRole.findMany({
+      where: { userId: input.userId, tenantId: input.tenantId, active: true },
+      include: { role: true },
+    });
+    const futurePerms = currentRoles
+      .filter(ur => ur.roleId !== input.roleId)
+      .map(ur => ur.role.permissions as unknown as RolePermissions);
+    const willHaveSettings = rolesProvideSettings(futurePerms, targetUser?.role);
+    const safe = await tenantStillHasAdminAfterChange(input.tenantId, input.userId, willHaveSettings);
+    if (!safe) return { ok: false, lockout: true };
+  }
+
   await prisma.userTenantRole.updateMany({
     where: { userId: input.userId, tenantId: input.tenantId, roleId: input.roleId },
     data: { active: false, effectiveUntil: new Date() },
@@ -418,6 +490,7 @@ export async function removeRole(input: {
       ipAddress: input.ipAddress ?? null,
     },
   });
+  return { ok: true };
 }
 
 // ──────────────────────────────────────────────────────────────────
