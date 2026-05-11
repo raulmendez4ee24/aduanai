@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, type ReactNode } from 'react'
-import { NavLink, useNavigate } from 'react-router-dom'
+import { NavLink, useNavigate, useLocation } from 'react-router-dom'
 import {
   LayoutDashboard, Search, Bell, Settings, Menu, X, ChevronLeft,
   Boxes, Calculator, Bot, Clock, FolderOpen, ShieldCheck, FileText,
@@ -173,6 +173,7 @@ interface RecentAlert {
 
 export function AppLayout({ children, onLogout, userRole, userName, userEmail, tenantName }: Props) {
   const navigate = useNavigate()
+  const location = useLocation()
   const [collapsed, setCollapsed] = useState(false)
   const [mobileOpen, setMobileOpen] = useState(false)
   const [searchOpen, setSearchOpen] = useState(false)
@@ -592,17 +593,19 @@ export function AppLayout({ children, onLogout, userRole, userName, userEmail, t
         </div>
       )}
 
-      {/* ── Floating Help & WhatsApp ── */}
-      <div className="fixed bottom-5 right-5 z-50 flex flex-col gap-2.5">
-        <a href="https://wa.me/5215500000000?text=Hola%2C%20necesito%20ayuda%20con%20ADUANAI" target="_blank" rel="noopener noreferrer"
-          className="w-11 h-11 bg-[#25D366] rounded-full flex items-center justify-center shadow-lg shadow-[#25D366]/20 hover:scale-110 transition-transform" title="Contactar asesor">
-          <MessageCircle className="w-5 h-5 text-white" />
-        </a>
-        <button onClick={() => navigate('/copilot')}
-          className="w-11 h-11 bg-emerald-500 rounded-full flex items-center justify-center shadow-lg shadow-emerald-500/20 hover:scale-110 transition-transform" title="Ayuda / Copilot IA">
-          <HelpCircle className="w-5 h-5 text-white" />
-        </button>
-      </div>
+      {/* ── Floating Help & WhatsApp ── (oculto en /copilot para no tapar el input) */}
+      {location.pathname !== '/copilot' && (
+        <div className="fixed bottom-5 right-5 z-30 flex flex-col gap-2.5">
+          <a href="https://wa.me/5215500000000?text=Hola%2C%20necesito%20ayuda%20con%20ADUANAI" target="_blank" rel="noopener noreferrer"
+            className="w-11 h-11 bg-[#25D366] rounded-full flex items-center justify-center shadow-lg shadow-[#25D366]/20 hover:scale-110 transition-transform" title="Contactar asesor">
+            <MessageCircle className="w-5 h-5 text-white" />
+          </a>
+          <button onClick={() => navigate('/copilot')}
+            className="w-11 h-11 bg-emerald-500 rounded-full flex items-center justify-center shadow-lg shadow-emerald-500/20 hover:scale-110 transition-transform" title="Ayuda / Copilot IA">
+            <HelpCircle className="w-5 h-5 text-white" />
+          </button>
+        </div>
+      )}
     </div>
   )
 }

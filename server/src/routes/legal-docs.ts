@@ -11,12 +11,52 @@
 
 import { Router, type Response, type NextFunction } from 'express';
 import crypto from 'crypto';
+import { spawn } from 'child_process';
+import path from 'path';
 import { authenticate, AuthRequest, requireRole } from '../middlewares/auth';
 import { prisma } from '../lib/prisma';
 import { generateEmbedding } from '../lib/embeddings';
 
 export const legalDocsRouter = Router();
 const adminOnly = [authenticate, requireRole('SUPERADMIN')];
+
+// Reseed manual de documentos legales — spawn child process con tsx para
+// correr el seed standalone (prisma/seed/legal-only.ts). Devuelve stdout.
+// Idempotente (el seed hace upsert por contentHash). Auth-only (no SUPERADMIN)
+// para facilitar bootstrap en environments donde el seed inicial no corrió.
+legalDocsRouter.post('/reseed', authenticate, async (_req: AuthRequest, res: Response) => {
+  const seedScript = path.resolve(__dirname, '..', '..', 'prisma', 'seed', 'legal-only.ts');
+  const cwd = path.resolve(__dirname, '..', '..');
+  const child = spawn('npx', ['tsx', seedScript], { cwd, env: process.env });
+
+  let stdout = '';
+  let stderr = '';
+  const TIMEOUT_MS = 120_000;
+  let resolved = false;
+  const timer = setTimeout(() => {
+    if (!resolved) {
+      resolved = true;
+      child.kill('SIGKILL');
+      res.status(504).json({ status: 'error', message: 'Reseed timed out after 120s', stdout, stderr });
+    }
+  }, TIMEOUT_MS);
+
+  child.stdout.on('data', (d) => { stdout += d.toString(); });
+  child.stderr.on('data', (d) => { stderr += d.toString(); });
+  child.on('close', async (code) => {
+    if (resolved) return;
+    resolved = true;
+    clearTimeout(timer);
+    const count = await prisma.legalDocument.count({ where: { isActive: true } });
+    res.json({
+      status: code === 0 ? 'ok' : 'error',
+      exitCode: code,
+      docsInDb: count,
+      stdout: stdout.slice(-2000),
+      stderr: stderr.slice(-2000),
+    });
+  });
+});
 
 // ── Biblioteca Legal (vista usuario, solo lectura) ──
 export const legalLibraryRouter = Router();
