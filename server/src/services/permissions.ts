@@ -217,6 +217,81 @@ export async function seedAllTenantsRoles(): Promise<{ tenants: number; created:
   return { tenants: tenants.length, created: totalCreated, updated: totalUpdated };
 }
 
+// Auto-asignar TENANT_ADMIN explícito al admin inicial de un tenant nuevo.
+// Idempotente: si ya existe el rol asignado, sólo lo reactiva.
+export async function autoAssignTenantAdmin(userId: string, tenantId: string): Promise<void> {
+  const adminRole = await prisma.tenantRole.findUnique({
+    where: { tenantId_code: { tenantId, code: 'TENANT_ADMIN' } },
+  });
+  if (!adminRole) return;
+  await prisma.userTenantRole.upsert({
+    where: { userId_tenantId_roleId: { userId, tenantId, roleId: adminRole.id } },
+    create: {
+      userId, tenantId, roleId: adminRole.id,
+      assignedBy: userId,
+      reason: 'initial_tenant_admin',
+      active: true,
+    },
+    update: { active: true, effectiveUntil: null },
+  });
+  await prisma.permissionAuditLog.create({
+    data: {
+      tenantId, userId,
+      action: 'ROLE_AUTO_ASSIGNED',
+      targetUserId: userId,
+      roleId: adminRole.id,
+      details: { reason: 'initial_tenant_admin' } as unknown as object,
+      ipAddress: null,
+    },
+  });
+}
+
+// Migración una-sola-vez: para cada tenant sin ningún UserTenantRole de
+// TENANT_ADMIN activo, asignar TENANT_ADMIN al usuario ADMIN/SUPERADMIN más
+// antiguo del tenant. Idempotente: si ya hay un TENANT_ADMIN asignado, saltar.
+export async function migrateTenantsWithoutAdmin(): Promise<{ tenants: number; migrated: number; skippedExisting: number; skippedNoUser: number }> {
+  const tenants = await prisma.tenant.findMany({ select: { id: true } });
+  let migrated = 0;
+  let skippedExisting = 0;
+  let skippedNoUser = 0;
+  for (const t of tenants) {
+    const adminRole = await prisma.tenantRole.findUnique({
+      where: { tenantId_code: { tenantId: t.id, code: 'TENANT_ADMIN' } },
+    });
+    if (!adminRole) { skippedNoUser++; continue; }
+    const existing = await prisma.userTenantRole.findFirst({
+      where: { tenantId: t.id, roleId: adminRole.id, active: true },
+    });
+    if (existing) { skippedExisting++; continue; }
+    const initialAdmin = await prisma.user.findFirst({
+      where: { tenantId: t.id, role: { in: ['ADMIN', 'SUPERADMIN'] }, active: true },
+      orderBy: { createdAt: 'asc' },
+      select: { id: true },
+    });
+    if (!initialAdmin) { skippedNoUser++; continue; }
+    await prisma.userTenantRole.create({
+      data: {
+        userId: initialAdmin.id, tenantId: t.id, roleId: adminRole.id,
+        assignedBy: initialAdmin.id,
+        reason: 'migration:initial_tenant_admin',
+        active: true,
+      },
+    });
+    await prisma.permissionAuditLog.create({
+      data: {
+        tenantId: t.id, userId: initialAdmin.id,
+        action: 'ROLE_AUTO_ASSIGNED',
+        targetUserId: initialAdmin.id,
+        roleId: adminRole.id,
+        details: { migration: true, reason: 'initial_tenant_admin' } as unknown as object,
+        ipAddress: null,
+      },
+    });
+    migrated++;
+  }
+  return { tenants: tenants.length, migrated, skippedExisting, skippedNoUser };
+}
+
 // ──────────────────────────────────────────────────────────────────
 // Resolución de permisos
 // ──────────────────────────────────────────────────────────────────

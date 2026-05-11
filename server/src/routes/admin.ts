@@ -2,7 +2,7 @@ import { Router, Response, NextFunction } from 'express';
 import { authenticate, AuthRequest, requireRole } from '../middlewares/auth';
 import { prisma } from '../lib/prisma';
 import { AppError } from '../middlewares/error';
-import { seedTenantRoles } from '../services/permissions';
+import { seedTenantRoles, autoAssignTenantAdmin } from '../services/permissions';
 import bcrypt from 'bcryptjs';
 import crypto from 'crypto';
 import {
@@ -147,6 +147,8 @@ adminRouter.post('/demo/prepare', async (req: AuthRequest, res: Response, next: 
         tenantId: tenant.id,
       },
     });
+
+    await autoAssignTenantAdmin(user.id, tenant.id);
 
     // Expiry: now + 48 hours
     const expiresAt = new Date(Date.now() + 48 * 60 * 60 * 1000);
@@ -448,6 +450,8 @@ adminRouter.post('/pilots/activate', async (req: AuthRequest, res: Response, nex
     });
 
     await seedTenantRoles(tenant.id);
+    const pilotAdmin = tenant.users[0]!;
+    await autoAssignTenantAdmin(pilotAdmin.id, tenant.id);
 
     await prisma.lead.update({
       where: { id: leadId },

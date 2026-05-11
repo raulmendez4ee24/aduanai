@@ -8,7 +8,7 @@ import { validateEmail, validatePhone, validateRFC, hasMXRecords } from '../lib/
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 import { recordAudit } from '../services/audit-service';
-import { seedTenantRoles } from '../services/permissions';
+import { seedTenantRoles, autoAssignTenantAdmin } from '../services/permissions';
 
 export const authRouter = Router();
 
@@ -108,6 +108,7 @@ authRouter.post('/register', authRegisterLimiter, async (req, res, next) => {
     await seedTenantRoles(tenant.id);
 
     const user = tenant.users[0]!;
+    await autoAssignTenantAdmin(user.id, tenant.id);
 
     await prisma.verificationCode.create({
       data: {

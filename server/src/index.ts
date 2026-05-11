@@ -56,7 +56,7 @@ import { glosaRouter, glosaAdminRouter } from './routes/glosa';
 import { permissionsRouter } from './routes/permissions';
 import { statusRouter } from './routes/status';
 import { performBackup, cleanupExpiredBackups } from './services/backup';
-import { seedAllTenantsRoles } from './services/permissions';
+import { seedAllTenantsRoles, migrateTenantsWithoutAdmin } from './services/permissions';
 import {
   ipBlockGuard, authLimiter, classifierLimiter, quoterLimiter,
   copilotLimiter as copilotLim, leadLimiter, publicLimiter, adminLimiter,
@@ -295,14 +295,21 @@ app.listen(PORT, () => {
 });
 
 // Idempotent: garantiza que cada tenant tenga los 6 roles del sistema sembrados
+// y que cada uno tenga al menos un TENANT_ADMIN explícito (migración una-sola-vez).
 void (async () => {
   try {
     const r = await seedAllTenantsRoles();
     logger.info(`[permissions] Seeded roles for ${r.tenants} tenants — ${r.created} created, ${r.updated} updated`, {
       action: 'seed_tenant_roles', metadata: r,
     });
+    const m = await migrateTenantsWithoutAdmin();
+    if (m.migrated > 0 || m.skippedExisting === 0) {
+      logger.info(`[permissions] TENANT_ADMIN migration: ${m.migrated} migrated, ${m.skippedExisting} already had, ${m.skippedNoUser} skipped (no eligible user)`, {
+        action: 'migrate_tenant_admin', metadata: m,
+      });
+    }
   } catch (err) {
-    logger.error('[permissions] seedAllTenantsRoles failed', { errorMessage: err instanceof Error ? err.message : String(err) });
+    logger.error('[permissions] startup seed/migration failed', { errorMessage: err instanceof Error ? err.message : String(err) });
   }
 })();
 
