@@ -45,13 +45,17 @@ const baseOpts: Partial<Options> = {
 // Limiters configurados según spec
 // ─────────────────────────────────────────────────────────────────────
 
-/** Login + register: 5 intentos por IP cada 15 min. */
+/** Login + register: 5 intentos por IP cada 15 min. Logins exitosos no
+ * cuentan al contador, así NAT compartido no se autobloquea por usuarios
+ * legítimos que se logean correctamente entre intentos fallidos.
+ */
 export const authLimiter = rateLimit({
   ...baseOpts,
   windowMs: 15 * MIN,
   max: 5,
+  skipSuccessfulRequests: true,
   keyGenerator: (req) => `ip:${getClientIP(req as never)}`,
-  message: { status: 'error', message: 'Demasiados intentos de autenticación. Intenta en 15 minutos.' },
+  message: { status: 'error', message: 'Demasiados intentos de autenticación fallidos. Intenta en 15 minutos.' },
 });
 
 /** Backwards-compat: alias para llamadas existentes. */
