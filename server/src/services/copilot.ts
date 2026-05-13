@@ -179,35 +179,89 @@ function detectHallucinations(answer: string, docs: RetrievedDoc[]): { citedRefs
 }
 
 /**
- * Confidence recalibrado:
- *  - 40% verificación de citas (¿las refs que el LLM citó están en el corpus?)
- *  - 30% relevancia del retrieval (avg finalScore)
- *  - 20% cobertura de citas (¿se citó al menos un % de los docs traídos?)
- *  - 10% lenguaje (penaliza "no estoy seguro", "consultar experto")
+ * Confidence — calibrado por banding sobre #citas verificadas y match de tema.
  *
- * Mapeo a colores UI (decidido en cliente):
- *   80-100 = verde, 60-79 = amarillo, 40-59 = naranja, <40 = rojo
+ * Bandas (por especificación 2026-05-13):
+ *  - 5+ citations verificadas + topic match  → 80–95
+ *  - 3–4 citations + topic match              → 65–80
+ *  - 1–2 citations o topic match parcial      → 40–60
+ *  - 0 citations / respuesta por LLM puro     → 20–40
+ *  - "no tengo info verificada"               → 0–15
+ *
+ * "Topic match" = al menos uno de los docs traídos comparte ≥1 keyword/topic
+ * con la pregunta (heurística simple sobre intersección de tokens). Las
+ * hallucinations penalizan moviendo dentro de la banda hacia el límite bajo.
+ *
+ * Mapeo UI: 80–100=verde, 60–79=amarillo, 40–59=naranja, <40=rojo
  */
-function calculateConfidence(docs: RetrievedDoc[], hallucinatedCount: number, citationsCount: number, answer: string): number {
-  if (docs.length === 0) return 10;
+function calculateConfidence(
+  docs: RetrievedDoc[],
+  hallucinatedCount: number,
+  citationsCount: number,
+  answer: string,
+  question: string,
+): number {
+  // Respuesta "no info verificada" / abandono explícito → banda más baja
+  const noInfoAnswer = /no tengo informaci[oó]n verificada|no tengo info verificada|consultar (?:el portal del )?sat|agente aduanal certificado/i.test(answer);
+  if (noInfoAnswer && citationsCount === 0) {
+    return Math.round(8 + Math.random() * 7); // 8–15
+  }
 
-  // 1) Verificación de citas: % de citas no-hallucinatadas
-  const totalCited = citationsCount + hallucinatedCount;
-  const verifyScore = totalCited === 0 ? 50 : Math.round((citationsCount / totalCited) * 100);
+  // Sin docs en absoluto → respuesta basada en knowledge interno
+  if (docs.length === 0) {
+    return Math.round(20 + Math.random() * 20); // 20–40
+  }
 
-  // 2) Relevancia del retrieval
+  // ── Topic match: ¿la pregunta comparte tokens con los docs traídos? ──
+  const stop = new Set(['de', 'la', 'el', 'los', 'las', 'un', 'una', 'que', 'qué', 'en', 'con', 'sin', 'para', 'por', 'es', 'son', 'al', 'del', 'se', 'ha', 'su', 'sus', 'lo', 'le', 'como']);
+  const qTokens = new Set(
+    question.toLowerCase()
+      .normalize('NFD').replace(/\p{Diacritic}/gu, '')
+      .split(/[^a-z0-9]+/)
+      .filter(t => t.length >= 3 && !stop.has(t)),
+  );
+  let topicHits = 0;
+  for (const d of docs) {
+    const docTokens = [...d.topics, d.reference, d.title, d.excerpt]
+      .join(' ').toLowerCase()
+      .normalize('NFD').replace(/\p{Diacritic}/gu, '');
+    for (const t of qTokens) {
+      if (docTokens.includes(t)) { topicHits++; break; }
+    }
+  }
+  const hasTopicMatch = topicHits >= Math.max(1, Math.ceil(docs.length * 0.4));
+  const partialTopicMatch = topicHits >= 1;
+
+  // ── Determinación de banda ──
+  let lo = 20, hi = 40;
+  if (citationsCount >= 5 && hasTopicMatch) {
+    lo = 80; hi = 95;
+  } else if (citationsCount >= 3 && hasTopicMatch) {
+    lo = 65; hi = 80;
+  } else if (citationsCount >= 1 || partialTopicMatch) {
+    lo = 40; hi = 60;
+  } else {
+    lo = 20; hi = 40;
+  }
+
+  // ── Posición dentro de la banda según señales secundarias ──
+  // Relevancia promedio del retrieval modula dentro del rango.
   const avgScore = docs.reduce((s, d) => s + d.finalScore, 0) / docs.length;
-  const relevanceScore = Math.round(avgScore * 100);
+  let positionPct = Math.max(0, Math.min(1, avgScore)); // 0..1
 
-  // 3) Cobertura: cuántos docs se usaron de los traídos
-  const coverageScore = Math.min(100, Math.round((citationsCount / Math.max(1, docs.length)) * 100));
+  // Hallucinations: hasta -30% de la banda
+  const totalCited = citationsCount + hallucinatedCount;
+  if (totalCited > 0) {
+    const hallucinationFraction = hallucinatedCount / totalCited;
+    positionPct = Math.max(0, positionPct - hallucinationFraction * 0.3);
+  }
 
-  // 4) Lenguaje: incertidumbre auto-declarada
-  const uncertaintyHits = /no estoy seguro|consultar experto|consulta a tu|verifica con tu agente|no tengo información|no tengo informacion/i.test(answer);
-  const languageScore = uncertaintyHits ? 30 : 90;
+  // Auto-incertidumbre del modelo → empuja hacia el límite bajo
+  const uncertaintyHits = /no estoy seguro|consultar experto|consulta a tu|verifica con tu agente/i.test(answer);
+  if (uncertaintyHits) positionPct = Math.max(0, positionPct - 0.15);
 
-  const weighted = verifyScore * 0.40 + relevanceScore * 0.30 + coverageScore * 0.20 + languageScore * 0.10;
-  return Math.max(0, Math.min(100, Math.round(weighted)));
+  const score = lo + positionPct * (hi - lo);
+  return Math.max(0, Math.min(100, Math.round(score)));
 }
 
 export interface AskCopilotInput {
@@ -277,7 +331,7 @@ export async function askCopilotWithRAG(input: AskCopilotInput): Promise<Copilot
     }
   }
 
-  const confidence = calculateConfidence(docs, hallucinated.length, citations.length, answer);
+  const confidence = calculateConfidence(docs, hallucinated.length, citations.length, answer, input.question);
   const consultHash = crypto.createHash('sha256')
     .update([input.question, answer, docs.map(d => d.id).sort().join(','), generation.model].join('|'))
     .digest('hex');
