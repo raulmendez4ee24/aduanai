@@ -296,6 +296,25 @@ setInterval(async () => {
   }
 }, 24 * 3600000);
 
+// ── TC oficial Banxico FIX (diario) — fuente de verdad para todos los módulos ──
+let _lastFxRefresh = '';
+setInterval(async () => {
+  const today = new Date().toISOString().slice(0, 10);
+  if (_lastFxRefresh === today) return;
+  try {
+    const { refreshOfficialRate } = await import('./services/exchange-rate');
+    const r = await refreshOfficialRate();
+    if (r) {
+      _lastFxRefresh = today;
+      logger.info(`Exchange rate refreshed: ${r.rate} (${r.source}) ${r.asOf.toISOString().slice(0, 10)}`, {
+        action: 'fx_refresh', metadata: { rate: r.rate, source: r.source, asOf: r.asOf },
+      });
+    }
+  } catch (err) {
+    logger.error('Exchange rate refresh failed', { errorMessage: err instanceof Error ? err.message : String(err) });
+  }
+}, 60 * 60000); // chequea cada hora; sólo refresca una vez por día
+
 app.listen(PORT, () => {
   console.log(`🚀 ADUANAI server running on port ${PORT}`);
 });

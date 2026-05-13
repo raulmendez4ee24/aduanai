@@ -4,7 +4,7 @@ import { requirePermission } from '../middlewares/requirePermission';
 import { getUserPermissions, hasPermission } from '../services/permissions';
 import { calculateQuote } from '../services/quoter';
 import { calculateMultiQuote, compareScenarios, type MultiQuoteInput, type ScenarioVariant } from '../services/quoter-multi';
-import { getRecentRates, seedSyntheticHistory } from '../services/exchange-rate';
+import { getRecentRates, seedSyntheticHistory, getOfficialRate, refreshOfficialRate } from '../services/exchange-rate';
 import { prisma } from '../lib/prisma';
 
 export const quoteRouter = Router();
@@ -152,6 +152,29 @@ quoteRouter.post('/scenarios', authenticate, async (req: AuthRequest, res, next)
       return res.status(400).json({ status: 'error', message: 'variants[] requerido' });
     }
     const data = await compareScenarios(base, variants);
+    res.json({ status: 'ok', data });
+  } catch (err) {
+    next(err);
+  }
+});
+
+// GET /api/quote/exchange-rate/current — TC oficial actual con metadatos
+// Lo usan TODOS los módulos que muestran TC en UI para evitar inconsistencias
+// entre cotizador, pre-validador, MVE, etc.
+quoteRouter.get('/exchange-rate/current', authenticate, async (_req: AuthRequest, res, next) => {
+  try {
+    const data = await getOfficialRate();
+    res.json({ status: 'ok', data });
+  } catch (err) {
+    next(err);
+  }
+});
+
+// POST /api/quote/exchange-rate/refresh — fuerza pull a Banxico (admin/debug)
+quoteRouter.post('/exchange-rate/refresh', authenticate, async (_req: AuthRequest, res, next) => {
+  try {
+    const data = await refreshOfficialRate();
+    if (!data) return res.status(503).json({ status: 'error', message: 'No se pudo obtener el TC de ningún proveedor' });
     res.json({ status: 'ok', data });
   } catch (err) {
     next(err);
