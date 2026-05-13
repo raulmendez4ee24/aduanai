@@ -41,6 +41,9 @@ const DOF = 'https://www.dof.gob.mx';
 const OFFICIAL_URLS: Record<string, string> = {
   Ley_Aduanera: 'https://www.diputados.gob.mx/LeyesBiblio/pdf/LAdua.pdf',
   LCE: 'https://www.diputados.gob.mx/LeyesBiblio/pdf/LCE.pdf',
+  LIVA: 'https://www.diputados.gob.mx/LeyesBiblio/pdf/77.pdf',
+  LIEPS: 'https://www.diputados.gob.mx/LeyesBiblio/pdf/78.pdf',
+  LFD: 'https://www.diputados.gob.mx/LeyesBiblio/pdf/107.pdf',
   LIGIE: 'https://www.gob.mx/se/acciones-y-programas/comercio-exterior-tigie',
   RGCE_2026: 'https://www.sat.gob.mx/normatividad/EYTYE5/reglas-generales-de-comercio-exterior',
   Anexo_22_RGCE: 'https://www.sat.gob.mx/normatividad/EYTYE5/reglas-generales-de-comercio-exterior',
@@ -231,6 +234,45 @@ export const LEGAL_DOCUMENTS: LegalDocSeed[] = [
     content: 'Las mercancías importadas temporalmente bajo IMMEX tienen plazo de permanencia: 18 meses general; 36 meses para empresas certificadas IVA-IEPS modalidad AAA. Vencido el plazo sin retorno, el importador debe regularizar (cambio de régimen) pagando contribuciones + recargos, o sufrirá determinación oficiosa con sanciones.',
     officialUrl: `${DOF}/nota_detalle.php?codigo=RGCE_2026`, effectiveDate: '2026-01-01',
     topics: ['regimen', 'inmex'], keywords: ['IMMEX', 'temporal', '18 meses', '36 meses', 'plazo', 'regularización'],
+  },
+
+  // ════════════════════════════════════════════════════════════════════
+  // LEY DEL IVA — Importación temporal IMMEX (CRÍTICO post-Reforma 2014)
+  // ════════════════════════════════════════════════════════════════════
+  {
+    type: 'ley', source: 'LIVA', title: 'LIVA — Importaciones gravadas (incluye temporal IMMEX)',
+    reference: 'Art. 24 fr. I LIVA',
+    content: 'Se considera importación de bienes y servicios la introducción al país de bienes. Incluye la introducción al territorio nacional bajo régimen de importación temporal, depósito fiscal, recinto fiscalizado o recinto fiscalizado estratégico. Por tanto, la importación temporal IMMEX SÍ se considera importación gravada para efectos del IVA y causa el impuesto al despacho aduanero. Esta hipótesis fue precisada con la Reforma 2014 (publicada DOF 11-dic-2013, vigente 2014) que eliminó la exención automática de las importaciones temporales para efectos del IVA. La causación ocurre cuando el importador presente el pedimento para su trámite.',
+    officialUrl: 'https://www.diputados.gob.mx/LeyesBiblio/pdf/77.pdf', effectiveDate: '2014-01-01',
+    topics: ['iva', 'inmex', 'fiscal'], keywords: ['IVA', 'importación temporal', 'IMMEX', 'causación', 'Art. 24', 'Reforma 2014', 'recinto fiscalizado'],
+  },
+  {
+    type: 'ley', source: 'LIVA', title: 'LIVA — Momento de causación del IVA en importación',
+    reference: 'Art. 26 LIVA',
+    content: 'Se considera que se efectúa la importación de bienes en el momento en que el importador presente el pedimento para su trámite ante las autoridades aduaneras. Para importaciones temporales bajo IMMEX, este momento es el despacho aduanero — es entonces cuando se causa el IVA, sin que la naturaleza "temporal" del régimen suspenda o difiera la causación.',
+    officialUrl: 'https://www.diputados.gob.mx/LeyesBiblio/pdf/77.pdf', effectiveDate: '2014-01-01',
+    topics: ['iva', 'inmex', 'fiscal'], keywords: ['IVA', 'momento causación', 'Art. 26', 'pedimento', 'despacho'],
+  },
+  {
+    type: 'ley', source: 'LIVA', title: 'LIVA — Crédito fiscal para IMMEX certificada (Art. 28-A)',
+    reference: 'Art. 28-A LIVA',
+    content: 'Las personas que introduzcan bienes a los regímenes aduaneros de importación temporal para elaboración, transformación o reparación en programas de maquila o de exportación; de depósito fiscal para someterse al proceso de ensamble y fabricación de vehículos; de elaboración, transformación o reparación en recinto fiscalizado, y de recinto fiscalizado estratégico, PODRÁN aplicar un CRÉDITO FISCAL consistente en una cantidad equivalente al 100% del impuesto al valor agregado que deba pagarse por la importación, siempre que cuenten con CERTIFICACIÓN expedida por el SAT (modalidades A, AA o AAA conforme Regla 7.1.5 RGCE). El crédito se aplica contra el IVA que se cause por la introducción. Por tanto: SIN certificación se paga (o garantiza) IVA; CON certificación se aplica crédito 100% (efecto neto no desembolso pero NO es exención ni diferimiento — es crédito acreditable).',
+    officialUrl: 'https://www.diputados.gob.mx/LeyesBiblio/pdf/77.pdf', effectiveDate: '2014-01-01',
+    topics: ['iva', 'inmex', 'certificacion', 'fiscal'], keywords: ['IVA', 'crédito fiscal', 'Art. 28-A', 'certificación', 'IMMEX', 'A AA AAA', 'modalidad', 'Reforma 2014'],
+  },
+  {
+    type: 'ley', source: 'LIVA', title: 'LIVA — Garantía cuando no se cuenta con certificación IMMEX',
+    reference: 'Art. 28-A párr. final LIVA · Art. 86-A fr. I LA',
+    content: 'Los contribuyentes que no opten por la certificación o que esta haya sido cancelada, podrán NO PAGAR el IVA cuando garanticen el interés fiscal mediante FIANZA otorgada por institución autorizada, conforme reglas generales. La garantía se constituye por el monto del IVA que se debiera pagar al despacho. Si no se garantiza ni se certifica, debe pagarse el IVA al despacho. La cuenta aduanera del Art. 86-A fracción I LA es uno de los instrumentos admisibles. Esta vía mantiene la causación (Art. 24 fr. I) pero pospone el pago efectivo contra fianza/cuenta aduanera.',
+    officialUrl: 'https://www.diputados.gob.mx/LeyesBiblio/pdf/77.pdf', effectiveDate: '2014-01-01',
+    topics: ['iva', 'inmex', 'garantias', 'fiscal'], keywords: ['IVA', 'garantía', 'fianza', 'cuenta aduanera', 'sin certificación', 'IMMEX', 'Art. 28-A'],
+  },
+  {
+    type: 'ley', source: 'LIVA', title: 'LIVA — Acreditamiento del IVA pagado en importación',
+    reference: 'Art. 5 LIVA',
+    content: 'Para que sea acreditable el IVA, deberá pagarse efectivamente en el mes de que se trate, contar con CFDI/pedimento que ampare la operación, estar relacionado con actos gravados del contribuyente. El IVA pagado al despacho por una importación temporal IMMEX SIN certificación es acreditable conforme estas reglas — el contribuyente recupera el IVA en su declaración mensual, pero el desembolso al despacho sí ocurre. Esto es distinto del crédito fiscal del Art. 28-A que no requiere desembolso previo.',
+    officialUrl: 'https://www.diputados.gob.mx/LeyesBiblio/pdf/77.pdf', effectiveDate: '2014-01-01',
+    topics: ['iva', 'acreditamiento', 'fiscal'], keywords: ['IVA', 'acreditamiento', 'Art. 5 LIVA', 'pedimento', 'CFDI'],
   },
 
   // ════════════════════════════════════════════════════════════════════

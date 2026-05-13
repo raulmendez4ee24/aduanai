@@ -50,13 +50,21 @@ C) IEPS vs ISAN — distinción crítica:
    - ISAN: vehículos nuevos (Art. 1 LISAN) con tarifa progresiva por valor
    - Un vehículo NO paga IEPS. Paga ISAN.
 
-D) Ortografía técnica:
+D) CRÍTICO — IMMEX e IVA en importación temporal (Reforma 2014, Art. 24-fracción I y 28-A LIVA):
+   - La importación temporal IMMEX SÍ CAUSA IVA en el despacho aduanero conforme al Art. 24 fracción I LIVA. El concepto "no causación" o "exención automática" por ser temporal está DEROGADO desde 2014.
+   - IMMEX SIN certificación IVA-IEPS (modalidad A/AA/AAA): el importador DEBE pagar el IVA causado al momento del despacho, o entregar garantía equivalente (cuenta aduanera ex Art. 86-A fr. I LA, fianza, carta de crédito). Posteriormente puede acreditar el IVA pagado conforme reglas generales del Art. 5 LIVA.
+   - IMMEX CON certificación IVA-IEPS (Art. 28-A LIVA y Regla 7.1.5 RGCE 2026): aplica un crédito fiscal del 100% del IVA causado en la importación temporal. El efecto neto es no desembolso de efectivo, pero NO es "diferimiento" ni "no causación" — es un crédito fiscal acreditable que se descarga al retorno.
+   - Diferimiento ≠ no causación ≠ exención. Distinguir SIEMPRE con precisión técnica.
+   - PROHIBIDO decir "IMMEX no paga IVA" o "IMMEX difiere IVA" sin verificar el estado de certificación. Si el usuario no especifica certificación, EXIGE distinguir ambos escenarios en la respuesta.
+   - La modalidad AAA permite vigencia 3 años y reduce requisitos de garantía pero NO elimina la causación; opera vía crédito.
+
+E) Ortografía técnica:
    - "aduanera" (NO "aduaneal")
    - "pedimento" (NO "pedimiento")
    - "arancel" (NO "arancela")
    - "fracción arancelaria" (no "fraccional")
 
-E) Cuando no estés seguro:
+F) Cuando no estés seguro:
    Di explícitamente "verifica con tu agente aduanal especialista" o "consulta resolución UPCI específica" en lugar de improvisar.
 
 ESTILO:
@@ -81,6 +89,29 @@ function stripDuplicateSourcesSection(text: string): string {
   let out = text;
   for (const p of patterns) out = out.replace(p, '\n');
   return out.replace(/\n{3,}/g, '\n\n').trim();
+}
+
+/** Inyecta aviso de certificación cuando la respuesta menciona IMMEX + IVA
+ * sin haber distinguido el escenario certificado/no-certificado. La omisión
+ * es legalmente riesgosa: una IMMEX sin cert sí paga IVA al despacho (Art. 24
+ * fr. I LIVA), una con cert opera por crédito fiscal (Art. 28-A LIVA). */
+function injectIMMEXCertificationNote(text: string): string {
+  const lower = text.toLowerCase();
+  const mentionsIMMEX = /\bimmex\b|importaci[oó]n\s+temporal/i.test(text);
+  const mentionsIVA = /\biva\b/i.test(text);
+  if (!mentionsIMMEX || !mentionsIVA) return text;
+
+  const mentionsCert = /certificaci[oó]n|certificad[ao]\s+(iva|iep)|modalidad\s*(a{1,3})\b|art[íi]?culo?\s*28-?a/i.test(lower);
+  if (mentionsCert) return text;
+
+  const note = '\n\n> ⚠️ **Nota crítica IMMEX/IVA:** La respuesta varía según el estado de certificación IVA-IEPS del IMMEX. **Sin** certificación se causa y se paga (o garantiza) IVA en el despacho conforme Art. 24 fr. I LIVA. **Con** certificación modalidad A/AA/AAA se aplica crédito fiscal del 100% conforme Art. 28-A LIVA y Regla 7.1.5 RGCE 2026 (no es exención ni diferimiento, es crédito). Verifica el estado actual de tu certificación con tu agente aduanal antes de operar.';
+
+  // Inserta antes del disclaimer si está presente, si no al final
+  const disclaimerMatch = text.match(/(⚖️[\s\S]*$)/);
+  if (disclaimerMatch) {
+    return text.replace(disclaimerMatch[0], `${note}\n\n${disclaimerMatch[0]}`);
+  }
+  return text + note;
 }
 
 interface Citation {
@@ -204,7 +235,7 @@ export async function askCopilotWithRAG(input: AskCopilotInput): Promise<Copilot
     user: userMsg,
     log: { operation: 'copilot', tenantId: input.tenantId, userId: input.userId },
   });
-  const answer = stripDuplicateSourcesSection(generation.text);
+  const answer = injectIMMEXCertificationNote(stripDuplicateSourcesSection(generation.text));
 
   // 4. Detectar hallucinations
   const { citedRefs, hallucinated } = detectHallucinations(answer, docs);
@@ -297,5 +328,6 @@ export async function chatWithCopilot(
     system: RAG_SYSTEM_PROMPT,
     messages: [{ role: 'user', content: `${message}\n${contextBlock}` }],
   });
-  return response.content[0].type === 'text' ? response.content[0].text : '';
+  const raw = response.content[0].type === 'text' ? response.content[0].text : '';
+  return injectIMMEXCertificationNote(stripDuplicateSourcesSection(raw));
 }
