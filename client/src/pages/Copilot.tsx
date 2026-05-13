@@ -191,15 +191,21 @@ export function CopilotPage() {
 
         {/* Input */}
         <div className="px-4 py-3 border-t border-slate-200/50">
-          <div className="flex items-center gap-2 bg-white/60 rounded-xl px-4 py-2 border border-slate-200/50 focus-within:ring-2 focus-within:ring-emerald-500/30 transition-all">
-            <input
-              type="text" value={input} onChange={e => setInput(e.target.value)}
-              onKeyDown={e => { if (e.key === 'Enter') handleSend() }}
-              placeholder="Escribe tu pregunta..."
-              className="flex-1 bg-transparent text-[13px] text-slate-900 placeholder:text-slate-400 outline-none"
+          <div className="flex items-end gap-2 bg-white/60 rounded-xl px-4 py-2 border border-slate-200/50 focus-within:ring-2 focus-within:ring-emerald-500/30 transition-all">
+            <textarea
+              value={input} onChange={e => setInput(e.target.value)}
+              onKeyDown={e => {
+                if (e.key === 'Enter' && !e.shiftKey) {
+                  e.preventDefault()
+                  if (!loading && input.trim()) handleSend()
+                }
+              }}
+              rows={1}
+              placeholder="Escribe tu pregunta... (Shift+Enter para salto de línea)"
+              className="flex-1 bg-transparent text-[13px] text-slate-900 placeholder:text-slate-400 outline-none resize-none py-1 max-h-32 overflow-y-auto"
             />
             <button onClick={handleSend} disabled={loading || !input.trim()}
-              className="w-8 h-8 rounded-lg bg-emerald-500 hover:bg-emerald-600 disabled:opacity-50 flex items-center justify-center transition-colors">
+              className="w-8 h-8 shrink-0 rounded-lg bg-emerald-500 hover:bg-emerald-600 disabled:opacity-50 flex items-center justify-center transition-colors">
               <Send className="w-3.5 h-3.5 text-white" />
             </button>
           </div>

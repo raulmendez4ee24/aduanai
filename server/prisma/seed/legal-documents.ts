@@ -34,6 +34,32 @@ interface LegalDocSeed {
 
 const DOF = 'https://www.dof.gob.mx';
 
+// URLs oficiales por fuente — institucionales y verificables. Las URLs
+// específicas de DOF (nota_detalle.php?codigo=...) que originalmente usaba
+// el seed eran INVENTADAS y devolvían 404. Estas URLs apuntan al PDF/portal
+// oficial donde el usuario PUEDE encontrar el texto vigente.
+const OFFICIAL_URLS: Record<string, string> = {
+  Ley_Aduanera: 'https://www.diputados.gob.mx/LeyesBiblio/pdf/LAdua.pdf',
+  LCE: 'https://www.diputados.gob.mx/LeyesBiblio/pdf/LCE.pdf',
+  LIGIE: 'https://www.gob.mx/se/acciones-y-programas/comercio-exterior-tigie',
+  RGCE_2026: 'https://www.sat.gob.mx/normatividad/EYTYE5/reglas-generales-de-comercio-exterior',
+  Anexo_22_RGCE: 'https://www.sat.gob.mx/normatividad/EYTYE5/reglas-generales-de-comercio-exterior',
+  Anexo_24_RGCE: 'https://www.sat.gob.mx/normatividad/EYTYE5/reglas-generales-de-comercio-exterior',
+  Anexo_30_RGCE: 'https://www.sat.gob.mx/normatividad/EYTYE5/reglas-generales-de-comercio-exterior',
+  Anexo_31_RGCE: 'https://www.sat.gob.mx/normatividad/EYTYE5/reglas-generales-de-comercio-exterior',
+  Anexo_5_RGCE: 'https://www.sat.gob.mx/normatividad/EYTYE5/reglas-generales-de-comercio-exterior',
+  Anexo_10_RGCE: 'https://www.sat.gob.mx/normatividad/EYTYE5/reglas-generales-de-comercio-exterior',
+  Acuerdo_NOMs: 'https://www.gob.mx/se/acciones-y-programas/normas-oficiales-mexicanas',
+  TMEC: 'https://www.gob.mx/cms/uploads/attachment/file/465786/T-MEC-TratadoVigente.pdf',
+  TLCUEM: 'https://www.gob.mx/se/acciones-y-programas/comercio-exterior-paises-con-tratados-y-acuerdos-firmados-con-mexico',
+  CPTPP: 'https://www.gob.mx/se/acciones-y-programas/comercio-exterior-paises-con-tratados-y-acuerdos-firmados-con-mexico',
+  AGA: 'https://www.sat.gob.mx/normatividad/criterios-normativos',
+  AGCE: 'https://www.sat.gob.mx/normatividad/criterios-normativos',
+};
+function resolveOfficialUrl(source: string): string | null {
+  return OFFICIAL_URLS[source] ?? null;
+}
+
 export const LEGAL_DOCUMENTS: LegalDocSeed[] = [
   // ════════════════════════════════════════════════════════════════════
   // LEY ADUANERA
@@ -340,10 +366,19 @@ export async function seedLegalDocuments(prisma: PrismaClient): Promise<{ insert
     const contentHash = hashContent(doc.content);
     const existing = await prisma.legalDocument.findFirst({
       where: { source: doc.source, reference: doc.reference },
-      select: { id: true, contentHash: true },
+      select: { id: true, contentHash: true, officialUrl: true },
     });
 
+    // Reemplazar URL inventada (DOF/nota_detalle.php?codigo=...) por URL
+    // institucional real basada en la fuente.
+    const officialUrl = resolveOfficialUrl(doc.source) ?? null;
+
+    // Si el content no cambió pero la URL sí, sólo actualizamos URL (sin
+    // regenerar embedding ni todo el record). Idempotente.
     if (existing && existing.contentHash === contentHash) {
+      if (existing.officialUrl !== officialUrl) {
+        await prisma.legalDocument.update({ where: { id: existing.id }, data: { officialUrl } });
+      }
       skipped++;
       continue;
     }
@@ -357,7 +392,7 @@ export async function seedLegalDocuments(prisma: PrismaClient): Promise<{ insert
       title: doc.title,
       reference: doc.reference,
       content: doc.content,
-      officialUrl: doc.officialUrl,
+      officialUrl,
       publishedDate: doc.publishedDate ? new Date(doc.publishedDate) : null,
       effectiveDate: doc.effectiveDate ? new Date(doc.effectiveDate) : null,
       version: doc.version,

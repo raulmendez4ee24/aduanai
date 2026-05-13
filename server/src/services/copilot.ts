@@ -24,16 +24,64 @@ REGLAS CRÍTICAS — SIEMPRE:
 3. SIEMPRE cita la referencia exacta al pie de cada afirmación: "(Art. 84-A LA)", "(Regla 7.1.5 RGCE 2026)", etc.
 4. Cuando sea relevante, incluye comilla textual entre comillas tipográficas: "..."
 5. Si la pregunta toca varios temas, separa por sección con encabezado.
-6. Al final, lista las fuentes consultadas con su URL oficial.
+6. NO incluyas sección "Fuentes consultadas" / "Referencias" / "Bibliografía" en tu respuesta. Las citas se mostrarán automáticamente abajo como tarjetas — duplicarlas en el texto es ruido.
+
+REGLAS DE EXACTITUD TÉCNICA:
+
+A) Tratado correcto por país de origen:
+   - USA, Canada, México → TMEC
+   - Unión Europea (Alemania, Francia, Italia, España, etc.) → TLCUEM
+   - Japón, Vietnam, Singapur, Australia, NZ, Perú, Chile, Malasia, Brunei → CPTPP
+   - China → SIN tratado preferencial (arancel NMF, riesgo antidumping)
+   - NUNCA mezcles: jamás digas "TMEC" para un origen no-TMEC.
+
+B) Cálculo de impuestos COMPLETO:
+   Si calculas garantía, landed cost o monto a pagar, SIEMPRE incluye:
+   - IGI según TIGIE (arancel general)
+   - DTA (0.8% sobre valor en aduana, Art. 49 LFD)
+   - IEPS si aplica (verifica si la fracción está en la lista IEPS — bebidas alcohólicas, tabaco, refrescos, combustibles, plaguicidas, juegos de azar)
+   - ISAN si es vehículo nuevo (Art. 2 LISAN) — NO confundas con IEPS
+   - IVA 16% al final sobre la base completa (Art. 27 LIVA)
+   - Cuota compensatoria si hay resolución UPCI vigente
+   NUNCA calcules sólo IVA. Si te falta un componente, dilo explícitamente.
+
+C) IEPS vs ISAN — distinción crítica:
+   - IEPS: alcoholes, tabacos, refrescos, combustibles, plaguicidas, juegos
+   - ISAN: vehículos nuevos (Art. 1 LISAN) con tarifa progresiva por valor
+   - Un vehículo NO paga IEPS. Paga ISAN.
+
+D) Ortografía técnica:
+   - "aduanera" (NO "aduaneal")
+   - "pedimento" (NO "pedimiento")
+   - "arancel" (NO "arancela")
+   - "fracción arancelaria" (no "fraccional")
+
+E) Cuando no estés seguro:
+   Di explícitamente "verifica con tu agente aduanal especialista" o "consulta resolución UPCI específica" en lugar de improvisar.
 
 ESTILO:
 - Lenguaje claro pero técnico cuando sea necesario.
 - Conciso pero completo. Sin redundancia.
 - Sin saludo formal, ve directo a la respuesta.
-- Si la pregunta requiere asesoría legal específica, recomiéndalo al final.
 
 DISCLAIMER OBLIGATORIO al final:
 "⚖️ Esta información cita textos legales reales pero NO sustituye consulta profesional. Verifica siempre en fuente oficial (DOF, SAT). Cualquier acción debe validarse con tu agente aduanal o abogado."`;
+
+/** Elimina secciones "Fuentes consultadas" / "Referencias" si el modelo
+ * las generó pese al system prompt. Las citas se renderizan aparte como
+ * tarjetas, duplicar es ruido. */
+function stripDuplicateSourcesSection(text: string): string {
+  // Quita encabezados de fuentes hasta el final o hasta el disclaimer
+  const patterns = [
+    /\n+#{1,6}\s*Fuentes\s+consultadas[\s\S]*?(?=\n*(?:⚖️|⚖|---|\n#{1,6}\s)|$)/gi,
+    /\n+#{1,6}\s*Referencias[\s\S]*?(?=\n*(?:⚖️|⚖|---|\n#{1,6}\s)|$)/gi,
+    /\n+#{1,6}\s*Bibliograf[ií]a[\s\S]*?(?=\n*(?:⚖️|⚖|---|\n#{1,6}\s)|$)/gi,
+    /\n+\*\*Fuentes\s+consultadas\*\*[\s\S]*?(?=\n*(?:⚖️|⚖|---)|$)/gi,
+  ];
+  let out = text;
+  for (const p of patterns) out = out.replace(p, '\n');
+  return out.replace(/\n{3,}/g, '\n\n').trim();
+}
 
 interface Citation {
   reference: string;
@@ -99,12 +147,36 @@ function detectHallucinations(answer: string, docs: RetrievedDoc[]): { citedRefs
   return { citedRefs: [...citedRefs], hallucinated };
 }
 
-function calculateConfidence(docs: RetrievedDoc[], hallucinatedCount: number): number {
+/**
+ * Confidence recalibrado:
+ *  - 40% verificación de citas (¿las refs que el LLM citó están en el corpus?)
+ *  - 30% relevancia del retrieval (avg finalScore)
+ *  - 20% cobertura de citas (¿se citó al menos un % de los docs traídos?)
+ *  - 10% lenguaje (penaliza "no estoy seguro", "consultar experto")
+ *
+ * Mapeo a colores UI (decidido en cliente):
+ *   80-100 = verde, 60-79 = amarillo, 40-59 = naranja, <40 = rojo
+ */
+function calculateConfidence(docs: RetrievedDoc[], hallucinatedCount: number, citationsCount: number, answer: string): number {
   if (docs.length === 0) return 10;
+
+  // 1) Verificación de citas: % de citas no-hallucinatadas
+  const totalCited = citationsCount + hallucinatedCount;
+  const verifyScore = totalCited === 0 ? 50 : Math.round((citationsCount / totalCited) * 100);
+
+  // 2) Relevancia del retrieval
   const avgScore = docs.reduce((s, d) => s + d.finalScore, 0) / docs.length;
-  let conf = Math.round(avgScore * 100);
-  conf -= hallucinatedCount * 15;
-  return Math.max(0, Math.min(100, conf));
+  const relevanceScore = Math.round(avgScore * 100);
+
+  // 3) Cobertura: cuántos docs se usaron de los traídos
+  const coverageScore = Math.min(100, Math.round((citationsCount / Math.max(1, docs.length)) * 100));
+
+  // 4) Lenguaje: incertidumbre auto-declarada
+  const uncertaintyHits = /no estoy seguro|consultar experto|consulta a tu|verifica con tu agente|no tengo información|no tengo informacion/i.test(answer);
+  const languageScore = uncertaintyHits ? 30 : 90;
+
+  const weighted = verifyScore * 0.40 + relevanceScore * 0.30 + coverageScore * 0.20 + languageScore * 0.10;
+  return Math.max(0, Math.min(100, Math.round(weighted)));
 }
 
 export interface AskCopilotInput {
@@ -132,7 +204,7 @@ export async function askCopilotWithRAG(input: AskCopilotInput): Promise<Copilot
     user: userMsg,
     log: { operation: 'copilot', tenantId: input.tenantId, userId: input.userId },
   });
-  const answer = generation.text;
+  const answer = stripDuplicateSourcesSection(generation.text);
 
   // 4. Detectar hallucinations
   const { citedRefs, hallucinated } = detectHallucinations(answer, docs);
@@ -174,7 +246,7 @@ export async function askCopilotWithRAG(input: AskCopilotInput): Promise<Copilot
     }
   }
 
-  const confidence = calculateConfidence(docs, hallucinated.length);
+  const confidence = calculateConfidence(docs, hallucinated.length, citations.length, answer);
   const consultHash = crypto.createHash('sha256')
     .update([input.question, answer, docs.map(d => d.id).sort().join(','), generation.model].join('|'))
     .digest('hex');
