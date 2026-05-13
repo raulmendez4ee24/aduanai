@@ -296,6 +296,31 @@ setInterval(async () => {
   }
 }, 24 * 3600000);
 
+// ── Alertas inteligentes (diario) — regenera por tenant con datos reales ──
+let _lastAlertRun = '';
+setInterval(async () => {
+  const today = new Date().toISOString().slice(0, 10);
+  if (_lastAlertRun === today) return;
+  const hourUTC = new Date().getUTCHours();
+  if (hourUTC !== 7) return; // 7am UTC = 1am CST, ventana de poca carga
+  try {
+    const { regenerateAlerts } = await import('./services/alert-generator');
+    const tenants = await prisma.tenant.findMany({ select: { id: true }, where: { status: { in: ['ACTIVE', 'PILOT', 'TRIAL'] } } });
+    let totalInserted = 0;
+    let totalUpdated = 0;
+    for (const t of tenants) {
+      const r = await regenerateAlerts(t.id, false).catch(() => null);
+      if (r) { totalInserted += r.inserted; totalUpdated += r.updated; }
+    }
+    _lastAlertRun = today;
+    logger.info(`Alert regen: ${tenants.length} tenants → ${totalInserted} new, ${totalUpdated} updated`, {
+      action: 'alert_cron', metadata: { tenants: tenants.length, inserted: totalInserted, updated: totalUpdated },
+    });
+  } catch (err) {
+    logger.error('Alert regen cron failed', { errorMessage: err instanceof Error ? err.message : String(err) });
+  }
+}, 30 * 60000); // chequea cada 30 min; corre una vez al día a las 7 UTC
+
 // ── TC oficial Banxico FIX (diario) — fuente de verdad para todos los módulos ──
 let _lastFxRefresh = '';
 setInterval(async () => {

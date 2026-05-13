@@ -132,6 +132,39 @@ alertsRouter.post('/regenerate', authenticate, async (req: AuthRequest, res, nex
   } catch (err) { next(err); }
 });
 
+// Limpiar alertas spam + regenerar inteligentes. Borra las alertas legacy
+// (texto plantilla "Revisa el detalle..." sin estimatedImpactMXN ni
+// affectedFraction específico) y vuelve a calcular con datos reales del
+// tenant. Idempotente: si todas las alertas ya tienen impacto, sólo
+// regenera.
+alertsRouter.post('/clean-and-regenerate', authenticate, async (req: AuthRequest, res, next) => {
+  try {
+    const tenantId = req.tenantId!;
+    // Borra alertas SPAM legacy: sin estimatedImpactMXN, sin fingerprint
+    // útil, o con content que contenga la plantilla genérica.
+    const spamPatterns = [
+      'Revisa el detalle en el módulo de Actualizaciones',
+      'Revisa el detalle',
+    ];
+    const orClauses = [
+      { estimatedImpactMXN: null, affectedFraction: null, type: { not: 'watch' } } as const,
+      ...spamPatterns.map(p => ({ content: { contains: p } } as const)),
+    ];
+    const deleted = await prisma.alert.deleteMany({
+      where: { tenantId, OR: orClauses as unknown as object[] },
+    });
+
+    const result = await regenerateAlerts(tenantId, false);
+    res.json({
+      status: 'ok',
+      data: {
+        deletedSpam: deleted.count,
+        ...result,
+      },
+    });
+  } catch (err) { next(err); }
+});
+
 // Contar alertas sin leer
 alertsRouter.get('/unread-count', authenticate, async (req: AuthRequest, res, next) => {
   try {
