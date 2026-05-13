@@ -234,6 +234,62 @@ legalDocsRouter.post('/reindex', adminOnly, async (_req: AuthRequest, res: Respo
   } catch (err) { next(err); }
 });
 
+// POST /api/admin/legal-docs/fix-urls — reemplaza URLs DOF inventadas
+// (dof.gob.mx/?codigo=XXX, 404 garantizado) por URLs institucionales
+// reales (diputados.gob.mx PDFs consolidados, sat.gob.mx, gob.mx PDFs de
+// tratados). No regenera embeddings — sólo actualiza officialUrl.
+//
+// Idempotente: el segundo run no cambia nada porque las URLs ya coinciden
+// con el mapa. Útil para desplegar la corrección sin re-seedear.
+legalDocsRouter.post('/fix-urls', adminOnly, async (_req: AuthRequest, res: Response, next: NextFunction) => {
+  try {
+    const URL_MAP: Record<string, string> = {
+      Ley_Aduanera: 'https://www.diputados.gob.mx/LeyesBiblio/pdf/LAdua.pdf',
+      LCE: 'https://www.diputados.gob.mx/LeyesBiblio/pdf/LCE.pdf',
+      LIVA: 'https://www.diputados.gob.mx/LeyesBiblio/pdf/77.pdf',
+      LIEPS: 'https://www.diputados.gob.mx/LeyesBiblio/pdf/78.pdf',
+      LFD: 'https://www.diputados.gob.mx/LeyesBiblio/pdf/107.pdf',
+      LIGIE: 'https://www.gob.mx/se/acciones-y-programas/comercio-exterior-tigie',
+      RGCE_2026: 'https://www.sat.gob.mx/normatividad/EYTYE5/reglas-generales-de-comercio-exterior',
+      Anexo_22_RGCE: 'https://www.sat.gob.mx/normatividad/EYTYE5/reglas-generales-de-comercio-exterior',
+      Anexo_24_RGCE: 'https://www.sat.gob.mx/normatividad/EYTYE5/reglas-generales-de-comercio-exterior',
+      Anexo_30_RGCE: 'https://www.sat.gob.mx/normatividad/EYTYE5/reglas-generales-de-comercio-exterior',
+      Anexo_31_RGCE: 'https://www.sat.gob.mx/normatividad/EYTYE5/reglas-generales-de-comercio-exterior',
+      Anexo_5_RGCE: 'https://www.sat.gob.mx/normatividad/EYTYE5/reglas-generales-de-comercio-exterior',
+      Anexo_10_RGCE: 'https://www.sat.gob.mx/normatividad/EYTYE5/reglas-generales-de-comercio-exterior',
+      Acuerdo_NOMs: 'https://www.gob.mx/se/acciones-y-programas/normas-oficiales-mexicanas',
+      TMEC: 'https://www.gob.mx/cms/uploads/attachment/file/465786/T-MEC-TratadoVigente.pdf',
+      TLCUEM: 'https://www.gob.mx/se/acciones-y-programas/comercio-exterior-paises-con-tratados-y-acuerdos-firmados-con-mexico',
+      CPTPP: 'https://www.gob.mx/se/acciones-y-programas/comercio-exterior-paises-con-tratados-y-acuerdos-firmados-con-mexico',
+      AGA: 'https://www.sat.gob.mx/normatividad/criterios-normativos',
+      AGCE: 'https://www.sat.gob.mx/normatividad/criterios-normativos',
+    };
+
+    const docs = await prisma.legalDocument.findMany({
+      select: { id: true, source: true, officialUrl: true },
+    });
+    let updated = 0;
+    let nullified = 0;
+    let kept = 0;
+    for (const d of docs) {
+      const target = URL_MAP[d.source] ?? null;
+      // Si tenemos URL real para la fuente, fija; si no, nullify la rota
+      // (UI ya esconde el link cuando officialUrl es null).
+      const looksFake = !!d.officialUrl && /dof\.gob\.mx\/.*codigo=/i.test(d.officialUrl);
+      if (target && d.officialUrl !== target) {
+        await prisma.legalDocument.update({ where: { id: d.id }, data: { officialUrl: target } });
+        updated++;
+      } else if (!target && looksFake) {
+        await prisma.legalDocument.update({ where: { id: d.id }, data: { officialUrl: null } });
+        nullified++;
+      } else {
+        kept++;
+      }
+    }
+    res.json({ status: 'ok', data: { updated, nullified, kept, total: docs.length } });
+  } catch (err) { next(err); }
+});
+
 legalDocsRouter.post('/', adminOnly, async (req: AuthRequest, res: Response, next: NextFunction) => {
   try {
     const body = req.body as Partial<{
