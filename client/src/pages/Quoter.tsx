@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useState } from 'react'
 import { api } from '../lib/api'
 import type { MultiQuoteInput, MultiQuoteItemInput, MultiQuoteResult, ScenarioComparison, ScenarioVariant } from '../lib/api'
 import { Calculator, DollarSign, AlertCircle, AlertTriangle, ShieldCheck, FileWarning, Plus, Trash2, GitCompare, Globe } from 'lucide-react'
@@ -24,9 +24,29 @@ function emptyItem(): MultiQuoteItemInput {
   return { fractionCode: '', countryOfOrigin: 'CN', quantity: 1, unitValueUSD: 0, freightUSD: 0, insuranceUSD: 0 }
 }
 
+// IDs estables por fila para keys de React. Si usáramos el índice, al
+// eliminar una partida React reusaría el state de inputs de la fila
+// removida en la siguiente — eso producía el bug de "el valor saltó al
+// campo Flete USD" cuando se editaba "Valor unit USD".
+let __rowSeq = 0
+const nextRowId = () => `row_${++__rowSeq}`
+
+// Wheel + comma-tolerant parse para inputs numéricos. El scroll sobre un
+// input number enfocado mutaba valores ajenos (UX nativa del navegador).
+const blurOnWheel = (e: React.WheelEvent<HTMLInputElement>) => {
+  if (document.activeElement === e.currentTarget) e.currentTarget.blur()
+}
+const parseNum = (s: string): number => {
+  if (!s) return 0
+  const cleaned = s.replace(/,/g, '')
+  const n = parseFloat(cleaned)
+  return Number.isFinite(n) ? n : 0
+}
+
 export function QuoterPage() {
   const [meta, setMeta] = useState({ name: '', client: '', incoterm: 'CIF', currency: 'USD', destination: 'Aduana de Nuevo Laredo' })
   const [items, setItems] = useState<MultiQuoteItemInput[]>([emptyItem()])
+  const [rowIds, setRowIds] = useState<string[]>([nextRowId()])
   const [dispatch, setDispatch] = useState({
     honorariosAgente: 0, prevalidacion: 321, almacenaje: 0, estiba: 0, fleteInterno: 0,
   })
@@ -85,8 +105,14 @@ export function QuoterPage() {
   function updateItem(idx: number, patch: Partial<MultiQuoteItemInput>) {
     setItems(prev => prev.map((it, i) => i === idx ? { ...it, ...patch } : it))
   }
-  function addItem() { setItems(prev => [...prev, emptyItem()]) }
-  function removeItem(idx: number) { setItems(prev => prev.filter((_, i) => i !== idx)) }
+  function addItem() {
+    setItems(prev => [...prev, emptyItem()])
+    setRowIds(prev => [...prev, nextRowId()])
+  }
+  function removeItem(idx: number) {
+    setItems(prev => prev.filter((_, i) => i !== idx))
+    setRowIds(prev => prev.filter((_, i) => i !== idx))
+  }
 
   return (
     <div className="max-w-6xl mx-auto space-y-4">
@@ -116,7 +142,7 @@ export function QuoterPage() {
             {tcMode === 'historical' && (
               <input type="date" value={tcDate} onChange={e => setTcDate(e.target.value)} className="text-[12px] border border-slate-200 rounded-lg px-2 py-1.5"/>
             )}
-            <input type="number" step="0.0001" placeholder="Override manual TC" value={tcOverride} onChange={e => setTcOverride(e.target.value)} className="text-[12px] border border-slate-200 rounded-lg px-2 py-1.5 w-40 ml-auto"/>
+            <input type="number" step="0.0001" autoComplete="off" name="tc-override" onWheel={blurOnWheel} placeholder="Override manual TC" value={tcOverride} onChange={e => setTcOverride(e.target.value)} className="text-[12px] border border-slate-200 rounded-lg px-2 py-1.5 w-40 ml-auto"/>
           </div>
         </div>
 
@@ -128,23 +154,23 @@ export function QuoterPage() {
           </div>
           <div className="space-y-2">
             {items.map((it, idx) => (
-              <div key={idx} className="rounded-xl border border-slate-200/70 bg-white/50 p-3">
+              <div key={rowIds[idx] ?? `row-${idx}`} className="rounded-xl border border-slate-200/70 bg-white/50 p-3">
                 <div className="flex items-center gap-2 mb-2">
                   <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500">Partida {idx + 1}</span>
                   {items.length > 1 && <button onClick={() => removeItem(idx)} className="text-rose-500 hover:text-rose-700 ml-auto"><Trash2 className="w-3.5 h-3.5"/></button>}
                 </div>
                 <div className="grid grid-cols-2 md:grid-cols-6 gap-2">
-                  <Field label="Fracción"><input className="w-full text-[12px] font-mono border border-slate-200 rounded-lg px-2 py-1.5" placeholder="7318.15.01" value={it.fractionCode} onChange={e => updateItem(idx, { fractionCode: e.target.value })}/></Field>
-                  <Field label="Descripción"><input className="w-full text-[12px] border border-slate-200 rounded-lg px-2 py-1.5" value={it.description ?? ''} onChange={e => updateItem(idx, { description: e.target.value })}/></Field>
-                  <Field label="País origen"><input className="w-full text-[12px] border border-slate-200 rounded-lg px-2 py-1.5" placeholder="China" value={it.countryOfOrigin} onChange={e => updateItem(idx, { countryOfOrigin: e.target.value })}/></Field>
-                  <Field label="Cantidad"><input type="number" className="w-full text-[12px] border border-slate-200 rounded-lg px-2 py-1.5" value={it.quantity} onChange={e => updateItem(idx, { quantity: parseFloat(e.target.value) || 0 })}/></Field>
-                  <Field label="Valor unit. USD"><input type="number" step="0.01" className="w-full text-[12px] border border-slate-200 rounded-lg px-2 py-1.5" value={it.unitValueUSD} onChange={e => updateItem(idx, { unitValueUSD: parseFloat(e.target.value) || 0 })}/></Field>
+                  <Field label="Fracción"><input autoComplete="off" name={`fraction-${rowIds[idx]}`} className="w-full text-[12px] font-mono border border-slate-200 rounded-lg px-2 py-1.5" placeholder="7318.15.01" value={it.fractionCode} onChange={e => updateItem(idx, { fractionCode: e.target.value })}/></Field>
+                  <Field label="Descripción"><input autoComplete="off" name={`desc-${rowIds[idx]}`} className="w-full text-[12px] border border-slate-200 rounded-lg px-2 py-1.5" value={it.description ?? ''} onChange={e => updateItem(idx, { description: e.target.value })}/></Field>
+                  <Field label="País origen"><input autoComplete="off" name={`country-${rowIds[idx]}`} className="w-full text-[12px] border border-slate-200 rounded-lg px-2 py-1.5" placeholder="China" value={it.countryOfOrigin} onChange={e => updateItem(idx, { countryOfOrigin: e.target.value })}/></Field>
+                  <Field label="Cantidad"><input type="number" autoComplete="off" name={`qty-${rowIds[idx]}`} onWheel={blurOnWheel} className="w-full text-[12px] border border-slate-200 rounded-lg px-2 py-1.5" value={it.quantity} onChange={e => updateItem(idx, { quantity: parseNum(e.target.value) })}/></Field>
+                  <Field label="Valor unit. USD"><input type="number" step="0.01" autoComplete="off" name={`unitVal-${rowIds[idx]}`} onWheel={blurOnWheel} className="w-full text-[12px] border border-slate-200 rounded-lg px-2 py-1.5" value={it.unitValueUSD} onChange={e => updateItem(idx, { unitValueUSD: parseNum(e.target.value) })}/></Field>
                   <Field label="Total USD"><div className="text-[12px] py-1.5 px-2 text-slate-700 font-semibold">${(it.quantity * it.unitValueUSD).toLocaleString('en-US', { maximumFractionDigits: 2 })}</div></Field>
                 </div>
                 <div className="grid grid-cols-2 md:grid-cols-4 gap-2 mt-2">
-                  <Field label="Flete USD"><input type="number" step="0.01" className="w-full text-[12px] border border-slate-200 rounded-lg px-2 py-1.5" value={it.freightUSD ?? 0} onChange={e => updateItem(idx, { freightUSD: parseFloat(e.target.value) || 0 })}/></Field>
-                  <Field label="Seguro USD"><input type="number" step="0.01" className="w-full text-[12px] border border-slate-200 rounded-lg px-2 py-1.5" value={it.insuranceUSD ?? 0} onChange={e => updateItem(idx, { insuranceUSD: parseFloat(e.target.value) || 0 })}/></Field>
-                  <Field label="Override IGI %"><input type="number" step="0.1" placeholder="auto" className="w-full text-[12px] border border-slate-200 rounded-lg px-2 py-1.5" value={it.igiRateOverride ?? ''} onChange={e => updateItem(idx, { igiRateOverride: e.target.value === '' ? undefined : parseFloat(e.target.value) })}/></Field>
+                  <Field label="Flete USD"><input type="number" step="0.01" autoComplete="off" name={`freight-${rowIds[idx]}`} onWheel={blurOnWheel} className="w-full text-[12px] border border-slate-200 rounded-lg px-2 py-1.5" value={it.freightUSD ?? 0} onChange={e => updateItem(idx, { freightUSD: parseNum(e.target.value) })}/></Field>
+                  <Field label="Seguro USD"><input type="number" step="0.01" autoComplete="off" name={`insurance-${rowIds[idx]}`} onWheel={blurOnWheel} className="w-full text-[12px] border border-slate-200 rounded-lg px-2 py-1.5" value={it.insuranceUSD ?? 0} onChange={e => updateItem(idx, { insuranceUSD: parseNum(e.target.value) })}/></Field>
+                  <Field label="Override IGI %"><input type="number" step="0.1" autoComplete="off" name={`igi-${rowIds[idx]}`} onWheel={blurOnWheel} placeholder="auto" className="w-full text-[12px] border border-slate-200 rounded-lg px-2 py-1.5" value={it.igiRateOverride ?? ''} onChange={e => updateItem(idx, { igiRateOverride: e.target.value === '' ? undefined : parseNum(e.target.value) })}/></Field>
                   <Field label="Tratado">
                     <select className="w-full text-[12px] border border-slate-200 rounded-lg px-2 py-1.5 bg-white"
                       value={it.applyTreaty ?? ''}
@@ -196,8 +222,8 @@ export function QuoterPage() {
                     </label>
                     {it.isVehicle && (
                       <div className="grid grid-cols-2 gap-2">
-                        <input type="number" value={it.vehiclePriceMXN ?? ''}
-                          onChange={e => updateItem(idx, { vehiclePriceMXN: parseFloat(e.target.value) || undefined })}
+                        <input type="number" autoComplete="off" name={`vehiclePrice-${rowIds[idx]}`} onWheel={blurOnWheel} value={it.vehiclePriceMXN ?? ''}
+                          onChange={e => updateItem(idx, { vehiclePriceMXN: e.target.value === '' ? undefined : parseNum(e.target.value) })}
                           placeholder="Precio sugerido MXN"
                           className="text-[11px] border border-slate-200 rounded px-2 py-1"/>
                         <label className="flex items-center gap-1.5 text-[10px] text-slate-700">
@@ -219,11 +245,11 @@ export function QuoterPage() {
         <details className="mb-4 rounded-xl bg-amber-50/40 border border-amber-100 p-3" open>
           <summary className="text-[12px] font-semibold text-amber-800 cursor-pointer">Costos de despacho aduanero (editables)</summary>
           <div className="grid grid-cols-2 md:grid-cols-5 gap-2 mt-3">
-            <Field label="Honorarios agente"><input type="number" className="w-full text-[12px] border border-slate-200 rounded-lg px-2 py-1.5" value={dispatch.honorariosAgente} onChange={e => setDispatch({...dispatch, honorariosAgente: parseFloat(e.target.value) || 0})}/></Field>
-            <Field label="Prevalidación"><input type="number" className="w-full text-[12px] border border-slate-200 rounded-lg px-2 py-1.5" value={dispatch.prevalidacion} onChange={e => setDispatch({...dispatch, prevalidacion: parseFloat(e.target.value) || 0})}/></Field>
-            <Field label="Almacenaje"><input type="number" className="w-full text-[12px] border border-slate-200 rounded-lg px-2 py-1.5" value={dispatch.almacenaje} onChange={e => setDispatch({...dispatch, almacenaje: parseFloat(e.target.value) || 0})}/></Field>
-            <Field label="Estiba"><input type="number" className="w-full text-[12px] border border-slate-200 rounded-lg px-2 py-1.5" value={dispatch.estiba} onChange={e => setDispatch({...dispatch, estiba: parseFloat(e.target.value) || 0})}/></Field>
-            <Field label="Flete interno"><input type="number" className="w-full text-[12px] border border-slate-200 rounded-lg px-2 py-1.5" value={dispatch.fleteInterno} onChange={e => setDispatch({...dispatch, fleteInterno: parseFloat(e.target.value) || 0})}/></Field>
+            <Field label="Honorarios agente"><input type="number" autoComplete="off" name="dispatch-honorarios" onWheel={blurOnWheel} className="w-full text-[12px] border border-slate-200 rounded-lg px-2 py-1.5" value={dispatch.honorariosAgente} onChange={e => setDispatch({...dispatch, honorariosAgente: parseNum(e.target.value)})}/></Field>
+            <Field label="Prevalidación"><input type="number" autoComplete="off" name="dispatch-prevalidacion" onWheel={blurOnWheel} className="w-full text-[12px] border border-slate-200 rounded-lg px-2 py-1.5" value={dispatch.prevalidacion} onChange={e => setDispatch({...dispatch, prevalidacion: parseNum(e.target.value)})}/></Field>
+            <Field label="Almacenaje"><input type="number" autoComplete="off" name="dispatch-almacenaje" onWheel={blurOnWheel} className="w-full text-[12px] border border-slate-200 rounded-lg px-2 py-1.5" value={dispatch.almacenaje} onChange={e => setDispatch({...dispatch, almacenaje: parseNum(e.target.value)})}/></Field>
+            <Field label="Estiba"><input type="number" autoComplete="off" name="dispatch-estiba" onWheel={blurOnWheel} className="w-full text-[12px] border border-slate-200 rounded-lg px-2 py-1.5" value={dispatch.estiba} onChange={e => setDispatch({...dispatch, estiba: parseNum(e.target.value)})}/></Field>
+            <Field label="Flete interno"><input type="number" autoComplete="off" name="dispatch-flete-interno" onWheel={blurOnWheel} className="w-full text-[12px] border border-slate-200 rounded-lg px-2 py-1.5" value={dispatch.fleteInterno} onChange={e => setDispatch({...dispatch, fleteInterno: parseNum(e.target.value)})}/></Field>
           </div>
         </details>
 
