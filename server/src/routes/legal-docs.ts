@@ -258,7 +258,7 @@ legalDocsRouter.post('/fix-urls', adminOnly, async (_req: AuthRequest, res: Resp
       Anexo_5_RGCE: 'https://www.sat.gob.mx/normatividad/EYTYE5/reglas-generales-de-comercio-exterior',
       Anexo_10_RGCE: 'https://www.sat.gob.mx/normatividad/EYTYE5/reglas-generales-de-comercio-exterior',
       Acuerdo_NOMs: 'https://www.gob.mx/se/acciones-y-programas/normas-oficiales-mexicanas',
-      TMEC: 'https://www.gob.mx/cms/uploads/attachment/file/465786/T-MEC-TratadoVigente.pdf',
+      TMEC: 'https://www.gob.mx/t-mec',
       TLCUEM: 'https://www.gob.mx/se/acciones-y-programas/comercio-exterior-paises-con-tratados-y-acuerdos-firmados-con-mexico',
       CPTPP: 'https://www.gob.mx/se/acciones-y-programas/comercio-exterior-paises-con-tratados-y-acuerdos-firmados-con-mexico',
       AGA: 'https://www.sat.gob.mx/normatividad/criterios-normativos',
