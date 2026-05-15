@@ -12,7 +12,7 @@
 import crypto from 'crypto';
 import { getAnthropicClient } from '../lib/anthropic';
 import { llmGenerateWithMeta } from '../lib/llm';
-import { searchLegalDocuments, type RetrievedDoc } from './rag-search';
+import { smartRetrieval, type RetrievedDoc } from './rag-search';
 import { prisma } from '../lib/prisma';
 import { logger } from '../lib/logger';
 
@@ -274,12 +274,38 @@ export interface AskCopilotInput {
 export async function askCopilotWithRAG(input: AskCopilotInput): Promise<CopilotRAGResult> {
   const t0 = Date.now();
 
-  // 1. Recuperar docs relevantes
-  const docs = await searchLegalDocuments(input.question, { topK: 5 });
+  // 1. Smart retrieval: topic filter + híbrido + Haiku reranker. Gate
+  // shouldRespond cuando hay <2 docs relevantes para que el modelo no
+  // alucine respuestas sin soporte legal.
+  const retrieval = await smartRetrieval(input.question, {
+    topK: 5,
+    rerank: true,
+    tenantId: input.tenantId,
+    userId: input.userId,
+  });
+  const docs = retrieval.docs as RetrievedDoc[];
+  logger.info(`Copilot retrieval: ${docs.length} docs (avg ${retrieval.averageRelevance}/100, topics: ${retrieval.detectedTopics.join(',') || 'none'}, shouldRespond=${retrieval.shouldRespond})`, {
+    action: 'copilot_retrieval',
+    tenantId: input.tenantId,
+    userId: input.userId,
+    metadata: {
+      retrievedCount: docs.length,
+      averageRelevance: retrieval.averageRelevance,
+      detectedTopics: retrieval.detectedTopics,
+      shouldRespond: retrieval.shouldRespond,
+      reason: retrieval.reason,
+    },
+  });
 
-  // 2. Prompt con contexto
+  // 2. Prompt con contexto. Cuando el gate dice shouldRespond=false,
+  // inyectamos una instrucción dura para que el modelo responda con la
+  // frase canónica "no tengo información verificada" en lugar de
+  // intentar contestar con baja evidencia.
   const contextBlock = buildContextBlock(docs);
-  const userMsg = `${input.question}\n${contextBlock}`;
+  const noInfoDirective = retrieval.shouldRespond
+    ? ''
+    : '\n[INSTRUCCIÓN OBLIGATORIA] No hay documentos suficientemente relevantes para responder esta pregunta con confianza. Responde EXACTAMENTE: "No tengo información verificada al respecto en mi base de documentos legales. Te sugiero consultar el portal del SAT o a un agente aduanal certificado." NO intentes contestar de memoria. NO inventes citas.\n';
+  const userMsg = `${input.question}\n${contextBlock}${noInfoDirective}`;
 
   // 3. Generar respuesta
   const generation = await llmGenerateWithMeta({
@@ -374,13 +400,17 @@ export async function chatWithCopilot(
   // Para no romper callers que solo esperan string, llamamos al RAG sin persistir
   // (no hay tenantId/userId aquí). Devolvemos la respuesta como string.
   void history; // history no se usa en RAG (cada turno es atómico)
-  const docs = await searchLegalDocuments(message, { topK: 5 });
+  const retrieval = await smartRetrieval(message, { topK: 5, rerank: true });
+  const docs = retrieval.docs as RetrievedDoc[];
   const contextBlock = buildContextBlock(docs);
+  const noInfoDirective = retrieval.shouldRespond
+    ? ''
+    : '\n[INSTRUCCIÓN OBLIGATORIA] No hay documentos suficientemente relevantes. Responde EXACTAMENTE: "No tengo información verificada al respecto en mi base de documentos legales. Te sugiero consultar el portal del SAT o a un agente aduanal certificado." NO inventes citas.\n';
   const response = await getAnthropicClient().messages.create({
     model: 'claude-haiku-4-5-20251001',
     max_tokens: 1500,
     system: RAG_SYSTEM_PROMPT,
-    messages: [{ role: 'user', content: `${message}\n${contextBlock}` }],
+    messages: [{ role: 'user', content: `${message}\n${contextBlock}${noInfoDirective}` }],
   });
   const raw = response.content[0].type === 'text' ? response.content[0].text : '';
   return injectIMMEXCertificationNote(stripDuplicateSourcesSection(raw));

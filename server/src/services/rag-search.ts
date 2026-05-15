@@ -11,6 +11,8 @@
 
 import { prisma } from '../lib/prisma';
 import { generateEmbedding, cosineSimilarity } from '../lib/embeddings';
+import { llmGenerate } from '../lib/llm';
+import { logger } from '../lib/logger';
 
 export interface RetrievedDoc {
   id: string;
@@ -34,20 +36,86 @@ const STOPWORDS = new Set(['de', 'la', 'el', 'los', 'las', 'que', 'y', 'a', 'en'
 // Mapeo de palabras clave de la query a topics del corpus.
 // Cuando la pregunta contiene términos de un dominio (auto, textil, etc.),
 // los docs cuyo topics[] no toca ese dominio se penalizan fuertemente.
+//
+// IMPORTANTE: el corpus usa 'inmex' (typo histórico) y también 'immex' por
+// inconsistencia entre seeds. El detector emite AMBAS variantes vía
+// TOPIC_ALIASES más abajo para que el filtro funcione.
 const TOPIC_KEYWORDS: Record<string, string[]> = {
   automotriz: ['automotriz', 'auto', 'autos', 'vehiculo', 'vehículo', 'vehiculos', 'vehículos', 'coche', 'camion', 'camión', 'autopart', 'autopartes', '8703', '8708'],
   textil: ['textil', 'textiles', 'tela', 'telas', 'prenda', 'prendas', 'ropa', 'algodon', 'algodón', 'confeccion', 'confección', 'hilado', 'hilados', 'yarn'],
-  immex: ['immex', 'maquila', 'maquiladora', 'temporal', 'iva-ieps', 'ivaIeps', 'aaa', 'certificacion'],
-  valoracion: ['valoracion', 'valoración', 'valor aduana', 'garantia', 'garantía', 'subvaluacion', 'subvaluación', 'precio estimado', 'transaccion', 'transacción', 'vinculacion', 'vinculación', 'incrementables'],
-  antidumping: ['antidumping', 'cuota compensatoria', 'dumping', 'upci', 'compensatoria'],
-  origen: ['origen', 'tmec', 'tlcuem', 'cptpp', 'rvc', 'lvc', 'yarn-forward', 'preferencial'],
-  clasificacion: ['clasificacion', 'clasificación', 'fraccion', 'fracción', 'partida', 'subpartida', 'gri', 'arancelaria'],
-  padrones: ['padron', 'padrón', 'anexo 10', 'sectorial', 'sector'],
-  sanciones: ['multa', 'multas', 'sancion', 'sanción', 'pama', 'infraccion', 'infracción', 'embargo'],
+  immex: ['immex', 'maquila', 'maquiladora', 'temporal', 'iva-ieps', 'ivaIeps', 'aaa', 'certificacion', 'modalidad a', 'modalidad aa', 'modalidad aaa', 'anexo 24', 'anexo 30', 'anexo 31'],
+  valoracion: [
+    'valoracion', 'valoración', 'valor aduana', 'valor en aduana',
+    'garantia', 'garantía', 'subvaluacion', 'subvaluación',
+    'precio estimado', 'transaccion', 'transacción',
+    'vinculacion', 'vinculación', 'incrementables',
+    'art. 64', 'art. 65', 'art. 71', 'art. 78', 'art. 84-a',
+    'articulo 64', 'articulo 65', 'articulo 71', 'articulo 78',
+    'flete', 'seguro', 'comisiones', 'regalias', 'regalías',
+    'metodo de valoracion', 'método de valoración', 'base gravable',
+  ],
+  antidumping: ['antidumping', 'cuota compensatoria', 'dumping', 'upci', 'compensatoria', 'elusion', 'elusión', 'res-'],
+  origen: [
+    'origen', 'tmec', 'tlcuem', 'cptpp', 'rvc', 'lvc',
+    'yarn-forward', 'yarn forward', 'preferencial', 'certificado de origen',
+    'wholly obtained', 'capitulo 4', 'capítulo 4',
+    'build-up', 'build-down', 'cambio de partida', 'cambio arancelario',
+    'transformacion sustancial', 'transformación sustancial',
+  ],
+  clasificacion: [
+    'clasificacion', 'clasificación', 'fraccion', 'fracción', 'partida', 'subpartida',
+    'gri', 'arancelaria', 'nico', 'capitulo', 'capítulo', 'reclasificacion', 'reclasificación',
+  ],
+  padrones: ['padron', 'padrón', 'anexo 10', 'sectorial', 'sector', 'art. 59', 'articulo 59', 'inscripcion', 'inscripción'],
+  pama: ['pama', 'art. 152', 'art. 155', 'art. 144', 'articulo 152', 'articulo 155', 'embargo', 'embargo precautorio', 'reconocimiento aduanero', 'acta circunstanciada', 'procedimiento administrativo'],
+  sanciones: ['multa', 'multas', 'sancion', 'sanción', 'infraccion', 'infracción', 'art. 184', 'art. 185', 'art. 178'],
   inventarios: ['inventario', 'inventarios', 'descargo', 'descargos', 'anexo 24', 'anexo 30'],
-  pedimento: ['pedimento', 'anexo 22', 'a1', 'in', 'rt', 'mve', 'manifestacion', 'manifestación'],
+  pedimento: ['pedimento', 'anexo 22', 'a1', 'mve', 'manifestacion', 'manifestación', 'cove'],
+  iva: [
+    'iva', 'iva-ieps', 'acreditamiento', 'art. 24 liva', 'art. 26 liva',
+    'art. 28-a', 'art. 28a', 'art. 5 liva', 'art. 27 liva',
+    'credito fiscal', 'crédito fiscal', 'iva al despacho',
+  ],
+  iva_ieps: [
+    'iva-ieps', 'certificacion iva', 'certificación iva',
+    'modalidad a', 'modalidad aa', 'modalidad aaa',
+    'regla 7.1.5', 'crédito iva', 'credito iva',
+  ],
+  fiscal: ['fiscal', 'credito', 'crédito', 'descargo', 'cuenta aduanera', 'tax credit', 'recargos'],
+  isan: ['isan', 'automovil nuevo', 'automóvil nuevo', 'vehiculo nuevo', 'vehículo nuevo', 'art. 1 lisan', 'art. 2 lisan', 'lisan'],
+  ieps: ['ieps', 'art. 1 lieps', 'lieps', 'alcohol', 'tabaco', 'refresco', 'combustible', 'plaguicida'],
   noms: ['nom', 'noms', 'anexo 2.4.1', 'etiquetado'],
+  garantias: ['garantia', 'garantía', 'fianza', 'cuenta aduanera', 'anexo 31', 'carta de credito', 'carta de crédito'],
 };
+
+// Aliases: cuando el detector emite topic X, también buscar estos topics en
+// los docs. Cubre typos históricos del seed (inmex/immex) y solapamientos
+// semánticos (iva_ieps ↔ iva, garantias ↔ fiscal).
+const TOPIC_ALIASES: Record<string, string[]> = {
+  immex: ['immex', 'inmex'],
+  inmex: ['inmex', 'immex'],
+  iva: ['iva', 'iva_ieps', 'fiscal'],
+  iva_ieps: ['iva_ieps', 'iva', 'certificacion', 'fiscal'],
+  fiscal: ['fiscal', 'iva', 'iva_ieps'],
+  garantias: ['garantias', 'cuenta_aduanera', 'fiscal'],
+  pama: ['pama', 'sanciones'],
+  sanciones: ['sanciones', 'pama'],
+  valoracion: ['valoracion', 'incrementables', 'base_gravable', 'subvaluacion'],
+  origen: ['origen', 'automotriz', 'textiles'],
+  clasificacion: ['clasificacion', 'reclasificacion', 'uso_destinado'],
+  padrones: ['padrones', 'regimen'],
+  pedimento: ['pedimento', 'regimen'],
+};
+
+/** Expande topics con sus aliases. */
+function expandTopicsWithAliases(topics: string[]): string[] {
+  const expanded = new Set<string>();
+  for (const t of topics) {
+    expanded.add(t);
+    for (const a of TOPIC_ALIASES[t] ?? []) expanded.add(a);
+  }
+  return [...expanded];
+}
 
 // Mapa inverso country → tratado correcto (para evitar que el Copilot
 // diga "TMEC" cuando el país es UE, japonés, chino, etc.)
@@ -110,16 +178,31 @@ function makeExcerpt(content: string, query: string, maxLen = 280): string {
   return (bestIdx > 0 ? '…' : '') + excerpt + (bestIdx + maxLen < content.length ? '…' : '');
 }
 
-export async function searchLegalDocuments(query: string, opts: { topK?: number; topics?: string[]; types?: string[] } = {}): Promise<RetrievedDoc[]> {
+export async function searchLegalDocuments(query: string, opts: { topK?: number; topics?: string[]; types?: string[]; hardFilter?: boolean } = {}): Promise<RetrievedDoc[]> {
   const topK = opts.topK ?? 5;
   const queryEmbedding = await generateEmbedding(query);
   const queryTokens = extractTokens(query);
   const detectedTopics = detectQueryTopics(query);
+  const expandedTopics = expandTopicsWithAliases(detectedTopics);
 
   // Filtros opcionales
   const where: Record<string, unknown> = { isActive: true };
   if (opts.topics && opts.topics.length > 0) where.topics = { hasSome: opts.topics };
   if (opts.types && opts.types.length > 0) where.type = { in: opts.types };
+
+  // Hard filter por topic — solo cuando hay topics detectados Y no se pasó
+  // un topics override explícito. Reduce los candidatos ANTES del cálculo
+  // de embeddings/keyword scoring. Si quedan < 3 candidatos, se desactiva
+  // el filtro para evitar respuestas vacías por sobre-restricción.
+  const hardFilter = opts.hardFilter !== false; // default true
+  if (hardFilter && expandedTopics.length > 0 && !opts.topics) {
+    const topicCandidatesCount = await prisma.legalDocument.count({
+      where: { ...where, topics: { hasSome: expandedTopics } },
+    });
+    if (topicCandidatesCount >= 3) {
+      where.topics = { hasSome: expandedTopics };
+    }
+  }
 
   const docs = await prisma.legalDocument.findMany({
     where,
@@ -147,14 +230,15 @@ export async function searchLegalDocuments(query: string, opts: { topK?: number;
     const keywordScore = queryTokens.length > 0 ? kwHits / queryTokens.length : 0;
 
     // Topic relevance: si la query tiene topics detectados, el doc debe
-    // tocar al menos uno. Si no, penalización del 80% (efectivamente lo
-    // saca del top-K). Esto evita que pregunta de auto traiga textiles.
+    // tocar al menos uno (incluyendo aliases). Si no, penalización del
+    // 80%. Cuando el hard filter ya cribó por topic, esto ya no es
+    // necesario, pero se mantiene para queries con hardFilter=false.
     let topicMultiplier = 1.0;
-    if (detectedTopics.length > 0) {
+    if (expandedTopics.length > 0) {
       const docTopics = new Set(d.topics ?? []);
-      const overlap = detectedTopics.filter(t => docTopics.has(t)).length;
+      const overlap = expandedTopics.filter(t => docTopics.has(t)).length;
       if (overlap === 0) topicMultiplier = 0.2;        // off-topic
-      else if (overlap === detectedTopics.length) topicMultiplier = 1.15; // todos los topics → boost
+      else if (overlap >= detectedTopics.length) topicMultiplier = 1.15; // cubre todos los topics del query → boost
     }
 
     // Score combinado: 70% similitud vectorial + 30% keyword, ajustado por topic
@@ -180,4 +264,170 @@ export async function searchLegalDocuments(query: string, opts: { topK?: number;
   });
 
   return scored.sort((a, b) => b.finalScore - a.finalScore).slice(0, topK);
+}
+
+// ─────────────────────────────────────────────────────────────────────────
+// LLM Reranker (Haiku) — sobre candidatos del retrieval híbrido
+// ─────────────────────────────────────────────────────────────────────────
+
+export interface RerankedDoc extends RetrievedDoc {
+  llmScore: number;
+  llmRelevant: boolean;
+  llmReason: string;
+}
+
+const RERANK_SYSTEM = `Eres un evaluador de relevancia para un RAG legal mexicano (comercio exterior). Tu trabajo es decidir, para cada documento candidato, si responde DIRECTAMENTE a la pregunta del usuario o si solo coincide en palabras clave superficiales.
+
+Reglas:
+- relevant=true SOLO si el documento contiene la respuesta material a la pregunta o un componente necesario (definición, regla, plazo, monto, sujeto, etc.).
+- relevant=false si el documento toca el tema pero NO responde lo preguntado (ej. pregunta es sobre Art. 65 LA pero el doc habla del Art. 52 LA).
+- score 0-100. Reserva 80+ para docs que claramente responden la pregunta.
+- reason: 1 oración. No inventes citas.
+
+Responde EXCLUSIVAMENTE con JSON válido. Sin prosa, sin markdown.`;
+
+/**
+ * Pide a Haiku que evalúe relevancia doc-por-doc contra la query. Filtra
+ * candidatos por llmScore >= scoreThreshold y llmRelevant=true. Devuelve top-K
+ * ordenados por llmScore.
+ *
+ * Si el LLM falla o el JSON es inválido, fallback: devuelve los candidatos
+ * originales ordenados por finalScore (no rompe la búsqueda).
+ */
+export async function rerankWithLLM(
+  query: string,
+  candidates: RetrievedDoc[],
+  opts: { topK?: number; scoreThreshold?: number; tenantId?: string; userId?: string } = {},
+): Promise<RerankedDoc[]> {
+  const topK = opts.topK ?? 5;
+  const scoreThreshold = opts.scoreThreshold ?? 55;
+  if (candidates.length === 0) return [];
+
+  // Recorta excerpts para que el prompt no explote (Haiku acepta mucho pero
+  // el costo crece con tokens). 300 chars cubre la idea central de cada doc.
+  const docList = candidates.map((c, i) => {
+    const snippet = c.content.length > 300 ? c.content.slice(0, 300) + '…' : c.content;
+    return `[${i + 1}] ${c.reference} — ${c.title}\nTopics: ${c.topics.join(', ')}\nExcerpt: ${snippet}`;
+  }).join('\n\n');
+
+  const userPrompt = `Pregunta del usuario:
+"${query}"
+
+Documentos candidatos:
+${docList}
+
+Devuelve un array JSON con un objeto por documento, en el mismo orden. Cada objeto:
+{ "index": <int 1..N>, "relevant": <bool>, "score": <int 0..100>, "reason": "<≤120 chars>" }
+
+Ejemplo: [{"index":1,"relevant":true,"score":85,"reason":"responde directamente"},{"index":2,"relevant":false,"score":15,"reason":"menciona pero distinto"}]`;
+
+  let raw: string;
+  try {
+    raw = await llmGenerate({
+      model: 'fast',
+      maxTokens: 1500,
+      system: RERANK_SYSTEM,
+      user: userPrompt,
+      log: { operation: 'rag_rerank', tenantId: opts.tenantId, userId: opts.userId },
+    });
+  } catch (err) {
+    logger.warn('LLM reranker failed; falling back a similarity-only', {
+      action: 'rag_rerank_fail',
+      errorMessage: err instanceof Error ? err.message : String(err),
+    });
+    return candidates.slice(0, topK).map(c => ({ ...c, llmScore: Math.round(c.finalScore * 100), llmRelevant: true, llmReason: 'fallback similarity' }));
+  }
+
+  // JSON parse robusto: el modelo a veces envuelve en ```json ... ```
+  const cleaned = raw.replace(/^```(?:json)?\s*/i, '').replace(/```\s*$/i, '').trim();
+  let parsed: { index: number; relevant: boolean; score: number; reason?: string }[];
+  try {
+    const j = JSON.parse(cleaned);
+    parsed = Array.isArray(j) ? j : (Array.isArray(j?.results) ? j.results : []);
+  } catch {
+    logger.warn('LLM reranker returned invalid JSON; fallback', {
+      action: 'rag_rerank_parse_fail',
+      metadata: { rawPreview: raw.slice(0, 200) },
+    });
+    return candidates.slice(0, topK).map(c => ({ ...c, llmScore: Math.round(c.finalScore * 100), llmRelevant: true, llmReason: 'parse fallback' }));
+  }
+
+  const scoresByIdx = new Map<number, { score: number; relevant: boolean; reason: string }>();
+  for (const r of parsed) {
+    if (typeof r?.index === 'number') {
+      scoresByIdx.set(r.index, {
+        score: Math.max(0, Math.min(100, Math.round(r.score ?? 0))),
+        relevant: !!r.relevant,
+        reason: String(r.reason ?? '').slice(0, 120),
+      });
+    }
+  }
+
+  const reranked: RerankedDoc[] = candidates.map((c, i) => {
+    const s = scoresByIdx.get(i + 1);
+    return {
+      ...c,
+      llmScore: s?.score ?? 0,
+      llmRelevant: s?.relevant ?? false,
+      llmReason: s?.reason ?? '',
+    };
+  });
+
+  return reranked
+    .filter(d => d.llmRelevant && d.llmScore >= scoreThreshold)
+    .sort((a, b) => b.llmScore - a.llmScore)
+    .slice(0, topK);
+}
+
+// ─────────────────────────────────────────────────────────────────────────
+// Smart retrieval — pipeline completo (topic filter + hybrid + LLM rerank)
+// ─────────────────────────────────────────────────────────────────────────
+
+export interface SmartRetrievalResult {
+  docs: RerankedDoc[];
+  shouldRespond: boolean;
+  reason: 'ok' | 'insufficient_relevant_docs' | 'no_candidates';
+  averageRelevance: number;
+  detectedTopics: string[];
+}
+
+/**
+ * Pipeline completo de retrieval para Copilot RAG.
+ *  1. Detectar topics del query y filtrar candidatos (F1 + F2)
+ *  2. Retrieval híbrido (embedding + keyword + topic boost) → ~10 candidatos
+ *  3. Reranker Haiku evalúa cada candidato y filtra < threshold
+ *  4. Si quedan < 2 docs relevantes → shouldRespond=false (Copilot dirá "no info")
+ *
+ * Opcional: pasar tenantId/userId para que el reranker quede logueado.
+ */
+export async function smartRetrieval(
+  query: string,
+  opts: { topK?: number; rerank?: boolean; tenantId?: string; userId?: string } = {},
+): Promise<SmartRetrievalResult> {
+  const topK = opts.topK ?? 5;
+  const rerank = opts.rerank !== false; // default true
+
+  // 1+2: retrieval híbrido con topic filter
+  const candidates = await searchLegalDocuments(query, { topK: 12, hardFilter: true });
+  const detectedTopics = detectQueryTopics(query);
+
+  if (candidates.length === 0) {
+    return { docs: [], shouldRespond: false, reason: 'no_candidates', averageRelevance: 0, detectedTopics };
+  }
+
+  // 3: reranking con Haiku (skippable para tests / fallback)
+  let docs: RerankedDoc[];
+  if (rerank) {
+    docs = await rerankWithLLM(query, candidates, { topK, tenantId: opts.tenantId, userId: opts.userId });
+  } else {
+    docs = candidates.slice(0, topK).map(c => ({ ...c, llmScore: Math.round(c.finalScore * 100), llmRelevant: true, llmReason: 'rerank=off' }));
+  }
+
+  // 4: gate de respuesta
+  if (docs.length < 2) {
+    return { docs, shouldRespond: false, reason: 'insufficient_relevant_docs', averageRelevance: docs.length === 1 ? docs[0]!.llmScore : 0, detectedTopics };
+  }
+
+  const avg = docs.reduce((s, d) => s + d.llmScore, 0) / docs.length;
+  return { docs, shouldRespond: true, reason: 'ok', averageRelevance: Math.round(avg), detectedTopics };
 }
