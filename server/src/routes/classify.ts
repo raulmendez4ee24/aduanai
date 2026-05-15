@@ -94,11 +94,12 @@ classifyRouter.post('/demo', demoClassifyLimit, async (req, res, next) => {
 // POST /api/classify — con auth + alertas defensivas + verificabilidad
 classifyRouter.post('/', authenticate, requirePermission('classifier', 'create'), async (req: AuthRequest, res, next) => {
   try {
-    const { description, context, countryOfOrigin, declaredValueUSD, useCase, sector, importerType } = req.body as {
+    const { description, context, countryOfOrigin, declaredValueUSD, declaredQuantity, useCase, sector, importerType } = req.body as {
       description?: string;
       context?: string;
       countryOfOrigin?: string;
       declaredValueUSD?: number;
+      declaredQuantity?: number;
       useCase?: string;
       sector?: IndustrialSector;
       importerType?: ImporterType;
@@ -121,6 +122,7 @@ classifyRouter.post('/', authenticate, requirePermission('classifier', 'create')
       context,
       countryOfOrigin,
       declaredValueUSD,
+      declaredQuantity,
     });
 
     const consultedAt = new Date();

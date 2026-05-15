@@ -79,7 +79,7 @@ export const api = {
     context?: string,
     countryOfOrigin?: string,
     declaredValueUSD?: number,
-    extras?: { useCase?: string; sector?: IndustrialSector; importerType?: ImporterType },
+    extras?: { useCase?: string; sector?: IndustrialSector; importerType?: ImporterType; declaredQuantity?: number },
   ) =>
     request<{ status: string; data: ClassificationResult; classificationId?: string }>('/classify', {
       method: 'POST',
