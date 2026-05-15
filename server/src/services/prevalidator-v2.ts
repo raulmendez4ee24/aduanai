@@ -284,13 +284,48 @@ async function validatePartida(p: PartidaInput, ped: PedimentoInput, issues: Val
     }
   }
 
-  // Cuota compensatoria
+  // Cuota compensatoria — debe estar declarada en pedimento o es bloqueante
+  // (Anexo 22 RGCE: identificador "CC" con complemento de resolución; o
+  // que la partida traiga un cargo de cuota declarado).
   const compliance = await lookupCompliance(p.fraccion, p.pais);
   if (compliance.antidumping) {
-    issues.push({
-      partida: p.numeroPartida, field: 'pais', severity: 'warning', rule: 'ANTIDUMPING_ACTIVE',
-      message: `Cuota compensatoria ${compliance.antidumping.rate}% para ${compliance.antidumping.countryNormalized} — Decreto ${compliance.antidumping.decree ?? 's/n'}`,
-    });
+    const ad = compliance.antidumping;
+    const resLabel = ad.resolutionNumber ?? ad.decree ?? 's/n';
+    const rateLabel = ad.rateType === 'specific_USD_kg' ? `$${ad.rate} USD/kg`
+      : ad.rateType === 'specific_USD_unit' ? `$${ad.rate} ${ad.rateUnit}`
+      : `${ad.rate}%`;
+
+    // Buscar identificador "CC" (Cuotas Compensatorias) entre los
+    // identificadores de la partida. Aceptamos también "EE" (cuota
+    // compensatoria provisional) y "GA" (garantía por subvaluación que
+    // a veces se usa para cuotas en revisión).
+    const idCodes = new Set((p.identificadores ?? []).map(i => i.codigo.toUpperCase()));
+    const hasCCIdentifier = idCodes.has('CC') || idCodes.has('EE');
+    // Nota: validar el MONTO declarado de la cuota requiere campos del
+    // pedimento que actualmente no se propagan; exigimos el identificador
+    // explícito (Anexo 22 "CC" / "EE") como prueba de declaración.
+
+    if (!hasCCIdentifier) {
+      const matchWarn = ad.matchType && ad.matchType !== 'exact'
+        ? ` [match por ${ad.matchType === 'subheading' ? 'subpartida' : 'partida'} ${ad.matchedFraction} — valida cobertura manualmente]`
+        : '';
+      issues.push({
+        partida: p.numeroPartida,
+        field: 'identificadores',
+        severity: 'error',
+        rule: 'ANTIDUMPING_NOT_DECLARED',
+        message: `Cuota compensatoria ${rateLabel} obligatoria por ${resLabel} (${ad.countryNormalized}) no declarada. Agrega identificador "CC" en partida con complemento de la resolución${matchWarn}. Omitirla: multa 130-150% Art. 178 LA + embargo Art. 144 LA.`,
+      });
+    } else {
+      // Cuota declarada — solo info para tracking
+      issues.push({
+        partida: p.numeroPartida,
+        field: 'identificadores',
+        severity: 'info',
+        rule: 'ANTIDUMPING_DECLARED',
+        message: `Cuota compensatoria ${rateLabel} (${resLabel}) declarada vía identificador CC. Verifica que el monto calculado coincida con el aplicado.`,
+      });
+    }
   }
 
   // Vinculación obligatoria si paisVendedor != pais (relación bandera)

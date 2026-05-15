@@ -12,6 +12,11 @@ export interface QuoteRates {
   ivaPct?: number;            // % IVA (default 16)
   iepsPct?: number;           // % IEPS si aplica
   countervailingPct?: number; // % Cuota compensatoria si aplica
+  /** Override del cálculo de cuota compensatoria: si se pasa un monto
+   * absoluto en MXN (típicamente para rateType specific_USD_kg o
+   * specific_USD_unit ya convertido a MXN), se usa este valor en lugar
+   * de countervailingPct. Forma parte de la base del IVA (Art. 27 LIVA). */
+  countervailingAbsoluteMXN?: number;
 }
 
 export interface QuoteAmounts {
@@ -64,11 +69,14 @@ export function computeQuoteAmounts(args: {
   const ivaPct = args.rates.ivaPct ?? 16;
   const iepsPct = args.rates.iepsPct ?? 0;
   const cvPct = args.rates.countervailingPct ?? 0;
+  const cvAbsolute = args.rates.countervailingAbsoluteMXN;
 
   const valueMXNRaw = valueUSD * exchangeRate;
   const igiRaw = valueMXNRaw * (igiPct / 100);
   const dtaRaw = valueMXNRaw * (dtaPct / 100);
-  const cvRaw = valueMXNRaw * (cvPct / 100);
+  const cvRaw = cvAbsolute != null && cvAbsolute > 0
+    ? cvAbsolute
+    : valueMXNRaw * (cvPct / 100);
   const preIVARaw = valueMXNRaw + igiRaw + dtaRaw + cvRaw;
   const iepsRaw = preIVARaw * (iepsPct / 100);
   const baseIVARaw = preIVARaw + iepsRaw;

@@ -50,6 +50,15 @@ export interface AntidumpingCheckResult {
   expiringSoon: boolean;
   daysToExpiry: number | null;
   appliesToOperation: boolean;
+  /** Cómo se hizo el match contra el corpus de cuotas:
+   *  - exact: fracción 8 dígitos exacta
+   *  - subheading: 6 dígitos (warning: verificar cobertura)
+   *  - heading: 4 dígitos (warning fuerte)
+   */
+  matchType: 'exact' | 'subheading' | 'heading';
+  /** Fracción que coincidió en el corpus (puede diferir del input cuando
+   * matchType !== exact). */
+  matchedFraction: string;
 }
 
 export async function checkAntidumpingDuty(input: AntidumpingCheckInput): Promise<AntidumpingCheckResult[]> {
@@ -57,22 +66,43 @@ export async function checkAntidumpingDuty(input: AntidumpingCheckInput): Promis
   const country = normalizeCountry(input.countryOfOrigin);
   const now = new Date();
 
-  const duties = await prisma.antidumpingDuty.findMany({
-    where: {
-      fractionCode: cleanFraction,
-      countryOfOrigin: country,
-      status: 'vigente',
-      active: true,
-      OR: [
-        { effectiveDate: null },
-        { effectiveDate: { lte: now } },
-      ],
-      AND: [
-        { OR: [{ expiryDate: null }, { expiryDate: { gte: now } }] },
-      ],
-    },
+  const baseWhere = {
+    countryOfOrigin: country,
+    status: 'vigente',
+    active: true,
+    OR: [
+      { effectiveDate: null },
+      { effectiveDate: { lte: now } },
+    ],
+    AND: [
+      { OR: [{ expiryDate: null }, { expiryDate: { gte: now } }] },
+    ],
+  };
+
+  // 1) Exact match
+  let duties = await prisma.antidumpingDuty.findMany({
+    where: { ...baseWhere, fractionCode: cleanFraction },
     orderBy: { publishDateDOF: 'desc' },
   });
+  let matchType: 'exact' | 'subheading' | 'heading' = 'exact';
+
+  // 2) Fallback subpartida (6 dígitos) si no hay exact
+  if (duties.length === 0 && cleanFraction.length >= 6) {
+    duties = await prisma.antidumpingDuty.findMany({
+      where: { ...baseWhere, fractionCode: { startsWith: cleanFraction.slice(0, 6) } },
+      orderBy: { publishDateDOF: 'desc' },
+    });
+    if (duties.length > 0) matchType = 'subheading';
+  }
+
+  // 3) Fallback partida (4 dígitos) si tampoco
+  if (duties.length === 0 && cleanFraction.length >= 4) {
+    duties = await prisma.antidumpingDuty.findMany({
+      where: { ...baseWhere, fractionCode: { startsWith: cleanFraction.slice(0, 4) } },
+      orderBy: { publishDateDOF: 'desc' },
+    });
+    if (duties.length > 0) matchType = 'heading';
+  }
 
   return duties.map(d => {
     let calculatedAmountUSD: number | null = null;
@@ -144,6 +174,8 @@ export async function checkAntidumpingDuty(input: AntidumpingCheckInput): Promis
       expiringSoon,
       daysToExpiry,
       appliesToOperation,
+      matchType,
+      matchedFraction: d.fractionCode,
     };
   });
 }

@@ -55,8 +55,16 @@ export function normalizeCountry(input: string): string {
 
 export interface AntidumpingMatch {
   rate: number;
+  rateType: 'percentage' | 'specific_USD_kg' | 'specific_USD_unit';
+  rateUnit: string;
+  resolutionType: string;
+  resolutionNumber: string | null;
+  expedienteUPCI: string | null;
+  productDesc: string | null;
+  /** @deprecated usar resolutionType; mantenido para compat */
   type: string;
   decree: string | null;
+  dofUrl: string | null;
   country: string;
   countryNormalized: string;
   publishDate: string | null;
@@ -185,8 +193,15 @@ export async function lookupCompliance(
     antidumping: ad
       ? {
           rate: ad.rate,
+          rateType: (ad.rateType as AntidumpingMatch['rateType']) ?? 'percentage',
+          rateUnit: ad.rateUnit ?? '%',
+          resolutionType: ad.resolutionType,
+          resolutionNumber: ad.resolutionNumber ?? null,
+          expedienteUPCI: ad.expedienteUPCI ?? null,
+          productDesc: ad.productDesc ?? null,
           type: ad.resolutionType,
           decree: ad.decree,
+          dofUrl: ad.dofUrl ?? null,
           country: country,
           countryNormalized: ad.countryOfOrigin,
           publishDate: ad.publishDate?.toISOString() ?? null,

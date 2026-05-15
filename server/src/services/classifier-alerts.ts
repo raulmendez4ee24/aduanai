@@ -66,13 +66,74 @@ export async function buildClassifierAlerts(input: BuildAlertsInput): Promise<Cl
     const compliance = await lookupCompliance(cleanFraction, input.countryOfOrigin ?? '');
 
     if (compliance.antidumping) {
-      const dateStr = compliance.antidumping.publishDate?.slice(0, 10) ?? 's/d';
+      const ad = compliance.antidumping;
+      const effectiveStr = ad.effectiveDate?.slice(0, 10) ?? ad.publishDate?.slice(0, 10) ?? 's/d';
+      const resLabel = ad.resolutionNumber ?? ad.decree ?? 's/n';
+
+      // Etiqueta de cuota formateada por rateType — antes salía "2.07%"
+      // para una cuota de $2.07 USD/kg (bug crítico).
+      let rateLabel: string;
+      if (ad.rateType === 'specific_USD_kg') rateLabel = `$${ad.rate} USD/kg`;
+      else if (ad.rateType === 'specific_USD_unit') rateLabel = `$${ad.rate} ${ad.rateUnit}`;
+      else rateLabel = `${ad.rate}%`;
+
+      // Cálculo concreto si tenemos cantidad
+      let exampleCalc: string | null = null;
+      let calculatedUSD: number | null = null;
+      if (input.declaredQuantity != null && input.declaredQuantity > 0) {
+        if (ad.rateType === 'specific_USD_kg' || ad.rateType === 'specific_USD_unit') {
+          calculatedUSD = input.declaredQuantity * ad.rate;
+          const unitWord = ad.rateType === 'specific_USD_kg' ? 'kg' : 'unidades';
+          exampleCalc = `Para ${input.declaredQuantity.toLocaleString('en-US')} ${unitWord} = $${calculatedUSD.toFixed(2)} USD adicionales`;
+        } else if (ad.rateType === 'percentage' && input.declaredValueUSD != null) {
+          const totalUSD = input.declaredQuantity * input.declaredValueUSD;
+          calculatedUSD = totalUSD * (ad.rate / 100);
+          exampleCalc = `Para ${input.declaredQuantity} unidades × $${input.declaredValueUSD.toFixed(2)} USD = $${calculatedUSD.toFixed(2)} USD adicionales`;
+        }
+      }
+
+      const matchWarn = ad.matchType && ad.matchType !== 'exact'
+        ? ` ⚠️ Match por ${ad.matchType === 'subheading' ? 'subpartida' : 'partida'} (${ad.matchedFraction}) — valida que ${cleanFraction} esté cubierta.`
+        : '';
+
+      const productLine = ad.productDesc ? `${resLabel} — ${ad.productDesc}` : resLabel;
+      const messageParts = [
+        productLine,
+        `Origen: ${ad.countryNormalized}`,
+        `Cuota: ${rateLabel}`,
+      ];
+      if (exampleCalc) messageParts.push(exampleCalc);
+      messageParts.push(`Vigente desde ${effectiveStr}`);
+      messageParts.push(
+        '⚠️ Omitir en pedimento: multa 130-150% del impuesto omitido (Art. 178 LA) + embargo precautorio (Art. 144 LA).',
+      );
+      if (matchWarn) messageParts.push(matchWarn.trim());
+
       alerts.push({
         type: 'antidumping',
         severity: 'critical',
-        title: `⚠️ Cuota compensatoria ${compliance.antidumping.rate}% — ${compliance.antidumping.countryNormalized}`,
-        message: `Decreto ${compliance.antidumping.decree ?? 's/n'} (${dateStr}). ${compliance.antidumping.notes ?? ''}`,
-        metadata: { rate: compliance.antidumping.rate, decree: compliance.antidumping.decree, type: compliance.antidumping.type, matchType: compliance.antidumping.matchType, matchedFraction: compliance.antidumping.matchedFraction },
+        title: `🚨 Cuota compensatoria activa — ${rateLabel} origen ${ad.countryNormalized}`,
+        message: messageParts.join('\n'),
+        metadata: {
+          resolutionNumber: ad.resolutionNumber,
+          expedienteUPCI: ad.expedienteUPCI,
+          rate: ad.rate,
+          rateType: ad.rateType,
+          rateUnit: ad.rateUnit,
+          rateLabel,
+          decree: ad.decree,
+          productDesc: ad.productDesc,
+          countryNormalized: ad.countryNormalized,
+          effectiveDate: ad.effectiveDate,
+          expiryDate: ad.expiryDate,
+          dofUrl: ad.dofUrl,
+          publishDate: ad.publishDate,
+          calculatedAmountUSD: calculatedUSD,
+          potentialPenaltyUSDMin: calculatedUSD != null ? calculatedUSD * 1.30 : null,
+          potentialPenaltyUSDMax: calculatedUSD != null ? calculatedUSD * 1.50 : null,
+          matchType: ad.matchType,
+          matchedFraction: ad.matchedFraction,
+        },
       });
     }
 

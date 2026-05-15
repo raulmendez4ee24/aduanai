@@ -21,6 +21,10 @@ export interface MultiQuoteItemInput {
   countryOfOrigin: string;
   quantity: number;
   unit?: string;
+  /** Peso bruto en kg — requerido cuando aplica cuota compensatoria
+   * tipo specific_USD_kg (ej. RES-29/2024 tornillos $2.07/kg). Si no se
+   * provee, el quoter cae a quantity asumiendo unit en kg. */
+  weightKg?: number;
   unitValueUSD: number;
   freightUSD?: number;
   insuranceUSD?: number;
@@ -92,6 +96,26 @@ export interface ItemBreakdown {
   totalCost: number;
   hasAntidumping: boolean;
   antidumpingDecree: string | null;
+  /** Información completa de la cuota para el banner UI del cotizador.
+   * Cuando rateType=specific_USD_kg, "rate" es el USD/kg literal y
+   * countervailing es el monto MXN ya convertido. */
+  antidumping: {
+    rate: number;
+    rateType: 'percentage' | 'specific_USD_kg' | 'specific_USD_unit';
+    rateUnit: string;
+    resolutionNumber: string | null;
+    expedienteUPCI: string | null;
+    productDesc: string | null;
+    dofUrl: string | null;
+    effectiveDate: string | null;
+    expiryDate: string | null;
+    matchType: 'exact' | 'subheading' | 'heading';
+    matchedFraction: string | null;
+    calculation: string | null;
+    needsWeight: boolean;
+    /** Multa potencial Art. 178 LA: 130-150% de contribuciones omitidas. */
+    potentialPenaltyMXN: number;
+  } | null;
   alertas: string[];
   priceCheck: PriceCheckResult | null;
   /** Tratado aplicado y arancel resultante (NMF si no califica / sin certificado) */
@@ -255,7 +279,39 @@ export async function calculateMultiQuote(input: MultiQuoteInput): Promise<Multi
     const iepsRate = iepsRateDB; // alias para mantener uso legacy abajo
 
     const compliance = await lookupCompliance(it.fractionCode, it.countryOfOrigin);
-    const cvRate = compliance.antidumping?.rate ?? 0;
+    // ── Cuota compensatoria — soporta % y específica USD/kg, USD/unidad ──
+    // Spec: RES-29/2024 $2.07 USD/kg sobre 1500 kg → $3,105 USD adicionales.
+    // Si no hay weightKg explícito y la unidad declarada es kg, usamos
+    // quantity como peso. Para USD/unit, quantity es el número de unidades.
+    let cvPct = 0;
+    let cvAbsoluteMXN = 0;
+    let cvCalculationLabel: string | null = null;
+    let cvNeedsWeight = false;
+    if (compliance.antidumping) {
+      const ad = compliance.antidumping;
+      if (ad.rateType === 'percentage') {
+        cvPct = ad.rate;
+        cvCalculationLabel = `${ad.rate}% sobre valor en aduana`;
+      } else if (ad.rateType === 'specific_USD_kg') {
+        const unitLooksLikeKg = !!it.unit && /kg|kilo/i.test(it.unit);
+        const weightKg = it.weightKg ?? (unitLooksLikeKg ? it.quantity : null);
+        if (weightKg != null && weightKg > 0) {
+          const cvUSD = weightKg * ad.rate;
+          cvAbsoluteMXN = round2(cvUSD * effectiveRate);
+          cvCalculationLabel = `$${ad.rate} USD/kg × ${weightKg} kg = $${cvUSD.toFixed(2)} USD`;
+        } else {
+          cvNeedsWeight = true;
+          cvCalculationLabel = `$${ad.rate} USD/kg — declara weightKg para cálculo exacto`;
+        }
+      } else if (ad.rateType === 'specific_USD_unit') {
+        const cvUSD = it.quantity * ad.rate;
+        cvAbsoluteMXN = round2(cvUSD * effectiveRate);
+        cvCalculationLabel = `$${ad.rate} ${ad.rateUnit} × ${it.quantity} = $${cvUSD.toFixed(2)} USD`;
+      }
+    }
+    // cvRate para la UI (label %) — para specific se reporta 0 y se usa
+    // cvAbsoluteMXN para mostrar el monto real.
+    const cvRate = cvPct;
 
     const amounts = computeQuoteAmounts({
       valueUSD: customsValueUSD,
@@ -263,7 +319,8 @@ export async function calculateMultiQuote(input: MultiQuoteInput): Promise<Multi
       rates: {
         igiPct: igiRate,
         iepsPct: iepsRate,
-        countervailingPct: cvRate,
+        countervailingPct: cvPct,
+        countervailingAbsoluteMXN: cvAbsoluteMXN > 0 ? cvAbsoluteMXN : undefined,
       },
     });
 
@@ -302,8 +359,24 @@ export async function calculateMultiQuote(input: MultiQuoteInput): Promise<Multi
       iva: amounts.iva,
       totalDuties: round2(amounts.totalTaxes),
       totalCost: amounts.totalLandedCost,
-      hasAntidumping: cvRate > 0,
+      hasAntidumping: amounts.countervailingDuty > 0,
       antidumpingDecree: compliance.antidumping?.decree ?? null,
+      antidumping: compliance.antidumping ? {
+        rate: compliance.antidumping.rate,
+        rateType: compliance.antidumping.rateType,
+        rateUnit: compliance.antidumping.rateUnit,
+        resolutionNumber: compliance.antidumping.resolutionNumber,
+        expedienteUPCI: compliance.antidumping.expedienteUPCI,
+        productDesc: compliance.antidumping.productDesc,
+        dofUrl: compliance.antidumping.dofUrl,
+        effectiveDate: compliance.antidumping.effectiveDate,
+        expiryDate: compliance.antidumping.expiryDate,
+        matchType: compliance.antidumping.matchType ?? 'exact',
+        matchedFraction: compliance.antidumping.matchedFraction ?? null,
+        calculation: cvCalculationLabel,
+        needsWeight: cvNeedsWeight,
+        potentialPenaltyMXN: round2(amounts.countervailingDuty * 1.4),
+      } : null,
       alertas: compliance.alertas,
       priceCheck,
       treaty: {
@@ -365,6 +438,19 @@ export async function calculateMultiQuote(input: MultiQuoteInput): Promise<Multi
 
     for (const a of compliance.alertas) {
       if (!globalAlertas.includes(a)) globalAlertas.push(a);
+    }
+    // Banner global para cuota compensatoria — siempre prominente
+    if (compliance.antidumping && amounts.countervailingDuty > 0) {
+      const ad = compliance.antidumping;
+      const resLabel = ad.resolutionNumber ?? ad.decree ?? 's/n';
+      const matchWarn = ad.matchType && ad.matchType !== 'exact'
+        ? ` [⚠️ match por ${ad.matchType === 'subheading' ? 'subpartida' : 'partida'} ${ad.matchedFraction} — verifica que ${it.fractionCode} esté cubierta]`
+        : '';
+      const tag = `🚨 Partida ${i + 1}: cuota compensatoria ${resLabel} aplicable (${cvCalculationLabel ?? `${ad.rate}${ad.rateUnit}`}) — omitirla = multa 130-150% Art. 178 LA${matchWarn}`;
+      if (!globalAlertas.includes(tag)) globalAlertas.push(tag);
+    } else if (compliance.antidumping && cvNeedsWeight) {
+      const tag = `⚠️ Partida ${i + 1}: cuota compensatoria ${compliance.antidumping.resolutionNumber ?? compliance.antidumping.decree ?? 's/n'} requiere weightKg (USD/kg). Declara peso bruto para cálculo exacto.`;
+      if (!globalAlertas.includes(tag)) globalAlertas.push(tag);
     }
     if (priceCheck.severity === 'critical' && priceCheck.message) {
       const tag = `Partida ${i + 1}: ${priceCheck.message}`;
