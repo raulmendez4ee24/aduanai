@@ -423,9 +423,14 @@ export async function smartRetrieval(
     docs = candidates.slice(0, topK).map(c => ({ ...c, llmScore: Math.round(c.finalScore * 100), llmRelevant: true, llmReason: 'rerank=off' }));
   }
 
-  // 4: gate de respuesta
-  if (docs.length < 2) {
-    return { docs, shouldRespond: false, reason: 'insufficient_relevant_docs', averageRelevance: docs.length === 1 ? docs[0]!.llmScore : 0, detectedTopics };
+  // 4: gate de respuesta. Para queries legales puntuales (ej. "Art. 65 LA")
+  // a menudo hay UN doc que responde. No requerimos ≥2 docs si el único
+  // tiene score alto (≥75). Sin docs (0) → siempre gate.
+  if (docs.length === 0) {
+    return { docs, shouldRespond: false, reason: 'insufficient_relevant_docs', averageRelevance: 0, detectedTopics };
+  }
+  if (docs.length === 1 && docs[0]!.llmScore < 75) {
+    return { docs, shouldRespond: false, reason: 'insufficient_relevant_docs', averageRelevance: docs[0]!.llmScore, detectedTopics };
   }
 
   const avg = docs.reduce((s, d) => s + d.llmScore, 0) / docs.length;
