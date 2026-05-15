@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { api } from '../lib/api'
-import type { ClassificationResult, IndustrialSector, ImporterType } from '../lib/api'
-import { Search, Sparkles, AlertCircle, ThumbsUp, ThumbsDown, Copy, Check, Scale, ChevronDown, AlertTriangle, ShieldCheck, Car, Link as LinkIcon, Target } from 'lucide-react'
+import type { ClassificationResult, IndustrialSector, ImporterType, ClassifierAlert, ClassifierAntidumpingMetadata } from '../lib/api'
+import { Search, Sparkles, AlertCircle, ThumbsUp, ThumbsDown, Copy, Check, Scale, ChevronDown, AlertTriangle, ShieldCheck, Car, Link as LinkIcon, Target, ExternalLink } from 'lucide-react'
 import { formatFraction } from '../lib/format'
 import { ROITile } from '../components/ROIBanner'
 import { NOMExceptionPanel } from '../components/NOMExceptionPanel'
@@ -250,7 +250,12 @@ export function ClassifierPage() {
           {result.alerts && result.alerts.length > 0 && (
             <div className="space-y-2">
               {result.alerts.map((a, i) => {
-                const isAntidumping = a.type === 'antidumping'
+                // Banner enriquecido para cuota compensatoria — antidumping
+                // sale prominente con todos los datos legales y cálculo
+                // concreto si el classifier recibió declaredQuantity.
+                if (a.type === 'antidumping') {
+                  return <AntidumpingBanner key={i} alert={a} />
+                }
                 const isAutomotive = a.type === 'automotive'
                 const isUndervalue = a.type === 'undervalue'
                 const palette = a.severity === 'critical'
@@ -260,8 +265,7 @@ export function ClassifierPage() {
                     : isUndervalue
                       ? 'bg-amber-50 border-amber-200 text-amber-800'
                       : 'bg-sky-50 border-sky-200 text-sky-800'
-                const Icon = isAntidumping ? AlertTriangle
-                  : isAutomotive ? Car
+                const Icon = isAutomotive ? Car
                   : isUndervalue ? AlertTriangle
                   : ShieldCheck
                 return (
@@ -270,7 +274,7 @@ export function ClassifierPage() {
                       <Icon className="w-5 h-5 shrink-0 mt-0.5"/>
                       <div className="flex-1 min-w-0">
                         <p className="text-[13px] font-bold">{a.title}</p>
-                        <p className="text-[12px] mt-1 leading-relaxed">{a.message}</p>
+                        <p className="text-[12px] mt-1 leading-relaxed whitespace-pre-line">{a.message}</p>
                       </div>
                     </div>
                   </div>
@@ -586,6 +590,87 @@ export function ClassifierPage() {
           <p className="text-[10px] text-slate-400 italic">{result.disclaimer}</p>
         </div>
       )}
+    </div>
+  )
+}
+
+// ─────────────────────────────────────────────────────────────────────
+// Banner cuota compensatoria — prominente, datos legales completos
+// ─────────────────────────────────────────────────────────────────────
+
+function shortDate(iso: string | null): string {
+  if (!iso) return 's/d'
+  try { return new Date(iso).toLocaleDateString('es-MX', { day: '2-digit', month: 'short', year: 'numeric' }) }
+  catch { return iso }
+}
+
+function AntidumpingBanner({ alert }: { alert: ClassifierAlert }) {
+  // El backend ya envía metadata tipada con todos los campos. Cast porque
+  // ClassifierAlert.metadata es Record | ClassifierAntidumpingMetadata.
+  const m = alert.metadata as ClassifierAntidumpingMetadata | undefined
+  if (!m) {
+    // Fallback al render plano si no llegó metadata (no debería pasar)
+    return (
+      <div className="rounded-2xl border-l-4 border-red-500 bg-red-50 p-5">
+        <p className="text-[14px] font-bold text-red-900">{alert.title}</p>
+        <p className="text-[12px] text-red-800 mt-1 whitespace-pre-line">{alert.message}</p>
+      </div>
+    )
+  }
+  const isPrefixMatch = m.matchType !== 'exact'
+  return (
+    <div className="rounded-2xl border-l-4 border-red-500 bg-red-50 p-5 space-y-3">
+      <div className="flex items-start gap-3">
+        <AlertTriangle className="w-6 h-6 text-red-600 shrink-0 mt-0.5"/>
+        <div className="flex-1 min-w-0">
+          <h3 className="text-[15px] font-bold text-red-900 leading-tight">🚨 CUOTA COMPENSATORIA ACTIVA</h3>
+          <div className="mt-2 grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-1.5 text-[12px] text-red-800">
+            {m.resolutionNumber && (
+              <p><span className="font-semibold">Resolución:</span> <span className="font-mono">{m.resolutionNumber}</span>{m.expedienteUPCI ? <span className="text-red-600"> · {m.expedienteUPCI}</span> : null}</p>
+            )}
+            <p><span className="font-semibold">Origen:</span> {m.countryNormalized}</p>
+            {m.productDesc && <p className="md:col-span-2"><span className="font-semibold">Producto:</span> {m.productDesc}</p>}
+            <p className="md:col-span-2"><span className="font-semibold">Cuota:</span> <span className="font-mono text-red-900">{m.rateLabel}</span></p>
+            {m.calculatedAmountUSD != null && (
+              <p className="md:col-span-2 mt-1 rounded bg-white/60 border border-red-200 px-2 py-1 text-[11px]">
+                <span className="font-semibold">Cálculo:</span> <span className="font-mono">${m.calculatedAmountUSD.toFixed(2)} USD</span>
+                {m.potentialPenaltyUSDMin != null && m.potentialPenaltyUSDMax != null && (
+                  <span className="text-red-600"> · Multa potencial 130-150%: <span className="font-mono">${m.potentialPenaltyUSDMin.toFixed(0)} – ${m.potentialPenaltyUSDMax.toFixed(0)} USD</span></span>
+                )}
+              </p>
+            )}
+            {m.effectiveDate && <p><span className="font-semibold">Vigente desde:</span> {shortDate(m.effectiveDate)}</p>}
+            {m.expiryDate && <p><span className="font-semibold">Vence:</span> {shortDate(m.expiryDate)}</p>}
+          </div>
+          <div className="mt-3 rounded-lg bg-red-100 border border-red-300 p-3">
+            <p className="text-[11px] font-bold text-red-900 uppercase tracking-wider mb-1">⚠️ Omitir en pedimento</p>
+            <ul className="text-[11px] text-red-800 space-y-0.5">
+              <li>• Multa 130-150% sobre impuesto omitido (Art. 178 LA)</li>
+              <li>• Embargo precautorio (Art. 144 LA)</li>
+              <li>• Suspensión de operaciones</li>
+            </ul>
+          </div>
+          {isPrefixMatch && m.matchedFraction && (
+            <div className="mt-2 rounded-lg bg-amber-100 border border-amber-300 p-2.5">
+              <p className="text-[11px] text-amber-900">
+                ⚠️ <span className="font-semibold">Match por {m.matchType === 'subheading' ? 'subpartida' : 'partida'}</span> ({m.matchedFraction}) — verifica que tu fracción específica esté cubierta por la resolución antes de declarar.
+              </p>
+            </div>
+          )}
+          <div className="mt-3 flex flex-wrap gap-2">
+            {m.dofUrl && (
+              <a href={m.dofUrl} target="_blank" rel="noreferrer"
+                 className="inline-flex items-center gap-1.5 text-[11px] font-semibold text-red-700 border border-red-300 hover:bg-red-100 px-3 py-1.5 rounded-lg">
+                Ver resolución oficial <ExternalLink className="w-3 h-3"/>
+              </a>
+            )}
+            <a href="/cuotas-activas"
+               className="inline-flex items-center gap-1.5 text-[11px] font-semibold text-red-700 border border-red-300 hover:bg-red-100 px-3 py-1.5 rounded-lg">
+              Ver más cuotas activas <LinkIcon className="w-3 h-3"/>
+            </a>
+          </div>
+        </div>
+      </div>
     </div>
   )
 }

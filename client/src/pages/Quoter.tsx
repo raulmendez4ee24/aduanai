@@ -167,9 +167,10 @@ export function QuoterPage() {
                   <Field label="Valor unit. USD"><input type="number" step="0.01" autoComplete="off" name={`unitVal-${rowIds[idx]}`} onWheel={blurOnWheel} className="w-full text-[12px] border border-slate-200 rounded-lg px-2 py-1.5" value={it.unitValueUSD} onChange={e => updateItem(idx, { unitValueUSD: parseNum(e.target.value) })}/></Field>
                   <Field label="Total USD"><div className="text-[12px] py-1.5 px-2 text-slate-700 font-semibold">${(it.quantity * it.unitValueUSD).toLocaleString('en-US', { maximumFractionDigits: 2 })}</div></Field>
                 </div>
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-2 mt-2">
+                <div className="grid grid-cols-2 md:grid-cols-5 gap-2 mt-2">
                   <Field label="Flete USD"><input type="number" step="0.01" autoComplete="off" name={`freight-${rowIds[idx]}`} onWheel={blurOnWheel} className="w-full text-[12px] border border-slate-200 rounded-lg px-2 py-1.5" value={it.freightUSD ?? 0} onChange={e => updateItem(idx, { freightUSD: parseNum(e.target.value) })}/></Field>
                   <Field label="Seguro USD"><input type="number" step="0.01" autoComplete="off" name={`insurance-${rowIds[idx]}`} onWheel={blurOnWheel} className="w-full text-[12px] border border-slate-200 rounded-lg px-2 py-1.5" value={it.insuranceUSD ?? 0} onChange={e => updateItem(idx, { insuranceUSD: parseNum(e.target.value) })}/></Field>
+                  <Field label="Peso kg (cuota USD/kg)"><input type="number" step="0.01" autoComplete="off" name={`weight-${rowIds[idx]}`} onWheel={blurOnWheel} placeholder="opt." title="Requerido si aplica cuota compensatoria USD/kg" className="w-full text-[12px] border border-slate-200 rounded-lg px-2 py-1.5" value={it.weightKg ?? ''} onChange={e => updateItem(idx, { weightKg: e.target.value === '' ? undefined : parseNum(e.target.value) })}/></Field>
                   <Field label="Override IGI %"><input type="number" step="0.1" autoComplete="off" name={`igi-${rowIds[idx]}`} onWheel={blurOnWheel} placeholder="auto" className="w-full text-[12px] border border-slate-200 rounded-lg px-2 py-1.5" value={it.igiRateOverride ?? ''} onChange={e => updateItem(idx, { igiRateOverride: e.target.value === '' ? undefined : parseNum(e.target.value) })}/></Field>
                   <Field label="Tratado">
                     <select className="w-full text-[12px] border border-slate-200 rounded-lg px-2 py-1.5 bg-white"
@@ -296,20 +297,77 @@ function QuoteResult({ result }: { result: MultiQuoteResult }) {
   const itemsWithAntidumping = result.items.filter(i => i.hasAntidumping)
   return (
     <div className={`${GLASS} rounded-[2rem] p-6 md:p-8 space-y-5`}>
-      {/* Banner cuotas compensatorias destacado */}
+      {/* Banner cuotas compensatorias destacado — una card por partida con
+          datos legales completos + cálculo + multa potencial */}
       {itemsWithAntidumping.length > 0 && (
-        <div className="flex items-start gap-3 rounded-2xl bg-rose-50 border border-rose-200 p-4">
-          <AlertTriangle className="w-5 h-5 text-rose-600 shrink-0 mt-0.5"/>
-          <div className="flex-1">
-            <p className="text-[13px] font-bold text-rose-700">⚠️ {itemsWithAntidumping.length} partida(s) con cuota compensatoria activa</p>
-            <ul className="mt-2 space-y-1">
-              {itemsWithAntidumping.map((it, i) => (
-                <li key={i} className="text-[12px] text-rose-700">
-                  Partida {it.numeroPartida}: <span className="font-mono">{formatFraction(it.fractionCode)}</span> + {it.countryOfOrigin} → {it.countervailingRate}% ({it.antidumpingDecree})
-                </li>
-              ))}
-            </ul>
-          </div>
+        <div className="space-y-3">
+          {itemsWithAntidumping.map((it) => {
+            const ad = it.antidumping
+            if (!ad) {
+              // Fallback compacto si no llegó el objeto rico (backend viejo)
+              return (
+                <div key={it.numeroPartida} className="rounded-2xl border-l-4 border-red-500 bg-red-50 p-4">
+                  <p className="text-[13px] font-bold text-red-900">🚨 Partida {it.numeroPartida}: cuota compensatoria activa</p>
+                  <p className="text-[12px] text-red-800 mt-1">
+                    <span className="font-mono">{formatFraction(it.fractionCode)}</span> + {it.countryOfOrigin} · {it.countervailingRate}% ({it.antidumpingDecree})
+                  </p>
+                </div>
+              )
+            }
+            const rateLabel = ad.rateType === 'specific_USD_kg' ? `$${ad.rate} USD/kg`
+              : ad.rateType === 'specific_USD_unit' ? `$${ad.rate} ${ad.rateUnit}`
+              : `${ad.rate}%`
+            const isPrefix = ad.matchType !== 'exact'
+            return (
+              <div key={it.numeroPartida} className="rounded-2xl border-l-4 border-red-500 bg-red-50 p-5 space-y-2">
+                <div className="flex items-center gap-2">
+                  <AlertTriangle className="w-5 h-5 text-red-600"/>
+                  <p className="text-[14px] font-bold text-red-900">🚨 Cuota compensatoria antidumping — Partida {it.numeroPartida}</p>
+                </div>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-1 text-[12px] text-red-800">
+                  {ad.resolutionNumber && (
+                    <p><span className="font-semibold">Resolución:</span> <span className="font-mono">{ad.resolutionNumber}</span>{ad.expedienteUPCI ? <span className="text-red-600"> · {ad.expedienteUPCI}</span> : null}</p>
+                  )}
+                  <p><span className="font-semibold">Fracción:</span> <span className="font-mono">{formatFraction(it.fractionCode)}</span></p>
+                  {ad.productDesc && <p className="md:col-span-2"><span className="font-semibold">Producto:</span> {ad.productDesc}</p>}
+                  <p><span className="font-semibold">Origen:</span> {it.countryOfOrigin}</p>
+                  <p><span className="font-semibold">Cuota:</span> <span className="font-mono text-red-900">{rateLabel}</span></p>
+                </div>
+                {ad.calculation && (
+                  <div className="rounded-lg bg-white/70 border border-red-200 px-3 py-2">
+                    <p className="text-[11px] uppercase tracking-wider text-red-700 font-semibold">Cálculo</p>
+                    <p className="text-[12px] text-red-900 font-mono mt-0.5">{ad.calculation}</p>
+                    <p className="text-[13px] text-red-900 font-bold mt-1">
+                      = ${mxn(it.countervailing)} MXN <span className="text-[10px] text-red-600 font-normal">(TC {result.exchangeRate.toFixed(4)})</span>
+                    </p>
+                  </div>
+                )}
+                {ad.needsWeight && (
+                  <p className="text-[11px] text-amber-700 bg-amber-50 border border-amber-200 rounded px-2 py-1">
+                    ⚠️ Cuota tipo USD/kg — declara <span className="font-mono">weightKg</span> en la partida para cálculo exacto.
+                  </p>
+                )}
+                {ad.potentialPenaltyMXN > 0 && (
+                  <p className="text-[12px] text-red-800">
+                    <span className="font-semibold">Multa potencial si se omite:</span>{' '}
+                    <span className="font-mono font-bold">${mxn(ad.potentialPenaltyMXN)} MXN</span>{' '}
+                    <span className="text-[10px] text-red-600">(140% Art. 178 LA)</span>
+                  </p>
+                )}
+                {isPrefix && ad.matchedFraction && (
+                  <p className="text-[11px] text-amber-900 bg-amber-100 border border-amber-300 rounded px-2 py-1">
+                    ⚠️ <span className="font-semibold">Match por {ad.matchType === 'subheading' ? 'subpartida' : 'partida'}</span> ({ad.matchedFraction}) — verifica que tu fracción específica esté cubierta.
+                  </p>
+                )}
+                {ad.dofUrl && (
+                  <a href={ad.dofUrl} target="_blank" rel="noreferrer"
+                     className="inline-flex items-center gap-1 text-[11px] font-semibold text-red-700 underline">
+                    Ver resolución oficial <Globe className="w-3 h-3"/>
+                  </a>
+                )}
+              </div>
+            )
+          })}
         </div>
       )}
 
@@ -354,7 +412,15 @@ function QuoteResult({ result }: { result: MultiQuoteResult }) {
                   <td className="py-2 text-right font-mono">${mxn(it.customsValueMXN)}</td>
                   <td className="py-2 text-right font-mono">${mxn(it.igi)} <span className="text-slate-400">({it.igiRate}%)</span></td>
                   <td className="py-2 text-right font-mono">${mxn(it.dta)}</td>
-                  <td className={`py-2 text-right font-mono ${it.hasAntidumping ? 'text-rose-700 font-semibold' : 'text-slate-400'}`}>{it.hasAntidumping ? `$${mxn(it.countervailing)} (${it.countervailingRate}%)` : '—'}</td>
+                  <td className={`py-2 text-right font-mono ${it.hasAntidumping ? 'text-rose-700 font-semibold' : 'text-slate-400'}`}>{
+                    it.hasAntidumping
+                      ? <>${mxn(it.countervailing)}<span className="text-[9px] text-rose-500 font-normal block">{
+                          it.antidumping?.rateType === 'specific_USD_kg' ? `$${it.antidumping.rate} USD/kg`
+                          : it.antidumping?.rateType === 'specific_USD_unit' ? `$${it.antidumping.rate} ${it.antidumping.rateUnit}`
+                          : `${it.countervailingRate}%`
+                        }</span></>
+                      : '—'
+                  }</td>
                   <td className="py-2 text-right font-mono">${mxn(it.iva)}</td>
                   <td className="py-2 text-right font-mono font-bold text-slate-900">${mxn(it.totalCost)}</td>
                 </tr>

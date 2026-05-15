@@ -253,7 +253,7 @@ export function PreValidatorPage() {
                   <div>
                     <p className="text-[12px] font-semibold text-slate-700 mb-2">Hallazgos</p>
                     <div className="space-y-1.5">
-                      {validation.issues.map((iss, i) => <IssueRow key={i} iss={iss} />)}
+                      {validation.issues.map((iss, i) => <IssueRow key={i} iss={iss} goToPartidas={() => setStep(3)} />)}
                     </div>
                   </div>
                 )}
@@ -305,7 +305,47 @@ function Field({ label, children }: { label: string; children: React.ReactNode }
   )
 }
 
-function IssueRow({ iss }: { iss: { partida?: number; field: string; severity: string; message: string; rule: string } }) {
+function IssueRow({ iss, goToPartidas }: {
+  iss: { partida?: number; field: string; severity: string; message: string; rule: string };
+  goToPartidas?: () => void;
+}) {
+  // Render destacado para cuota compensatoria no declarada — es uno de los
+  // errores más caros (multa 130-150% + embargo), debe saltar a la vista.
+  if (iss.rule === 'ANTIDUMPING_NOT_DECLARED') {
+    return (
+      <div className="rounded-2xl border-l-4 border-red-500 bg-red-50 p-4 space-y-2">
+        <div className="flex items-start gap-2">
+          <AlertCircle className="w-5 h-5 text-red-600 shrink-0 mt-0.5"/>
+          <div className="flex-1 min-w-0">
+            <p className="text-[13px] font-bold text-red-900">
+              🚨 Cuota compensatoria no declarada
+              {iss.partida ? <span className="ml-2 text-red-700 font-normal">· Partida {iss.partida}</span> : null}
+              <span className="ml-2 text-[10px] font-mono text-red-600 opacity-70">[{iss.rule}]</span>
+            </p>
+            <p className="text-[12px] text-red-800 mt-1 leading-relaxed whitespace-pre-line">{iss.message}</p>
+            <div className="mt-3 flex flex-wrap gap-2">
+              {goToPartidas && (
+                <button onClick={goToPartidas}
+                  className="text-[11px] font-semibold bg-white border border-red-300 text-red-700 hover:bg-red-100 px-3 py-1.5 rounded-lg flex items-center gap-1">
+                  Agregar identificador "CC" a partida {iss.partida ?? ''}
+                </button>
+              )}
+              <a href="/cuotas-activas"
+                 className="text-[11px] font-semibold bg-white border border-red-300 text-red-700 hover:bg-red-100 px-3 py-1.5 rounded-lg flex items-center gap-1">
+                Ver resolución en Cuotas Activas
+              </a>
+              <button disabled
+                className="text-[11px] font-semibold bg-slate-100 text-slate-400 px-3 py-1.5 rounded-lg cursor-not-allowed"
+                title="ERROR bloqueante — debes declarar la cuota antes de continuar">
+                Continuar de todas formas
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    )
+  }
+
   const palette = iss.severity === 'error' ? 'bg-rose-50 border-rose-200 text-rose-700'
     : iss.severity === 'warning' ? 'bg-amber-50 border-amber-200 text-amber-800'
     : 'bg-sky-50 border-sky-200 text-sky-700'

@@ -1233,12 +1233,33 @@ export const api = {
 };
 
 // Types
+export interface ClassifierAntidumpingMetadata {
+  resolutionNumber: string | null;
+  expedienteUPCI: string | null;
+  rate: number;
+  rateType: 'percentage' | 'specific_USD_kg' | 'specific_USD_unit';
+  rateUnit: string;
+  rateLabel: string;
+  decree: string | null;
+  productDesc: string | null;
+  countryNormalized: string;
+  effectiveDate: string | null;
+  expiryDate: string | null;
+  dofUrl: string | null;
+  publishDate: string | null;
+  calculatedAmountUSD: number | null;
+  potentialPenaltyUSDMin: number | null;
+  potentialPenaltyUSDMax: number | null;
+  matchType: 'exact' | 'subheading' | 'heading';
+  matchedFraction: string | null;
+}
+
 export interface ClassifierAlert {
   type: 'antidumping' | 'undervalue' | 'nom_required' | 'sectoral_padron' | 'automotive' | 'permit_required';
   severity: 'critical' | 'warning' | 'info';
   title: string;
   message: string;
-  metadata?: Record<string, unknown>;
+  metadata?: Record<string, unknown> | ClassifierAntidumpingMetadata;
 }
 
 export interface ClassificationMeta {
@@ -2546,6 +2567,8 @@ export interface MultiQuoteItemInput {
   countryOfOrigin: string;
   quantity: number;
   unit?: string;
+  /** Peso bruto en kg — requerido cuando aplica cuota compensatoria USD/kg. */
+  weightKg?: number;
   unitValueUSD: number;
   freightUSD?: number;
   insuranceUSD?: number;
@@ -2652,10 +2675,28 @@ export interface MultiQuoteItem {
   totalCost: number;
   hasAntidumping: boolean;
   antidumpingDecree: string | null;
+  antidumping: MultiQuoteAntidumping | null;
   alertas: string[];
   priceCheck: PriceCheckResult | null;
   treaty: ItemTreaty;
   programs: ItemPrograms;
+}
+
+export interface MultiQuoteAntidumping {
+  rate: number;
+  rateType: 'percentage' | 'specific_USD_kg' | 'specific_USD_unit';
+  rateUnit: string;
+  resolutionNumber: string | null;
+  expedienteUPCI: string | null;
+  productDesc: string | null;
+  dofUrl: string | null;
+  effectiveDate: string | null;
+  expiryDate: string | null;
+  matchType: 'exact' | 'subheading' | 'heading';
+  matchedFraction: string | null;
+  calculation: string | null;
+  needsWeight: boolean;
+  potentialPenaltyMXN: number;
 }
 
 export interface MultiQuoteResult {
