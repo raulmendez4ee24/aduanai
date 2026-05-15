@@ -169,10 +169,14 @@ export async function lookupCompliance(
   const alertas: string[] = [];
   if (ad) {
     const dateStr = ad.publishDate ? ad.publishDate.toISOString().slice(0, 10) : 'fecha s/d';
+    const rateLabel = ad.rateType === 'specific_USD_kg' ? `$${ad.rate} USD/kg`
+      : ad.rateType === 'specific_USD_unit' ? `$${ad.rate} ${ad.rateUnit}`
+      : `${ad.rate}%`;
+    const resLabel = ad.resolutionNumber ?? ad.decree ?? 's/n';
     const matchNote = adMatchType === 'exact'
       ? ''
       : ` ⚠️ Match por ${adMatchType === 'subheading' ? 'subpartida' : 'partida'} (${ad.fractionCode}) — verifica manualmente si tu fracción ${cleanFraction} está cubierta`;
-    alertas.push(`Cuota compensatoria ${ad.rate}% aplicable a ${ad.countryOfOrigin} — Decreto ${ad.decree ?? 's/n'} (${dateStr})${matchNote}`);
+    alertas.push(`Cuota compensatoria ${rateLabel} aplicable a ${ad.countryOfOrigin} — ${resLabel} (${dateStr})${matchNote}`);
   }
   const padron = regulations.find(r => r.type === 'padron_sectorial');
   if (padron) {
