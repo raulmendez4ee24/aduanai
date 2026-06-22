@@ -109,6 +109,9 @@ export function errorLogger(err: Error & { status?: number; statusCode?: number;
       // Mostrar el mensaje real para 4xx (orienta al cliente); ocultar 5xx en prod
       message: status < 500 || process.env.NODE_ENV !== 'production' ? err.message : 'Error interno',
       requestId: req.requestId,
+      // Debug temporal — expone causa real de 5xx para diagnosticar
+      // incidente Sonnet 4.6 post-deploy (2026-06-21). Revertir tras fix.
+      ...(status >= 500 ? { debugError: err.message, debugName: err.name } : {}),
     });
   }
 }
