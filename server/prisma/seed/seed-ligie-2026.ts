@@ -3,7 +3,9 @@
 //   generado desde data/BASEUNICA-LIGIE_20260330-20260330.xlsb (DOF 2026-03-30)
 //
 // Construye la jerarquía Section -> Chapter -> Heading -> Subheading -> Fraction
-// con aranceles IGI oficiales. Idempotente: usa upsert, NO borra datos.
+// con aranceles IGI oficiales. ADITIVO y seguro: usa createMany({ skipDuplicates }),
+// por lo que NO borra nada y NO modifica fracciones ya existentes (preserva sus
+// NOMs/IEPS/keywords curados). Solo inserta las que faltan. Idempotente.
 //
 // Uso:  npm run db:seed-ligie     (desde server/)
 import { PrismaClient } from '@prisma/client';
@@ -39,6 +41,12 @@ interface LigieFraction {
   subheading: string;
 }
 
+function chunk<T>(arr: T[], size: number): T[][] {
+  const out: T[][] = [];
+  for (let i = 0; i < arr.length; i += size) out.push(arr.slice(i, i + size));
+  return out;
+}
+
 async function main() {
   console.log('🌱 ADUANAI — Seed catálogo TIGIE completo (LIGIE 2026)\n');
 
@@ -50,95 +58,76 @@ async function main() {
   console.log(`📄 ${dataPath}`);
   console.log(`   Versión: ${meta.version} — ${fractions.length} fracciones\n`);
 
-  // 1) Secciones
-  console.log('📦 Secciones...');
-  const sectionMap = new Map<string, string>();
-  for (const s of SECTIONS) {
-    const created = await prisma.section.upsert({
-      where: { number: s.number },
-      update: { title: s.title },
-      create: { number: s.number, title: s.title },
-    });
-    sectionMap.set(s.number, created.id);
-  }
-  console.log(`   ✅ ${sectionMap.size}\n`);
+  // 1) Secciones (createMany skipDuplicates)
+  await prisma.section.createMany({
+    data: SECTIONS.map(s => ({ number: s.number, title: s.title })),
+    skipDuplicates: true,
+  });
+  const sectionMap = new Map((await prisma.section.findMany({ select: { id: true, number: true } })).map(s => [s.number, s.id]));
+  console.log(`📦 Secciones: ${sectionMap.size}`);
 
-  // 2) Capítulos (sólo los presentes en los datos)
+  // 2) Capítulos presentes en los datos
   const chapters = [...new Set(fractions.map(f => f.chapter))].sort();
-  console.log(`📖 Capítulos (${chapters.length})...`);
-  const chapterMap = new Map<string, string>();
-  for (const ch of chapters) {
-    const sectionId = sectionMap.get(getSectionForChapter(ch));
-    if (!sectionId) continue;
-    const c = await prisma.chapter.upsert({
-      where: { number: ch },
-      update: { title: CHAPTER_NAMES[ch] || `Capítulo ${ch}`, sectionId },
-      create: { number: ch, title: CHAPTER_NAMES[ch] || `Capítulo ${ch}`, sectionId },
-    });
-    chapterMap.set(ch, c.id);
-  }
-  console.log(`   ✅ ${chapterMap.size}\n`);
+  await prisma.chapter.createMany({
+    data: chapters
+      .map(ch => ({ number: ch, title: CHAPTER_NAMES[ch] || `Capítulo ${ch}`, sectionId: sectionMap.get(getSectionForChapter(ch))! }))
+      .filter(c => c.sectionId),
+    skipDuplicates: true,
+  });
+  const chapterMap = new Map((await prisma.chapter.findMany({ select: { id: true, number: true } })).map(c => [c.number, c.id]));
+  console.log(`📖 Capítulos: ${chapterMap.size}`);
 
-  // 3) Partidas, subpartidas y fracciones
-  console.log(`🏷️  Fracciones (${fractions.length})...`);
-  const headingMap = new Map<string, string>();
-  const subheadingMap = new Map<string, string>();
-  let created = 0, errors = 0;
+  // 3) Partidas (headings)
+  const headings = [...new Set(fractions.map(f => f.heading))];
+  await prisma.heading.createMany({
+    data: headings
+      .map(h => ({ code: h, description: `Partida ${h}`, chapterId: chapterMap.get(h.slice(0, 2))! }))
+      .filter(h => h.chapterId),
+    skipDuplicates: true,
+  });
+  const headingMap = new Map((await prisma.heading.findMany({ select: { id: true, code: true } })).map(h => [h.code, h.id]));
+  console.log(`📑 Partidas: ${headingMap.size}`);
 
-  for (const f of fractions) {
-    try {
-      const chapterId = chapterMap.get(f.chapter);
-      if (!chapterId) { errors++; continue; }
+  // 4) Subpartidas (subheadings)
+  const subheadings = [...new Set(fractions.map(f => f.subheading))];
+  await prisma.subheading.createMany({
+    data: subheadings
+      .map(sh => ({ code: sh, description: `Subpartida ${sh}`, headingId: headingMap.get(sh.slice(0, 4))! }))
+      .filter(sh => sh.headingId),
+    skipDuplicates: true,
+  });
+  const subheadingMap = new Map((await prisma.subheading.findMany({ select: { id: true, code: true } })).map(sh => [sh.code, sh.id]));
+  console.log(`📋 Subpartidas: ${subheadingMap.size}`);
 
-      let headingId = headingMap.get(f.heading);
-      if (!headingId) {
-        const h = await prisma.heading.upsert({
-          where: { code: f.heading },
-          update: {},
-          create: { code: f.heading, description: `Partida ${f.heading}`, chapterId },
-        });
-        headingId = h.id;
-        headingMap.set(f.heading, headingId);
-      }
-
-      let subheadingId = subheadingMap.get(f.subheading);
-      if (!subheadingId) {
-        const sh = await prisma.subheading.upsert({
-          where: { code: f.subheading },
-          update: {},
-          create: { code: f.subheading, description: `Subpartida ${f.subheading}`, headingId },
-        });
-        subheadingId = sh.id;
-        subheadingMap.set(f.subheading, subheadingId);
-      }
-
-      const noms = f.noms ? ['Sujeta a NOM — ver Acuerdo de NOMs (DOF)'] : [];
-      // updateData: campos autoritativos del LIGIE. NO incluye noms/keywords/iepsRate
-      // para preservar los datos curados de las fracciones que ya existen.
-      const updateData = {
+  // 5) Fracciones (createMany por lotes, skipDuplicates -> NO toca existentes)
+  const rows = fractions
+    .map(f => {
+      const subheadingId = subheadingMap.get(f.subheading);
+      if (!subheadingId) return null;
+      return {
+        code: f.code,
         codeFormatted: f.codeFormatted,
         description: f.description,
         nico: f.nico ?? undefined,
         unit: f.unit ?? undefined,
+        keywords: f.keywords,
         tariffNMF: f.tariffNMF ?? undefined,
         requiresPermit: f.requiresPermit,
         permitType: f.permitType ?? undefined,
+        noms: f.noms ? ['Sujeta a NOM — ver Acuerdo de NOMs (DOF)'] : [],
         sectoralRegistry: f.sectoralRegistry,
         subheadingId,
       };
-      await prisma.fraction.upsert({
-        where: { code: f.code },
-        update: updateData, // preserva noms/keywords/iepsRate curados en existentes
-        create: { code: f.code, ...updateData, keywords: f.keywords, noms },
-      });
-      created++;
-      if (created % 1000 === 0) console.log(`   ... ${created}`);
-    } catch (e) {
-      errors++;
-      if (errors <= 5) console.error(`   ⚠️  ${f.code}:`, (e as Error).message);
-    }
+    })
+    .filter((r): r is NonNullable<typeof r> => r !== null);
+
+  console.log(`🏷️  Insertando fracciones (${rows.length}) por lotes...`);
+  let inserted = 0;
+  for (const batch of chunk(rows, 1000)) {
+    const res = await prisma.fraction.createMany({ data: batch, skipDuplicates: true });
+    inserted += res.count;
+    console.log(`   ... +${res.count} (acumulado nuevas: ${inserted})`);
   }
-  console.log(`   ✅ ${created} fracciones (${errors} errores)\n`);
 
   const counts = {
     sections: await prisma.section.count(),
@@ -146,13 +135,15 @@ async function main() {
     headings: await prisma.heading.count(),
     subheadings: await prisma.subheading.count(),
     fractions: await prisma.fraction.count(),
+    fractionsActive: await prisma.fraction.count({ where: { active: true } }),
   };
-  console.log('📊 Resumen:');
-  console.log(`   Secciones:   ${counts.sections}`);
-  console.log(`   Capítulos:   ${counts.chapters}`);
-  console.log(`   Partidas:    ${counts.headings}`);
-  console.log(`   Subpartidas: ${counts.subheadings}`);
-  console.log(`   Fracciones:  ${counts.fractions}`);
+  console.log('\n📊 Resumen:');
+  console.log(`   Secciones:        ${counts.sections}`);
+  console.log(`   Capítulos:        ${counts.chapters}`);
+  console.log(`   Partidas:         ${counts.headings}`);
+  console.log(`   Subpartidas:      ${counts.subheadings}`);
+  console.log(`   Fracciones:       ${counts.fractions} (activas: ${counts.fractionsActive})`);
+  console.log(`   Nuevas insertadas: ${inserted}`);
   console.log('\n🚀 Seed LIGIE 2026 completo!');
 }
 
