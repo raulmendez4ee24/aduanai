@@ -113,23 +113,23 @@ async function main() {
       }
 
       const noms = f.noms ? ['Sujeta a NOM — ver Acuerdo de NOMs (DOF)'] : [];
-      const data = {
+      // updateData: campos autoritativos del LIGIE. NO incluye noms/keywords/iepsRate
+      // para preservar los datos curados de las fracciones que ya existen.
+      const updateData = {
         codeFormatted: f.codeFormatted,
         description: f.description,
         nico: f.nico ?? undefined,
         unit: f.unit ?? undefined,
-        keywords: f.keywords,
         tariffNMF: f.tariffNMF ?? undefined,
         requiresPermit: f.requiresPermit,
         permitType: f.permitType ?? undefined,
-        noms,
         sectoralRegistry: f.sectoralRegistry,
         subheadingId,
       };
       await prisma.fraction.upsert({
         where: { code: f.code },
-        update: data,
-        create: { code: f.code, ...data },
+        update: updateData, // preserva noms/keywords/iepsRate curados en existentes
+        create: { code: f.code, ...updateData, keywords: f.keywords, noms },
       });
       created++;
       if (created % 1000 === 0) console.log(`   ... ${created}`);
