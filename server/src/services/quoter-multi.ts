@@ -10,7 +10,7 @@
 
 import { prisma } from '../lib/prisma';
 import { getExchangeRate, getHistoricalRate, getMonthlyAverageRate } from './exchange-rate';
-import { computeQuoteAmounts } from './quoter';
+import { computeQuoteAmounts, resolveCuotaCompensatoria } from './quoter';
 import { lookupCompliance } from './compliance-lookup';
 import { validateDeclaredPrice, type PriceCheckResult } from './price-validator';
 import { checkPROSEC, checkRegla8va, checkIEPS, calculateISAN } from './regimes-programs';
@@ -279,36 +279,20 @@ export async function calculateMultiQuote(input: MultiQuoteInput): Promise<Multi
     const iepsRate = iepsRateDB; // alias para mantener uso legacy abajo
 
     const compliance = await lookupCompliance(it.fractionCode, it.countryOfOrigin);
-    // ── Cuota compensatoria — soporta % y específica USD/kg, USD/unidad ──
-    // Spec: RES-29/2024 $2.07 USD/kg sobre 1500 kg → $3,105 USD adicionales.
-    // Si no hay weightKg explícito y la unidad declarada es kg, usamos
-    // quantity como peso. Para USD/unit, quantity es el número de unidades.
-    let cvPct = 0;
-    let cvAbsoluteMXN = 0;
-    let cvCalculationLabel: string | null = null;
-    let cvNeedsWeight = false;
-    if (compliance.antidumping) {
-      const ad = compliance.antidumping;
-      if (ad.rateType === 'percentage') {
-        cvPct = ad.rate;
-        cvCalculationLabel = `${ad.rate}% sobre valor en aduana`;
-      } else if (ad.rateType === 'specific_USD_kg') {
-        const unitLooksLikeKg = !!it.unit && /kg|kilo/i.test(it.unit);
-        const weightKg = it.weightKg ?? (unitLooksLikeKg ? it.quantity : null);
-        if (weightKg != null && weightKg > 0) {
-          const cvUSD = weightKg * ad.rate;
-          cvAbsoluteMXN = round2(cvUSD * effectiveRate);
-          cvCalculationLabel = `$${ad.rate} USD/kg × ${weightKg} kg = $${cvUSD.toFixed(2)} USD`;
-        } else {
-          cvNeedsWeight = true;
-          cvCalculationLabel = `$${ad.rate} USD/kg — declara weightKg para cálculo exacto`;
-        }
-      } else if (ad.rateType === 'specific_USD_unit') {
-        const cvUSD = it.quantity * ad.rate;
-        cvAbsoluteMXN = round2(cvUSD * effectiveRate);
-        cvCalculationLabel = `$${ad.rate} ${ad.rateUnit} × ${it.quantity} = $${cvUSD.toFixed(2)} USD`;
-      }
-    }
+    // Cuota compensatoria por rateType — la lógica vive en `resolveCuotaCompensatoria`
+    // (quoter.ts) para que single-item y multi-partida no diverjan.
+    // Spec: RES-29/2024 $2.07 USD/kg sobre 1500 kg → $3,105 USD = $52,785 MXN.
+    const cuota = resolveCuotaCompensatoria({
+      antidumping: compliance.antidumping,
+      quantity: it.quantity,
+      weightKg: it.weightKg,
+      unit: it.unit,
+      effectiveRate,
+    });
+    const cvPct = cuota.cvPct;
+    const cvAbsoluteMXN = cuota.cvAbsoluteMXN;
+    const cvCalculationLabel = cuota.cvCalculationLabel;
+    const cvNeedsWeight = cuota.cvNeedsWeight;
     // cvRate para la UI (label %) — para specific se reporta 0 y se usa
     // cvAbsoluteMXN para mostrar el monto real.
     const cvRate = cvPct;

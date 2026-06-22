@@ -365,6 +365,9 @@ function QuoteResult({ result }: { result: MultiQuoteResult }) {
                     Ver resolución oficial <Globe className="w-3 h-3"/>
                   </a>
                 )}
+                <p className="text-[10px] text-red-700/80 italic pt-2 border-t border-red-200">
+                  ⚖️ Cálculo estimado con base en datos UPCI. Verifica el monto contra la resolución oficial vigente del DOF/SE antes de declarar pedimento — la responsabilidad legal del dato declarado corresponde al importador y agente aduanal (Art. 54 LA).
+                </p>
               </div>
             )
           })}

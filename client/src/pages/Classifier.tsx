@@ -30,6 +30,7 @@ export function ClassifierPage() {
   const [context, setContext] = useState('')
   const [country, setCountry] = useState('')
   const [declaredValue, setDeclaredValue] = useState('')
+  const [declaredQuantity, setDeclaredQuantity] = useState('')
   const [useCase, setUseCase] = useState('')
   const [sector, setSector] = useState<IndustrialSector | ''>('')
   const [importerType, setImporterType] = useState<ImporterType | ''>('')
@@ -46,10 +47,15 @@ export function ClassifierPage() {
     setLoading(true); setError(''); setResult(null); setFeedbackSent(false)
     try {
       const declared = declaredValue ? parseFloat(declaredValue) : undefined
+      const qty = declaredQuantity ? parseFloat(declaredQuantity) : undefined
       const extras = {
         useCase: useCase || undefined,
         sector: sector || undefined,
         importerType: importerType || undefined,
+        // Cantidad declarada — habilita cálculo concreto de cuotas
+        // compensatorias específicas (USD/kg). Sin esto el banner muestra
+        // tasa pero no monto USD calculado.
+        declaredQuantity: qty != null && Number.isFinite(qty) && qty > 0 ? qty : undefined,
       }
       const res = await api.classify(query, context || undefined, country || undefined, declared, extras)
       setResult(res.data)
@@ -133,6 +139,24 @@ export function ClassifierPage() {
                 className="w-full bg-white/60 border border-slate-200/50 rounded-xl px-4 py-3 text-[14px] text-slate-900 placeholder:text-slate-400 outline-none focus:ring-2 focus:ring-emerald-500/30 focus:border-emerald-500/50 transition-all"
               />
             </div>
+          </div>
+
+          <div>
+            <label className="text-[12px] font-medium text-slate-500 mb-1.5 block">
+              Cantidad declarada (opcional — habilita cálculo concreto de cuota compensatoria USD/kg o USD/unidad)
+            </label>
+            <input
+              type="number"
+              step="0.01"
+              min="0"
+              value={declaredQuantity}
+              onChange={e => setDeclaredQuantity(e.target.value)}
+              placeholder="Ej: 1500 (kg para cuotas USD/kg) o 200 (unidades para USD/unit)"
+              className="w-full bg-white/60 border border-slate-200/50 rounded-xl px-4 py-3 text-[14px] text-slate-900 placeholder:text-slate-400 outline-none focus:ring-2 focus:ring-emerald-500/30 focus:border-emerald-500/50 transition-all"
+            />
+            <p className="text-[10px] text-slate-400 mt-1 italic">
+              Sin este dato el banner de cuota compensatoria muestra la tasa pero no el monto USD a pagar.
+            </p>
           </div>
 
           {/* Contexto operacional — uso destinado, sector, tipo de importador */}

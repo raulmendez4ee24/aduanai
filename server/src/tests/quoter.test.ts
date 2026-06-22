@@ -11,7 +11,8 @@
  */
 
 import { strict as assert } from 'node:assert';
-import { computeQuoteAmounts } from '../services/quoter';
+import { computeQuoteAmounts, resolveCuotaCompensatoria } from '../services/quoter';
+import type { AntidumpingMatch } from '../services/compliance-lookup';
 
 let passed = 0;
 let failed = 0;
@@ -145,6 +146,174 @@ test('No hay drift por flotantes acumulados (suma de partes = total)', () => {
   const sum = r.valueMXN + r.igi + r.dta + r.iva + r.ieps + r.countervailingDuty;
   assert.equal(Math.round(sum * 100) / 100, r.totalLandedCost,
     `suma=${sum.toFixed(2)} vs totalLandedCost=${r.totalLandedCost}`);
+});
+
+// ──────────────────────────────────────────────────────────────────────────
+// Cuotas compensatorias por rateType — fix CRITICAL del bug RES-29/2024
+// que trataba $X USD/kg como X% sobre valor en aduana y casi causa demanda.
+// ──────────────────────────────────────────────────────────────────────────
+
+console.log('\n▸ Cuotas compensatorias — branching por rateType (helper)');
+
+function mkAd(
+  rateType: AntidumpingMatch['rateType'],
+  rate: number,
+  rateUnit = '%',
+): AntidumpingMatch {
+  return {
+    rate, rateType, rateUnit,
+    resolutionType: 'final',
+    resolutionNumber: 'TEST-001',
+    expedienteUPCI: null,
+    productDesc: null,
+    type: 'final',
+    decree: null,
+    dofUrl: null,
+    country: 'China',
+    countryNormalized: 'CN',
+    publishDate: null,
+    effectiveDate: null,
+    expiryDate: null,
+    notes: null,
+  };
+}
+
+test('rateType=percentage: cvPct=rate, cvAbsoluteMXN=0', () => {
+  const r = resolveCuotaCompensatoria({
+    antidumping: mkAd('percentage', 25, '%'),
+    effectiveRate: 17,
+  });
+  assert.equal(r.cvPct, 25);
+  assert.equal(r.cvAbsoluteMXN, 0);
+  assert.equal(r.cvNeedsWeight, false);
+});
+
+test('REGRESIÓN bug: rateType=specific_USD_kg con $2.07 NO se aplica como 2.07%', () => {
+  // Caso del incidente: weightKg=1500, rate=$2.07/kg, TC=17 → $52,785 MXN
+  const r = resolveCuotaCompensatoria({
+    antidumping: mkAd('specific_USD_kg', 2.07, 'USD/kg'),
+    weightKg: 1500,
+    effectiveRate: 17,
+  });
+  assert.equal(r.cvPct, 0, 'cvPct DEBE ser 0 — el rate 2.07 USD/kg NO es 2.07%');
+  assert.equal(r.cvAbsoluteMXN, 52785.00, 'cvAbsoluteMXN = 1500 × 2.07 × 17 = 52,785');
+  assert.equal(r.cvNeedsWeight, false);
+});
+
+test('specific_USD_kg sin weightKg y unit no es kg → needsWeight=true (bloqueante)', () => {
+  const r = resolveCuotaCompensatoria({
+    antidumping: mkAd('specific_USD_kg', 2.07, 'USD/kg'),
+    quantity: 500,
+    unit: 'piezas',
+    effectiveRate: 17,
+  });
+  assert.equal(r.cvAbsoluteMXN, 0);
+  assert.equal(r.cvNeedsWeight, true,
+    'Sin peso explícito y unidad ≠ kg, NO debe calcular un monto inventado');
+});
+
+test('specific_USD_kg sin weightKg pero unit=kg usa quantity como fallback', () => {
+  const r = resolveCuotaCompensatoria({
+    antidumping: mkAd('specific_USD_kg', 2.07, 'USD/kg'),
+    quantity: 1500,
+    unit: 'kg',
+    effectiveRate: 17,
+  });
+  assert.equal(r.cvAbsoluteMXN, 52785.00);
+  assert.equal(r.cvNeedsWeight, false);
+});
+
+test('weightKg=0 NO produce cv=0 silencioso — bloquea con needsWeight=true', () => {
+  const r = resolveCuotaCompensatoria({
+    antidumping: mkAd('specific_USD_kg', 2.07, 'USD/kg'),
+    weightKg: 0,
+    effectiveRate: 17,
+  });
+  assert.equal(r.cvAbsoluteMXN, 0);
+  assert.equal(r.cvNeedsWeight, true);
+});
+
+test('specific_USD_unit con quantity=200, rate=$5.50/unit, TC 17 → $18,700 MXN', () => {
+  const r = resolveCuotaCompensatoria({
+    antidumping: mkAd('specific_USD_unit', 5.50, 'USD/unit'),
+    quantity: 200,
+    effectiveRate: 17,
+  });
+  assert.equal(r.cvPct, 0);
+  assert.equal(r.cvAbsoluteMXN, 18700.00);
+  assert.equal(r.cvNeedsWeight, false);
+});
+
+test('specific_USD_unit sin quantity → needsWeight=true', () => {
+  const r = resolveCuotaCompensatoria({
+    antidumping: mkAd('specific_USD_unit', 5.50, 'USD/unit'),
+    effectiveRate: 17,
+  });
+  assert.equal(r.cvAbsoluteMXN, 0);
+  assert.equal(r.cvNeedsWeight, true);
+});
+
+test('antidumping=null → todo cero, sin warnings (operación limpia)', () => {
+  const r = resolveCuotaCompensatoria({
+    antidumping: null,
+    effectiveRate: 17,
+  });
+  assert.equal(r.cvPct, 0);
+  assert.equal(r.cvAbsoluteMXN, 0);
+  assert.equal(r.cvNeedsWeight, false);
+  assert.equal(r.cvCalculationLabel, null);
+});
+
+console.log('\n▸ Integración cuota específica → computeQuoteAmounts');
+
+test('countervailingAbsoluteMXN se incorpora al preIVABase (Art. 27 LIVA)', () => {
+  // valueMXN=100,000; IGI 0%; DTA 0.8% = 800; cvAbsolute=52,785
+  // preIVA = 100,000 + 0 + 800 + 52,785 = 153,585
+  // IVA 16% = 24,573.60
+  const r = computeQuoteAmounts({
+    valueUSD: 10000,
+    exchangeRate: 10,
+    rates: { igiPct: 0, countervailingAbsoluteMXN: 52785 },
+  });
+  assert.equal(r.countervailingDuty, 52785.00);
+  assert.equal(r.preIVABase, 153585.00);
+  assert.equal(r.iva, 24573.60);
+});
+
+test('countervailingAbsoluteMXN gana sobre countervailingPct si ambos vienen', () => {
+  const r = computeQuoteAmounts({
+    valueUSD: 10000,
+    exchangeRate: 10,
+    rates: { igiPct: 0, countervailingPct: 99, countervailingAbsoluteMXN: 12345 },
+  });
+  assert.equal(r.countervailingDuty, 12345.00,
+    'cvAbsoluteMXN debe prevalecer — protege contra pasarse ambos por error');
+});
+
+test('End-to-end del incidente: $25,000 USD + 1500 kg + $2.07 USD/kg + TC 17', () => {
+  // Bug original aplicaba: valueMXN=425,000 × 2.07% = $8,797.50 (off por 6×)
+  // Fix correcto: cvAbsoluteMXN = 1500 × 2.07 × 17 = $52,785
+  const cuota = resolveCuotaCompensatoria({
+    antidumping: mkAd('specific_USD_kg', 2.07, 'USD/kg'),
+    weightKg: 1500,
+    effectiveRate: 17,
+  });
+  const r = computeQuoteAmounts({
+    valueUSD: 25000,
+    exchangeRate: 17,
+    rates: {
+      igiPct: 5,
+      countervailingPct: cuota.cvPct,
+      countervailingAbsoluteMXN: cuota.cvAbsoluteMXN,
+    },
+  });
+  assert.equal(r.countervailingDuty, 52785.00);
+  // valueMXN = 425,000; IGI 5% = 21,250; DTA 0.8% = 3,400; cv = 52,785
+  // preIVA = 425,000 + 21,250 + 3,400 + 52,785 = 502,435
+  // IVA 16% = 80,389.60; total = 502,435 + 80,389.60 = 582,824.60
+  assert.equal(r.preIVABase, 502435.00);
+  assert.equal(r.iva, 80389.60);
+  assert.equal(r.totalLandedCost, 582824.60);
 });
 
 console.log('\n═══════════════════════════════════════════════');

@@ -93,11 +93,44 @@ export interface ComplianceLookupResult {
   alertas: string[];
 }
 
+/**
+ * Falla explícita de compliance — se lanza cuando el DB no puede responder.
+ * Distinta de "no hay cuota": un `antidumping: null` legítimo significa que
+ * no existe cuota para esa fracción+país, mientras que este error significa
+ * "no pude verificar". El handler de ruta debe responder 5xx y NUNCA dejar
+ * cotizar sin cuota silenciosamente (eso reintroduciría el bug fiscal de
+ * cotizar de menos cuando sí aplica cuota compensatoria).
+ */
+export class ComplianceLookupError extends Error {
+  constructor(message: string, public readonly cause?: unknown) {
+    super(message);
+    this.name = 'ComplianceLookupError';
+  }
+}
+
 // ──────────────────────────────────────────────────────────────────────────
-// Lookup principal
+// Lookup principal — fail closed: si la BD falla, lanza ComplianceLookupError
+// en vez de devolver null. El caller NO puede asumir "sin cuota" por error.
 // ──────────────────────────────────────────────────────────────────────────
 
 export async function lookupCompliance(
+  fractionCode: string,
+  country: string,
+): Promise<ComplianceLookupResult> {
+  try {
+    return await lookupComplianceInternal(fractionCode, country);
+  } catch (err) {
+    console.error('[compliance-lookup] fail closed:', { fractionCode, country, err });
+    throw new ComplianceLookupError(
+      `No se pudo verificar cuotas compensatorias para fracción=${fractionCode} país=${country}. ` +
+      `La cotización NO procede sin verificación (fail-closed para evitar declarar pedimento ` +
+      `con cuota=0 cuando puede aplicar cuota real). Reintenta o contacta soporte.`,
+      err,
+    );
+  }
+}
+
+async function lookupComplianceInternal(
   fractionCode: string,
   country: string,
 ): Promise<ComplianceLookupResult> {

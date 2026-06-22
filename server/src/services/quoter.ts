@@ -102,6 +102,95 @@ export function computeQuoteAmounts(args: {
 }
 
 // ──────────────────────────────────────────────────────────────────────────
+// Resolución de cuota compensatoria por rateType — helper compartido
+// ──────────────────────────────────────────────────────────────────────────
+
+export interface ResolveCuotaInput {
+  antidumping: AntidumpingMatch | null;
+  /** Unidades declaradas — usado para specific_USD_unit y como fallback de
+   * peso para specific_USD_kg cuando `unit` contiene "kg". */
+  quantity?: number;
+  /** Peso bruto en kg — preferido para specific_USD_kg. */
+  weightKg?: number;
+  /** Unidad declarada — habilita fallback kg ↔ quantity. */
+  unit?: string;
+  /** Tipo de cambio MXN/USD para convertir cuotas USD a MXN. */
+  effectiveRate: number;
+}
+
+export interface ResolveCuotaResult {
+  cvPct: number;
+  cvAbsoluteMXN: number;
+  cvCalculationLabel: string | null;
+  /** Cuota específica con datos insuficientes — la cotización NO debe
+   * declararse así, el caller debe surfacear una alerta bloqueante. */
+  cvNeedsWeight: boolean;
+}
+
+/**
+ * Bug fiscal histórico (RES-29/2024, $2.07 USD/kg): tratar el rate USD/kg
+ * como porcentaje produce cuotas miles de veces menores a las reales y
+ * expone a multa 130-150% Art. 178 LA. Este helper es la única fuente
+ * de verdad para el branching — single-item y multi-partida pasan por él.
+ */
+export function resolveCuotaCompensatoria(input: ResolveCuotaInput): ResolveCuotaResult {
+  const { antidumping: ad, quantity, weightKg, unit, effectiveRate } = input;
+
+  if (!ad) {
+    return { cvPct: 0, cvAbsoluteMXN: 0, cvCalculationLabel: null, cvNeedsWeight: false };
+  }
+
+  if (ad.rateType === 'percentage') {
+    return {
+      cvPct: ad.rate,
+      cvAbsoluteMXN: 0,
+      cvCalculationLabel: `${ad.rate}% sobre valor en aduana`,
+      cvNeedsWeight: false,
+    };
+  }
+
+  if (ad.rateType === 'specific_USD_kg') {
+    const unitLooksLikeKg = !!unit && /kg|kilo/i.test(unit);
+    const effectiveWeightKg = weightKg ?? (unitLooksLikeKg ? quantity : undefined);
+    if (effectiveWeightKg != null && effectiveWeightKg > 0) {
+      const cvUSD = effectiveWeightKg * ad.rate;
+      return {
+        cvPct: 0,
+        cvAbsoluteMXN: round2(cvUSD * effectiveRate),
+        cvCalculationLabel: `$${ad.rate} USD/kg × ${effectiveWeightKg} kg = $${cvUSD.toFixed(2)} USD`,
+        cvNeedsWeight: false,
+      };
+    }
+    return {
+      cvPct: 0,
+      cvAbsoluteMXN: 0,
+      cvCalculationLabel: `$${ad.rate} USD/kg — declara weightKg para cálculo exacto`,
+      cvNeedsWeight: true,
+    };
+  }
+
+  if (ad.rateType === 'specific_USD_unit') {
+    if (quantity != null && quantity > 0) {
+      const cvUSD = quantity * ad.rate;
+      return {
+        cvPct: 0,
+        cvAbsoluteMXN: round2(cvUSD * effectiveRate),
+        cvCalculationLabel: `$${ad.rate} ${ad.rateUnit} × ${quantity} = $${cvUSD.toFixed(2)} USD`,
+        cvNeedsWeight: false,
+      };
+    }
+    return {
+      cvPct: 0,
+      cvAbsoluteMXN: 0,
+      cvCalculationLabel: `$${ad.rate} ${ad.rateUnit} — declara quantity de unidades`,
+      cvNeedsWeight: true,
+    };
+  }
+
+  return { cvPct: 0, cvAbsoluteMXN: 0, cvCalculationLabel: null, cvNeedsWeight: true };
+}
+
+// ──────────────────────────────────────────────────────────────────────────
 // Wrapper async — orquesta DB (fracción) + servicio de tipo de cambio
 // ──────────────────────────────────────────────────────────────────────────
 
@@ -115,6 +204,15 @@ interface QuoteInput {
   exchangeRate?: number;
   /** Override opcional de IGI cuando no se confía en la fracción de la DB */
   igiRateOverride?: number;
+  /** Unidades declaradas — necesario si la fracción tiene cuota
+   * compensatoria tipo specific_USD_unit o como fallback de peso para
+   * specific_USD_kg cuando `unit` contiene "kg". */
+  quantity?: number;
+  /** Peso bruto en kg — necesario si la fracción tiene cuota
+   * compensatoria tipo specific_USD_kg (ej. RES-29/2024 $2.07 USD/kg). */
+  weightKg?: number;
+  /** Unidad declarada (kg, piezas, litro…) — habilita fallback kg ↔ quantity. */
+  unit?: string;
 }
 
 interface QuoteResult {
@@ -170,18 +268,43 @@ export async function calculateQuote(input: QuoteInput): Promise<QuoteResult> {
     ?? (currency === 'MXN' ? 1 : fetchedRate);
   const exchangeRateDate = new Date().toISOString();
 
-  // Compliance — cuota compensatoria + regulaciones aplicables al país
+  // Compliance — cuota compensatoria + regulaciones aplicables al país.
+  // lookupCompliance falla cerrado: si el DB no responde, lanza error en
+  // lugar de devolver null silenciosamente. La ruta debe devolver 5xx.
   const compliance = await lookupCompliance(fractionCode, origin);
-  const cvPct = compliance.antidumping?.rate ?? 0;
+
+  // Branching por rateType — fix CRITICAL del bug que trataba $X USD/kg
+  // como X% sobre valor en aduana. Helper compartido con quoter-multi.
+  const cuota = resolveCuotaCompensatoria({
+    antidumping: compliance.antidumping,
+    quantity: input.quantity,
+    weightKg: input.weightKg,
+    unit: input.unit,
+    effectiveRate: exchangeRate,
+  });
 
   // Cálculo puro (incluye cuota compensatoria si aplica)
   const amounts = computeQuoteAmounts({
     valueUSD: customsValue,
     exchangeRate,
-    rates: { igiPct: igiRate, iepsPct: iepsRate, countervailingPct: cvPct },
+    rates: {
+      igiPct: igiRate,
+      iepsPct: iepsRate,
+      countervailingPct: cuota.cvPct,
+      countervailingAbsoluteMXN: cuota.cvAbsoluteMXN > 0 ? cuota.cvAbsoluteMXN : undefined,
+    },
   });
 
   const totalWithDispatch = round2(amounts.totalLandedCost + PREVALIDATION_FEE_MXN);
+
+  const alertas = [...compliance.alertas];
+  if (cuota.cvNeedsWeight && compliance.antidumping) {
+    const ad = compliance.antidumping;
+    const dataLabel = ad.rateType === 'specific_USD_kg' ? 'weightKg (peso bruto en kg)' : 'quantity (unidades)';
+    alertas.push(
+      `🚨 CÁLCULO INCOMPLETO: cuota ${ad.rateType} aplicable (${cuota.cvCalculationLabel ?? ''}) — declara ${dataLabel} antes de presentar pedimento. Declarar con cuota=0 expone a multa 130-150% Art. 178 LA.`,
+    );
+  }
 
   return {
     fraction: fractionCode,
@@ -195,8 +318,8 @@ export async function calculateQuote(input: QuoteInput): Promise<QuoteResult> {
     breakdown: {
       igi: { rate: igiRate, base: amounts.valueMXN, amount: amounts.igi },
       dta: { rate: 0.8, base: amounts.valueMXN, amount: amounts.dta },
-      countervailingDuty: cvPct > 0
-        ? { rate: cvPct, base: amounts.valueMXN, amount: amounts.countervailingDuty }
+      countervailingDuty: amounts.countervailingDuty > 0
+        ? { rate: compliance.antidumping?.rate ?? cuota.cvPct, base: amounts.valueMXN, amount: amounts.countervailingDuty }
         : null,
       ieps: iepsRate > 0
         ? { rate: iepsRate, base: amounts.preIVABase, amount: amounts.ieps }
@@ -212,7 +335,7 @@ export async function calculateQuote(input: QuoteInput): Promise<QuoteResult> {
     preferential: getPreferentialRates(origin, igiRate),
     compensatorias: compliance.antidumping,
     regulaciones: compliance.regulations,
-    alertas: compliance.alertas,
+    alertas,
   };
 }
 

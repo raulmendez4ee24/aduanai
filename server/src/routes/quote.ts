@@ -11,7 +11,7 @@ export const quoteRouter = Router();
 
 quoteRouter.post('/', authenticate, requirePermission('quoter', 'create'), async (req: AuthRequest, res, next) => {
   try {
-    const { fractionCode, customsValue, origin, incoterm, currency, exchangeRate, igiRateOverride } = req.body;
+    const { fractionCode, customsValue, origin, incoterm, currency, exchangeRate, igiRateOverride, quantity, weightKg, unit } = req.body;
 
     if (!fractionCode || !customsValue || !origin) {
       return res.status(400).json({
@@ -28,6 +28,12 @@ quoteRouter.post('/', authenticate, requirePermission('quoter', 'create'), async
       currency: currency || 'USD',
       exchangeRate: exchangeRate != null ? Number(exchangeRate) : undefined,
       igiRateOverride: igiRateOverride != null ? Number(igiRateOverride) : undefined,
+      // Datos para cálculo correcto de cuotas compensatorias específicas
+      // (USD/kg, USD/unit). Sin estos, el resultado lleva needsWeight=true
+      // en alertas y el monto de cuota queda 0.
+      quantity: quantity != null ? Number(quantity) : undefined,
+      weightKg: weightKg != null ? Number(weightKg) : undefined,
+      unit: typeof unit === 'string' ? unit : undefined,
     });
 
     const perms = await getUserPermissions(req.userId!, req.tenantId!, req.userRole);
