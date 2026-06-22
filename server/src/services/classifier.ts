@@ -1,4 +1,5 @@
 import { llmGenerate, llmGenerateWithMeta } from '../lib/llm';
+import { jsonrepair } from 'jsonrepair';
 import { prisma } from '../lib/prisma';
 import type { KnowledgeUsedItem } from './traceability';
 import { lookupPrecedents, hasActiveLitigation, type PrecedentMatch } from './precedent-lookup';
@@ -661,7 +662,23 @@ Responde en JSON válido.`;
     throw new Error('No se pudo parsear la respuesta del clasificador');
   }
 
-  let result = JSON.parse(jsonMatch[0]) as ClassificationResult;
+  // JSON.parse estricto rompe ante trailing commas y comentarios estilo JS
+  // que algunos modelos LLM emiten (visto con sonnet-4-6 → SyntaxError en
+  // arrays grandes). Reintentamos con jsonrepair si la primera pasada falla.
+  let result: ClassificationResult;
+  try {
+    result = JSON.parse(jsonMatch[0]) as ClassificationResult;
+  } catch (parseErr) {
+    try {
+      const repaired = jsonrepair(jsonMatch[0]);
+      result = JSON.parse(repaired) as ClassificationResult;
+    } catch (repairErr) {
+      throw new Error(
+        `LLM devolvió JSON malformado (parse: ${parseErr instanceof Error ? parseErr.message : 'unknown'}; ` +
+        `repair: ${repairErr instanceof Error ? repairErr.message : 'unknown'})`,
+      );
+    }
+  }
 
   // Trazabilidad: capturar modelo y conocimiento aplicado
   result._trace = {
@@ -746,7 +763,12 @@ ${chapterFractions.slice(0, 100).map(f => `- ${f.codeFormatted}: ${f.description
 
       const retryMatch = retryText.match(/\{[\s\S]*\}/);
       if (retryMatch) {
-        const retryResult = JSON.parse(retryMatch[0]) as ClassificationResult;
+        let retryResult: ClassificationResult;
+        try {
+          retryResult = JSON.parse(retryMatch[0]) as ClassificationResult;
+        } catch {
+          retryResult = JSON.parse(jsonrepair(retryMatch[0])) as ClassificationResult;
+        }
         if (retryResult.confidence > result.confidence) {
           result = retryResult;
         }
