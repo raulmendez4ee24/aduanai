@@ -96,7 +96,8 @@ export const logger = {
 interface ModelPricing { in: number; out: number }
 const PRICING: Record<string, ModelPricing> = {
   // Anthropic
-  'claude-sonnet-4-20250514':   { in: 3.00,  out: 15.00 },
+  'claude-sonnet-4-6':          { in: 3.00,  out: 15.00 },
+  'claude-sonnet-4-20250514':   { in: 3.00,  out: 15.00 }, // retirado — solo para logs históricos
   'claude-haiku-4-5-20251001':  { in: 1.00,  out:  5.00 },
   'claude-opus-4-7':            { in: 15.00, out: 75.00 },
   // Gemini

@@ -44,7 +44,7 @@ export async function llmGenerate(opts: {
   const provider = PROVIDER;
   const model = provider === 'gemini'
     ? (tier === 'strong' ? 'gemini-2.0-flash-exp' : 'gemini-2.0-flash-lite')
-    : (tier === 'strong' ? 'claude-sonnet-4-20250514' : 'claude-haiku-4-5-20251001');
+    : (tier === 'strong' ? 'claude-sonnet-4-6' : 'claude-haiku-4-5-20251001');
 
   let inputTokens = 0;
   let outputTokens = 0;
@@ -112,10 +112,12 @@ export async function llmGenerateWithMeta(opts: {
   log?: AILogContext;
 }): Promise<{ text: string; model: string; provider: string }> {
   const tier: ModelTier = opts.model ?? 'strong';
+  // Modelo se resuelve dentro de la función original (`llmGenerate` lo hace
+  // arriba con el mismo branching: strong → claude-sonnet-4-6, fast → haiku).
   const provider = PROVIDER;
   const model = provider === 'gemini'
     ? (tier === 'strong' ? 'gemini-2.0-flash-exp' : 'gemini-2.0-flash-lite')
-    : (tier === 'strong' ? 'claude-sonnet-4-20250514' : 'claude-haiku-4-5-20251001');
+    : (tier === 'strong' ? 'claude-sonnet-4-6' : 'claude-haiku-4-5-20251001');
   const text = await llmGenerate(opts);
   return { text, model, provider };
 }

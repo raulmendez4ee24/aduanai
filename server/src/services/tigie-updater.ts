@@ -34,7 +34,7 @@ export async function analyzeDecree(decreeText: string): Promise<DecreeAnalysis>
   const client = getAnthropicClient();
 
   const response = await client.messages.create({
-    model: 'claude-sonnet-4-20250514',
+    model: 'claude-sonnet-4-6',
     max_tokens: 4096,
     system: `Eres un experto en legislacion aduanera mexicana, especializado en la TIGIE (Tarifa de la Ley de los Impuestos Generales de Importacion y de Exportacion).
 

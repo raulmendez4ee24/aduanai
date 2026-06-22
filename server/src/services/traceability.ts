@@ -84,7 +84,7 @@ export interface RecordConsultInput {
   userId?: string;
   inputs: unknown;            // payload original del usuario
   outputs: unknown;           // resultado completo del clasificador
-  modelUsed: string;          // ej "claude-sonnet-4-20250514"
+  modelUsed: string;          // ej "claude-sonnet-4-6"
   modelProvider: string;      // "anthropic" | "gemini"
   knowledgeUsed: KnowledgeUsedItem[];
 }

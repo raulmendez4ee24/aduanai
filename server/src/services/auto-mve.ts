@@ -33,7 +33,7 @@ export async function extractInvoiceData(invoiceText: string): Promise<Extracted
   const client = getAnthropicClient();
 
   const response = await client.messages.create({
-    model: 'claude-sonnet-4-20250514',
+    model: 'claude-sonnet-4-6',
     max_tokens: 2048,
     system: `Eres un experto en comercio exterior mexicano especializado en valoracion aduanera y Manifestaciones de Valor (formato E2).
 
@@ -171,7 +171,7 @@ export async function validateMVE(mveId: string, tenantId: string) {
   const client = getAnthropicClient();
 
   const response = await client.messages.create({
-    model: 'claude-sonnet-4-20250514',
+    model: 'claude-sonnet-4-6',
     max_tokens: 1500,
     system: `Eres un auditor aduanero mexicano experto en valoracion aduanera (Art. 64-78 Ley Aduanera) y Manifestaciones de Valor.
 

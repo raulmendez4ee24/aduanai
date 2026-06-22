@@ -68,7 +68,47 @@ que cotizar mal, pero rompe operación 100%).
 
 ---
 
-## 3) Pendientes menores del code review (no bloqueantes hoy)
+## 3) WhatsApp formatter no muestra cuota compensatoria ni alertas
+
+**Descubierto en el smoke test post-fix (2026-06-21):** `formatQuoteForWhatsApp`
+en `server/src/services/whatsapp.ts:112-141` solo imprime IGI, DTA, IEPS,
+IVA y Prevalidación. **No itera `result.alertas` ni muestra la línea de
+cuota compensatoria** cuando aplica.
+
+**Por qué importa ahora**: el fix del bug específico de cuotas (commit
+`d2627fe`) hace que el quoter legacy emita un alerta tipo
+`🚨 CÁLCULO INCOMPLETO: cuota specific_USD_kg... declara weightKg` cuando
+el usuario manda `cotizar 73181505 25000 China` sin peso. Hoy esa alerta
+se pierde — el usuario recibe el quote SIN saber que falta declarar peso
+para que la cuota se calcule. Riesgo: aceptan el quote pensando que está
+completo, y al declarar pedimento les cae multa Art. 178 LA.
+
+**Fix sugerido** (lugar: `whatsapp.ts:127` después de Prevalidación):
+
+```ts
+// Cuota compensatoria — mostrar línea cuando aplica
+if (result.breakdown.countervailingDuty && result.breakdown.countervailingDuty.amount > 0) {
+  const cv = result.breakdown.countervailingDuty;
+  msg += `🚨 *Cuota compensatoria:* ${fmt(cv.amount)}\n`;
+}
+msg += `• Prevalidación: ${fmt(result.breakdown.prevalidation)}\n\n`;
+
+// Alertas críticas (cálculo incompleto, padrones, etc.)
+if (result.alertas?.length > 0) {
+  msg += `⚠️ *Alertas:*\n`;
+  for (const a of result.alertas) {
+    msg += `${a}\n`;
+  }
+  msg += `\n`;
+}
+```
+
+Verificación: después del cambio, el reply al `cotizar 73181505 25000 China`
+(sin peso) debe incluir el texto `CÁLCULO INCOMPLETO` o `declara weightKg`.
+
+---
+
+## 4) Pendientes menores del code review (no bloqueantes hoy)
 
 Estos los identificó `oh-my-claudecode:code-reviewer` y NO entraron en el
 cierre del incidente porque están fuera del scope CRITICAL. Atender cuando
@@ -92,7 +132,7 @@ se toque el código aledaño:
 
 ---
 
-## 4) Versionado de tasas para auditoría retroactiva
+## 5) Versionado de tasas para auditoría retroactiva
 
 El schema tiene `effectiveDate`/`expiryDate` en `AntidumpingDuty`, pero
 ningún query usa esos campos para reconstruir "qué tasa aplicaba el día X".
