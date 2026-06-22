@@ -111,33 +111,130 @@ function formatClassificationForWhatsApp(result: Awaited<ReturnType<typeof class
 
 function formatQuoteForWhatsApp(result: Awaited<ReturnType<typeof calculateQuote>>): string {
   const fmt = (n: number) => `$${n.toLocaleString('es-MX', { minimumFractionDigits: 2 })} MXN`;
+  const parts: string[] = [];
 
-  let msg = `💰 *Cotización de Importación*\n\n`;
-  msg += `*Fracción:* \`${result.fraction}\`\n`;
-  msg += `*Origen:* ${result.origin}\n`;
-  msg += `*Valor:* ${fmt(result.valueMXN)}\n\n`;
+  // Estado de cuota compensatoria
+  const ad = result.compensatorias;
+  const cv = result.breakdown.countervailingDuty;
+  const hasCalculatedCV = !!cv && cv.amount > 0;
+  const needsWeightForCV =
+    !!ad &&
+    (ad.rateType === 'specific_USD_kg' || ad.rateType === 'specific_USD_unit') &&
+    !hasCalculatedCV;
+  const rateLabel = (m: NonNullable<typeof ad>): string =>
+    m.rateType === 'specific_USD_kg' ? `$${m.rate} USD/kg`
+    : m.rateType === 'specific_USD_unit' ? `$${m.rate} ${m.rateUnit}`
+    : `${m.rate}%`;
 
-  msg += `📊 *Desglose:*\n`;
-  msg += `• IGI (${result.breakdown.igi.rate}%): ${fmt(result.breakdown.igi.amount)}\n`;
-  msg += `• DTA (${result.breakdown.dta.rate}%): ${fmt(result.breakdown.dta.amount)}\n`;
-  msg += `• IVA (${result.breakdown.iva.rate}%): ${fmt(result.breakdown.iva.amount)}\n`;
-  if (result.breakdown.ieps) {
-    msg += `• IEPS (${result.breakdown.ieps.rate}%): ${fmt(result.breakdown.ieps.amount)}\n`;
+  // ── Bloque 1: cuota CALCULADA (banner crítico arriba)
+  if (hasCalculatedCV && ad && cv) {
+    parts.push(
+      [
+        `🚨 *CUOTA COMPENSATORIA*`,
+        `Resolución: ${ad.resolutionNumber ?? ad.decree ?? 's/n'}`,
+        `Cuota: ${rateLabel(ad)}`,
+        `Monto: ${fmt(cv.amount)}`,
+        `⚠️ Omitir = multa 130-150% (Art. 178 LA)`,
+      ].join('\n'),
+    );
   }
-  msg += `• Prevalidación: ${fmt(result.breakdown.prevalidation)}\n\n`;
 
-  msg += `💵 *Total Landed Cost:*\n`;
-  msg += `*${fmt(result.totalLandedCost)}*\n`;
-  msg += `~$${result.totalLandedCostUSD.toLocaleString('en-US', { minimumFractionDigits: 2 })} USD~\n`;
+  // ── Bloque 2: needsWeight — cuota aplicable pero falta dato para calcular
+  if (needsWeightForCV && ad) {
+    const dataNeeded = ad.rateType === 'specific_USD_kg' ? 'PESO en kg' : 'NÚMERO de unidades';
+    parts.push(
+      [
+        `🚨 *CÁLCULO INCOMPLETO*`,
+        `Esta fracción tiene cuota compensatoria de ${rateLabel(ad)}. ` +
+          `Falta declarar el ${dataNeeded} para calcularla. ` +
+          `La cotización actual NO incluye la cuota — declara el dato antes de usar este cálculo en pedimento.`,
+      ].join('\n'),
+    );
+  }
 
+  // ── Bloque 3: encabezado
+  parts.push(
+    [
+      `💰 *Cotización de Importación*`,
+      `*Fracción:* \`${result.fraction}\``,
+      `*Origen:* ${result.origin}`,
+      `*Valor:* ${fmt(result.valueMXN)}`,
+    ].join('\n'),
+  );
+
+  // ── Bloque 4: desglose
+  const desglose: string[] = [`📊 *Desglose:*`];
+  desglose.push(`• IGI (${result.breakdown.igi.rate}%): ${fmt(result.breakdown.igi.amount)}`);
+  desglose.push(`• DTA (${result.breakdown.dta.rate}%): ${fmt(result.breakdown.dta.amount)}`);
+  if (hasCalculatedCV && cv) {
+    desglose.push(`• Cuota comp: ${fmt(cv.amount)}`);
+  }
+  if (result.breakdown.ieps) {
+    desglose.push(`• IEPS (${result.breakdown.ieps.rate}%): ${fmt(result.breakdown.ieps.amount)}`);
+  }
+  desglose.push(`• IVA (${result.breakdown.iva.rate}%): ${fmt(result.breakdown.iva.amount)}`);
+  desglose.push(`• Prevalidación: ${fmt(result.breakdown.prevalidation)}`);
+  parts.push(desglose.join('\n'));
+
+  // ── Bloque 5: total
+  parts.push(
+    [
+      `💵 *Total Landed Cost:*`,
+      `*${fmt(result.totalLandedCost)}*`,
+      `~$${result.totalLandedCostUSD.toLocaleString('en-US', { minimumFractionDigits: 2 })} USD~`,
+    ].join('\n'),
+  );
+
+  // ── Bloque 6: tratados preferenciales
   if (result.preferential && result.preferential.length > 0) {
-    msg += `\n🌎 *Con tratado:*\n`;
-    for (const p of result.preferential) {
-      msg += `• ${p.treaty}: IGI ${p.igi}% (ahorro ${fmt(p.savings * result.valueMXN)})\n`;
+    const lines = result.preferential.map(
+      p => `• ${p.treaty}: IGI ${p.igi}% (ahorro ${fmt(p.savings * result.valueMXN)})`,
+    );
+    parts.push(`🌎 *Con tratado:*\n${lines.join('\n')}`);
+  }
+
+  // ── Bloque 7: otras alertas (padrones, NOMs, etc.) — excluye las ya cubiertas
+  // El quoter inyecta dos clases de alerta que ya tienen su propio bloque:
+  //   1) "Cuota compensatoria $X USD/kg aplicable a CN — ..." (compliance-lookup)
+  //   2) "🚨 CÁLCULO INCOMPLETO: ..." (quoter.ts cuando needsWeight)
+  const otherAlerts = result.alertas.filter(a => {
+    const lower = a.toLowerCase();
+    return !lower.includes('cálculo incompleto') &&
+           !lower.includes('calculo incompleto') &&
+           !lower.startsWith('cuota compensatoria');
+  });
+  if (otherAlerts.length > 0) {
+    parts.push(`⚠️ *Otras alertas:*\n${otherAlerts.map(a => `• ${a}`).join('\n')}`);
+  }
+
+  // ── Bloque 8: disclaimer Art. 54 LA (mismo tono que el banner web del Quoter)
+  parts.push(
+    `⚖️ _Estimación de apoyo técnico. La responsabilidad legal corresponde al importador y agente aduanal certificado (Art. 54 LA). Verifica los datos contra fuentes oficiales antes de declarar pedimento._`,
+  );
+
+  // ── Empaquetado final con respeto al límite ~4096 chars de WhatsApp
+  const LIMIT = 3800;
+  const full = parts.join('\n\n');
+  if (full.length <= LIMIT) {
+    return full;
+  }
+
+  // Modo recortado — prioridad: alertas críticas, encabezado, total, alertas, disclaimer
+  const critical: string[] = [];
+  for (const p of parts) {
+    if (p.includes('CUOTA COMPENSATORIA') || p.includes('CÁLCULO INCOMPLETO')) {
+      critical.push(p);
     }
   }
-
-  return msg;
+  const hdr = parts.find(p => p.includes('Cotización de Importación'));
+  if (hdr) critical.push(hdr);
+  const tot = parts.find(p => p.includes('Total Landed Cost'));
+  if (tot) critical.push(tot);
+  const oa = parts.find(p => p.includes('Otras alertas'));
+  if (oa) critical.push(oa);
+  critical.push(parts[parts.length - 1]); // disclaimer
+  critical.push(`_Detalle completo en plataforma web — mensaje recortado por límite WhatsApp._`);
+  return critical.join('\n\n');
 }
 
 export async function sendWhatsAppMessage(to: string, body: string): Promise<void> {

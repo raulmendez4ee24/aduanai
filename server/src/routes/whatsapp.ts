@@ -47,7 +47,8 @@ whatsappRouter.post('/webhook', async (req, res) => {
     // Enviar respuesta
     await sendWhatsAppMessage(from, reply);
 
-    // Log en audit
+    // Log en audit — capturamos hasta 4000 chars del reply (límite WhatsApp ~4096)
+    // para que el mensaje generado quede auditable y reproducible en QA.
     const tenant = await prisma.tenant.findFirst({ where: { id: 'demo-tenant' } });
     if (tenant) {
       await prisma.auditLog.create({
@@ -55,12 +56,15 @@ whatsappRouter.post('/webhook', async (req, res) => {
           tenantId: tenant.id,
           action: 'whatsapp_message',
           entity: 'whatsapp',
-          details: JSON.stringify({ from, body, reply: reply.substring(0, 200) }),
+          details: JSON.stringify({ from, body, reply: reply.substring(0, 4000) }),
         },
       });
     }
 
-    res.status(200).json({ status: 'ok' });
+    // Incluimos `reply` en la respuesta para que QA/smoke tests puedan validar
+    // el mensaje generado sin depender del audit log truncado. YCloud ignora
+    // el body — solo le importa el status code.
+    res.status(200).json({ status: 'ok', reply });
   } catch (err) {
     console.error('Error en webhook WhatsApp:', err);
     res.status(200).json({ status: 'error' });
