@@ -13,6 +13,7 @@
     "db:studio": "prisma studio",
     "db:seed": "tsx prisma/seed/index.ts",
     "db:seed-full": "tsx prisma/seed/seed-full.ts",
+    "db:seed-ligie": "tsx prisma/seed/seed-ligie-2026.ts",
     "test:quoter": "tsx src/tests/quoter.test.ts"
   },
   "license": "UNLICENSED",

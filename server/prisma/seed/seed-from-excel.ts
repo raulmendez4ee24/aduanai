@@ -108,7 +108,7 @@ function generateKeywords(description: string): string[] {
 async function main() {
   console.log('🌱 ADUANAI — Seed desde Excel TIGIE\n');
 
-  const excelPath = '/Users/raulaldairmendezalvarez/Downloads/kanaduana /tabla-correlacion-actualizacion-2025.xlsx';
+  const excelPath = path.join(__dirname, 'data', 'tabla-correlacion-actualizacion-2025.xlsx');
   console.log(`📄 Leyendo ${excelPath}...`);
 
   const workbook = xlsx.readFile(excelPath);

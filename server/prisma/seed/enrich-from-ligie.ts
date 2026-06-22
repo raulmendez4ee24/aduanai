@@ -27,7 +27,7 @@ function parseIGI(raw: unknown): { rate: number | null; prohibited: boolean; exe
 async function main() {
   console.log('🔧 Enriqueciendo fracciones con aranceles OFICIALES de LIGIE 2026\n');
 
-  const excelPath = '/Users/raulaldairmendezalvarez/Downloads/kanaduana /BASEUNICA-LIGIE_20260330-20260330.xlsb';
+  const excelPath = path.join(__dirname, 'data', 'BASEUNICA-LIGIE_20260330-20260330.xlsb');
   console.log(`📄 Leyendo ${excelPath}...`);
 
   const workbook = xlsx.readFile(excelPath);
