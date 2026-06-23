@@ -165,8 +165,8 @@ const RULES: RuleSeed[] = [
     description: 'La fracción requiere padrón sectorial (Anexo 10 RGCE) pero el importador no está inscrito.',
     detectionLogic: { type: 'padron_blocking' },
     weight: 60, severity: 'critical',
-    recommendation: 'BLOQUEO ABSOLUTO: NO operar. Embargo seguro y multa 70-100% del valor de la mercancía.',
-    legalBasis: 'Art. 59 LA · Anexo 10 RGCE · Art. 144, 178 LA',
+    recommendation: 'BLOQUEO ABSOLUTO: NO operar. Embargo seguro y multa 130-150% del valor de la mercancía.',
+    legalBasis: 'Art. 59 LA · Anexo 10 RGCE · Art. 151, 178 LA',
   },
 
   // ── Aduana ──

@@ -670,7 +670,7 @@ function AntidumpingBanner({ alert }: { alert: ClassifierAlert }) {
             <p className="text-[11px] font-bold text-red-900 uppercase tracking-wider mb-1">⚠️ Omitir en pedimento</p>
             <ul className="text-[11px] text-red-800 space-y-0.5">
               <li>• Multa 130-150% sobre impuesto omitido (Art. 178 LA)</li>
-              <li>• Embargo precautorio (Art. 144 LA)</li>
+              <li>• Embargo precautorio (Art. 151 LA)</li>
               <li>• Suspensión de operaciones</li>
             </ul>
           </div>

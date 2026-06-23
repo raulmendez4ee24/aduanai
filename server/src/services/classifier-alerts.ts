@@ -105,7 +105,7 @@ export async function buildClassifierAlerts(input: BuildAlertsInput): Promise<Cl
       if (exampleCalc) messageParts.push(exampleCalc);
       messageParts.push(`Vigente desde ${effectiveStr}`);
       messageParts.push(
-        '⚠️ Omitir en pedimento: multa 130-150% del impuesto omitido (Art. 178 LA) + embargo precautorio (Art. 144 LA).',
+        '⚠️ Omitir en pedimento: multa 130-150% del impuesto omitido (Art. 178 LA) + embargo precautorio (Art. 151 LA).',
       );
       if (matchWarn) messageParts.push(matchWarn.trim());
 

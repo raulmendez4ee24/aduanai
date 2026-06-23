@@ -296,7 +296,7 @@ CASOS DONDE EL CAP 87 NO APLICA aunque el importador sea automotriz:
 - Materias primas a granel (resinas plásticas, polvo metálico, aceros sin formar)
 - Equipo de oficina, herramientas industriales, consumibles de planta
 
-CONSECUENCIA DE ERROR: PAMA por incorrecta clasificación, multa 70-100% de contribuciones omitidas + recargos. Aún cuando la fracción cap 87 tenga arancel similar, la autoridad puede determinar reclasificación oficial con multa.
+CONSECUENCIA DE ERROR: PAMA por incorrecta clasificación, multa 130-150% de contribuciones omitidas + recargos. Aún cuando la fracción cap 87 tenga arancel similar, la autoridad puede determinar reclasificación oficial con multa.
 
 REGLA DE ORO: documenta siempre la VINCULACIÓN ESPECÍFICA pieza-vehículo. Sin documento, prevalece la clasificación por material.`,
     source: 'TIGIE Sección XV Nota 2; criterio TFJA y SAT en revisiones de operaciones IMMEX',

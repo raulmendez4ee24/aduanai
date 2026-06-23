@@ -314,7 +314,7 @@ async function validatePartida(p: PartidaInput, ped: PedimentoInput, issues: Val
         field: 'identificadores',
         severity: 'error',
         rule: 'ANTIDUMPING_NOT_DECLARED',
-        message: `Cuota compensatoria ${rateLabel} obligatoria por ${resLabel} (${ad.countryNormalized}) no declarada. Agrega identificador "CC" en partida con complemento de la resolución${matchWarn}. Omitirla: multa 130-150% Art. 178 LA + embargo Art. 144 LA.`,
+        message: `Cuota compensatoria ${rateLabel} obligatoria por ${resLabel} (${ad.countryNormalized}) no declarada. Agrega identificador "CC" en partida con complemento de la resolución${matchWarn}. Omitirla: multa 130-150% Art. 178 LA + embargo Art. 151 LA.`,
       });
     } else {
       // Cuota declarada — solo info para tracking

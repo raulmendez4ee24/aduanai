@@ -40,8 +40,8 @@ prevalidateRouter.post('/', authenticate, async (req: AuthRequest, res, next) =>
       code: 'PEDIMENTO_PADRON_MISSING',
       severity: 'error' as const,
       field: 'importerRFC',
-      message: `Padrón ${b.type === 'general' ? 'General de Importadores' : `Sectorial ${b.sectorialCode} (${b.sectorialName})`} no vigente. Sin esta inscripción el SAT puede embargar la mercancía y aplicar multa 70-100% del valor.`,
-      rule: `${b.legalBasis} · Art. 144 LA · Art. 178 LA`,
+      message: `Padrón ${b.type === 'general' ? 'General de Importadores' : `Sectorial ${b.sectorialCode} (${b.sectorialName})`} no vigente. Sin esta inscripción el SAT puede embargar la mercancía y aplicar multa 130-150% del valor.`,
+      rule: `${b.legalBasis} · Art. 151 LA · Art. 178 LA`,
     }));
 
     const blockingValid = padronErrors.length === 0 && result.valid;

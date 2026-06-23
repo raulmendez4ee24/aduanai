@@ -199,7 +199,7 @@ export const LEGAL_PRECEDENTS: PrecedentSeed[] = [
     summary:
       'Multa por incorrecta clasificación arancelaria — análisis de constitucionalidad y proporcionalidad de la sanción.',
     ruling:
-      'La SCJN determinó que la multa del 70-100% del impuesto omitido (Art. 184 LA) es proporcional cuando la incorrecta clasificación derivó en omisión de contribuciones. Si NO hubo omisión (misma carga arancelaria entre fracciones), la multa puede reducirse.',
+      'La SCJN determinó que la multa del 130-150% del impuesto omitido (Art. 178 LA) es proporcional cuando la incorrecta clasificación derivó en omisión de contribuciones. Si NO hubo omisión (misma carga arancelaria entre fracciones), la infracción es formal y la multa puede reducirse.',
     reasoning:
       'El principio de proporcionalidad fiscal exige que la sanción guarde relación con el daño al fisco. Una clasificación incorrecta sin omisión de contribuciones genera infracción formal, no sustantiva.',
     applicability: 'En auditoría: si la reclasificación oficial no genera diferencia de impuestos, argumentar reducción de multa por inexistencia de daño fiscal.',

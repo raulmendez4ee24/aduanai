@@ -208,11 +208,11 @@ export const LEGAL_DOCUMENTS: LegalDocSeed[] = [
     topics: ['regimen', 'padrones'], keywords: ['Anexo 10', 'padrón sectorial', 'sectores', 'AGACE', 'inscripción', 'trámite 5/LA'],
   },
   {
-    type: 'ley', source: 'Ley_Aduanera', title: 'Ley Aduanera Art. 144 — Facultades de embargo precautorio',
-    reference: 'Art. 144 fr. III Ley Aduanera',
-    content: 'La autoridad aduanera podrá practicar el embargo precautorio de las mercancías y de los medios en que se transporten cuando: I. Se introduzcan al territorio nacional por aduana no autorizada; II. Se omita el pago de cuotas compensatorias; III. Cuando el importador no esté inscrito en el Padrón de Importadores o en el Padrón Sectorial cuando éste sea exigible (operar fracción del Anexo 10 sin inscripción sectorial activa configura supuesto de embargo); IV. Otros supuestos de irregularidad documental. El embargo precautorio se sustancia en PAMA con multa adicional 70-100% del valor (Art. 178 fr. I).',
-    officialUrl: `${DOF}/nota_detalle.php?codigo=LA_144`, effectiveDate: '1995-12-15',
-    topics: ['regimen', 'padrones', 'sanciones'], keywords: ['embargo', 'Art. 144', 'PAMA', 'padrón', 'sanción', 'Anexo 10'],
+    type: 'ley', source: 'Ley_Aduanera', title: 'Ley Aduanera Art. 151 — Causales de embargo precautorio',
+    reference: 'Art. 151 Ley Aduanera',
+    content: 'RESUMEN (no es el texto literal — consulta la redacción y las fracciones exactas en el DOF): el Art. 151 de la Ley Aduanera establece los supuestos en que la autoridad aduanera practica el embargo precautorio de la mercancía, entre ellos la omisión del pago de cuotas compensatorias y la falta de inscripción en el Padrón de Importadores o en el Padrón Sectorial cuando éste es exigible (operar una fracción del Anexo 10 sin inscripción sectorial activa). El procedimiento se sustancia mediante PAMA. La multa por omisión de contribuciones o cuotas compensatorias es de 130-150% de lo omitido conforme al Art. 178 LA.',
+    officialUrl: `${DOF}/nota_detalle.php?codigo=LA_151`, effectiveDate: '1995-12-15',
+    topics: ['regimen', 'padrones', 'sanciones'], keywords: ['embargo', 'Art. 151', 'Art. 178', 'PAMA', 'padrón', 'sanción', 'Anexo 10'],
   },
   {
     type: 'rgce', source: 'RGCE_2026', title: 'RGCE — Procedimiento de inscripción al Padrón Sectorial',

@@ -25,7 +25,7 @@ export function PadronesPage() {
           <Shield className="w-5 h-5 text-emerald-600"/>
           <h1 className="text-xl font-bold text-slate-900">Padrones SAT</h1>
         </div>
-        <p className="text-[12px] text-slate-500 mb-4">Tu inscripción al Padrón General y Padrones Sectoriales (Anexo 10 RGCE). Sin padrón vigente, el SAT puede embargar mercancía y aplicar multa 70-100% del valor (Art. 144, 178 LA).</p>
+        <p className="text-[12px] text-slate-500 mb-4">Tu inscripción al Padrón General y Padrones Sectoriales (Anexo 10 RGCE). Sin padrón vigente, el SAT puede embargar mercancía y aplicar multa 130-150% del valor (Art. 151, 178 LA).</p>
         <div className="flex gap-2">
           {(['mine', 'available'] as Tab[]).map(t => (
             <button key={t} onClick={() => setTab(t)} className={`text-[12px] font-medium px-3 py-1.5 rounded-full transition ${tab === t ? 'bg-slate-900 text-white' : 'bg-white border border-slate-200 text-slate-700 hover:bg-slate-50'}`}>
@@ -281,7 +281,7 @@ export function PadronCheckBanner({ check }: { check: { canOperate: boolean; blo
         <div className="bg-white/70 rounded-lg p-3 text-[11px] text-rose-900 mb-2">
           <p className="font-semibold mb-1">SIN ESTAS INSCRIPCIONES:</p>
           <ul className="list-disc ml-5 space-y-0.5">
-            <li>El SAT puede embargar la mercancía (Art. 144 fr. III LA)</li>
+            <li>El SAT puede embargar la mercancía (Art. 151 LA)</li>
             <li>Multa: 70% al 100% del valor de la mercancía (Art. 178 fr. I LA)</li>
             <li>Suspensión de operaciones aduaneras</li>
           </ul>

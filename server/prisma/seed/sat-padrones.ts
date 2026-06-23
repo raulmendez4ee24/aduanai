@@ -30,7 +30,7 @@ const SEEDS: PadronSeed[] = [
     type: 'general',
     sectorialCode: null,
     sectorialName: 'Padrón General de Importadores',
-    description: 'Inscripción obligatoria para toda persona física o moral que pretenda importar mercancías al territorio nacional (Art. 59 fr. IV LA). Sin esta inscripción, el SAT puede embargar la mercancía y aplicar multa del 70-100% del valor (Art. 144 LA).',
+    description: 'Inscripción obligatoria para toda persona física o moral que pretenda importar mercancías al territorio nacional (Art. 59 fr. IV LA). Sin esta inscripción, el SAT puede embargar la mercancía y aplicar multa del 130-150% del valor (Art. 151 LA).',
     legalBasis: 'Art. 59 fr. IV LA · Anexo 1-A RGCE Trámite 5/LA',
     authority: 'SAT-AGACE',
     fractionPatterns: ['*'],
