@@ -137,29 +137,15 @@ async function lookupComplianceInternal(
   const cleanFraction = fractionCode.replace(/[^0-9]/g, '');
   const countryNorm = normalizeCountry(country);
 
-  // 1) Cuota compensatoria — exact match fracción + país; si no hay,
-  // fallback por subpartida (6 dígitos) y partida (4 dígitos). UI debe
-  // avisar al usuario cuando el match no es exacto.
+  // 1) Cuota compensatoria — SOLO match EXACTO de fracción + país.
+  // NUNCA por prefijo (subpartida/partida): atribuir la cuota de una fracción
+  // hermana sería mostrar una medida que no aplica a esta fracción = inventar
+  // una cuota. Si no existe fila exacta → no hay cuota. Cero. Sin estimar.
   let ad: Awaited<ReturnType<typeof prisma.antidumpingDuty.findFirst>> | null = null;
-  let adMatchType: 'exact' | 'subheading' | 'heading' = 'exact';
   if (countryNorm) {
     ad = await prisma.antidumpingDuty.findFirst({
       where: { fractionCode: cleanFraction, countryOfOrigin: countryNorm, active: true },
     });
-    if (!ad && cleanFraction.length >= 6) {
-      const sub = cleanFraction.slice(0, 6);
-      ad = await prisma.antidumpingDuty.findFirst({
-        where: { fractionCode: { startsWith: sub }, countryOfOrigin: countryNorm, active: true },
-      });
-      if (ad) adMatchType = 'subheading';
-    }
-    if (!ad && cleanFraction.length >= 4) {
-      const head = cleanFraction.slice(0, 4);
-      ad = await prisma.antidumpingDuty.findFirst({
-        where: { fractionCode: { startsWith: head }, countryOfOrigin: countryNorm, active: true },
-      });
-      if (ad) adMatchType = 'heading';
-    }
   }
 
   // 2) Regulaciones — todas las exact + cualquier prefix que matchee
@@ -206,10 +192,7 @@ async function lookupComplianceInternal(
       : ad.rateType === 'specific_USD_unit' ? `$${ad.rate} ${ad.rateUnit}`
       : `${ad.rate}%`;
     const resLabel = ad.resolutionNumber ?? ad.decree ?? 's/n';
-    const matchNote = adMatchType === 'exact'
-      ? ''
-      : ` ⚠️ Match por ${adMatchType === 'subheading' ? 'subpartida' : 'partida'} (${ad.fractionCode}) — verifica manualmente si tu fracción ${cleanFraction} está cubierta`;
-    alertas.push(`Cuota compensatoria ${rateLabel} aplicable a ${ad.countryOfOrigin} — ${resLabel} (${dateStr})${matchNote}`);
+    alertas.push(`Cuota compensatoria ${rateLabel} aplicable a ${ad.countryOfOrigin} — ${resLabel} (${dateStr})`);
   }
   const padron = regulations.find(r => r.type === 'padron_sectorial');
   if (padron) {
@@ -245,7 +228,7 @@ async function lookupComplianceInternal(
           effectiveDate: ad.effectiveDate?.toISOString() ?? null,
           expiryDate: ad.expiryDate?.toISOString() ?? null,
           notes: ad.notes,
-          matchType: adMatchType,
+          matchType: 'exact',
           matchedFraction: ad.fractionCode,
         }
       : null,

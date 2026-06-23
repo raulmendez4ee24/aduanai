@@ -129,35 +129,12 @@ export const UPCI_RESOLUTIONS: UPCIResolution[] = [
 
   // ═══════════════════════════════════════════════════════════════
   // TEXTILES Y CONFECCIÓN — China
+  // ELIMINADO 2026-06: RES-08/2022, RES-TX-12/2023, RES-TX-19/2024 y
+  // RES-TX-22/2024 eran resoluciones FABRICADAS (no existen en el DOF).
+  // México no tiene cuota antidumping vigente sobre camisetas/pantalones de
+  // algodón ni esos tejidos chinos. NO re-agregar sin número de resolución
+  // UPCI real y verificable en el DOF.
   // ═══════════════════════════════════════════════════════════════
-  { resolutionType: 'definitiva', resolutionNumber: 'RES-08/2022',
-    fractionCode: '52083201', countryOfOrigin: 'CN',
-    productDesc: 'Tejidos de algodón teñidos',
-    rateType: 'percentage', rate: 56.25, rateUnit: '%',
-    publishDateDOF: '2022-04-10', effectiveDate: '2022-04-11', expiryDate: '2027-04-10',
-    investigationType: 'nueva',
-  },
-  { resolutionType: 'definitiva', resolutionNumber: 'RES-TX-12/2023',
-    fractionCode: '54076101', countryOfOrigin: 'CN',
-    productDesc: 'Tejidos de filamento de poliéster',
-    rateType: 'percentage', rate: 48.7, rateUnit: '%',
-    publishDateDOF: '2023-12-01', effectiveDate: '2023-12-02', expiryDate: '2028-12-01',
-    investigationType: 'examen_vigencia',
-  },
-  { resolutionType: 'definitiva', resolutionNumber: 'RES-TX-19/2024',
-    fractionCode: '61091001', countryOfOrigin: 'CN',
-    productDesc: 'Camisetas de algodón',
-    rateType: 'specific_USD_unit', rate: 0.85, rateUnit: 'USD/pieza',
-    publishDateDOF: '2024-06-14', effectiveDate: '2024-06-15', expiryDate: '2029-06-14',
-    investigationType: 'nueva',
-  },
-  { resolutionType: 'definitiva', resolutionNumber: 'RES-TX-22/2024',
-    fractionCode: '62034201', countryOfOrigin: 'CN',
-    productDesc: 'Pantalones de algodón hombre',
-    rateType: 'specific_USD_unit', rate: 1.95, rateUnit: 'USD/pieza',
-    publishDateDOF: '2024-05-22', effectiveDate: '2024-05-23', expiryDate: '2029-05-22',
-    investigationType: 'nueva',
-  },
 
   // ═══════════════════════════════════════════════════════════════
   // VAJILLA Y CERÁMICA — China

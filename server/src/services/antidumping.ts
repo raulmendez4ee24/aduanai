@@ -79,30 +79,13 @@ export async function checkAntidumpingDuty(input: AntidumpingCheckInput): Promis
     ],
   };
 
-  // 1) Exact match
-  let duties = await prisma.antidumpingDuty.findMany({
+  // SOLO match EXACTO de fracción + país. Nunca por prefijo: heredar la cuota
+  // de una fracción hermana mostraría una medida que no aplica = inventar cuota.
+  const duties = await prisma.antidumpingDuty.findMany({
     where: { ...baseWhere, fractionCode: cleanFraction },
     orderBy: { publishDateDOF: 'desc' },
   });
-  let matchType: 'exact' | 'subheading' | 'heading' = 'exact';
-
-  // 2) Fallback subpartida (6 dígitos) si no hay exact
-  if (duties.length === 0 && cleanFraction.length >= 6) {
-    duties = await prisma.antidumpingDuty.findMany({
-      where: { ...baseWhere, fractionCode: { startsWith: cleanFraction.slice(0, 6) } },
-      orderBy: { publishDateDOF: 'desc' },
-    });
-    if (duties.length > 0) matchType = 'subheading';
-  }
-
-  // 3) Fallback partida (4 dígitos) si tampoco
-  if (duties.length === 0 && cleanFraction.length >= 4) {
-    duties = await prisma.antidumpingDuty.findMany({
-      where: { ...baseWhere, fractionCode: { startsWith: cleanFraction.slice(0, 4) } },
-      orderBy: { publishDateDOF: 'desc' },
-    });
-    if (duties.length > 0) matchType = 'heading';
-  }
+  const matchType: 'exact' | 'subheading' | 'heading' = 'exact';
 
   return duties.map(d => {
     let calculatedAmountUSD: number | null = null;
