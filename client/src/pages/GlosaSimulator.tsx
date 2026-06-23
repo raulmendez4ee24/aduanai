@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import { Target, ChevronRight, ChevronLeft, AlertTriangle, FileText, ShieldCheck, Download, Save, RotateCcw, Clock } from 'lucide-react'
 import { api } from '../lib/api'
@@ -73,19 +73,22 @@ export function GlosaSimulatorPage() {
   const [history, setHistory] = useState<GlosaSimulationListItem[]>([])
   const [showHistory, setShowHistory] = useState(false)
 
-  // Pre-fill desde query params (cuando vengo del clasificador / cotizador / pre-validador)
+  // Pre-fill desde query params (cuando vengo del clasificador / cotizador / pre-validador).
+  // Se aplica UNA sola vez y solo con valores NO vacíos, para que nunca pise/borre lo
+  // que el usuario teclee después (un ?fraction= vacío no debe vaciar el campo).
+  const prefilled = useRef(false)
   useEffect(() => {
+    if (prefilled.current) return
     const fc = params.get('fraction')
     const co = params.get('origin')
     const v = params.get('valueUSD')
     if (fc || co || v) {
+      prefilled.current = true
       setInput(prev => ({
         ...prev,
-        fractionCode: fc ?? prev.fractionCode,
-        countryOrigin: co ?? prev.countryOrigin,
-        countryProvider: co ?? prev.countryProvider,
-        unitValueUSD: v ? parseFloat(v) : prev.unitValueUSD,
-        totalValueUSD: v ? parseFloat(v) : prev.totalValueUSD,
+        ...(fc ? { fractionCode: fc } : {}),
+        ...(co ? { countryOrigin: co, countryProvider: co } : {}),
+        ...(v ? { unitValueUSD: parseFloat(v), totalValueUSD: parseFloat(v) } : {}),
       }))
     }
   }, [params])
@@ -122,12 +125,24 @@ export function GlosaSimulatorPage() {
     setErr('')
   }
 
-  const canAdvance = useMemo(() => {
-    if (step === 1) return !!input.customsCode && !!input.regimenCode
-    if (step === 2) return input.fractionCode.length >= 8 && input.unitValueUSD > 0 && input.weightKg > 0
-    if (step === 3) return true
-    return true
-  }, [step, input])
+  const fractionDigits = input.fractionCode.replace(/\D/g, '').length
+
+  // Campos requeridos faltantes en el paso actual (para mostrar al usuario qué
+  // completar en vez de dejar el botón "Siguiente" deshabilitado en silencio).
+  const missing = useMemo(() => {
+    const m: string[] = []
+    if (step === 1) {
+      if (!input.customsCode) m.push('aduana')
+      if (!input.regimenCode) m.push('régimen')
+    } else if (step === 2) {
+      if (fractionDigits < 8) m.push('fracción arancelaria (8 dígitos)')
+      if (!(input.unitValueUSD > 0)) m.push('valor unitario USD')
+      if (!(input.weightKg > 0)) m.push('peso bruto (kg)')
+    }
+    return m
+  }, [step, input, fractionDigits])
+
+  const canAdvance = missing.length === 0
 
   return (
     <div className="max-w-5xl mx-auto space-y-4">
@@ -254,6 +269,12 @@ export function GlosaSimulatorPage() {
 
       {/* Nav */}
       {step < 4 && (
+        <div className="space-y-2">
+        {missing.length > 0 && (
+          <p className="text-[11px] text-amber-700">
+            Para continuar, completa: {missing.join(', ')}.
+          </p>
+        )}
         <div className="flex justify-between">
           <button onClick={() => setStep(prev => Math.max(1, prev - 1))} disabled={step === 1} className="text-[12px] text-slate-600 hover:text-slate-900 disabled:opacity-30 flex items-center gap-1">
             <ChevronLeft className="w-3 h-3"/> Anterior
@@ -267,6 +288,7 @@ export function GlosaSimulatorPage() {
               {running ? 'Simulando…' : 'Simular glosa'} <Target className="w-3 h-3"/>
             </button>
           )}
+        </div>
         </div>
       )}
     </div>
