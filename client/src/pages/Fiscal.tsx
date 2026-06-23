@@ -113,7 +113,7 @@ export function FiscalPage() {
                 <div className="grid md:grid-cols-3 gap-3">
                   <div className="bg-white/40 rounded-xl p-4 text-center"><p className="text-[10px] text-slate-500">Total Otorgado</p><p className="text-[20px] font-bold text-slate-900">${dash.totalGranted.toLocaleString()}</p></div>
                   <div className="bg-white/40 rounded-xl p-4 text-center"><p className="text-[10px] text-slate-500">Total Pendiente</p><p className="text-[20px] font-bold text-slate-900">${dash.totalPending.toLocaleString()}</p></div>
-                  <div className="bg-white/40 rounded-xl p-4 text-center"><p className="text-[10px] text-slate-500">Certificación</p><p className={`text-[16px] font-bold ${dash.certificationStatus === 'active' ? 'text-emerald-600' : 'text-amber-600'}`}>{dash.certificationStatus} {dash.certificationModality && `(${dash.certificationModality})`}</p></div>
+                  <div className="bg-white/40 rounded-xl p-4 text-center"><p className="text-[10px] text-slate-500">Certificación</p><p className={`text-[16px] font-bold ${dash.certificationStatus?.toUpperCase() === 'ACTIVE' ? 'text-emerald-600' : 'text-amber-600'}`}>{dash.certificationStatus} {dash.certificationModality && `(${dash.certificationModality})`}</p></div>
                 </div>
               </div>
             )}

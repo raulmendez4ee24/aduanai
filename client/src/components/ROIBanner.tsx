@@ -74,9 +74,11 @@ export function ROITile({ moduleKey, days = 30 }: { moduleKey: keyof ROISummary[
     api.roiSummary(days).then(r => setData(r.data)).catch(() => {})
   }, [days])
 
-  if (!data) return null
+  if (!data?.byModule) return null
   const m = data.byModule[moduleKey]
-  if (m.count === 0 && m.savingsMXN === 0) return null
+  // Guard: si la respuesta no trae este módulo, no renderizar (antes esto
+  // crasheaba ROITile → blanqueaba todo el dashboard de Inventario/Fiscal).
+  if (!m || (m.count === 0 && m.savingsMXN === 0)) return null
 
   return (
     <div className="rounded-xl bg-emerald-50/60 border border-emerald-100 px-4 py-3 flex items-start gap-3">
