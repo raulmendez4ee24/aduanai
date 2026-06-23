@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
-import { Routes, Route, Navigate } from 'react-router-dom'
+import { Routes, Route, Navigate, useLocation } from 'react-router-dom'
+import { ErrorBoundary } from './components/ErrorBoundary'
 import { AppLayout } from './components/AppLayout'
 import { AboutPage } from './pages/Public/About'
 import { TermsPage } from './pages/Public/Terms'
@@ -108,6 +109,7 @@ function RedirectIfAuthed({ token, user, children }: { token: string | null; use
 }
 
 export function App() {
+  const location = useLocation()
   const [token, setToken] = useState<string | null>(localStorage.getItem('aduanai_token'))
   const [user, setUser] = useState<User | null>(null)
   const [authLoading, setAuthLoading] = useState(!!localStorage.getItem('aduanai_token'))
@@ -157,6 +159,7 @@ export function App() {
   return (
     <>
       {showOnboarding && <OnboardingWizard user={user!} onComplete={() => setUser(prev => prev ? { ...prev, onboardingCompleted: true } : prev)} />}
+    <ErrorBoundary resetKey={location.pathname}>
     <Routes>
       {/* Public */}
       <Route path="/" element={<AboutPage />} />
@@ -483,6 +486,7 @@ export function App() {
 
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>
+    </ErrorBoundary>
     </>
   )
 }

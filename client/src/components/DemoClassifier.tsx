@@ -273,7 +273,7 @@ export function DemoClassifier() {
             </div>
 
             {/* Explanation */}
-            <p className="text-[13px] text-gray-500 leading-relaxed">{result.explanation.simple}</p>
+            <p className="text-[13px] text-gray-500 leading-relaxed">{result.explanation?.simple ?? 'Sin explicación disponible.'}</p>
 
             {/* CTA */}
             <div className="pt-2 border-t border-gray-200">

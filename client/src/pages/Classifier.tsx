@@ -455,7 +455,7 @@ export function ClassifierPage() {
           {/* Explanation */}
           <div>
             <p className="text-[12px] font-semibold text-slate-700 mb-2">Explicación</p>
-            <p className="text-[13px] text-slate-600 leading-relaxed">{result.explanation.simple}</p>
+            <p className="text-[13px] text-slate-600 leading-relaxed">{result.explanation?.simple ?? 'Sin explicación disponible para esta clasificación.'}</p>
           </div>
 
           {/* Fundamentación Legal */}

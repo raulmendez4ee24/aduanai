@@ -103,8 +103,8 @@ function formatClassificationForWhatsApp(result: Awaited<ReturnType<typeof class
     msg += `📋 *NOMs:* ${result.regulations.noms.join(', ')}\n`;
   }
 
-  msg += `\n💡 ${result.explanation.simple}\n`;
-  msg += `\n⚖️ _${result.disclaimer}_`;
+  if (result.explanation?.simple) msg += `\n💡 ${result.explanation.simple}\n`;
+  if (result.disclaimer) msg += `\n⚖️ _${result.disclaimer}_`;
 
   return msg;
 }

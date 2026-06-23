@@ -680,6 +680,31 @@ Responde en JSON válido.`;
     }
   }
 
+  // Normalización defensiva: el LLM a veces OMITE campos que el resto del
+  // pipeline y la UI asumen presentes (reproducido con "Tequila 100% agave
+  // México" → result.explanation undefined → crash en la UI). Defaulteamos en
+  // la fuente para que la API nunca devuelva una forma que truene al cliente.
+  if (!result.fraction || typeof result.fraction.code !== 'string') {
+    throw new Error('El clasificador no devolvió una fracción válida. Reintenta o reformula la descripción.');
+  }
+  if (!result.explanation || typeof result.explanation.simple !== 'string') {
+    result.explanation = {
+      simple: result.explanation?.simple ?? 'Clasificación generada. Revisa la fundamentación legal y valida con tu agente aduanal.',
+      technical: result.explanation?.technical ?? '',
+    };
+  }
+  result.regulations = {
+    rrna: result.regulations?.rrna ?? [],
+    noms: result.regulations?.noms ?? [],
+    sectoralRegistry: result.regulations?.sectoralRegistry ?? false,
+  };
+  result.tariffs = {
+    nmf: result.tariffs?.nmf ?? 0,
+    preferential: result.tariffs?.preferential ?? {},
+  };
+  if (!Array.isArray(result.alternatives)) result.alternatives = [];
+  if (!Array.isArray(result.griApplied)) result.griApplied = [];
+
   // Trazabilidad: capturar modelo y conocimiento aplicado
   result._trace = {
     modelUsed: generation.model,
