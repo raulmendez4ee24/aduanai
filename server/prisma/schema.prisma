@@ -259,7 +259,8 @@ model Fraction {
   code          String   @unique // "01012101" (8 dígitos sin puntos)
   codeFormatted String // "0101.21.01" (con puntos)
   description   String
-  nico          String? // 2 dígitos NICO
+  nico          String? // 2 dígitos NICO (cuando la fracción tiene un solo NICO)
+  nicos         String[] // todos los NICOs de 10 díg. cuando la fracción se subdivide (TIGIE 2026)
   unit          String? // Unidad de medida (Kg, Pza, L, etc.)
   keywords      String[] // Para búsqueda
 

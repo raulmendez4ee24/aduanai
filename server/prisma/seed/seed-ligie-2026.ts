@@ -26,6 +26,7 @@ interface LigieFraction {
   codeFormatted: string;
   description: string;
   nico: string | null;
+  nicos?: string[];
   unit: string | null;
   tariffNMF: number | null;
   igiProhibited: boolean;
@@ -109,6 +110,7 @@ async function main() {
         codeFormatted: f.codeFormatted,
         description: f.description,
         nico: f.nico ?? undefined,
+        nicos: f.nicos ?? [],
         unit: f.unit ?? undefined,
         keywords: f.keywords,
         tariffNMF: f.tariffNMF ?? undefined,
