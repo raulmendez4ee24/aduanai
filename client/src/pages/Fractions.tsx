@@ -2,10 +2,12 @@ import { useState } from 'react'
 import { api } from '../lib/api'
 import type { FractionSearchResult } from '../lib/api'
 import { Search, Package, Eye, Bell } from 'lucide-react'
+import { useTotalFractions } from '../hooks/useTotalFractions'
 
 const GLASS = 'bg-white/70 backdrop-blur-xl border border-white/50 shadow-[0_8px_30px_rgb(0,0,0,0.04)]'
 
 export function FractionsPage() {
+  const { formatted } = useTotalFractions()
   const [query, setQuery] = useState('')
   const [results, setResults] = useState<FractionSearchResult[]>([])
   const [loading, setLoading] = useState(false)
@@ -27,7 +29,7 @@ export function FractionsPage() {
         <div className="flex items-center gap-2 mb-6">
           <Package className="w-5 h-5 text-emerald-500" />
           <h1 className="text-xl font-bold text-slate-900">Fracciones TIGIE</h1>
-          <span className="text-[11px] text-slate-500 ml-2">8,183 fracciones</span>
+          <span className="text-[11px] text-slate-500 ml-2">{formatted} fracciones</span>
         </div>
 
         <div className="flex gap-2">

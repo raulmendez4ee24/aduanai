@@ -2,6 +2,7 @@ import { ReactNode } from 'react'
 import { Link } from 'react-router-dom'
 import { Check } from 'lucide-react'
 import { motion } from 'framer-motion'
+import { useTotalFractions } from '../hooks/useTotalFractions'
 
 interface AuthLayoutProps {
   children: ReactNode
@@ -16,6 +17,7 @@ const FEATURES = [
 ]
 
 export function AuthLayout({ children, title, subtitle }: AuthLayoutProps) {
+  const { formatted } = useTotalFractions()
   return (
     <div className="min-h-screen flex" style={{ fontFamily: "'Outfit', sans-serif" }}>
       {/* Left panel — form */}
@@ -87,7 +89,7 @@ export function AuthLayout({ children, title, subtitle }: AuthLayoutProps) {
                 <div className="w-6 h-6 rounded-full bg-white/20 flex items-center justify-center shrink-0 mt-0.5">
                   <Check className="w-3.5 h-3.5 text-white" strokeWidth={3} />
                 </div>
-                <span className="text-[15px] text-white/90 leading-snug">{text}</span>
+                <span className="text-[15px] text-white/90 leading-snug">{text.replace('8,183', formatted)}</span>
               </motion.div>
             ))}
           </div>

@@ -1,6 +1,7 @@
 import { Link, useNavigate } from 'react-router-dom'
 import { useState } from 'react'
 import { api } from '../../lib/api'
+import { useTotalFractions } from '../../hooks/useTotalFractions'
 import { FadeIn, SlideIn, CountUp, Expandable, motion, staggerContainer, staggerItem } from '../../lib/animations'
 import { DemoClassifier } from '../../components/DemoClassifier'
 import {
@@ -181,6 +182,7 @@ const FAQ_ITEMS = [
 // ── Components ────────────────────────────────────────────────────────────
 
 export function AboutPage() {
+  const { total, formatted } = useTotalFractions()
   const [mobileOpen, setMobileOpen] = useState(false)
   const [showAllModules, setShowAllModules] = useState(false)
 
@@ -242,7 +244,7 @@ export function AboutPage() {
               </FadeIn>
               <FadeIn delay={0.2}>
                 <p className="mt-6 text-[17px] text-[#666] leading-relaxed max-w-xl">
-                  19 módulos de comercio exterior con IA. 8,183 fracciones arancelarias. Una sola plataforma.
+                  19 módulos de comercio exterior con IA. {formatted} fracciones arancelarias. Una sola plataforma.
                 </p>
               </FadeIn>
               <FadeIn delay={0.3}>
@@ -269,7 +271,7 @@ export function AboutPage() {
             >
               {[
                 { n: 19, l: 'Módulos', s: '' },
-                { n: 8183, l: 'Fracciones TIGIE', s: '' },
+                { n: total, l: 'Fracciones TIGIE', s: '' },
                 { n: 95, l: 'Precisión a nivel capítulo', s: '%' },
                 { n: 15, l: 'Tiempo de respuesta', s: 's', p: '<' },
               ].map((s, i) => (
@@ -370,7 +372,7 @@ export function AboutPage() {
                       <s.icon className="w-5 h-5 text-white" />
                     </div>
                     <h3 className="text-[17px] font-bold text-[#1a1a1a] mb-2">{s.title}</h3>
-                    <p className="text-[13px] text-[#666] leading-relaxed">{s.body}</p>
+                    <p className="text-[13px] text-[#666] leading-relaxed">{s.body.replace('8,183', formatted)}</p>
                   </div>
                   {i < STEPS.length - 1 && (
                     <ArrowRight className="hidden md:block absolute top-1/2 -right-5 -translate-y-1/2 w-4 h-4 text-[#ccc] z-10" />
@@ -401,7 +403,7 @@ export function AboutPage() {
               <div className="flex flex-col gap-3">
                 {[
                   { i: Zap, t: 'Resultados en 15 segundos' },
-                  { i: ShieldCheck, t: '95%+ de precisión sobre 8,183 fracciones' },
+                  { i: ShieldCheck, t: `95%+ de precisión sobre ${formatted} fracciones` },
                   { i: Lock, t: 'Sin guardar tu información ni spam posterior' },
                 ].map(({ i: Icon, t }, idx) => (
                   <div key={idx} className="flex items-center gap-3">
@@ -540,7 +542,7 @@ export function AboutPage() {
               {TRUST_PILLS.map((pill, i) => (
                 <span key={i} className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-[#f8f8f6] border border-[#eaeae4] text-[12px] font-medium text-[#333]">
                   <Check className="w-3.5 h-3.5 text-emerald-600" />
-                  {pill}
+                  {pill.replace('8,183', formatted)}
                 </span>
               ))}
             </div>
