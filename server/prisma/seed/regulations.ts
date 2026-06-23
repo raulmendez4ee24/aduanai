@@ -129,14 +129,19 @@ export const FRACTION_REGULATIONS: RegulationSeed[] = [
   // ── SEMARNAT ──
   { fractionCode: '2710', matchType: 'prefix', type: 'RRNA', authority: 'SEMARNAT', code: 'Autorización SEMARNAT', description: 'Autorización para importación de combustibles y residuos peligrosos' },
 
-  // ── Padrones sectoriales (Anexo 10 RGCE) ──
-  { fractionCode: '72', matchType: 'prefix', type: 'padron_sectorial', authority: 'SAT', code: 'Sector 11 — Hierro y acero', description: 'Inscripción en el Padrón de Importadores de Sectores Específicos — Sector 11 (hierro y acero)' },
-  { fractionCode: '73', matchType: 'prefix', type: 'padron_sectorial', authority: 'SAT', code: 'Sector 11 — Hierro y acero', description: 'Inscripción en el Padrón de Importadores de Sectores Específicos — Sector 11 (hierro y acero)' },
-  { fractionCode: '64', matchType: 'prefix', type: 'padron_sectorial', authority: 'SAT', code: 'Sector 6 — Calzado', description: 'Inscripción en el Padrón de Importadores de Sectores Específicos — Sector 6 (calzado)' },
-  { fractionCode: '24', matchType: 'prefix', type: 'padron_sectorial', authority: 'SAT', code: 'Sector 4 — Tabaco labrado', description: 'Inscripción en el Padrón de Importadores de Sectores Específicos — Sector 4 (tabaco)' },
-  { fractionCode: '2207', matchType: 'prefix', type: 'padron_sectorial', authority: 'SAT', code: 'Sector 1 — Alcoholes', description: 'Padrón de Importadores de Sectores Específicos — Sector 1 (alcohol etílico)' },
-  { fractionCode: '2208', matchType: 'prefix', type: 'padron_sectorial', authority: 'SAT', code: 'Sector 1 — Alcoholes y bebidas alcohólicas', description: 'Padrón de Importadores de Sectores Específicos — Sector 1' },
-  { fractionCode: '39', matchType: 'prefix', type: 'padron_sectorial', authority: 'SAT', code: 'Sector 13 — Plástico', description: 'Padrón de Importadores de Sectores Específicos — Sector 13 (plástico)' },
+  // ── Padrones sectoriales (Anexo 10 RGCE, Apartado A) ──
+  // Numeración OFICIAL verificada contra el Anexo 10 de las RGCE, DOF 19-ene-2024.
+  // NOTA: el match es por prefijo de CAPÍTULO (aproximación). El split exacto
+  // entre Sector 14 (Siderúrgico) y 15 (Productos siderúrgicos) requiere las listas
+  // de fracciones del Acuerdo respectivo — ver DEFERRED_WORK (precisión 72/73).
+  { fractionCode: '72', matchType: 'prefix', type: 'padron_sectorial', authority: 'SAT', code: 'Sector 14 — Siderúrgico', description: 'Inscripción en el Padrón de Importadores de Sectores Específicos — Sector 14 (siderúrgico). Aproximación por capítulo 72.' },
+  { fractionCode: '73', matchType: 'prefix', type: 'padron_sectorial', authority: 'SAT', code: 'Sector 15 — Productos siderúrgicos', description: 'Inscripción en el Padrón de Importadores de Sectores Específicos — Sector 15 (productos siderúrgicos). Aproximación por capítulo 73.' },
+  { fractionCode: '64', matchType: 'prefix', type: 'padron_sectorial', authority: 'SAT', code: 'Sector 10 — Calzado', description: 'Inscripción en el Padrón de Importadores de Sectores Específicos — Sector 10 (calzado).' },
+  { fractionCode: '24', matchType: 'prefix', type: 'padron_sectorial', authority: 'SAT', code: 'Sector 9 — Cigarros', description: 'Inscripción en el Padrón de Importadores de Sectores Específicos — Sector 9 (cigarros).' },
+  { fractionCode: '2207', matchType: 'prefix', type: 'padron_sectorial', authority: 'SAT', code: 'Sector 12 — Alcohol etílico', description: 'Inscripción en el Padrón de Importadores de Sectores Específicos — Sector 12 (alcohol etílico).' },
+  // ELIMINADO: cap 39 (plástico) — no es sector de importador del Anexo 10 (es sector de exportador).
+  // ELIMINADO: partida 2208 (licores) — Sector 12 es "alcohol etílico", no licores terminados;
+  //            sector correcto a verificar contra Anexo 10 (ver DEFERRED_WORK).
 ];
 
 // ──────────────────────────────────────────────────────────────────────────

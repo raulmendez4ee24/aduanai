@@ -145,6 +145,46 @@ en una fecha concreta — solo lo que está activo *hoy*.
 
 ---
 
+## 6) [ALTA PRIORIDAD] Cobertura completa de los 16 sectores del Anexo 10 por fracción
+
+Hoy solo hay reglas `padron_sectorial` para 5 grupos de mercancía (siderúrgico
+72/73, calzado 64, cigarros 24, alcohol etílico 2207) por **prefijo de capítulo**.
+Faltan TODOS los demás sectores del Anexo 10 (textil 11, químicos 1, automotriz 16,
+armas 4-8, etc.) y la granularidad es por capítulo, no por fracción.
+
+**Impacto:** un IMMEX textil / químico / automotriz NO ve su padrón sectorial en
+el sistema → riesgo de declarar sin inscripción y que le rebote el pedimento.
+
+**Fix:** cargar la cobertura completa de los 16 sectores con las **listas oficiales
+de fracciones** del Anexo 10 / Acuerdos respectivos (no por capítulo, por fracción).
+
+## 7) Precisión del split Sector 14 (Siderúrgico) vs 15 (Productos siderúrgicos)
+
+El remapeo del 2026-06-23 aproximó cap. 72 → Sector 14 y cap. 73 → Sector 15. El
+Anexo 10 separa estos dos sectores por **fracciones específicas**, no por capítulo
+completo.
+
+**Fix:** obtener las listas de fracciones del Acuerdo que define 14 y 15 y reasignar
+con precisión (algunas de 73 pueden ser 14 y viceversa).
+
+## 8) Sector correcto para licores terminados (partida 2208)
+
+En el remapeo del 2026-06-23 se QUITÓ la regla de 2208 (aguardientes/licores) del
+Sector 12 "Alcohol etílico" porque alcohol etílico ≠ licores terminados. Falta
+verificar contra el Anexo 10 a qué sector (si alguno) pertenecen los licores de 2208
+y volver a cargarlo. No quedó ningún sector asignado a 2208 por ahora.
+
+## 9) PROSEC ≠ Padrón Sectorial Anexo 10 — revisar el flag `sectoralRegistry`
+
+880 fracciones tienen `Fraction.sectoralRegistry=true`, derivado de columnas **PROSEC**
+de la BASEUNICA-LIGIE (programa de promoción sectorial), NO del Padrón Sectorial del
+Anexo 10. Son dos cosas distintas y hoy están conflacionadas.
+
+**Fix:** separar PROSEC de Padrón Sectorial; decidir si `sectoralRegistry` debe reflejar
+Anexo 10 (y entonces recalcularlo) o PROSEC (y renombrar el campo para no confundir).
+
+---
+
 ## Notas de proceso
 
 - Eval de retrieval y snapshot de `reseed-upci` se acordaron diferir
