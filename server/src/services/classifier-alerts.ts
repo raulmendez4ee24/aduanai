@@ -12,6 +12,7 @@
 import crypto from 'crypto';
 import { lookupCompliance } from './compliance-lookup';
 import { lookupEstimatedPrice } from './price-validator';
+import { isDomesticOrigin, DOMESTIC_ORIGIN_NOTE } from '../lib/origin';
 
 // Versiones publicadas — se actualiza con el monitor DOF/SAT.
 export const TIGIE_VERSION = '2026-01-01';
@@ -20,7 +21,7 @@ export const LIGIE_VERSION = 'post-reforma-29dic2025';
 export type ClassifierAlertSeverity = 'critical' | 'warning' | 'info';
 
 export interface ClassifierAlert {
-  type: 'antidumping' | 'undervalue' | 'nom_required' | 'sectoral_padron' | 'automotive' | 'permit_required';
+  type: 'antidumping' | 'undervalue' | 'nom_required' | 'sectoral_padron' | 'automotive' | 'permit_required' | 'domestic_origin';
   severity: ClassifierAlertSeverity;
   title: string;
   message: string;
@@ -58,6 +59,18 @@ interface BuildAlertsInput {
 export async function buildClassifierAlerts(input: BuildAlertsInput): Promise<ClassifierAlert[]> {
   const alerts: ClassifierAlert[] = [];
   const cleanFraction = input.fractionCode.replace(/[^0-9]/g, '');
+  const domestic = isDomesticOrigin(input.countryOfOrigin);
+
+  // Origen nacional: una sola nota informativa; los requisitos de importación
+  // (cuota compensatoria, padrón, permisos de importación, subvaluación) no aplican.
+  if (domestic) {
+    alerts.push({
+      type: 'domestic_origin',
+      severity: 'info',
+      title: 'Mercancía de origen nacional (México)',
+      message: DOMESTIC_ORIGIN_NOTE,
+    });
+  }
 
   // 1) Alertas de compliance.
   //    - Padrón sectorial, NOMs, RRNA: aplican por fracción (independiente del país)
@@ -171,8 +184,9 @@ export async function buildClassifierAlerts(input: BuildAlertsInput): Promise<Cl
     }
   }
 
-  // 2) Alerta de subvaloración contra precio estimado SAT (Art. 84-A LA)
-  if (input.declaredValueUSD != null && input.declaredValueUSD > 0 && cleanFraction.length === 8) {
+  // 2) Alerta de subvaloración contra precio estimado SAT (Art. 84-A LA).
+  //    Es un control de valoración en aduana (importación): no aplica a origen nacional.
+  if (!domestic && input.declaredValueUSD != null && input.declaredValueUSD > 0 && cleanFraction.length === 8) {
     const estimated = await lookupEstimatedPrice(cleanFraction, input.countryOfOrigin);
     if (estimated) {
       const ratio = input.declaredValueUSD / estimated.estimatedValue;

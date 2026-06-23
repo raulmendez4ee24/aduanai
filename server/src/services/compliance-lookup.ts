@@ -7,6 +7,7 @@
  */
 
 import { prisma } from '../lib/prisma';
+import { isDomesticOrigin, DOMESTIC_ORIGIN_NOTE } from '../lib/origin';
 
 // ──────────────────────────────────────────────────────────────────────────
 // Normalización de país a ISO-2
@@ -91,6 +92,8 @@ export interface ComplianceLookupResult {
   antidumping: AntidumpingMatch | null;
   regulations: RegulationMatch[];
   alertas: string[];
+  /** true si el origen declarado es México → no aplican requisitos de importación. */
+  domesticOrigin: boolean;
 }
 
 /**
@@ -136,13 +139,17 @@ async function lookupComplianceInternal(
 ): Promise<ComplianceLookupResult> {
   const cleanFraction = fractionCode.replace(/[^0-9]/g, '');
   const countryNorm = normalizeCountry(country);
+  // Origen nacional (México): no se importa → no aplican cuota compensatoria,
+  // padrón de importadores, permisos de importación ni certificado de origen.
+  const domestic = isDomesticOrigin(country) || isDomesticOrigin(countryNorm);
 
   // 1) Cuota compensatoria — SOLO match EXACTO de fracción + país.
   // NUNCA por prefijo (subpartida/partida): atribuir la cuota de una fracción
   // hermana sería mostrar una medida que no aplica a esta fracción = inventar
   // una cuota. Si no existe fila exacta → no hay cuota. Cero. Sin estimar.
+  // Una cuota antidumping JAMÁS aplica a mercancía mexicana (grava importaciones).
   let ad: Awaited<ReturnType<typeof prisma.antidumpingDuty.findFirst>> | null = null;
-  if (countryNorm) {
+  if (countryNorm && !domestic) {
     ad = await prisma.antidumpingDuty.findFirst({
       where: { fractionCode: cleanFraction, countryOfOrigin: countryNorm, active: true },
     });
@@ -184,8 +191,16 @@ async function lookupComplianceInternal(
     });
   }
 
+  // Origen nacional: descarta regulaciones que SOLO aplican a importación
+  // (padrón de importadores, RRNA / permisos previos de importación). Las NOM se
+  // conservan porque también aplican al producto en comercio nacional (etiquetado).
+  const effectiveRegs = domestic ? regulations.filter(r => r.type === 'NOM') : regulations;
+
   // 3) Alertas accionables
   const alertas: string[] = [];
+  if (domestic) {
+    alertas.push(DOMESTIC_ORIGIN_NOTE);
+  }
   if (ad) {
     const dateStr = ad.publishDate ? ad.publishDate.toISOString().slice(0, 10) : 'fecha s/d';
     const rateLabel = ad.rateType === 'specific_USD_kg' ? `$${ad.rate} USD/kg`
@@ -194,15 +209,15 @@ async function lookupComplianceInternal(
     const resLabel = ad.resolutionNumber ?? ad.decree ?? 's/n';
     alertas.push(`Cuota compensatoria ${rateLabel} aplicable a ${ad.countryOfOrigin} — ${resLabel} (${dateStr})`);
   }
-  const padron = regulations.find(r => r.type === 'padron_sectorial');
+  const padron = effectiveRegs.find(r => r.type === 'padron_sectorial');
   if (padron) {
     alertas.push(`Esta fracción requiere inscripción al ${padron.code}`);
   }
-  const noms = regulations.filter(r => r.type === 'NOM');
+  const noms = effectiveRegs.filter(r => r.type === 'NOM');
   if (noms.length > 0) {
     alertas.push(`${noms.length} NOM(s) aplicable(s) — verifica etiquetado/prueba de cumplimiento antes del despacho`);
   }
-  const rrna = regulations.filter(r => r.type === 'RRNA');
+  const rrna = effectiveRegs.filter(r => r.type === 'RRNA');
   if (rrna.length > 0) {
     alertas.push(`Requiere ${rrna.length} regulación(es) no arancelaria(s) (avisos / autorizaciones)`);
   }
@@ -210,6 +225,7 @@ async function lookupComplianceInternal(
   return {
     fractionCode: cleanFraction,
     country: countryNorm,
+    domesticOrigin: domestic,
     antidumping: ad
       ? {
           rate: ad.rate,
@@ -232,7 +248,7 @@ async function lookupComplianceInternal(
           matchedFraction: ad.fractionCode,
         }
       : null,
-    regulations,
+    regulations: effectiveRegs,
     alertas,
   };
 }

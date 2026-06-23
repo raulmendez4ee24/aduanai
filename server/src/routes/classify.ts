@@ -6,6 +6,7 @@ import { getUserPermissions, hasPermission } from '../services/permissions';
 import { classifyProduct, type IndustrialSector, type ImporterType } from '../services/classifier';
 import { buildClassifierAlerts, computeConsultHash, TIGIE_VERSION, LIGIE_VERSION } from '../services/classifier-alerts';
 import { recordConsult, verifyConsult } from '../services/traceability';
+import { isDomesticOrigin, DOMESTIC_ORIGIN_NOTE } from '../lib/origin';
 import { prisma } from '../lib/prisma';
 
 export const classifyRouter = Router();
@@ -114,6 +115,17 @@ classifyRouter.post('/', authenticate, requirePermission('classifier', 'create')
 
     const result = await classifyProduct(description, context, { useCase, sector, importerType });
 
+    // Origen nacional (México): la clasificación del LLM lista requisitos de forma
+    // genérica (sin saber el origen). Si la mercancía es mexicana NO se importa, así
+    // que removemos lo que solo aplica a importación: permisos de importación (rrna),
+    // padrón de importadores (sectoralRegistry) y preferencias arancelarias de tratados.
+    // Las NOM se conservan (aplican también al producto en comercio nacional).
+    const domestic = isDomesticOrigin(countryOfOrigin);
+    if (domestic) {
+      result.regulations = { ...result.regulations, rrna: [], sectoralRegistry: false };
+      result.tariffs = { ...result.tariffs, preferential: {} };
+    }
+
     // Alertas defensivas (cuotas comp + NOMs + padrón + automotive + subvaloración)
     const alerts = await buildClassifierAlerts({
       fractionCode: result.fraction.code,
@@ -187,9 +199,10 @@ classifyRouter.post('/', authenticate, requirePermission('classifier', 'create')
       data: { classificationId: record.id },
     });
 
-    // Verificación de Padrones SAT — bloquea operación si no está inscrito
+    // Verificación de Padrones SAT — bloquea operación si no está inscrito.
+    // No aplica a mercancía de origen nacional (no hay importación que inscribir).
     const { checkRequiredPadrones } = await import('../services/padron-checker');
-    const padronCheck = await checkRequiredPadrones(req.tenantId!, result.fraction.code, 'classify', record.id);
+    const padronCheck = domestic ? null : await checkRequiredPadrones(req.tenantId!, result.fraction.code, 'classify', record.id);
 
     res.json({
       status: 'ok',
@@ -198,6 +211,8 @@ classifyRouter.post('/', authenticate, requirePermission('classifier', 'create')
         _trace: undefined,
         alerts,
         padronCheck,
+        domesticOrigin: domestic,
+        domesticNote: domestic ? DOMESTIC_ORIGIN_NOTE : undefined,
         meta: {
           tigieVersion: trace.versions.tigie,
           ligieVersion: trace.versions.ligie,
