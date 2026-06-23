@@ -40,8 +40,8 @@ interface RegulationSeed {
 
 export const ANTIDUMPING_DUTIES: AntidumpingSeed[] = [
   // Acero / metalurgia (caps 72-73)
-  { fractionCode: '73181501', countryOfOrigin: 'CN', rate: 25.50, decree: 'DOF-2024-03-15', publishDate: '2024-03-15', effectiveDate: '2024-03-16', notes: 'Tornillos de acero al carbono originarios de China' },
-  { fractionCode: '73181505', countryOfOrigin: 'CN', rate: 25.50, decree: 'DOF-2024-03-15', notes: 'Tornillos de acero — extensión de cuota compensatoria' },
+  { fractionCode: '73181599', countryOfOrigin: 'CN', rate: 25.50, decree: 'DOF-2024-03-15', publishDate: '2024-03-15', effectiveDate: '2024-03-16', notes: 'Tornillos de acero al carbono originarios de China' },
+  { fractionCode: '73181599', countryOfOrigin: 'CN', rate: 25.50, decree: 'DOF-2024-03-15', notes: 'Tornillos de acero — extensión de cuota compensatoria' },
   { fractionCode: '72082701', countryOfOrigin: 'CN', rate: 26.69, decree: 'DOF-2023-09-22', notes: 'Lámina rolada en caliente' },
   { fractionCode: '72091601', countryOfOrigin: 'CN', rate: 65.99, decree: 'DOF-2023-09-22', notes: 'Lámina rolada en frío' },
   { fractionCode: '72104101', countryOfOrigin: 'CN', rate: 50.84, decree: 'DOF-2023-11-08', notes: 'Lámina galvanizada' },

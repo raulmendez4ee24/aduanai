@@ -172,7 +172,7 @@ export const LEGAL_DOCUMENTS: LegalDocSeed[] = [
     content: 'Para efectos de la Sección XV (Metales comunes y manufacturas), se consideran "partes y accesorios de uso general": tornillos, pernos, tuercas, arandelas, resortes, eslabones de cadena, alambres comunes, ganchos, etc. Estas partes NO se reclasifican a otros capítulos aunque sean utilizables en mercancías de cap 84-92, salvo cuando sean identificables como destinadas exclusivamente a una mercancía específica.',
     officialUrl: `${DOF}/nota_detalle.php?codigo=LIGIE_2026`, effectiveDate: '2026-01-01',
     topics: ['clasificacion', 'reclasificacion'], keywords: ['partes uso general', 'tornillos', 'Sección XV', 'reclasificación'],
-    fractionRefs: ['73181505', '73181606'],
+    fractionRefs: ['73181599', '73181606'],
   },
   {
     type: 'ley', source: 'LIGIE', title: 'LIGIE — Nota 2 Sección XVII (partes vehículos)',

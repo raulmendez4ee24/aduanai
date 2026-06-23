@@ -38,7 +38,7 @@ export const LEGAL_PRECEDENTS: PrecedentSeed[] = [
     type: 'TFJA',
     reference: 'Tesis V-P-2aS-XX/2023',
     title: 'Tornillería automotriz — reclasificación 73.18 → 87.08 procedente cuando hay especificación OEM',
-    fractionCodes: ['73181505', '73181501', '87089999'],
+    fractionCodes: ['73181599', '87089999'],
     chapterCodes: ['73', '87'],
     topic: 'reclasificación',
     summary:
@@ -212,11 +212,11 @@ export const LEGAL_PRECEDENTS: PrecedentSeed[] = [
     type: 'RESOLUCION_UPCI',
     reference: 'Resolución UPCI 21/2023',
     title: 'Cuota compensatoria 25% tornillería china — fracción 7318.15',
-    fractionCodes: ['73181501', '73181505'],
+    fractionCodes: ['73181599'],
     chapterCodes: ['73'],
     topic: 'antidumping',
     summary:
-      'Resolución de la UPCI que impuso cuota compensatoria definitiva del 25% a tornillería de acero al carbono originaria de China (fracciones 7318.15.01 y 7318.15.05).',
+      'Resolución de la UPCI que impuso cuota compensatoria definitiva del 25% a tornillería de acero al carbono originaria de China (fracciones históricas 7318.15.01 y 7318.15.05, reestructuradas en la TIGIE 2026 a 7318.15.99 «los demás» y 7318.15.04).',
     ruling:
       'La cuota se aplica sobre el valor en aduana (CIF). Es definitiva y vigente. El importador debe acreditar origen NO chino con certificado de origen no preferencial para evitarla.',
     reasoning:

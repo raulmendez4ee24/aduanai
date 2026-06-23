@@ -51,11 +51,11 @@ export const DEMO_PROFILES: DemoProfileSeed[] = [
     certifications: ['IVA-IEPS-AA'],
     fractionsRange: {
       chapters: [73, 84, 85, 87, 39, 40],
-      typical: ['85366901', '85443099', '73181505', '87089999', '90328905', '39269099'],
+      typical: ['85366901', '85443099', '73181599', '87089999', '90328905', '39269099'],
     },
     countriesOfOrigin: ['CN', 'US', 'DE', 'JP', 'KR'],
     productCatalog: [
-      { sku: 'AUTO-001', description: 'Tornillo hexagonal M8x25 acero al carbono galvanizado para ensamble vehicular', fraction: '73181505' },
+      { sku: 'AUTO-001', description: 'Tornillo hexagonal M8x25 acero al carbono galvanizado para ensamble vehicular', fraction: '73181599' },
       { sku: 'AUTO-002', description: 'Arnés eléctrico de 45 circuitos con conectores Molex para tablero automotriz', fraction: '85443099' },
       { sku: 'AUTO-003', description: 'Sensor de presión de aceite con conector estándar para motor de combustión', fraction: '90328905' },
       { sku: 'AUTO-004', description: 'Conector eléctrico hembra 4 vías para arnés automotriz', fraction: '85366901' },

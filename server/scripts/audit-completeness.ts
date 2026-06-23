@@ -43,7 +43,7 @@ async function main() {
   console.log(`⚠️  Capítulos con <5: ${low.length ? low.join(', ') : 'ninguno'}`);
 
   console.log('\n=== SPOT-CHECK (datos completos) ===');
-  const codes = ['87032301', '73181505', '61091001'];
+  const codes = ['87032301', '73181599', '61091001'];
   for (const code of codes) {
     const f = await prisma.fraction.findUnique({ where: { code } });
     if (!f) { console.log(`\n${code}: ❌ NO ENCONTRADA`); continue; }

@@ -37,7 +37,7 @@ export const DEMO_FRACTIONS: FractionMeta[] = [
   { code: '87082101', description: 'Cinturones de seguridad para vehículos', unit: 'Pza', avgUnitValueUSD: 14.2 },
   { code: '87082999', description: 'Partes y accesorios de carrocería para vehículos', unit: 'Pza', avgUnitValueUSD: 22.7 },
   { code: '87089999', description: 'Las demás partes y accesorios para vehículos automóviles', unit: 'Pza', avgUnitValueUSD: 18.5 },
-  { code: '73181505', description: 'Tornillos de acero al carbono, M5–M12', unit: 'Kg', avgUnitValueUSD: 4.6 },
+  { code: '73181599', description: 'Tornillos de acero al carbono, M5–M12', unit: 'Kg', avgUnitValueUSD: 4.6 },
   { code: '73181606', description: 'Tuercas hexagonales de acero', unit: 'Kg', avgUnitValueUSD: 5.1 },
   { code: '85011099', description: 'Motores eléctricos de potencia inferior a 37.5 W', unit: 'Pza', avgUnitValueUSD: 6.4 },
   { code: '90328905', description: 'Sensores de control automático para uso automotriz', unit: 'Pza', avgUnitValueUSD: 9.8 },
@@ -841,7 +841,7 @@ function buildProductsAndBOM(): {
   const materias: ProductFixture[] = [
     { productCode: 'MP-ARNES-12C',  description: 'Arnés 12 circuitos automotriz',                  fractionCode: '85443099', unit: 'Pza', isFinished: false },
     { productCode: 'MP-CONECT-MOLEX', description: 'Conector Molex hembra 12 pines',               fractionCode: '85366901', unit: 'Pza', isFinished: false },
-    { productCode: 'MP-TORN-M5',    description: 'Tornillo hexagonal M5 acero al carbono',         fractionCode: '73181505', unit: 'Pza', isFinished: false },
+    { productCode: 'MP-TORN-M5',    description: 'Tornillo hexagonal M5 acero al carbono',         fractionCode: '73181599', unit: 'Pza', isFinished: false },
     { productCode: 'MP-PLAST-ABS',  description: 'Pieza plástica ABS pintada',                     fractionCode: '39269099', unit: 'Pza', isFinished: false },
     { productCode: 'MP-MOTOR-30W',  description: 'Motor DC 12V 30W',                               fractionCode: '85011099', unit: 'Pza', isFinished: false },
     { productCode: 'MP-SENSOR-NTC', description: 'Sensor NTC temperatura',                         fractionCode: '90328905', unit: 'Pza', isFinished: false },

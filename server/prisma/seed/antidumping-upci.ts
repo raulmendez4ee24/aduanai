@@ -34,7 +34,7 @@ export const UPCI_RESOLUTIONS: UPCIResolution[] = [
   // TORNILLERÍA Y SUJETADORES — China (cap 73)
   // ═══════════════════════════════════════════════════════════════
   { resolutionType: 'definitiva', resolutionNumber: 'RES-29/2024', expedienteUPCI: 'UPCI-AD-23-2023',
-    fractionCode: '73181505', countryOfOrigin: 'CN',
+    fractionCode: '73181599', countryOfOrigin: 'CN',
     productDesc: 'Tornillos, pernos y similares de acero al carbono',
     rateType: 'specific_USD_kg', rate: 2.07, rateUnit: 'USD/kg',
     publishDateDOF: '2024-03-15', effectiveDate: '2024-03-16', expiryDate: '2029-03-15',
@@ -42,7 +42,7 @@ export const UPCI_RESOLUTIONS: UPCIResolution[] = [
     notes: 'Aplica a importaciones desde China. Productor exportador identificado.',
   },
   { resolutionType: 'definitiva', resolutionNumber: 'RES-RES-32/2024', expedienteUPCI: 'UPCI-AD-15-2023',
-    fractionCode: '73181501', countryOfOrigin: 'CN',
+    fractionCode: '73181291', countryOfOrigin: 'CN',
     productDesc: 'Tornillos para madera y aglomerados',
     rateType: 'specific_USD_kg', rate: 1.74, rateUnit: 'USD/kg',
     publishDateDOF: '2024-04-22', effectiveDate: '2024-04-23', expiryDate: '2029-04-22',
@@ -360,7 +360,7 @@ export const UPCI_RESOLUTIONS: UPCIResolution[] = [
   // TRIANGULACIÓN VIA TERCEROS — Vietnam, Tailandia (origen real China)
   // ═══════════════════════════════════════════════════════════════
   { resolutionType: 'definitiva', resolutionNumber: 'RES-EL-15/2024',
-    fractionCode: '73181505', countryOfOrigin: 'VN',
+    fractionCode: '73181599', countryOfOrigin: 'VN',
     productDesc: 'Tornillos triangulados desde Vietnam (origen real China)',
     rateType: 'specific_USD_kg', rate: 2.07, rateUnit: 'USD/kg',
     publishDateDOF: '2024-09-20', effectiveDate: '2024-09-21', expiryDate: '2029-09-20',

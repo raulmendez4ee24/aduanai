@@ -121,7 +121,7 @@ export const TEST_PRODUCTS: TestProduct[] = [
   // ============================================
   // ACERO Y METALES (Cap. 72-73) — 10 productos
   // ============================================
-  { id: 81, description: "Tornillo de acero inoxidable, cabeza hexagonal, M10x50mm", expectedFraction: "73181501", chapter: "73", category: "Acero" },
+  { id: 81, description: "Tornillo de acero inoxidable, cabeza hexagonal, M10x50mm", expectedFraction: "73181599", chapter: "73", category: "Acero" },
   { id: 82, description: "Lámina de acero inoxidable 304, calibre 18, hoja 4x8 pies", expectedFraction: "72193401", chapter: "72", category: "Acero" },
   { id: 83, description: "Varilla corrugada de acero para construcción, 3/8 pulgada", expectedFraction: "72142001", chapter: "72", category: "Acero" },
   { id: 84, description: "Tubo de acero al carbón, soldado, 2 pulgadas, cédula 40", expectedFraction: "73063001", chapter: "73", category: "Acero" },

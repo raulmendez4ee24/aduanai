@@ -6,7 +6,7 @@
  * Caso del evaluador (regresión $321 MXN):
  *   - Valor aduanero: 25,000 USD
  *   - Tipo de cambio: 17.49
- *   - Fracción: 7318.15.01 (IGI 5%)
+ *   - Fracción: 7318.15.99 (IGI 5%)
  *   - Total esperado: $536,628.18 MXN
  */
 

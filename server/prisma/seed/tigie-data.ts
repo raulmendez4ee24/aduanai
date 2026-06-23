@@ -136,7 +136,6 @@ export const FRACTIONS = [
 
   // ===== Cap 72/73 - Acero =====
   { code: '72082501', formatted: '7208.25.01', description: 'Productos laminados planos de hierro o acero sin alear, de anchura superior o igual a 600 mm, laminados en caliente, de espesor superior o igual a 4.75 mm', chapter: '72', heading: '7208', subheading: '720825', unit: 'Kg', tariffNMF: 0, tariffTMEC: 0, keywords: ['acero', 'lámina', 'laminado', 'hierro', 'hot rolled'] },
-  { code: '73181501', formatted: '7318.15.01', description: 'Los demás tornillos, incluso con sus tuercas y arandelas, de acero inoxidable', chapter: '73', heading: '7318', subheading: '731815', unit: 'Kg', tariffNMF: 5, tariffTMEC: 0, keywords: ['tornillo', 'acero inoxidable', 'ferretería', 'fijación'] },
   { code: '73181599', formatted: '7318.15.99', description: 'Los demás tornillos y pernos, incluso con sus tuercas y arandelas', chapter: '73', heading: '7318', subheading: '731815', unit: 'Kg', tariffNMF: 5, tariffTMEC: 0, keywords: ['tornillo', 'perno', 'ferretería', 'fijación'] },
   { code: '73269099', formatted: '7326.90.99', description: 'Las demás manufacturas de hierro o acero', chapter: '73', heading: '7326', subheading: '732690', unit: 'Kg', tariffNMF: 10, tariffTMEC: 0, keywords: ['manufactura', 'acero', 'hierro', 'metal'] },
 
