@@ -48,31 +48,78 @@ function fallbackEmbedding(text: string): number[] {
   return v.map(x => x / norm);
 }
 
-export async function generateEmbedding(text: string): Promise<number[]> {
-  if (!process.env.OPENAI_API_KEY) {
-    return fallbackEmbedding(text);
-  }
-  try {
-    const res = await fetch('https://api.openai.com/v1/embeddings', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${process.env.OPENAI_API_KEY}`,
-      },
-      body: JSON.stringify({ model: 'text-embedding-3-small', input: text.slice(0, 8000) }),
-    });
-    if (!res.ok) {
-      throw new Error(`OpenAI ${res.status}: ${await res.text().catch(() => '')}`);
+/**
+ * Genera un embedding. Proveedor por env var:
+ *   - VOYAGE_API_KEY  → Voyage AI (modelo en EMBEDDING_MODEL, default voyage-4, 1024 dim).
+ *                       input_type ('query' | 'document') mejora el retrieval asimétrico.
+ *   - OPENAI_API_KEY  → OpenAI text-embedding-3-small (1536 dim).
+ *   - ninguna         → fallback hashed (256 dim).
+ *
+ * IMPORTANTE: al cambiar de proveedor cambia la dimensión → re-embedar TODO el corpus
+ * (cosineSimilarity excluye vectores de distinta longitud).
+ */
+const VOYAGE_MODEL = process.env.EMBEDDING_MODEL || 'voyage-4';
+const VOYAGE_DIM = 1024;
+
+export async function generateEmbedding(
+  text: string,
+  inputType: 'query' | 'document' | null = null,
+): Promise<number[]> {
+  // 1) Voyage AI (preferido)
+  if (process.env.VOYAGE_API_KEY) {
+    try {
+      const res = await fetch('https://api.voyageai.com/v1/embeddings', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${process.env.VOYAGE_API_KEY}`,
+        },
+        body: JSON.stringify({
+          model: VOYAGE_MODEL,
+          input: [text.slice(0, 30000)],
+          input_type: inputType,
+          output_dimension: VOYAGE_DIM,
+        }),
+      });
+      if (!res.ok) {
+        throw new Error(`Voyage ${res.status}: ${await res.text().catch(() => '')}`);
+      }
+      const data = await res.json() as { data: { embedding: number[] }[] };
+      return data.data[0]!.embedding;
+    } catch (err) {
+      logger.warn('Embedding Voyage fallback to hashed', {
+        action: 'embedding_fallback', errorMessage: err instanceof Error ? err.message : String(err),
+      });
+      return fallbackEmbedding(text);
     }
-    const data = await res.json() as { data: { embedding: number[] }[] };
-    return data.data[0]!.embedding;
-  } catch (err) {
-    logger.warn('Embedding OpenAI fallback to hashed', {
-      action: 'embedding_fallback',
-      errorMessage: err instanceof Error ? err.message : String(err),
-    });
-    return fallbackEmbedding(text);
   }
+
+  // 2) OpenAI (compatibilidad)
+  if (process.env.OPENAI_API_KEY) {
+    try {
+      const res = await fetch('https://api.openai.com/v1/embeddings', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${process.env.OPENAI_API_KEY}`,
+        },
+        body: JSON.stringify({ model: 'text-embedding-3-small', input: text.slice(0, 8000) }),
+      });
+      if (!res.ok) {
+        throw new Error(`OpenAI ${res.status}: ${await res.text().catch(() => '')}`);
+      }
+      const data = await res.json() as { data: { embedding: number[] }[] };
+      return data.data[0]!.embedding;
+    } catch (err) {
+      logger.warn('Embedding OpenAI fallback to hashed', {
+        action: 'embedding_fallback', errorMessage: err instanceof Error ? err.message : String(err),
+      });
+      return fallbackEmbedding(text);
+    }
+  }
+
+  // 3) Fallback hashed
+  return fallbackEmbedding(text);
 }
 
 /** Cosine similarity entre dos vectores. */
@@ -88,7 +135,7 @@ export function cosineSimilarity(a: number[], b: number[]): number {
   return denom > 0 ? dot / denom : 0;
 }
 
-/** True si hay un proveedor real configurado (OpenAI). False si fallback. */
+/** True si hay un proveedor real configurado (Voyage u OpenAI). False si fallback. */
 export function isRealEmbeddingProvider(): boolean {
-  return !!process.env.OPENAI_API_KEY;
+  return !!(process.env.VOYAGE_API_KEY || process.env.OPENAI_API_KEY);
 }

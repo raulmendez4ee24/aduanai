@@ -226,7 +226,7 @@ legalDocsRouter.post('/reindex', adminOnly, async (_req: AuthRequest, res: Respo
     });
     let updated = 0;
     for (const d of docs) {
-      const embedding = await generateEmbedding(`${d.title}\n${d.reference}\n${d.content}`);
+      const embedding = await generateEmbedding(`${d.title}\n${d.reference}\n${d.content}`, 'document');
       await prisma.legalDocument.update({ where: { id: d.id }, data: { embedding } });
       updated++;
     }
@@ -302,7 +302,7 @@ legalDocsRouter.post('/', adminOnly, async (req: AuthRequest, res: Response, nex
       return res.status(400).json({ status: 'error', message: 'type, source, title, reference, content requeridos' });
     }
     const contentHash = crypto.createHash('sha256').update(body.content).digest('hex').slice(0, 32);
-    const embedding = await generateEmbedding(`${body.title}\n${body.reference}\n${body.content}`);
+    const embedding = await generateEmbedding(`${body.title}\n${body.reference}\n${body.content}`, 'document');
     const data = {
       type: body.type, source: body.source, title: body.title, reference: body.reference,
       content: body.content, officialUrl: body.officialUrl,

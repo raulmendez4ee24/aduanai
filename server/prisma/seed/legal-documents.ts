@@ -426,7 +426,7 @@ export async function seedLegalDocuments(prisma: PrismaClient): Promise<{ insert
     }
 
     // Generar embedding (con fallback automático si no hay OPENAI_API_KEY)
-    const embedding = await generateEmbedding(`${doc.title}\n${doc.reference}\n${doc.content}`);
+    const embedding = await generateEmbedding(`${doc.title}\n${doc.reference}\n${doc.content}`, 'document');
 
     const data = {
       type: doc.type,

@@ -180,7 +180,7 @@ function makeExcerpt(content: string, query: string, maxLen = 280): string {
 
 export async function searchLegalDocuments(query: string, opts: { topK?: number; topics?: string[]; types?: string[]; hardFilter?: boolean } = {}): Promise<RetrievedDoc[]> {
   const topK = opts.topK ?? 5;
-  const queryEmbedding = await generateEmbedding(query);
+  const queryEmbedding = await generateEmbedding(query, 'query');
   const queryTokens = extractTokens(query);
   const detectedTopics = detectQueryTopics(query);
   const expandedTopics = expandTopicsWithAliases(detectedTopics);
