@@ -160,8 +160,10 @@ export async function buildClassifierAlerts(input: BuildAlertsInput): Promise<Cl
       });
     }
 
-    const padron = compliance.regulations.find(r => r.type === 'padron_sectorial');
-    if (padron) {
+    // Una fracción puede requerir VARIOS padrones sectoriales (ej. química +
+    // precursores) — emitimos una alerta por cada uno, no solo el primero.
+    const padrones = compliance.regulations.filter(r => r.type === 'padron_sectorial');
+    for (const padron of padrones) {
       alerts.push({
         type: 'sectoral_padron',
         severity: 'warning',

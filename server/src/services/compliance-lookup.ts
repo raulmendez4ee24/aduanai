@@ -9,6 +9,7 @@
 import { prisma } from '../lib/prisma';
 import { isDomesticOrigin, DOMESTIC_ORIGIN_NOTE } from '../lib/origin';
 import { formatCuota } from '../lib/cuota-format';
+import { resolveSectorsForFraction } from './padron-checker';
 
 // ──────────────────────────────────────────────────────────────────────────
 // Normalización de país a ISO-2
@@ -192,10 +193,26 @@ async function lookupComplianceInternal(
     });
   }
 
-  // Origen nacional: descarta regulaciones que SOLO aplican a importación
-  // (padrón de importadores, RRNA / permisos previos de importación). Las NOM se
-  // conservan porque también aplican al producto en comercio nacional (etiquetado).
-  const effectiveRegs = domestic ? regulations.filter(r => r.type === 'NOM') : regulations;
+  // PADRÓN SECTORIAL — fuente ÚNICA de verdad: resolver de SATPadron.
+  // Ya NO se lee de fractionRegulation: descartamos cualquier padron_sectorial
+  // legacy que venga de ahí (se elimina en el paso final) y lo reemplazamos por
+  // el resolver canónico, que puede devolver VARIOS sectores por fracción.
+  // NOM y RRNA SÍ siguen viniendo de fractionRegulation, sin cambios.
+  const nonPadronRegs = regulations.filter(r => r.type !== 'padron_sectorial');
+  const sectorMatches: RegulationMatch[] = domestic
+    ? []
+    : (await resolveSectorsForFraction(cleanFraction)).map(s => ({
+        type: 'padron_sectorial' as const,
+        authority: s.authority,
+        code: s.code,
+        description: s.description,
+        required: true,
+      }));
+
+  // Origen nacional: solo NOM (RRNA y padrón son requisitos de importación).
+  const effectiveRegs = domestic
+    ? nonPadronRegs.filter(r => r.type === 'NOM')
+    : [...nonPadronRegs, ...sectorMatches];
 
   // 3) Alertas accionables
   const alertas: string[] = [];
@@ -208,9 +225,9 @@ async function lookupComplianceInternal(
     const resLabel = ad.resolutionNumber ?? ad.decree ?? 's/n';
     alertas.push(`Cuota compensatoria ${rateLabel} aplicable a ${ad.countryOfOrigin} — ${resLabel} (${dateStr})`);
   }
-  const padron = effectiveRegs.find(r => r.type === 'padron_sectorial');
-  if (padron) {
-    alertas.push(`Esta fracción requiere inscripción al ${padron.code}`);
+  const padrones = effectiveRegs.filter(r => r.type === 'padron_sectorial');
+  for (const p of padrones) {
+    alertas.push(`Esta fracción requiere inscripción al ${p.code}`);
   }
   const noms = effectiveRegs.filter(r => r.type === 'NOM');
   if (noms.length > 0) {
