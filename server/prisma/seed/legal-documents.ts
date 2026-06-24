@@ -203,9 +203,9 @@ export const LEGAL_DOCUMENTS: LegalDocSeed[] = [
   {
     type: 'rgce', source: 'Anexo_10_RGCE', title: 'Anexo 10 RGCE — Padrones Sectoriales',
     reference: 'Anexo 10 RGCE 2026',
-    content: 'El Anexo 10 RGCE define los Padrones Sectoriales obligatorios para importadores de fracciones específicas: Sector 1 (productos químicos), Sector 2 (radiactivos y nucleares), Sector 3 (precursores químicos), Sector 4 (armas y explosivos), Sector 5 (hidrocarburos y combustibles), Sector 6 (hierro y acero), Sector 7 (productos siderúrgicos específicos), Sector 8 (textiles y confección), Sector 9 (calzado), Sector 10 (cigarros y tabacos), Sector 11 (bebidas alcohólicas), Sector 12 (animales vivos y productos pecuarios), Sector 13 (productos farmacéuticos), Sector 14 (vegetales y semillas), Sector 15 (productos lácteos), Sector 16 (madera), Sector 17 (vehículos usados). El padrón general se inscribe ante AGACE en trámite 5/LA y los sectoriales en trámites N/LA según el sector. Vigencia típica 12 meses con renovación.',
-    officialUrl: `${DOF}/nota_detalle.php?codigo=Anexo_10_RGCE`, effectiveDate: '2026-01-01',
-    topics: ['regimen', 'padrones'], keywords: ['Anexo 10', 'padrón sectorial', 'sectores', 'AGACE', 'inscripción', 'trámite 5/LA'],
+    content: 'El Anexo 10 de las RGCE (Apartado A) establece el Padrón de Importadores de Sectores Específicos: la importación de ciertas fracciones exige, además del Padrón General de Importadores, la inscripción en el padrón SECTORIAL correspondiente. El padrón general se tramita ante AGACE (trámite 5/LA) y los sectoriales según el sector aplicable; vigencia típica 12 meses con renovación. IMPORTANTE: el número de sector que corresponde a cada fracción NO debe citarse de memoria (la numeración se ha reestructurado en versiones recientes); consulta el Anexo 10 vigente en el DOF, o el módulo de Padrones de la plataforma, para el sector exacto de una fracción.',
+    officialUrl: OFFICIAL_URLS.Anexo_10_RGCE ?? `${DOF}`, effectiveDate: '2026-01-01',
+    topics: ['regimen', 'padrones'], keywords: ['Anexo 10', 'padrón sectorial', 'sectores específicos', 'AGACE', 'inscripción', 'trámite 5/LA'],
   },
   {
     type: 'ley', source: 'Ley_Aduanera', title: 'Ley Aduanera Art. 151 — Causales de embargo precautorio',
@@ -316,9 +316,9 @@ export const LEGAL_DOCUMENTS: LegalDocSeed[] = [
   {
     type: 'rgce', source: 'Anexo_10_RGCE', title: 'Anexo 10 — Padrones sectoriales',
     reference: 'Anexo 10 RGCE 2026',
-    content: 'El Anexo 10 lista las fracciones arancelarias sujetas a inscripción en padrones sectoriales: Sector 1 (alcoholes y bebidas), Sector 2 (cigarros y tabacos), Sector 3 (cerveza), Sector 11 (hierro y acero), Sector 12 (textil y confección), Sector 14 (calzado), Sector 16 (automotriz), entre otros. La omisión de inscripción configura infracción.',
-    officialUrl: `${DOF}/nota_detalle.php?codigo=Anexo_10`, effectiveDate: '2026-01-01',
-    topics: ['padrones'], keywords: ['Anexo 10', 'padrón sectorial', 'sector 11', 'sector 12', 'hierro acero', 'textil'],
+    content: 'El Anexo 10 de las RGCE lista las fracciones arancelarias sujetas a inscripción en padrones sectoriales de importación (Padrón de Importadores de Sectores Específicos). La omisión de la inscripción, cuando es exigible para la fracción, configura infracción. Para identificar el sector específico que aplica a una fracción dada, consulta el Anexo 10 vigente en el DOF o el módulo de Padrones de la plataforma; la numeración oficial de sectores no debe citarse de memoria.',
+    officialUrl: OFFICIAL_URLS.Anexo_10_RGCE ?? `${DOF}`, effectiveDate: '2026-01-01',
+    topics: ['padrones'], keywords: ['Anexo 10', 'padrón sectorial', 'sectores específicos', 'hierro acero', 'textil', 'inscripción'],
   },
   {
     type: 'rgce', source: 'Acuerdo_NOMs', title: 'Anexo 2.4.1 — Excepciones a NOMs en punto de entrada',
