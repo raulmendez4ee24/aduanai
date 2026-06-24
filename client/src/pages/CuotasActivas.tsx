@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { AlertTriangle, ExternalLink, Search } from 'lucide-react'
 import { api } from '../lib/api'
 import type { AntidumpingDutyRecord } from '../lib/api'
+import { formatCuota } from '../lib/cuota-format'
 
 const GLASS = 'bg-white/70 backdrop-blur-xl border border-white/50 shadow-[0_8px_30px_rgb(0,0,0,0.04)]'
 
@@ -71,7 +72,7 @@ export function CuotasActivasPage() {
                     <span className="text-[10px] text-slate-400">·</span>
                     <span className="text-[10px] font-mono">{d.fractionCode}</span>
                     <span className="text-[10px] font-mono">{d.countryOfOrigin}</span>
-                    <span className="ml-auto text-[12px] font-bold text-rose-700">{d.rate} {d.rateUnit}</span>
+                    <span className="ml-auto text-[12px] font-bold text-rose-700">{formatCuota(d.rateType, d.rate, d.rateUnit)}</span>
                   </div>
                   <p className="text-[12px] text-slate-700 mt-1">{d.productDesc}</p>
                 </button>

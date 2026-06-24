@@ -18,6 +18,7 @@
 
 import crypto from 'crypto';
 import { prisma } from '../lib/prisma';
+import { formatCuota } from '../lib/cuota-format';
 
 export type AlertSeverity = 'critical' | 'high' | 'medium' | 'low';
 export type AlertImpactType = 'savings' | 'cost' | 'risk';
@@ -291,7 +292,7 @@ export async function generateAntidumpingAlerts(tenantId: string, isDemoData = f
 
   const antidumpings = await prisma.antidumpingDuty.findMany({
     where: { active: true },
-    select: { fractionCode: true, countryOfOrigin: true, rate: true, decree: true, publishDate: true, notes: true },
+    select: { fractionCode: true, countryOfOrigin: true, rate: true, rateType: true, rateUnit: true, decree: true, publishDate: true, notes: true },
   });
 
   const out: AlertSpec[] = [];
@@ -299,18 +300,27 @@ export async function generateAntidumpingAlerts(tenantId: string, isDemoData = f
     const k = `${ad.fractionCode}|${ad.countryOfOrigin}`;
     const matching = fracCountryPairs.get(k);
     if (!matching) continue;
-    const exposureMXN = matching.valueMXN * (ad.rate / 100);
-    const severity = severityForImpact(exposureMXN);
+    // Formateo de la cuota: SIEMPRE vía el helper único (antes asumía %).
+    const cuotaLabel = formatCuota(ad.rateType, ad.rate, ad.rateUnit);
+    // La exposición en MXN solo es calculable directo para cuotas ad valorem (%).
+    // Para específicas (USD/kg, USD/unidad) depende del peso/unidades, que NO tenemos
+    // en este agregado de pedimentos → no inventamos un monto (antes multiplicaba
+    // rate/100 y daba un número incorrecto para cuotas USD/kg).
+    const exposureMXN = ad.rateType === 'percentage' ? matching.valueMXN * (ad.rate / 100) : null;
+    const severity = exposureMXN != null ? severityForImpact(exposureMXN) : 'medium';
     out.push({
       type: 'antidumping_new',
       channel: 'IN_APP',
       severity,
-      title: `Cuota compensatoria ${ad.rate}% activa — ${ad.fractionCode} origen ${ad.countryOfOrigin}`,
+      title: `Cuota compensatoria ${cuotaLabel} activa — ${ad.fractionCode} origen ${ad.countryOfOrigin}`,
       content: `Tienes ${matching.count} importación(es) recientes de ${ad.fractionCode} desde ${ad.countryOfOrigin}. ` +
-        `Aplica cuota compensatoria del ${ad.rate}% (decreto ${ad.decree ?? 's/n'}). ` +
-        `Exposición estimada acumulada: $${formatMXN(exposureMXN)} MXN. Considera cambiar de origen o documentar transformación sustancial.`,
+        `Aplica cuota compensatoria de ${cuotaLabel} (decreto ${ad.decree ?? 's/n'}). ` +
+        (exposureMXN != null
+          ? `Exposición estimada acumulada: $${formatMXN(exposureMXN)} MXN. `
+          : `La exposición depende del peso/unidades importados — calcúlala en el Cotizador. `) +
+        `Considera cambiar de origen o documentar transformación sustancial.`,
       affectedFraction: ad.fractionCode,
-      estimatedImpactMXN: -Math.round(exposureMXN),
+      estimatedImpactMXN: exposureMXN != null ? -Math.round(exposureMXN) : null,
       impactType: 'cost',
       actionRequired: 'Evaluar cambio de origen o documentación reforzada',
       suggestedAction: {

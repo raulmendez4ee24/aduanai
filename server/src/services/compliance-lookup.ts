@@ -8,6 +8,7 @@
 
 import { prisma } from '../lib/prisma';
 import { isDomesticOrigin, DOMESTIC_ORIGIN_NOTE } from '../lib/origin';
+import { formatCuota } from '../lib/cuota-format';
 
 // ──────────────────────────────────────────────────────────────────────────
 // Normalización de país a ISO-2
@@ -203,9 +204,7 @@ async function lookupComplianceInternal(
   }
   if (ad) {
     const dateStr = ad.publishDate ? ad.publishDate.toISOString().slice(0, 10) : 'fecha s/d';
-    const rateLabel = ad.rateType === 'specific_USD_kg' ? `$${ad.rate} USD/kg`
-      : ad.rateType === 'specific_USD_unit' ? `$${ad.rate} ${ad.rateUnit}`
-      : `${ad.rate}%`;
+    const rateLabel = formatCuota(ad.rateType, ad.rate, ad.rateUnit);
     const resLabel = ad.resolutionNumber ?? ad.decree ?? 's/n';
     alertas.push(`Cuota compensatoria ${rateLabel} aplicable a ${ad.countryOfOrigin} — ${resLabel} (${dateStr})`);
   }

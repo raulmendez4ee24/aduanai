@@ -13,6 +13,7 @@ import crypto from 'crypto';
 import { lookupCompliance } from './compliance-lookup';
 import { lookupEstimatedPrice } from './price-validator';
 import { isDomesticOrigin, DOMESTIC_ORIGIN_NOTE } from '../lib/origin';
+import { formatCuota } from '../lib/cuota-format';
 
 // Versiones publicadas — se actualiza con el monitor DOF/SAT.
 export const TIGIE_VERSION = '2026-01-01';
@@ -85,10 +86,7 @@ export async function buildClassifierAlerts(input: BuildAlertsInput): Promise<Cl
 
       // Etiqueta de cuota formateada por rateType — antes salía "2.07%"
       // para una cuota de $2.07 USD/kg (bug crítico).
-      let rateLabel: string;
-      if (ad.rateType === 'specific_USD_kg') rateLabel = `$${ad.rate} USD/kg`;
-      else if (ad.rateType === 'specific_USD_unit') rateLabel = `$${ad.rate} ${ad.rateUnit}`;
-      else rateLabel = `${ad.rate}%`;
+      const rateLabel = formatCuota(ad.rateType, ad.rate, ad.rateUnit);
 
       // Cálculo concreto si tenemos cantidad
       let exampleCalc: string | null = null;

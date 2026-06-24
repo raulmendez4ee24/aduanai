@@ -12,6 +12,7 @@
 
 import { prisma } from '../lib/prisma';
 import { normalizeCountry } from './compliance-lookup';
+import { formatCuota } from '../lib/cuota-format';
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 const daysBetween = (from: Date, to: Date) => Math.ceil((to.getTime() - from.getTime()) / DAY_MS);
@@ -92,29 +93,30 @@ export async function checkAntidumpingDuty(input: AntidumpingCheckInput): Promis
     let calculation = '';
     let appliesToOperation = false;
 
+    const rateLabel = formatCuota(d.rateType, d.rate, d.rateUnit);
     if (d.rateType === 'percentage') {
       if (input.valueUSD != null) {
         calculatedAmountUSD = input.valueUSD * (d.rate / 100);
-        calculation = `${d.rate}% × $${input.valueUSD.toLocaleString('en-US')} USD = $${calculatedAmountUSD.toFixed(2)} USD`;
+        calculation = `${rateLabel} × $${input.valueUSD.toLocaleString('en-US')} USD = $${calculatedAmountUSD.toFixed(2)} USD`;
         appliesToOperation = true;
       } else {
-        calculation = `${d.rate}% sobre valor en aduana`;
+        calculation = `${rateLabel} sobre valor en aduana`;
       }
     } else if (d.rateType === 'specific_USD_kg') {
       if (input.weightKg != null) {
         calculatedAmountUSD = input.weightKg * d.rate;
-        calculation = `${d.rate} USD/kg × ${input.weightKg.toLocaleString('en-US')} kg = $${calculatedAmountUSD.toFixed(2)} USD`;
+        calculation = `${rateLabel} × ${input.weightKg.toLocaleString('en-US')} kg = $${calculatedAmountUSD.toFixed(2)} USD`;
         appliesToOperation = true;
       } else {
-        calculation = `${d.rate} USD/kg`;
+        calculation = rateLabel;
       }
     } else if (d.rateType === 'specific_USD_unit') {
       if (input.units != null) {
         calculatedAmountUSD = input.units * d.rate;
-        calculation = `${d.rate} USD/unidad × ${input.units.toLocaleString('en-US')} unidades = $${calculatedAmountUSD.toFixed(2)} USD`;
+        calculation = `${rateLabel} × ${input.units.toLocaleString('en-US')} unidades = $${calculatedAmountUSD.toFixed(2)} USD`;
         appliesToOperation = true;
       } else {
-        calculation = `${d.rate} ${d.rateUnit}`;
+        calculation = rateLabel;
       }
     }
 
