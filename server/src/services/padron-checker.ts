@@ -59,6 +59,35 @@ export function matchesFraction(padron: Pick<SATPadron, 'fractionCodes' | 'fract
   return false;
 }
 
+/**
+ * FUENTE ÚNICA DE VERDAD para el/los sector(es) del Anexo 10 de una fracción.
+ * Lee SOLO de la tabla canónica `SATPadron` (sectoriales) y aplica `matchesFraction`.
+ * Una fracción puede pertenecer a VARIOS sectores → devuelve todos, ordenados.
+ * Cualquier módulo que necesite el sector de una fracción DEBE usar esto — no
+ * `fractionRegulation.padron_sectorial` ni el boolean del LLM (ambos en deprecación).
+ */
+export interface ResolvedSector {
+  sectorialCode: string;   // "14"
+  sectorialName: string;   // "Siderúrgico"
+  code: string;            // "Sector 14 — Siderúrgico" (etiqueta lista para UI/alertas)
+  description: string;
+  authority: string;
+}
+
+export async function resolveSectorsForFraction(fractionCode: string): Promise<ResolvedSector[]> {
+  const padrones = await prisma.sATPadron.findMany({ where: { type: 'sectorial', active: true } });
+  return padrones
+    .filter(p => matchesFraction(p, fractionCode))
+    .map(p => ({
+      sectorialCode: p.sectorialCode ?? '',
+      sectorialName: p.sectorialName ?? '—',
+      code: `Sector ${p.sectorialCode} — ${p.sectorialName ?? '—'}`,
+      description: p.description,
+      authority: p.authority,
+    }))
+    .sort((a, b) => Number(a.sectorialCode) - Number(b.sectorialCode));
+}
+
 function daysBetween(a: Date, b: Date): number {
   return Math.floor((b.getTime() - a.getTime()) / 86400000);
 }
