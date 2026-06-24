@@ -7,6 +7,7 @@ import { classifyProduct, type IndustrialSector, type ImporterType } from '../se
 import { buildClassifierAlerts, computeConsultHash, TIGIE_VERSION, LIGIE_VERSION } from '../services/classifier-alerts';
 import { recordConsult, verifyConsult } from '../services/traceability';
 import { isDomesticOrigin, DOMESTIC_ORIGIN_NOTE } from '../lib/origin';
+import { resolveSectorsForFraction } from '../services/padron-checker';
 import { prisma } from '../lib/prisma';
 
 export const classifyRouter = Router();
@@ -121,9 +122,16 @@ classifyRouter.post('/', authenticate, requirePermission('classifier', 'create')
     // padrón de importadores (sectoralRegistry) y preferencias arancelarias de tratados.
     // Las NOM se conservan (aplican también al producto en comercio nacional).
     const domestic = isDomesticOrigin(countryOfOrigin);
+    // sectoralRegistry se DERIVA de la tabla canónica (SATPadron vía el resolver),
+    // NUNCA del LLM (que ya no lo devuelve). Así coincide siempre con padronCheck,
+    // que lee la misma fuente → sin contradicción "NO INSCRITO" vs "no requiere".
+    const sectores = await resolveSectorsForFraction(result.fraction.code);
     if (domestic) {
+      // Origen nacional: no se importa → sin padrón ni preferencias.
       result.regulations = { ...result.regulations, rrna: [], sectoralRegistry: false };
       result.tariffs = { ...result.tariffs, preferential: {} };
+    } else {
+      result.regulations = { ...result.regulations, sectoralRegistry: sectores.length > 0 };
     }
 
     // Alertas defensivas (cuotas comp + NOMs + padrón + automotive + subvaloración)

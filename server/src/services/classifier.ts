@@ -228,7 +228,7 @@ REGLAS GENERALES:
 3. Proporciona un score de confianza (0-100)
 4. Lista las GRI que aplicaste y por qué
 5. Incluye aranceles NMF y preferenciales (TMEC, TLCUE, etc.)
-6. Identifica RRNA, NOMs aplicables y si requiere padrón sectorial
+6. Identifica RRNA y NOMs aplicables (el padrón sectorial NO lo determinas tú — se calcula del Anexo 10)
 7. Proporciona 2-3 fracciones alternativas con justificación
 8. Da una explicación en lenguaje simple Y técnico
 
@@ -319,7 +319,7 @@ Responde SIEMPRE en formato JSON válido con esta estructura:
   "confidence": 85,
   "griApplied": ["GRI 1: ...", "GRI 6: ..."],
   "tariffs": { "nmf": 15, "preferential": { "TMEC": 0, "TLCUE": 5 } },
-  "regulations": { "rrna": ["Permiso SEMARNAT"], "noms": ["NOM-051-SCFI"], "sectoralRegistry": false },
+  "regulations": { "rrna": ["Permiso SEMARNAT"], "noms": ["NOM-051-SCFI"] },
   "alternatives": [{ "code": "YYYY.YY.YY", "description": "...", "confidence": 60, "reason": "..." }],
   "explanation": { "simple": "...", "technical": "..." },
   "legalBasis": {
