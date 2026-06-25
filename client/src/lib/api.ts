@@ -2672,6 +2672,7 @@ export interface MultiQuoteItem {
   countervailing: number;
   iva: number;
   totalDuties: number;
+  isan: number;
   totalCost: number;
   hasAntidumping: boolean;
   antidumpingDecree: string | null;
@@ -2720,6 +2721,7 @@ export interface MultiQuoteResult {
     ieps: number;
     countervailing: number;
     iva: number;
+    isan: number;
     totalDuties: number;
     totalLandedCost: number;
     totalDispatch: number;

@@ -403,6 +403,7 @@ function QuoteResult({ result }: { result: MultiQuoteResult }) {
                 <th className="py-2 text-slate-500 font-medium text-right">DTA</th>
                 <th className="py-2 text-slate-500 font-medium text-right">Cuota C.</th>
                 <th className="py-2 text-slate-500 font-medium text-right">IVA</th>
+                <th className="py-2 text-slate-500 font-medium text-right">ISAN</th>
                 <th className="py-2 text-slate-500 font-medium text-right">Total partida</th>
               </tr>
             </thead>
@@ -425,6 +426,12 @@ function QuoteResult({ result }: { result: MultiQuoteResult }) {
                       : '—'
                   }</td>
                   <td className="py-2 text-right font-mono">${mxn(it.iva)}</td>
+                  <td className={`py-2 text-right font-mono ${it.programs.isan.applies && !it.programs.isan.exempt ? 'text-indigo-700 font-semibold' : 'text-slate-400'}`}>{
+                    !it.programs.isan.applies ? '—'
+                      : it.programs.isan.exempt ? <span className="text-emerald-600">exento</span>
+                      : it.isan > 0 ? <>${mxn(it.isan)}</>
+                      : <span className="text-amber-600" title={it.programs.isan.calculation}>⚠️ s/tarifa</span>
+                  }</td>
                   <td className="py-2 text-right font-mono font-bold text-slate-900">${mxn(it.totalCost)}</td>
                 </tr>
               ))}
@@ -435,6 +442,7 @@ function QuoteResult({ result }: { result: MultiQuoteResult }) {
                 <td className="py-2 text-right font-mono">${mxn(result.totals.dta)}</td>
                 <td className="py-2 text-right font-mono text-rose-700">${mxn(result.totals.countervailing)}</td>
                 <td className="py-2 text-right font-mono">${mxn(result.totals.iva)}</td>
+                <td className="py-2 text-right font-mono text-indigo-700">${mxn(result.totals.isan)}</td>
                 <td className="py-2 text-right font-mono text-emerald-700">${mxn(result.totals.totalLandedCost)}</td>
               </tr>
             </tbody>

@@ -93,6 +93,8 @@ export interface ItemBreakdown {
   countervailing: number;
   iva: number;
   totalDuties: number;
+  /** ISAN (vehículo nuevo) ya incluido en totalDuties y totalCost. 0 si no aplica/exento. */
+  isan: number;
   totalCost: number;
   hasAntidumping: boolean;
   antidumpingDecree: string | null;
@@ -159,6 +161,7 @@ export interface MultiQuoteResult {
     ieps: number;
     countervailing: number;
     iva: number;
+    isan: number;                   // ISAN total (vehículos nuevos), ya en totalDuties/landed
     totalDuties: number;
     totalLandedCost: number;        // valor + impuestos (sin despacho)
     totalDispatch: number;
@@ -318,6 +321,14 @@ export async function calculateMultiQuote(input: MultiQuoteInput): Promise<Multi
       exchangeRate: effectiveRate,
     });
 
+    // ISAN (vehículo nuevo) — se calcula ANTES del push para integrarlo al total,
+    // igual que IGI/DTA/IVA/cuota. Si exento o no aplica, suma 0.
+    const isElectric = it.isElectric ?? false;
+    const isanCheck = it.isVehicle && it.vehiclePriceMXN
+      ? await calculateISAN(it.fractionCode, it.vehiclePriceMXN, isElectric)
+      : { applies: false, exempt: false, amountMXN: 0, calculation: '', priceMXN: 0, rangeMin: null, rangeMax: null, fixedAmount: 0, marginalRate: 0, vehicleType: null };
+    const isanMXN = round2(isanCheck.applies && !isanCheck.exempt ? isanCheck.amountMXN : 0);
+
     itemsBreakdown.push({
       numeroPartida: i + 1,
       fractionCode: it.fractionCode,
@@ -341,8 +352,9 @@ export async function calculateMultiQuote(input: MultiQuoteInput): Promise<Multi
       ieps: amounts.ieps,
       countervailing: amounts.countervailingDuty,
       iva: amounts.iva,
-      totalDuties: round2(amounts.totalTaxes),
-      totalCost: amounts.totalLandedCost,
+      totalDuties: round2(amounts.totalTaxes + isanMXN),
+      isan: isanMXN,
+      totalCost: round2(amounts.totalLandedCost + isanMXN),
       hasAntidumping: amounts.countervailingDuty > 0,
       antidumpingDecree: compliance.antidumping?.decree ?? null,
       antidumping: compliance.antidumping ? {
@@ -382,11 +394,7 @@ export async function calculateMultiQuote(input: MultiQuoteInput): Promise<Multi
           baseMXN: amounts.preIVABase,
           quantity: it.quantity,
         });
-        // ISAN si es vehículo
-        const isElectric = it.isElectric ?? false;
-        const isanCheck = it.isVehicle && it.vehiclePriceMXN
-          ? await calculateISAN(it.fractionCode, it.vehiclePriceMXN, isElectric)
-          : { applies: false, exempt: false, amountMXN: 0, calculation: '', priceMXN: 0, rangeMin: null, rangeMax: null, fixedAmount: 0, marginalRate: 0, vehicleType: null };
+        // ISAN: reutiliza isanCheck ya calculado arriba (misma fuente, sin recálculo).
         return {
           prosec: {
             eligible: prosecCheck.eligible,
@@ -468,12 +476,13 @@ export async function calculateMultiQuote(input: MultiQuoteInput): Promise<Multi
     ieps: round2(itemsBreakdown.reduce((s, i) => s + i.ieps, 0)),
     countervailing: round2(itemsBreakdown.reduce((s, i) => s + i.countervailing, 0)),
     iva: round2(itemsBreakdown.reduce((s, i) => s + i.iva, 0)),
+    isan: round2(itemsBreakdown.reduce((s, i) => s + (i.isan ?? 0), 0)),
     totalDuties: 0,
     totalLandedCost: round2(itemsBreakdown.reduce((s, i) => s + i.totalCost, 0)),
     totalDispatch: dispatch.total,
     totalAll: 0,
   };
-  totals.totalDuties = round2(totals.igi + totals.dta + totals.ieps + totals.countervailing + totals.iva);
+  totals.totalDuties = round2(totals.igi + totals.dta + totals.ieps + totals.countervailing + totals.iva + totals.isan);
   totals.totalAll = round2(totals.totalLandedCost + totals.totalDispatch);
 
   return {

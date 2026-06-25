@@ -293,20 +293,21 @@ interface ISANSeed {
   notes?: string;
 }
 
+// Tarifa ISAN 2026 — FUENTE PRIMARIA: DOF 28-dic-2025, Anexo 15 RMF
+// (Décima Segunda Modificación), "Tarifa para determinar el ISAN para el año
+// 2026" (Art. 3 LFISAN). Cifras verificadas contra el DOF (no representativas).
+// Tasas marginales reales: 2 / 5 / 10 / 15 / 17 %.
+const ISAN_2026_DOF = 'DOF 28-dic-2025 — Anexo 15 RMF 2026 (Tarifa ISAN, Art. 3 LFISAN)';
 export const ISAN_RATES: ISANSeed[] = [
-  // Tarifa progresiva ISAN 2026 (cifras representativas — verificar DOF antes de operar)
-  { fractionCode: '8703', vehicleType: 'passenger', priceRangeMin: 0, priceRangeMax: 258944.32, fixedAmount: 0, marginalRate: 2 },
-  { fractionCode: '8703', vehicleType: 'passenger', priceRangeMin: 258944.33, priceRangeMax: 310733.16, fixedAmount: 5178.89, marginalRate: 6.5 },
-  { fractionCode: '8703', vehicleType: 'passenger', priceRangeMin: 310733.17, priceRangeMax: 362521.99, fixedAmount: 8545.18, marginalRate: 7 },
-  { fractionCode: '8703', vehicleType: 'passenger', priceRangeMin: 362522.00, priceRangeMax: 466099.66, fixedAmount: 12170.36, marginalRate: 8 },
-  { fractionCode: '8703', vehicleType: 'passenger', priceRangeMin: 466099.67, priceRangeMax: null, fixedAmount: 20456.66, marginalRate: 17 },
-
-  // Vehículos eléctricos / híbridos — exentos
-  { fractionCode: '870380', vehicleType: 'electric', priceRangeMin: 0, priceRangeMax: null, fixedAmount: 0, marginalRate: 0, exempt: true, notes: 'Vehículos eléctricos puros' },
-  { fractionCode: '870340', vehicleType: 'electric', priceRangeMin: 0, priceRangeMax: null, fixedAmount: 0, marginalRate: 0, exempt: true, notes: 'Vehículos híbridos enchufables' },
-
-  // Vehículos comerciales — exentos en ciertos casos
-  { fractionCode: '8704', vehicleType: 'commercial', priceRangeMin: 0, priceRangeMax: null, fixedAmount: 0, marginalRate: 5, notes: 'Tarifa simplificada para comercial — verificar Art. 8 LISAN' },
+  { fractionCode: '8703', vehicleType: 'passenger', priceRangeMin: 0.01,      priceRangeMax: 383940.35, fixedAmount: 0.00,     marginalRate: 2,  notes: ISAN_2026_DOF },
+  { fractionCode: '8703', vehicleType: 'passenger', priceRangeMin: 383940.36, priceRangeMax: 460728.35, fixedAmount: 7678.67,  marginalRate: 5,  notes: ISAN_2026_DOF },
+  { fractionCode: '8703', vehicleType: 'passenger', priceRangeMin: 460728.36, priceRangeMax: 537516.64, fixedAmount: 11518.25, marginalRate: 10, notes: ISAN_2026_DOF },
+  { fractionCode: '8703', vehicleType: 'passenger', priceRangeMin: 537516.65, priceRangeMax: 691092.34, fixedAmount: 19197.04, marginalRate: 15, notes: ISAN_2026_DOF },
+  { fractionCode: '8703', vehicleType: 'passenger', priceRangeMin: 691092.35, priceRangeMax: null,      fixedAmount: 42233.35, marginalRate: 17, notes: ISAN_2026_DOF },
+  // Nota: el descuento 7% (precio > $1,060,189.93) y la exención Art. 8-II
+  // (≤$356,934.05 = 100%; ≤$452,116.48 = 50%) viven como parámetros escalares
+  // en ISAN_2026 (services/regimes-programs.ts), derivados del MISMO DOF.
+  // Eléctricos/híbridos: exentos — se maneja por el flag isElectric en el cálculo.
 ];
 
 // ════════════════════════════════════════════════════════════════════

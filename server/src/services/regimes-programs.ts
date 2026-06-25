@@ -171,38 +171,55 @@ export interface ISANResult {
   calculation: string;
 }
 
+// Parámetros escalares de la tarifa ISAN 2026 — FUENTE PRIMARIA:
+// DOF 28-dic-2025, Anexo 15 RMF (Décima Segunda Modificación). Mismo documento
+// que las 5 tramos seedeados (prisma/seed/regimes-programs.ts ISAN_RATES).
+export const ISAN_2026 = {
+  fiscalYear: 2026,
+  // Art. 3, último párrafo: si precio > umbral, se resta 7% del excedente.
+  highPriceThreshold: 1_060_189.93,
+  highPriceDiscountRate: 0.07,
+  // Art. 8, fracc. II: ≤ exemptFull → 100% exento; ≤ exemptHalf → 50% de exención.
+  exemptFull: 356_934.05,
+  exemptHalf: 452_116.48,
+  source: 'DOF 28-dic-2025 — Anexo 15 RMF 2026 (Art. 3 y 8-II LFISAN)',
+} as const;
+
+const isanRound2 = (n: number) => Math.round((n + Number.EPSILON) * 100) / 100;
+const mxnFmt = (n: number) => n.toLocaleString('es-MX', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+
 export async function calculateISAN(fractionCode: string, priceMXN: number, isElectric = false): Promise<ISANResult> {
   const clean = fractionCode.replace(/[^0-9]/g, '');
+  const isPassengerVehicle = clean.startsWith('8703');
 
-  // Si es eléctrico, busca por vehicleType=electric
+  // Eléctricos/híbridos: EXENTOS. No requiere fila en la tabla (blindaje).
   if (isElectric) {
-    const exempt = await prisma.iSANRate.findFirst({
-      where: { vehicleType: 'electric', active: true, fiscalYear: 2026 },
-    });
-    if (exempt) {
-      return {
-        applies: true, vehicleType: 'electric', exempt: true,
-        priceMXN, rangeMin: 0, rangeMax: null,
-        fixedAmount: 0, marginalRate: 0, amountMXN: 0,
-        calculation: 'Vehículo eléctrico — EXENTO de ISAN',
-      };
-    }
+    return {
+      applies: true, vehicleType: 'electric', exempt: true,
+      priceMXN, rangeMin: 0, rangeMax: null, fixedAmount: 0, marginalRate: 0, amountMXN: 0,
+      calculation: 'Vehículo eléctrico/híbrido — EXENTO de ISAN',
+    };
   }
 
-  // Buscar tarifa por fracción + rango de precio
+  // Buscar tarifa por fracción + año fiscal
   const rates = await prisma.iSANRate.findMany({
     where: {
-      OR: [
-        { fractionCode: clean },
-        { fractionCode: clean.slice(0, 4) },
-      ],
-      active: true,
-      vehicleType: 'passenger',
-      fiscalYear: 2026,
+      OR: [{ fractionCode: clean }, { fractionCode: clean.slice(0, 4) }],
+      active: true, vehicleType: 'passenger', fiscalYear: ISAN_2026.fiscalYear,
     },
     orderBy: { priceRangeMin: 'asc' },
   });
+
   if (rates.length === 0) {
+    // BLINDAJE: si es automóvil (8703) y no hay tarifa cargada, NO lo ocultes en
+    // silencio — marca que ISAN APLICA pero falta la tarifa verificada (amount 0).
+    if (isPassengerVehicle) {
+      return {
+        applies: true, vehicleType: 'passenger', exempt: false,
+        priceMXN, rangeMin: null, rangeMax: null, fixedAmount: 0, marginalRate: 0, amountMXN: 0,
+        calculation: '⚠️ ISAN APLICA pero no hay tarifa verificada cargada. No se incluye monto — consulta la tarifa vigente en el DOF (Anexo 15 RMF).',
+      };
+    }
     return { applies: false, vehicleType: null, exempt: false, priceMXN, rangeMin: null, rangeMax: null, fixedAmount: 0, marginalRate: 0, amountMXN: 0, calculation: 'No aplica ISAN para esta fracción' };
   }
 
@@ -210,20 +227,41 @@ export async function calculateISAN(fractionCode: string, priceMXN: number, isEl
   if (!tier) {
     return { applies: false, vehicleType: 'passenger', exempt: false, priceMXN, rangeMin: null, rangeMax: null, fixedAmount: 0, marginalRate: 0, amountMXN: 0, calculation: 'Precio fuera de tarifa' };
   }
-  const excedente = priceMXN - tier.priceRangeMin;
-  const marginal = excedente * (tier.marginalRate / 100);
-  const total = tier.fixedAmount + marginal;
 
+  // 1) Impuesto base — tarifa progresiva (Art. 3)
+  const excedente = priceMXN - tier.priceRangeMin;
+  const base = tier.fixedAmount + excedente * (tier.marginalRate / 100);
+  let impuesto = base;
+  let note = '';
+
+  // 2) Descuento Art. 3 último párrafo (precio alto). No se traslapa con 8-II.
+  if (priceMXN > ISAN_2026.highPriceThreshold) {
+    const descuento = (priceMXN - ISAN_2026.highPriceThreshold) * ISAN_2026.highPriceDiscountRate;
+    impuesto = base - descuento;
+    note = ` − 7% × $${mxnFmt(priceMXN - ISAN_2026.highPriceThreshold)} (precio > $${mxnFmt(ISAN_2026.highPriceThreshold)}) = −$${mxnFmt(descuento)}`;
+  }
+
+  // 3) Exención Art. 8 fracc. II (vehículos de bajo costo)
+  let exempt = false;
+  if (priceMXN <= ISAN_2026.exemptFull) {
+    impuesto = 0; exempt = true;
+    note = ` · EXENTO 100% (Art. 8-II: precio ≤ $${mxnFmt(ISAN_2026.exemptFull)})`;
+  } else if (priceMXN <= ISAN_2026.exemptHalf) {
+    impuesto = impuesto * 0.5;
+    note = ` · reducción 50% (Art. 8-II: precio ≤ $${mxnFmt(ISAN_2026.exemptHalf)})`;
+  }
+
+  const total = Math.max(0, isanRound2(impuesto));
   return {
     applies: true,
     vehicleType: tier.vehicleType,
-    exempt: false,
+    exempt,
     priceMXN,
     rangeMin: tier.priceRangeMin,
     rangeMax: tier.priceRangeMax,
     fixedAmount: tier.fixedAmount,
     marginalRate: tier.marginalRate,
-    amountMXN: Math.round(total * 100) / 100,
-    calculation: `Cuota fija $${tier.fixedAmount.toLocaleString('es-MX')} + ${tier.marginalRate}% × $${excedente.toLocaleString('es-MX')} (excedente) = $${total.toLocaleString('es-MX')} MXN`,
+    amountMXN: total,
+    calculation: `Cuota fija $${mxnFmt(tier.fixedAmount)} + ${tier.marginalRate}% × $${mxnFmt(excedente)} = $${mxnFmt(base)}${note} → ISAN $${mxnFmt(total)} MXN`,
   };
 }
