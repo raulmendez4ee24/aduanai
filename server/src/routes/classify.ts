@@ -4,8 +4,8 @@ import { authenticate, AuthRequest } from '../middlewares/auth';
 import { requirePermission } from '../middlewares/requirePermission';
 import { getUserPermissions, hasPermission } from '../services/permissions';
 import { classifyProduct, type IndustrialSector, type ImporterType } from '../services/classifier';
-import { buildClassifierAlerts, computeConsultHash, TIGIE_VERSION, LIGIE_VERSION } from '../services/classifier-alerts';
-import { recordConsult, verifyConsult } from '../services/traceability';
+import { buildClassifierAlerts, computeConsultHash } from '../services/classifier-alerts';
+import { recordConsult, verifyConsult, getActiveVersions } from '../services/traceability';
 import { isDomesticOrigin, DOMESTIC_ORIGIN_NOTE } from '../lib/origin';
 import { resolveSectorsForFraction } from '../services/padron-checker';
 import { prisma } from '../lib/prisma';
@@ -146,12 +146,15 @@ classifyRouter.post('/', authenticate, requirePermission('classifier', 'create')
     });
 
     const consultedAt = new Date();
+    // FUENTE ÚNICA de versión: se resuelve una vez y alimenta TANTO el legacyHash
+    // como recordConsult, de modo que ambos lean de la misma fuente (no divergen).
+    const versions = await getActiveVersions();
     const consultHash = computeConsultHash({
       description,
       context,
       fractionCode: result.fraction.code,
       confidence: result.confidence,
-      tigieVersion: TIGIE_VERSION,
+      tigieVersion: versions.tigie,
     });
 
     // Registro de trazabilidad versional — captura inputs, outputs, versiones,
@@ -164,6 +167,7 @@ classifyRouter.post('/', authenticate, requirePermission('classifier', 'create')
       modelUsed: result._trace?.modelUsed ?? 'unknown',
       modelProvider: result._trace?.modelProvider ?? 'unknown',
       knowledgeUsed: result._trace?.knowledgeUsed ?? [],
+      versions, // misma fuente que el legacyHash
     });
 
     // SOD: si el usuario no puede aprobar, la clasificación queda pendiente.

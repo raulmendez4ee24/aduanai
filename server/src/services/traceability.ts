@@ -11,6 +11,7 @@
 
 import crypto from 'crypto';
 import { prisma } from '../lib/prisma';
+import { TARIFF_VERSION } from '../lib/tariff-version';
 
 const sha256 = (s: string) => crypto.createHash('sha256').update(s).digest('hex');
 
@@ -70,8 +71,10 @@ export async function getActiveVersions(): Promise<ActiveVersions> {
     }
   }
   return {
-    tigie: byType.get('TIGIE') ?? 'unknown',
-    ligie: byType.get('LIGIE') ?? 'unknown',
+    // BLINDAJE: si la tabla está vacía (seed no corrió), cae a la constante
+    // canónica (la versión REAL del catálogo cargado), nunca a 'unknown'.
+    tigie: byType.get('TIGIE') ?? TARIFF_VERSION.tigie,
+    ligie: byType.get('LIGIE') ?? TARIFF_VERSION.ligie,
     rgce: byType.get('RGCE') ?? null,
     acuerdoNoms: byType.get('ACUERDO_NOMs') ?? null,
     tmec: byType.get('TMEC') ?? null,
@@ -87,6 +90,9 @@ export interface RecordConsultInput {
   modelUsed: string;          // ej "claude-sonnet-4-6"
   modelProvider: string;      // "anthropic" | "gemini"
   knowledgeUsed: KnowledgeUsedItem[];
+  /** Versiones ya resueltas por el llamador. Si se omite, se resuelven aquí.
+   *  Permite que el route use UNA sola fuente para el hash y el registro. */
+  versions?: ActiveVersions;
 }
 
 export interface RecordConsultResult {
@@ -100,7 +106,7 @@ export interface RecordConsultResult {
 }
 
 export async function recordConsult(input: RecordConsultInput): Promise<RecordConsultResult> {
-  const versions = await getActiveVersions();
+  const versions = input.versions ?? await getActiveVersions();
   const inputHash = hashInputs(input.inputs);
   const outputHash = hashOutputs(input.outputs);
   const knowledgeBaseHash = hashKnowledgeBase(input.knowledgeUsed);

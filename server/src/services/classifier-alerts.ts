@@ -15,9 +15,9 @@ import { lookupEstimatedPrice } from './price-validator';
 import { isDomesticOrigin, DOMESTIC_ORIGIN_NOTE } from '../lib/origin';
 import { formatCuota } from '../lib/cuota-format';
 
-// Versiones publicadas — se actualiza con el monitor DOF/SAT.
-export const TIGIE_VERSION = '2026-01-01';
-export const LIGIE_VERSION = 'post-reforma-29dic2025';
+// Versiones publicadas — FUENTE ÚNICA en lib/tariff-version.ts. Se re-exportan
+// aquí por retrocompatibilidad con los módulos que ya las importan desde aquí.
+export { TIGIE_VERSION, LIGIE_VERSION } from '../lib/tariff-version';
 
 export type ClassifierAlertSeverity = 'critical' | 'warning' | 'info';
 

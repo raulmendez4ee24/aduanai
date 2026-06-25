@@ -10,6 +10,7 @@
 
 import { PrismaClient } from '@prisma/client';
 import crypto from 'crypto';
+import { TARIFF_VERSION } from '../../src/lib/tariff-version';
 
 interface VersionSeed {
   type: 'TIGIE' | 'LIGIE' | 'RGCE' | 'DOF' | 'TMEC' | 'ANEXO_22' | 'ACUERDO_NOMs';
@@ -31,14 +32,14 @@ function defaultHash(s: VersionSeed): string {
 }
 
 export const VERSION_SNAPSHOTS: VersionSeed[] = [
-  // TIGIE
+  // TIGIE — versión REAL del catálogo cargado (deriva de la fuente única)
   {
     type: 'TIGIE',
-    version: '2026-01-01',
-    publishDate: '2025-12-29',
-    effectiveDate: '2026-01-01',
-    source: 'DOF 2025-12-29 — Decreto que modifica la TIGIE',
-    notes: 'Vigente desde 2026-01-01 — versión actual usada por el clasificador.',
+    version: TARIFF_VERSION.tigie,
+    publishDate: TARIFF_VERSION.publishDate,
+    effectiveDate: TARIFF_VERSION.effectiveDate,
+    source: TARIFF_VERSION.source,
+    notes: `Vigente desde ${TARIFF_VERSION.effectiveDate} — extracto Base Única SNICE ${TARIFF_VERSION.snapshotDate} cargado en el catálogo.`,
     active: true,
   },
   {
@@ -52,14 +53,14 @@ export const VERSION_SNAPSHOTS: VersionSeed[] = [
     active: false,
   },
 
-  // LIGIE
+  // LIGIE — versión REAL del catálogo cargado (deriva de la fuente única)
   {
     type: 'LIGIE',
-    version: 'post-reforma-29dic2025',
-    publishDate: '2025-12-29',
-    effectiveDate: '2026-01-01',
-    source: 'DOF 2025-12-29 — Reforma a la LIGIE',
-    notes: 'Reforma estructural de la Ley de los Impuestos Generales de Importación y Exportación.',
+    version: TARIFF_VERSION.ligie,
+    publishDate: TARIFF_VERSION.publishDate,
+    effectiveDate: TARIFF_VERSION.effectiveDate,
+    source: TARIFF_VERSION.source,
+    notes: 'Reforma estructural de la Ley de los Impuestos Generales de Importación y Exportación (DOF 29-dic-2025).',
     active: true,
   },
   {
