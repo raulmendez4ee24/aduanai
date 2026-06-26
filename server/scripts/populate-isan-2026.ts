@@ -1,10 +1,11 @@
-// Pobla isan_rates en prod con la TARIFA ISAN 2026 verificada (DOF 28-dic-2025,
-// Anexo 15 RMF, Art. 3 LFISAN). Solo toca ISANRate. Luego corre calculateISAN
-// real para casos de prueba y reporta base/tramo/monto.
+// Pobla isan_rates en prod con la TARIFA ISAN 2026 (DOF 28-dic-2025, Anexo 15
+// RMF, sección A, Art. 3 LFISAN). Cifras COTEJADAS tramo por tramo contra el PDF
+// oficial del SAT el 2026-06-25 (coinciden exacto). Solo toca ISANRate. Luego
+// corre calculateISAN real para casos de prueba y reporta base/tramo/monto.
 import { prisma } from '../dist/lib/prisma.js';
 import { calculateISAN, ISAN_2026 } from '../dist/services/regimes-programs.js';
 
-const DOF = 'DOF 28-dic-2025 — Anexo 15 RMF 2026 (Tarifa ISAN, Art. 3 LFISAN)';
+const DOF = 'DOF 28-dic-2025 — Anexo 15 RMF 2026, sección A (Tarifa ISAN, Art. 3 LFISAN). Cotejado vs PDF oficial SAT el 2026-06-25.';
 const TRAMOS = [
   { priceRangeMin: 0.01,      priceRangeMax: 383940.35, fixedAmount: 0.00,     marginalRate: 2 },
   { priceRangeMin: 383940.36, priceRangeMax: 460728.35, fixedAmount: 7678.67,  marginalRate: 5 },

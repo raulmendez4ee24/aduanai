@@ -172,8 +172,10 @@ export interface ISANResult {
 }
 
 // Parámetros escalares de la tarifa ISAN 2026 — FUENTE PRIMARIA:
-// DOF 28-dic-2025, Anexo 15 RMF (Décima Segunda Modificación). Mismo documento
-// que las 5 tramos seedeados (prisma/seed/regimes-programs.ts ISAN_RATES).
+// DOF 28-dic-2025, Anexo 15 RMF, secciones A y B. Mismo documento que las 5
+// tramos seedeados (prisma/seed/regimes-programs.ts ISAN_RATES). COTEJADO contra
+// el PDF oficial del SAT el 2026-06-25 — los 4 escalares coinciden EXACTO:
+//   https://www.sat.gob.mx/minisitio/NormatividadRMFyRGCE/documentos2026/rmf/anexos/Anexo-15-RMF-2026_DOF-2812225.pdf
 export const ISAN_2026 = {
   fiscalYear: 2026,
   // Art. 3, último párrafo: si precio > umbral, se resta 7% del excedente.
@@ -182,7 +184,7 @@ export const ISAN_2026 = {
   // Art. 8, fracc. II: ≤ exemptFull → 100% exento; ≤ exemptHalf → 50% de exención.
   exemptFull: 356_934.05,
   exemptHalf: 452_116.48,
-  source: 'DOF 28-dic-2025 — Anexo 15 RMF 2026 (Art. 3 y 8-II LFISAN)',
+  source: 'DOF 28-dic-2025 — Anexo 15 RMF 2026 (Art. 3 y 8-II LFISAN). Cotejado vs PDF oficial SAT el 2026-06-25.',
 } as const;
 
 const isanRound2 = (n: number) => Math.round((n + Number.EPSILON) * 100) / 100;

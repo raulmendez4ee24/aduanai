@@ -293,11 +293,15 @@ interface ISANSeed {
   notes?: string;
 }
 
-// Tarifa ISAN 2026 — FUENTE PRIMARIA: DOF 28-dic-2025, Anexo 15 RMF
-// (Décima Segunda Modificación), "Tarifa para determinar el ISAN para el año
-// 2026" (Art. 3 LFISAN). Cifras verificadas contra el DOF (no representativas).
-// Tasas marginales reales: 2 / 5 / 10 / 15 / 17 %.
-const ISAN_2026_DOF = 'DOF 28-dic-2025 — Anexo 15 RMF 2026 (Tarifa ISAN, Art. 3 LFISAN)';
+// Tarifa ISAN 2026 — FUENTE PRIMARIA: DOF 28-dic-2025, Anexo 15 RMF, sección A
+// "Tarifa para determinar el ISAN para el año 2026" (Art. 3 LFISAN).
+// COTEJADO tramo por tramo contra el PDF oficial del SAT el 2026-06-25:
+//   https://www.sat.gob.mx/minisitio/NormatividadRMFyRGCE/documentos2026/rmf/anexos/Anexo-15-RMF-2026_DOF-2812225.pdf
+// Los 5 tramos (límites + cuotas fijas) y los escalares (umbral 7% $1,060,189.93,
+// Art. 8-II $356,934.05 / $452,116.48) coinciden EXACTO con la fuente. Tasas
+// marginales reales: 2 / 5 / 10 / 15 / 17 %. (Las cuotas fijas del DOF traen
+// ±0.18 de redondeo propio sobre el acumulado; es así en el documento oficial.)
+const ISAN_2026_DOF = 'DOF 28-dic-2025 — Anexo 15 RMF 2026, sección A (Tarifa ISAN, Art. 3 LFISAN). Cotejado vs PDF oficial SAT el 2026-06-25.';
 export const ISAN_RATES: ISANSeed[] = [
   { fractionCode: '8703', vehicleType: 'passenger', priceRangeMin: 0.01,      priceRangeMax: 383940.35, fixedAmount: 0.00,     marginalRate: 2,  notes: ISAN_2026_DOF },
   { fractionCode: '8703', vehicleType: 'passenger', priceRangeMin: 383940.36, priceRangeMax: 460728.35, fixedAmount: 7678.67,  marginalRate: 5,  notes: ISAN_2026_DOF },
