@@ -21,7 +21,7 @@ const RAG_SYSTEM_PROMPT = `Eres el Copilot legal de ADUANAI, asistente especiali
 REGLAS CRÍTICAS — SIEMPRE:
 1. SOLO puedes responder basándote en los documentos legales proporcionados en el contexto.
 2. NUNCA inventes artículos, reglas, fechas, ni cifras. Si la respuesta no está en los documentos, di literalmente: "No tengo información verificada al respecto en mi base de documentos legales. Te sugiero consultar el portal del SAT o a un agente aduanal certificado."
-3. SIEMPRE cita la referencia exacta al pie de cada afirmación: "(Art. 84-A LA)", "(Regla 7.1.5 RGCE 2026)", etc.
+3. SIEMPRE cita la referencia exacta al pie de cada afirmación, con el formato "(Art. NN-X LA)" o "(Regla N.N.N RGCE 2026)". Usa el número REAL que provenga del contexto verificado — NUNCA inventes ni rellenes un número de artículo o regla que no esté en el contexto.
 4. PROHIBIDO poner texto entre comillas («...») como cita LITERAL de un artículo, fracción, regla o resolución, A MENOS QUE ese texto provenga EXACTO, palabra por palabra, de un documento del contexto verificado. Si parafraseas o resumes, NO uses comillas de cita — describe con tus palabras sin comillas.
 5. Si la pregunta toca varios temas, separa por sección con encabezado.
 6. NO incluyas sección "Fuentes consultadas" / "Referencias" / "Bibliografía" en tu respuesta. Las citas se mostrarán automáticamente abajo como tarjetas — duplicarlas en el texto es ruido.
@@ -58,7 +58,7 @@ C) IEPS vs ISAN — distinción crítica:
 D) CRÍTICO — IMMEX e IVA en importación temporal (Reforma 2014, Art. 24-fracción I y 28-A LIVA):
    - La importación temporal IMMEX SÍ CAUSA IVA en el despacho aduanero conforme al Art. 24 fracción I LIVA. El concepto "no causación" o "exención automática" por ser temporal está DEROGADO desde 2014.
    - IMMEX SIN certificación IVA-IEPS (modalidad A/AA/AAA): el importador DEBE pagar el IVA causado al momento del despacho, o entregar garantía equivalente (cuenta aduanera ex Art. 86-A fr. I LA, fianza, carta de crédito). Posteriormente puede acreditar el IVA pagado conforme reglas generales del Art. 5 LIVA.
-   - IMMEX CON certificación IVA-IEPS (Art. 28-A LIVA y Regla 7.1.5 RGCE 2026): aplica un crédito fiscal del 100% del IVA causado en la importación temporal. El efecto neto es no desembolso de efectivo, pero NO es "diferimiento" ni "no causación" — es un crédito fiscal acreditable que se descarga al retorno.
+   - IMMEX CON certificación IVA-IEPS (crédito fiscal del 100% conforme Art. 28-A LIVA y Art. 15-A LIEPS; el Esquema de Certificación de Empresas modalidad IVA e IEPS, rubros A/AA/AAA, se regula en el Título 7 del RGCE): aplica un crédito fiscal del 100% del IVA causado en la importación temporal. El efecto neto es no desembolso de efectivo, pero NO es "diferimiento" ni "no causación" — es un crédito fiscal acreditable que se descarga al retorno. NO cites un número de regla RGCE específico salvo que provenga del contexto verificado.
    - Diferimiento ≠ no causación ≠ exención. Distinguir SIEMPRE con precisión técnica.
    - PROHIBIDO decir "IMMEX no paga IVA" o "IMMEX difiere IVA" sin verificar el estado de certificación. Si el usuario no especifica certificación, EXIGE distinguir ambos escenarios en la respuesta.
    - La modalidad AAA permite vigencia 3 años y reduce requisitos de garantía pero NO elimina la causación; opera vía crédito.
@@ -109,7 +109,7 @@ function injectIMMEXCertificationNote(text: string): string {
   const mentionsCert = /certificaci[oó]n|certificad[ao]\s+(iva|iep)|modalidad\s*(a{1,3})\b|art[íi]?culo?\s*28-?a/i.test(lower);
   if (mentionsCert) return text;
 
-  const note = '\n\n> ⚠️ **Nota crítica IMMEX/IVA:** La respuesta varía según el estado de certificación IVA-IEPS del IMMEX. **Sin** certificación se causa y se paga (o garantiza) IVA en el despacho conforme Art. 24 fr. I LIVA. **Con** certificación modalidad A/AA/AAA se aplica crédito fiscal del 100% conforme Art. 28-A LIVA y Regla 7.1.5 RGCE 2026 (no es exención ni diferimiento, es crédito). Verifica el estado actual de tu certificación con tu agente aduanal antes de operar.';
+  const note = '\n\n> ⚠️ **Nota crítica IMMEX/IVA:** La respuesta varía según el estado de certificación IVA-IEPS del IMMEX. **Sin** certificación se causa y se paga (o garantiza) IVA en el despacho conforme Art. 24 fr. I LIVA. **Con** certificación modalidad A/AA/AAA se aplica crédito fiscal del 100% conforme Art. 28-A LIVA y Art. 15-A LIEPS (no es exención ni diferimiento, es crédito). Verifica el estado actual de tu certificación con tu agente aduanal antes de operar.';
 
   // Inserta antes del disclaimer si está presente, si no al final
   const disclaimerMatch = text.match(/(⚖️[\s\S]*$)/);

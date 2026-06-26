@@ -79,7 +79,7 @@ const TOPIC_KEYWORDS: Record<string, string[]> = {
   iva_ieps: [
     'iva-ieps', 'certificacion iva', 'certificación iva',
     'modalidad a', 'modalidad aa', 'modalidad aaa',
-    'regla 7.1.5', 'crédito iva', 'credito iva',
+    'crédito iva', 'credito iva',
   ],
   fiscal: ['fiscal', 'credito', 'crédito', 'descargo', 'cuenta aduanera', 'tax credit', 'recargos'],
   isan: ['isan', 'automovil nuevo', 'automóvil nuevo', 'vehiculo nuevo', 'vehículo nuevo', 'art. 1 lisan', 'art. 2 lisan', 'lisan'],

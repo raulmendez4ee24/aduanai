@@ -222,11 +222,11 @@ export const LEGAL_DOCUMENTS: LegalDocSeed[] = [
     topics: ['regimen', 'padrones'], keywords: ['inscripción padrón sectorial', 'AGACE', 'e.firma', 'opinión cumplimiento', 'domicilio localizado', 'renovación'],
   },
   {
-    type: 'rgce', source: 'RGCE_2026', title: 'RGCE 2026 — Certificación IVA/IEPS modalidades',
-    reference: 'Regla 7.1.5 RGCE 2026',
-    content: 'La certificación IVA/IEPS tiene tres modalidades: A (estándar), AA (intermedio) y AAA (alto). Modalidad A: vigencia 1 año, garantías por crédito del IVA. Modalidad AA: vigencia 2 años, garantías reducidas. Modalidad AAA: vigencia 3 años, sin garantías para créditos de IVA, requiere antigüedad y nivel de cumplimiento más alto. Aplicable al Régimen IMMEX.',
-    officialUrl: `${DOF}/nota_detalle.php?codigo=RGCE_2026`, effectiveDate: '2026-01-01',
-    topics: ['certificacion', 'iva_ieps'], keywords: ['IVA-IEPS', 'AA', 'AAA', 'modalidades', 'IMMEX', 'certificación'],
+    type: 'rgce', source: 'RGCE_2026', title: 'RGCE 2026 — Esquema de Certificación de Empresas, modalidad IVA e IEPS (rubros A/AA/AAA)',
+    reference: 'Reglas 7.1.1, 7.1.2 y 7.1.3 RGCE 2026',
+    content: 'El Esquema de Certificación de Empresas en la modalidad de IVA e IEPS (Título 7 del RGCE) tiene tres rubros: A, AA y AAA. Los requisitos generales para obtener el Registro están en la regla 7.1.1 (que invoca los artículos 28-A primer párrafo LIVA, 15-A primer párrafo LIEPS y 100-A de la Ley Aduanera); los requisitos específicos del rubro A en la regla 7.1.2 y los de los rubros AA y AAA en la regla 7.1.3. Los rubros superiores exigen mayor antigüedad operativa y nivel de cumplimiento: el rubro AA requiere haber realizado operaciones durante al menos cuatro años, y el rubro AAA durante al menos siete años. El beneficio de la certificación es un crédito fiscal equivalente al 100% del IVA (y, en su caso, IEPS) que se cause por la importación temporal, conforme al Art. 28-A LIVA y 15-A LIEPS. Aplicable al Régimen IMMEX. No exime ni difiere el impuesto: es un crédito fiscal acreditable.',
+    officialUrl: 'https://www.sat.gob.mx/minisitio/NormatividadRMFyRGCE/documentos2026/rgce/rgce/ReglasGeneralesComercioExteriorpara2026.pdf', effectiveDate: '2026-01-01',
+    topics: ['certificacion', 'iva_ieps'], keywords: ['IVA-IEPS', 'rubro A', 'rubro AA', 'rubro AAA', 'modalidades', 'IMMEX', 'certificación', 'esquema de certificación de empresas', 'crédito fiscal'],
   },
   {
     type: 'rgce', source: 'RGCE_2026', title: 'RGCE 2026 — Plazos de permanencia IMMEX',
@@ -256,7 +256,7 @@ export const LEGAL_DOCUMENTS: LegalDocSeed[] = [
   {
     type: 'ley', source: 'LIVA', title: 'LIVA — Crédito fiscal para IMMEX certificada (Art. 28-A)',
     reference: 'Art. 28-A LIVA',
-    content: 'Las personas que introduzcan bienes a los regímenes aduaneros de importación temporal para elaboración, transformación o reparación en programas de maquila o de exportación; de depósito fiscal para someterse al proceso de ensamble y fabricación de vehículos; de elaboración, transformación o reparación en recinto fiscalizado, y de recinto fiscalizado estratégico, PODRÁN aplicar un CRÉDITO FISCAL consistente en una cantidad equivalente al 100% del impuesto al valor agregado que deba pagarse por la importación, siempre que cuenten con CERTIFICACIÓN expedida por el SAT (modalidades A, AA o AAA conforme Regla 7.1.5 RGCE). El crédito se aplica contra el IVA que se cause por la introducción. Por tanto: SIN certificación se paga (o garantiza) IVA; CON certificación se aplica crédito 100% (efecto neto no desembolso pero NO es exención ni diferimiento — es crédito acreditable).',
+    content: 'Las personas que introduzcan bienes a los regímenes aduaneros de importación temporal para elaboración, transformación o reparación en programas de maquila o de exportación; de depósito fiscal para someterse al proceso de ensamble y fabricación de vehículos; de elaboración, transformación o reparación en recinto fiscalizado, y de recinto fiscalizado estratégico, PODRÁN aplicar un CRÉDITO FISCAL consistente en una cantidad equivalente al 100% del impuesto al valor agregado que deba pagarse por la importación, siempre que cuenten con CERTIFICACIÓN expedida por el SAT en el Esquema de Certificación de Empresas, modalidad IVA e IEPS (rubros A, AA o AAA), cuyos requisitos se regulan en el Título 7 del RGCE (reglas 7.1.1 a 7.1.3). El crédito se aplica contra el IVA que se cause por la introducción. Por tanto: SIN certificación se paga (o garantiza) IVA; CON certificación se aplica crédito 100% (efecto neto no desembolso pero NO es exención ni diferimiento — es crédito acreditable).',
     officialUrl: 'https://www.diputados.gob.mx/LeyesBiblio/pdf/LIVA.pdf', effectiveDate: '2014-01-01',
     topics: ['iva', 'inmex', 'certificacion', 'fiscal'], keywords: ['IVA', 'crédito fiscal', 'Art. 28-A', 'certificación', 'IMMEX', 'A AA AAA', 'modalidad', 'Reforma 2014'],
   },
