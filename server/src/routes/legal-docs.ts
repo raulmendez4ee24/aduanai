@@ -15,7 +15,7 @@ import { spawn } from 'child_process';
 import path from 'path';
 import { authenticate, AuthRequest, requireRole } from '../middlewares/auth';
 import { prisma } from '../lib/prisma';
-import { generateEmbedding } from '../lib/embeddings';
+import { generateEmbedding, assertCorpusEmbedding } from '../lib/embeddings';
 
 export const legalDocsRouter = Router();
 const adminOnly = [authenticate, requireRole('SUPERADMIN')];
@@ -227,6 +227,7 @@ legalDocsRouter.post('/reindex', adminOnly, async (_req: AuthRequest, res: Respo
     let updated = 0;
     for (const d of docs) {
       const embedding = await generateEmbedding(`${d.title}\n${d.reference}\n${d.content}`, 'document');
+      assertCorpusEmbedding(embedding, d.reference);
       await prisma.legalDocument.update({ where: { id: d.id }, data: { embedding } });
       updated++;
     }
@@ -303,6 +304,7 @@ legalDocsRouter.post('/', adminOnly, async (req: AuthRequest, res: Response, nex
     }
     const contentHash = crypto.createHash('sha256').update(body.content).digest('hex').slice(0, 32);
     const embedding = await generateEmbedding(`${body.title}\n${body.reference}\n${body.content}`, 'document');
+    assertCorpusEmbedding(embedding, body.reference);
     const data = {
       type: body.type, source: body.source, title: body.title, reference: body.reference,
       content: body.content, officialUrl: body.officialUrl,

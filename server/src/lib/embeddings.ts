@@ -60,13 +60,47 @@ function fallbackEmbedding(text: string): number[] {
  */
 const VOYAGE_MODEL = process.env.EMBEDDING_MODEL || 'voyage-4';
 const VOYAGE_DIM = 1024;
+const OPENAI_DIM = 1536;
 
-export async function generateEmbedding(
+const sleep = (ms: number) => new Promise<void>((r) => setTimeout(r, ms));
+
+/**
+ * Dimensión esperada del embedding según el proveedor configurado. El corpus
+ * DEBE ser dimensionalmente uniforme: cosineSimilarity devuelve 0 entre vectores
+ * de distinta longitud, así que un doc con dim equivocada queda invisible para el
+ * retrieval semántico. Los escritores del corpus deben validar contra esto.
+ */
+export const EMBEDDING_DIM = process.env.VOYAGE_API_KEY
+  ? VOYAGE_DIM
+  : process.env.OPENAI_API_KEY
+    ? OPENAI_DIM
+    : EMBEDDING_DIM_FALLBACK;
+
+/**
+ * Rechaza un embedding cuya dimensión no sea la esperada por el proveedor activo.
+ * Pensado para los ESCRITORES del corpus (seed, endpoints de alta): mejor truene
+ * visible que persistir una dim equivocada (p.ej. el fallback hashed de 256 tras
+ * un 429 de Voyage) y corromper el corpus en silencio.
+ */
+export function assertCorpusEmbedding(embedding: number[], ctx = 'corpus'): void {
+  if (embedding.length !== EMBEDDING_DIM) {
+    throw new Error(
+      `Embedding inválido para "${ctx}": dim ${embedding.length} ≠ ${EMBEDDING_DIM} esperado por el proveedor activo. ` +
+      `Se RECHAZA para no corromper el corpus (probable fallback por fallo del proveedor de embeddings). ` +
+      `Reintenta el seed/alta cuando Voyage responda correctamente.`,
+    );
+  }
+}
+
+/** Voyage con reintentos + backoff exponencial en 429 / 5xx / error de red.
+ *  Lanza tras agotar los intentos (NO cae a hashed aquí; eso lo decide el caller). */
+async function voyageEmbedWithRetry(
   text: string,
-  inputType: 'query' | 'document' | null = null,
+  inputType: 'query' | 'document' | null,
+  attempts = 6,
 ): Promise<number[]> {
-  // 1) Voyage AI (preferido)
-  if (process.env.VOYAGE_API_KEY) {
+  let lastErr: unknown;
+  for (let a = 0; a < attempts; a++) {
     try {
       const res = await fetch('https://api.voyageai.com/v1/embeddings', {
         method: 'POST',
@@ -81,13 +115,47 @@ export async function generateEmbedding(
           output_dimension: VOYAGE_DIM,
         }),
       });
-      if (!res.ok) {
-        throw new Error(`Voyage ${res.status}: ${await res.text().catch(() => '')}`);
+      // 429 / 5xx → reintentable con backoff
+      if (res.status === 429 || res.status >= 500) {
+        lastErr = new Error(`Voyage ${res.status}`);
+        const wait = Math.min(60000, 1000 * 2 ** a);
+        logger.warn(`Embedding Voyage ${res.status} — backoff ${wait}ms (intento ${a + 1}/${attempts})`, {
+          action: 'embedding_retry', metadata: { status: res.status, attempt: a + 1 },
+        });
+        await sleep(wait);
+        continue;
       }
+      // 4xx no-429 → no reintentable
+      if (!res.ok) throw new Error(`Voyage ${res.status}: ${await res.text().catch(() => '')}`);
       const data = await res.json() as { data: { embedding: number[] }[] };
-      return data.data[0]!.embedding;
+      const emb = data.data[0]!.embedding;
+      if (emb.length !== VOYAGE_DIM) throw new Error(`Voyage devolvió dim ${emb.length} ≠ ${VOYAGE_DIM}`);
+      return emb;
     } catch (err) {
-      logger.warn('Embedding Voyage fallback to hashed', {
+      // error de red / parse → reintentable con backoff
+      lastErr = err;
+      const wait = Math.min(60000, 1000 * 2 ** a);
+      logger.warn(`Embedding Voyage error de red — backoff ${wait}ms (intento ${a + 1}/${attempts})`, {
+        action: 'embedding_retry', errorMessage: err instanceof Error ? err.message : String(err),
+      });
+      await sleep(wait);
+    }
+  }
+  throw lastErr instanceof Error ? lastErr : new Error('Voyage: agotados los reintentos');
+}
+
+export async function generateEmbedding(
+  text: string,
+  inputType: 'query' | 'document' | null = null,
+): Promise<number[]> {
+  // 1) Voyage AI (preferido) — con reintentos/backoff en 429. Solo cae al hashed
+  // tras agotar los reintentos (resiliencia del path de lectura). Los ESCRITORES
+  // del corpus deben validar con assertCorpusEmbedding para no persistir un fallback.
+  if (process.env.VOYAGE_API_KEY) {
+    try {
+      return await voyageEmbedWithRetry(text, inputType);
+    } catch (err) {
+      logger.warn('Embedding Voyage fallback to hashed (tras agotar reintentos)', {
         action: 'embedding_fallback', errorMessage: err instanceof Error ? err.message : String(err),
       });
       return fallbackEmbedding(text);

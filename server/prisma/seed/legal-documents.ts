@@ -15,7 +15,7 @@
 
 import { PrismaClient } from '@prisma/client';
 import crypto from 'crypto';
-import { generateEmbedding } from '../../src/lib/embeddings';
+import { generateEmbedding, assertCorpusEmbedding } from '../../src/lib/embeddings';
 
 interface LegalDocSeed {
   type: string;
@@ -432,8 +432,10 @@ export async function seedLegalDocuments(prisma: PrismaClient): Promise<{ insert
       continue;
     }
 
-    // Generar embedding (con fallback automático si no hay OPENAI_API_KEY)
+    // Generar embedding. RECHAZA dims ≠ esperado (no persiste un fallback que
+    // corrompería el corpus silenciosamente — ver assertCorpusEmbedding).
     const embedding = await generateEmbedding(`${doc.title}\n${doc.reference}\n${doc.content}`, 'document');
+    assertCorpusEmbedding(embedding, doc.reference);
 
     const data = {
       type: doc.type,
