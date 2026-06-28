@@ -415,19 +415,28 @@ export async function backfillAntidumpingDates(prisma: PrismaClient): Promise<{ 
 }
 
 // Cuotas DESACTIVADAS (clave fracción|país) — pendientes de verificación contra
-// la lista UPCI de cuotas vigentes. NO se borran (por si resultan reales); el
+// la lista UPCI de cuotas vigentes 2026. NO se borran (por si resultan reales); el
 // sistema simplemente no las muestra (active=false) hasta cotejar cita y tasa.
-// Motivo (auditoría 2026-06-27): números de resolución sintéticos en toda la
-// tabla; estas 14 además no tienen medida China real confirmada o no calzan con
-// ninguna entrada de la fuente oficial. Reactivar solo tras cotejo confirmado.
+// Motivo (auditoría 2026-06-27): números de resolución sintéticos en TODA la tabla
+// y, al cotejar contra la fuente oficial, las tasas también resultaron fabricadas.
+// Se desactiva todo lo que tiene tasa falsa o no-verificable; quedan activas SOLO
+// las plausibles aún sin cotejar a fondo (se revisan con la lista 2026).
+// Reactivar/reescribir cada una solo tras cotejo confirmado contra la fuente.
 const DESACTIVADAS_PENDIENTE_VERIF = new Set<string>([
-  // Sin medida China real (la oficial es de otro país / otro alcance):
+  // (a) Sin medida China real (la oficial es de otro país / otro alcance):
   '72082701|CN', // lámina rolada en caliente → la cuota real es Rusia/Ucrania
   '95030099|CN', // "juguetes varios" → la cuota real es solo globos metalizados (9503.00.23)
-  // Probables sintéticas (sin señal en lista oficial ni historial AD — grupo 2b):
+  // (b) Probables sintéticas (sin señal en lista oficial ni historial AD — grupo 2b):
   '39269099|CN', '42029299|CN', '48114199|CN', '48191001|CN', '70134101|CN',
   '76101101|CN', '76121001|CN', '82014001|CN', '82041201|CN', '85165001|CN',
   '85285201|CN', '85444299|CN',
+  // (c) Medida China REAL pero con tasa/fracción sintética (cotejo reveló mismatch);
+  //     se reescriben con cita+tasa reales cuando llegue la lista UPCI 2026:
+  '72091601|CN', // lámina rolada en frío (real 65.99–103.41%, no 53.4%)
+  '72104101|CN', // aceros planos recubiertos (real $0.1874/kg + 22.26%, no 39.8%)
+  '73041901|CN', // tubería sin costura (real $1,252–1,568.92/ton, no $0.78/kg)
+  '73063001|CN', // tubo soldado con costura (real $0.356–0.618/kg, no 25.55%)
+  '87120001|CN', // bicicletas (real $13.12/pza en .05, no $22.5 en .01)
 ]);
 const DESACT_NOTE = 'DESACTIVADA 2026-06-27: pendiente de verificación vs lista UPCI vigente. Cita y/o tasa sintética sin cotejo confirmado; no se muestra hasta verificar.';
 
