@@ -581,7 +581,7 @@ export function ClassifierPage() {
                   </p>
                   {result.meta.modelUsed && (
                     <p className="text-slate-500">
-                      <span className="font-semibold text-slate-600">Modelo:</span> {result.meta.modelUsed} ({result.meta.modelProvider})
+                      <span className="font-semibold text-slate-600">Motor:</span> Motor ADUANAI
                     </p>
                   )}
                 </div>

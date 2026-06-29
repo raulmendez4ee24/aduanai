@@ -95,7 +95,7 @@ export function CumplimientoPage() {
                     <th className="py-1.5 text-slate-500 font-medium">Fecha</th>
                     <th className="py-1.5 text-slate-500 font-medium">TIGIE</th>
                     <th className="py-1.5 text-slate-500 font-medium">LIGIE</th>
-                    <th className="py-1.5 text-slate-500 font-medium">Modelo</th>
+                    <th className="py-1.5 text-slate-500 font-medium">Motor</th>
                     <th className="py-1.5 text-slate-500 font-medium">consultHash</th>
                   </tr>
                 </thead>
@@ -105,7 +105,7 @@ export function CumplimientoPage() {
                       <td className="py-1 text-slate-600">{new Date(c.consultedAt).toLocaleString('es-MX', { dateStyle: 'short', timeStyle: 'short' })}</td>
                       <td className="py-1 font-mono">{c.tigieVersion}</td>
                       <td className="py-1 font-mono">{c.ligieVersion}</td>
-                      <td className="py-1 text-slate-500">{c.modelUsed}</td>
+                      <td className="py-1 text-slate-500">Motor ADUANAI</td>
                       <td className="py-1 font-mono text-emerald-700"><a href={`/verify/${c.consultHash}`} target="_blank" rel="noreferrer" className="hover:underline">{c.consultHash.slice(0, 12)}…</a></td>
                     </tr>
                   ))}
