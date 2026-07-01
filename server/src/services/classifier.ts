@@ -1,10 +1,12 @@
 import { llmGenerate, llmGenerateWithMeta } from '../lib/llm';
 import { jsonrepair } from 'jsonrepair';
 import { prisma } from '../lib/prisma';
+import { logger } from '../lib/logger';
+import { validateFraction, FRACTION_UNVERIFIED_MESSAGE } from './fraction-validator';
 import type { KnowledgeUsedItem } from './traceability';
 import { lookupPrecedents, hasActiveLitigation, type PrecedentMatch } from './precedent-lookup';
 
-interface ClassificationResult {
+export interface ClassificationResult {
   fraction: {
     code: string;
     description: string;
@@ -53,6 +55,13 @@ interface ClassificationResult {
     precedents: string[];
   } | null;
   disclaimer: string;
+  /**
+   * Candado Fase 1b: presente SOLO cuando el código final emitido por el
+   * LLM/verificador fue inválido (truncado/inexistente/inactivo) y el candado
+   * cayó al código pre-verificación validado contra el catálogo. Observable
+   * en la respuesta de la API; el evento también se loggea a SystemLog.
+   */
+  verifierFallback?: { invalidCode: string; usedCode: string; reason: string };
   /** Trazabilidad — modelo IA y conocimiento aplicado en esta clasificación. */
   _trace?: {
     modelUsed: string;
@@ -561,6 +570,50 @@ const SECTOR_LABELS: Record<IndustrialSector, string> = {
   general: 'General / Comercializadora',
 };
 
+/**
+ * CANDADO FINAL del Clasificador (Fase 1b) — misma familia que los candados de
+ * Inventario/MVE: el código que sale de classifyProduct DEBE existir y estar
+ * vigente en el catálogo `Fraction`. El LLM/verificador puede emitir códigos
+ * truncados a subpartida (visto en vivo: "7318.15") o inexistentes; nada de eso
+ * debe llegar al usuario.
+ *
+ * Orden de decisión (falla cerrado):
+ *  1. Código final válido → pasa intacto.
+ *  2. Inválido pero el código pre-verificación SÍ valida → fallback a ese, con
+ *     descripción canónica del catálogo + logger.warn (SystemLog) + flag
+ *     `verifierFallback` en la respuesta para observabilidad.
+ *  3. Ninguno valida → Error explícito; NO se devuelve fracción fabricada.
+ */
+export async function enforceCatalogFraction(
+  result: ClassificationResult,
+  preVerificationCode: string,
+): Promise<ClassificationResult> {
+  const finalCheck = await validateFraction(result.fraction.code);
+  if (finalCheck.valid) return result;
+
+  const fallback = await validateFraction(preVerificationCode);
+  if (fallback.valid) {
+    const invalidCode = result.fraction.code;
+    const usedCode = `${fallback.code.slice(0, 4)}.${fallback.code.slice(4, 6)}.${fallback.code.slice(6, 8)}`;
+    logger.warn(
+      `Clasificador emitió código inválido "${invalidCode}" (${finalCheck.reason}); fallback al código pre-verificación ${usedCode}`,
+      {
+        action: 'classifier_fraction_fallback',
+        entity: 'classification',
+        metadata: { invalidCode, usedCode, reason: finalCheck.reason },
+      },
+    );
+    result.fraction.code = usedCode;
+    if (fallback.description) result.fraction.description = fallback.description;
+    result.verifierFallback = { invalidCode, usedCode, reason: finalCheck.reason };
+    return result;
+  }
+
+  throw new Error(
+    `El clasificador no produjo una fracción válida del catálogo (final: "${result.fraction.code}", pre-verificación: "${preVerificationCode}"). ${FRACTION_UNVERIFIED_MESSAGE} Reintenta o reformula la descripción.`,
+  );
+}
+
 export async function classifyProduct(
   description: string,
   context?: string,
@@ -802,6 +855,11 @@ ${chapterFractions.slice(0, 100).map(f => `- ${f.codeFormatted}: ${f.description
       // Keep original result
     }
   }
+
+  // CANDADO FINAL (Fase 1b): valida el código emitido contra el catálogo, sea
+  // cual sea la ruta que lo produjo (LLM inicial, verificador o retry de
+  // confianza baja). Falla cerrado — nunca sale un código inexistente/truncado.
+  result = await enforceCatalogFraction(result, suggestedCode);
 
   return result;
 }
