@@ -247,7 +247,7 @@ export function OperationsPage() {
                 <div>
                   <label className="text-[11px] font-medium text-slate-500 mb-1 block">Fracción</label>
                   <input type="text" value={form.fractionCode ?? ''} onChange={e => set('fractionCode', e.target.value)}
-                    placeholder="8471.30.01" className={`${inputClass} font-mono`} />
+                    placeholder="0000.00.00" className={`${inputClass} font-mono`} />
                 </div>
               </div>
               <div className="grid grid-cols-2 gap-4">

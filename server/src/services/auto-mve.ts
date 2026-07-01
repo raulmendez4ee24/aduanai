@@ -18,7 +18,8 @@ export interface ExtractedInvoice {
     quantity: number;
     unitPrice: number;
     totalPrice: number;
-    fractionCode?: string;
+    // Sin fractionCode a propósito: MVE es valoración, NO clasificación.
+    // Clasificar la fracción es tarea del Clasificador (aterrizado vs catálogo).
   }[];
   subtotal: number;
   freight?: number;
@@ -27,6 +28,20 @@ export interface ExtractedInvoice {
   totalValue: number;
   paymentTerms?: string;
   notes?: string;
+}
+
+/**
+ * MVE (Opción A): valoración, NO clasificación. Se queda SOLO con los campos de
+ * valor de cada item y descarta cualquier `fractionCode` que un LLM pudiera colar.
+ * Fuente de la verdad de fracciones = Clasificador (aterrizado vs catálogo).
+ */
+export function sanitizeInvoiceItems(items: ExtractedInvoice['items'] | undefined): ExtractedInvoice['items'] {
+  return (items ?? []).map((it) => ({
+    description: it.description,
+    quantity: it.quantity,
+    unitPrice: it.unitPrice,
+    totalPrice: it.totalPrice,
+  }));
 }
 
 export async function extractInvoiceData(invoiceText: string): Promise<ExtractedInvoice> {
@@ -53,8 +68,7 @@ Responde UNICAMENTE con un JSON valido con esta estructura exacta:
       "description": "descripcion del producto",
       "quantity": 100,
       "unitPrice": 25.50,
-      "totalPrice": 2550.00,
-      "fractionCode": "fraccion arancelaria si se puede inferir"
+      "totalPrice": 2550.00
     }
   ],
   "subtotal": 2550.00,
@@ -67,6 +81,7 @@ Responde UNICAMENTE con un JSON valido con esta estructura exacta:
 }
 
 Si un campo no aparece en la factura, usa null.
+NO infieras, adivines ni inventes la fraccion arancelaria de ningun item: la clasificacion es tarea del Clasificador, que la valida contra el catalogo TIGIE vigente. No incluyas ningun campo de fraccion en la respuesta.
 Para el pais, infiere del idioma, moneda o direccion si no esta explicito.
 Para el incoterm, si no aparece explicitamente, pon "FOB" como default y mencionalo en notes.
 Siempre responde con JSON valido, sin markdown ni texto adicional.`,
@@ -81,6 +96,10 @@ Siempre responde con JSON valido, sin markdown ni texto adicional.`,
   // Parse JSON, handling potential markdown wrapping
   const jsonStr = text.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
   const extracted = JSON.parse(jsonStr) as ExtractedInvoice;
+
+  // Falla cerrado: MVE NUNCA emite fracción. Si el modelo la incluyó pese a la
+  // instrucción, se descarta aquí (defensa en profundidad — no fabricar datos legales).
+  extracted.items = sanitizeInvoiceItems(extracted.items);
 
   return extracted;
 }

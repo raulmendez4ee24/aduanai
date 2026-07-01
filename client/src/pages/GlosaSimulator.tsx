@@ -203,7 +203,7 @@ export function GlosaSimulatorPage() {
           <h2 className="text-[13px] font-semibold text-slate-900">Datos de la mercancía</h2>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
             <Field label="Fracción arancelaria (8 dígitos)">
-              <input value={input.fractionCode} onChange={e => update('fractionCode', e.target.value)} placeholder="7318.15.99" className="w-full text-[13px] font-mono border border-slate-200 rounded-lg px-2 py-1.5"/>
+              <input value={input.fractionCode} onChange={e => update('fractionCode', e.target.value)} placeholder="0000.00.00" className="w-full text-[13px] font-mono border border-slate-200 rounded-lg px-2 py-1.5"/>
             </Field>
             <Field label="País de origen (ISO-2)">
               <select value={input.countryOrigin} onChange={e => update('countryOrigin', e.target.value)} className="w-full text-[12px] border border-slate-200 rounded-lg px-2 py-1.5">

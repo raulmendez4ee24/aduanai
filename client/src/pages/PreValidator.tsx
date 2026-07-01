@@ -181,7 +181,7 @@ export function PreValidatorPage() {
                     {ped.partidas.length > 1 && <button onClick={() => removePartida(idx)} className="text-rose-500 hover:text-rose-700 ml-auto"><Trash2 className="w-3.5 h-3.5"/></button>}
                   </div>
                   <div className="grid grid-cols-2 md:grid-cols-6 gap-2">
-                    <Field label="Fracción"><input className="input font-mono" value={p.fraccion} onChange={e => updatePartida(idx, { fraccion: e.target.value })} placeholder="7318.15.01"/></Field>
+                    <Field label="Fracción"><input className="input font-mono" value={p.fraccion} onChange={e => updatePartida(idx, { fraccion: e.target.value })} placeholder="0000.00.00"/></Field>
                     <Field label="Descripción"><input className="input" value={p.descripcion} onChange={e => updatePartida(idx, { descripcion: e.target.value })}/></Field>
                     <Field label="País origen"><input className="input" value={p.pais} onChange={e => updatePartida(idx, { pais: e.target.value })}/></Field>
                     <Field label="Cantidad"><input type="number" className="input" value={p.cantidad} onChange={e => updatePartida(idx, { cantidad: parseFloat(e.target.value) || 0 })}/></Field>

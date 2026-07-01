@@ -119,7 +119,7 @@ export function OrigenTMECPage() {
           </Field>
           <Field label="Fracción del producto final">
             <input className="w-full text-[13px] font-mono border border-slate-200 rounded-lg px-3 py-2"
-              placeholder="8703.23.01" value={fractionCode}
+              placeholder="0000.00.00" value={fractionCode}
               onChange={e => setFractionCode(e.target.value)} />
           </Field>
           <Field label="Método RVC">

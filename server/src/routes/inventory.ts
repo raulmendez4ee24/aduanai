@@ -11,6 +11,7 @@ import {
   getInventoryStats,
 } from '../services/inventory';
 import { recordAssembly, traceImport } from '../services/bom-service';
+import { validateFraction, FRACTION_UNVERIFIED_MESSAGE } from '../services/fraction-validator';
 
 export const inventoryRouter = Router();
 
@@ -34,6 +35,15 @@ inventoryRouter.post('/imports', authenticate, requirePermission('inventory', 'a
       });
     }
 
+    // Candado: la fracción DEBE existir y estar vigente en el catálogo. Falla cerrado.
+    const fx = await validateFraction(fractionCode);
+    if (!fx.valid) {
+      return res.status(400).json({
+        status: 'error',
+        message: `Fracción "${fractionCode}" no válida (${fx.reason}). ${FRACTION_UNVERIFIED_MESSAGE}`,
+      });
+    }
+
     const entry = new Date(entryDate);
     const months = expirationMonths || 18;
     const expiration = new Date(entry);
@@ -42,7 +52,7 @@ inventoryRouter.post('/imports', authenticate, requirePermission('inventory', 'a
     const imp = await prisma.temporaryImport.create({
       data: {
         pedimento,
-        fractionCode,
+        fractionCode: fx.code,
         description: description || '',
         quantity: Number(quantity),
         unit,
@@ -454,12 +464,24 @@ inventoryRouter.post('/products', authenticate, async (req: AuthRequest, res, ne
     if (!productCode || !description || !unit) {
       return res.status(400).json({ status: 'error', message: 'productCode, description y unit son requeridos' });
     }
+    // Candado: si se declara fracción DEBE existir y estar vigente. Sin fracción (null) es válido.
+    let normalizedFraction: string | null = null;
+    if (fractionCode != null && String(fractionCode).trim() !== '') {
+      const fx = await validateFraction(fractionCode);
+      if (!fx.valid) {
+        return res.status(400).json({
+          status: 'error',
+          message: `Fracción "${fractionCode}" no válida (${fx.reason}). ${FRACTION_UNVERIFIED_MESSAGE}`,
+        });
+      }
+      normalizedFraction = fx.code;
+    }
     const product = await prisma.product.create({
       data: {
         tenantId: req.tenantId!,
         productCode,
         description,
-        fractionCode: fractionCode ?? null,
+        fractionCode: normalizedFraction,
         unit,
         isFinished: !!isFinished,
       },

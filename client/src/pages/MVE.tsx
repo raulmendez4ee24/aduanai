@@ -2,7 +2,6 @@ import { useState, useEffect } from 'react'
 import { api } from '../lib/api'
 import type { MVEDashboard, ExtractedInvoiceData, CreateMVEInput } from '../lib/api'
 import { FileText, Sparkles, AlertCircle, Check, Lock } from 'lucide-react'
-import { formatFraction } from '../lib/format'
 import { usePermissions } from '../hooks/usePermissions'
 
 const GLASS = 'bg-white/70 backdrop-blur-xl border border-white/50 shadow-[0_8px_30px_rgb(0,0,0,0.04)]'
@@ -147,7 +146,7 @@ export function MVEPage() {
                       <span className="text-slate-700 flex-1 truncate">{item.description}</span>
                       <span className="text-slate-500 mx-3">{item.quantity} x ${item.unitPrice}</span>
                       <span className="font-semibold text-slate-800">${item.totalPrice.toLocaleString()}</span>
-                      {item.fractionCode && <span className="font-mono text-[10px] text-emerald-600 ml-2">{formatFraction(item.fractionCode)}</span>}
+                      <span className="text-[10px] text-slate-400 italic ml-2 whitespace-nowrap" title="La MVE no clasifica: usa el Clasificador para la fracción arancelaria">fracción: no determinada</span>
                     </div>
                   ))}
                 </div>

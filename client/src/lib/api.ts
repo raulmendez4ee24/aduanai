@@ -3204,7 +3204,7 @@ export interface ExtractedInvoiceData {
     quantity: number;
     unitPrice: number;
     totalPrice: number;
-    fractionCode?: string | null;
+    // MVE no clasifica: sin fracción. Usar el Clasificador (valida vs catálogo).
   }[];
   subtotal: number;
   freight?: number | null;
