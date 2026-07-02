@@ -162,7 +162,7 @@ export function ClassifierPage() {
           {/* Contexto operacional — uso destinado, sector, tipo de importador */}
           <details className="rounded-xl bg-violet-50/30 border border-violet-100 p-3 group" open>
             <summary className="text-[12px] font-semibold text-violet-700 cursor-pointer flex items-center gap-2">
-              <Sparkles className="w-3.5 h-3.5"/> Contexto operacional (mejora la precisión por uso destinado)
+              <Sparkles className="w-3.5 h-3.5"/> Contexto operacional (mejora la clasificación por uso destinado)
             </summary>
             <div className="mt-3 grid grid-cols-1 md:grid-cols-3 gap-3">
               <div>

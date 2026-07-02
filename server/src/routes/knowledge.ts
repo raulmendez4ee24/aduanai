@@ -184,7 +184,7 @@ knowledgeRouter.get('/accuracy', async (_req: AuthRequest, res: Response, next: 
         correct: s.correct,
         accuracy: s.total > 0 ? Math.round((s.correct / s.total) * 100) : 0,
         alert: s.total >= 5 && (s.correct / s.total) < 0.5
-          ? `Cap ${chapter} tiene ${Math.round((s.correct / s.total) * 100)}% precisión. Agregar más casos.`
+          ? `Cap ${chapter}: ${Math.round((s.correct / s.total) * 100)}% de aciertos según feedback de usuarios. Agregar más casos.`
           : null,
       }))
       .sort((a, b) => a.accuracy - b.accuracy);

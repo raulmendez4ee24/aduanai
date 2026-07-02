@@ -272,7 +272,7 @@ export function AboutPage() {
               {[
                 { n: 19, l: 'Módulos', s: '' },
                 { n: total, l: 'Fracciones TIGIE', s: '' },
-                { n: 95, l: 'Precisión a nivel capítulo', s: '%' },
+                { n: 36, l: 'Documentos legales en corpus', s: '' },
                 { n: 15, l: 'Tiempo de respuesta', s: 's', p: '<' },
               ].map((s, i) => (
                 <motion.div key={i} variants={staggerItem}>
@@ -403,7 +403,7 @@ export function AboutPage() {
               <div className="flex flex-col gap-3">
                 {[
                   { i: Zap, t: 'Resultados en 15 segundos' },
-                  { i: ShieldCheck, t: `95%+ de precisión sobre ${formatted} fracciones` },
+                  { i: ShieldCheck, t: `Clasificación fundamentada en ${formatted} fracciones TIGIE vigentes` },
                   { i: Lock, t: 'Sin guardar tu información ni spam posterior' },
                 ].map(({ i: Icon, t }, idx) => (
                   <div key={idx} className="flex items-center gap-3">

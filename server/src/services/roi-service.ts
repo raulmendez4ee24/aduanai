@@ -251,7 +251,7 @@ export async function computeComplianceScore(tenantId: string): Promise<Complian
     recommendations.push(`Revisa ${alertsTotal - alertsRead} alerta(s) sin leer`);
   }
   if (classTotal > 5 && clasifValue < 80) {
-    recommendations.push('Valida las clasificaciones recientes para mejorar la precisión del modelo');
+    recommendations.push('Valida las clasificaciones recientes para mejorar la calidad del modelo');
   }
 
   return {

@@ -69,7 +69,7 @@ export function AnalyticsPage() {
         {[
           { label: 'Clasificaciones Totales', val: stats?.counts.classifications ?? 0, icon: '📦' },
           { label: 'Cotizaciones', val: stats?.counts.quotes ?? 0, icon: '💰' },
-          { label: 'Precisión Promedio', val: `${avgConf}%`, icon: '🎯' },
+          { label: 'Confianza promedio del modelo', val: `${avgConf}%`, icon: '🎯' },
           { label: 'Fracciones Únicas', val: uniqueFractions, icon: '🔢' },
         ].map((k, i) => (
           <div key={i} className={`${GLASS} rounded-[2rem] p-5`}>
