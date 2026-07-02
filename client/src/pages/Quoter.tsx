@@ -1,3 +1,4 @@
+import { DemoTag } from '../components/DemoBanner'
 import { useState } from 'react'
 import { api } from '../lib/api'
 import type { MultiQuoteInput, MultiQuoteItemInput, MultiQuoteResult, ScenarioComparison, ScenarioVariant } from '../lib/api'
@@ -119,7 +120,7 @@ export function QuoterPage() {
       <div className={`${GLASS} rounded-[2rem] p-6 md:p-8`}>
         <div className="flex items-center gap-2 mb-4">
           <Calculator className="w-5 h-5 text-emerald-500" />
-          <h1 className="text-xl font-bold text-slate-900">Cotizador de Importación</h1>
+          <h1 className="text-xl font-bold text-slate-900">Cotizador de Importación</h1> <DemoTag />
         </div>
 
         <div className="mb-4"><ROITile moduleKey="quoter" /></div>

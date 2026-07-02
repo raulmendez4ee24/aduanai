@@ -12,6 +12,7 @@ import type { LucideIcon } from 'lucide-react'
 import { api } from '../lib/api'
 import type { FractionSearchResult } from '../lib/api'
 import { PilotBanner } from './PilotBanner'
+import { DemoBanner } from './DemoBanner'
 import { ToastHost } from './Toast'
 
 const GLASS = 'bg-white/70 backdrop-blur-xl border border-white/50 shadow-[0_8px_30px_rgb(0,0,0,0.04)]'
@@ -521,6 +522,8 @@ export function AppLayout({ children, onLogout, userRole, userName, userEmail, t
 
         {/* Pilot banner (only shown to PILOT tenants) */}
         <PilotBanner />
+        {/* Demo-data banner (Fase 2.1) — persistente mientras haya datos sembrados */}
+        <DemoBanner />
         <ToastHost />
 
         {/* Content */}

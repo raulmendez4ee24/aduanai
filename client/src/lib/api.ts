@@ -3750,6 +3750,8 @@ export interface TenantStatusData {
   plan: string;
   status: string;
   isPilot: boolean;
+  /** Fase 2.1: true si el tenant tiene datos DEMO sembrados (isDemoData en BD). */
+  hasDemoData: boolean;
   pilotStartedAt: string | null;
   pilotEndsAt: string | null;
   pilotDaysLeft: number | null;

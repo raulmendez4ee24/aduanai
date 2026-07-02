@@ -1,3 +1,4 @@
+import { DemoTag } from '../components/DemoBanner'
 import { useState, useEffect } from 'react'
 import { api } from '../lib/api'
 import type { Alert, FractionSearchResult } from '../lib/api'
@@ -95,7 +96,7 @@ export function AlertsPage() {
         <div className="flex items-center justify-between mb-6">
           <div className="flex items-center gap-2">
             <Megaphone className="w-5 h-5 text-emerald-500" />
-            <h1 className="text-xl font-bold text-slate-900">Alertas</h1>
+            <h1 className="text-xl font-bold text-slate-900">Alertas</h1> <DemoTag />
           </div>
           {tab === 'alerts' && (
             <div className="flex items-center gap-2">

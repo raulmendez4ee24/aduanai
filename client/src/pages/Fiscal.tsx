@@ -1,3 +1,4 @@
+import { DemoTag } from '../components/DemoBanner'
 import { useState, useEffect } from 'react'
 import { api } from '../lib/api'
 import type { FiscalDashboard, FiscalAccount, TaxCreditRecord, GuaranteeRecord, CertificationProfileRecord, FiscalRiskReport, CertLossSimulation } from '../lib/api'
@@ -57,7 +58,7 @@ export function FiscalPage() {
       <div className={`${GLASS} rounded-[2rem] p-6`}>
         <div className="flex items-center gap-2 mb-4">
           <Shield className="w-5 h-5 text-emerald-500" />
-          <h1 className="text-xl font-bold text-slate-900">Fiscal Guardian</h1>
+          <h1 className="text-xl font-bold text-slate-900">Fiscal Guardian</h1> <DemoTag />
           {loading && <span className="text-[11px] text-slate-400 ml-2">Cargando datos fiscales…</span>}
         </div>
         <div className="mb-4"><ROITile moduleKey="fiscalGuardian" /></div>

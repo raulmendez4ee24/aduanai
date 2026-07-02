@@ -1,3 +1,4 @@
+import { DemoTag } from '../components/DemoBanner'
 import { useState, useEffect } from 'react'
 import { api } from '../lib/api'
 import type { OperationRecord, CreateOperationInput } from '../lib/api'
@@ -79,7 +80,7 @@ export function OperationsPage() {
         <div className="flex items-center justify-between mb-6">
           <div className="flex items-center gap-2">
             <FolderOpen className="w-5 h-5 text-emerald-500" />
-            <h1 className="text-xl font-bold text-slate-900">Expedientes</h1>
+            <h1 className="text-xl font-bold text-slate-900">Expedientes</h1> <DemoTag />
             <span className="text-[12px] text-slate-500 ml-1">{operations.length} operaciones</span>
           </div>
           <button onClick={() => setShowModal(true)} className="flex items-center gap-1.5 bg-emerald-500 hover:bg-emerald-600 text-white text-[12px] font-semibold px-4 py-2 rounded-full transition-colors">

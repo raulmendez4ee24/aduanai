@@ -1,3 +1,4 @@
+import { DemoTag } from '../components/DemoBanner'
 import { useState, useEffect } from 'react'
 import { api } from '../lib/api'
 import type { ClassificationRecord } from '../lib/api'
@@ -51,7 +52,7 @@ export function HistoryPage() {
         <div className="flex items-center justify-between mb-6">
           <div className="flex items-center gap-2">
             <Clock className="w-5 h-5 text-emerald-500" />
-            <h1 className="text-xl font-bold text-slate-900">Historial</h1>
+            <h1 className="text-xl font-bold text-slate-900">Historial</h1> <DemoTag />
           </div>
           <span className="text-[12px] text-slate-500">{total} clasificaciones</span>
         </div>

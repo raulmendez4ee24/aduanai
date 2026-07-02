@@ -1,3 +1,4 @@
+import { DemoTag } from '../components/DemoBanner'
 import { useState, useEffect } from 'react'
 import { api } from '../lib/api'
 import type { ContainerSpec, LoadPlanRecord, CubicageResult, LoadOptimization, CostAnalysis } from '../lib/api'
@@ -80,7 +81,7 @@ export function LogisticsPage() {
       {/* Plans list */}
       <div className={`${GLASS} rounded-[2rem] p-6`}>
         <div className="flex items-center justify-between mb-5">
-          <div className="flex items-center gap-2"><Truck className="w-5 h-5 text-emerald-500" /><h1 className="text-xl font-bold text-slate-900">Logística</h1></div>
+          <div className="flex items-center gap-2"><Truck className="w-5 h-5 text-emerald-500" /><h1 className="text-xl font-bold text-slate-900">Logística</h1> <DemoTag /></div>
           <button onClick={() => setShowCreate(true)} className="flex items-center gap-1.5 bg-emerald-500 hover:bg-emerald-600 text-white text-[12px] font-semibold px-4 py-2 rounded-full transition-colors"><Plus className="w-3.5 h-3.5" /> Nuevo plan</button>
         </div>
 

@@ -662,6 +662,16 @@ authRouter.get('/tenant-status', authenticate, async (req: AuthRequest, res, nex
     });
     if (!tenant) throw new AppError('Empresa no encontrada', 404);
 
+    // Señal de honestidad (Fase 2.1): ¿este tenant tiene datos DEMO sembrados?
+    // Se detecta por filas isDemoData=true en las tablas representativas del
+    // demo-loader (indexadas). Alimenta el banner global + etiquetas por módulo.
+    const [demoImports, demoClassifications, demoQuotes] = await Promise.all([
+      prisma.temporaryImport.count({ where: { tenantId: req.tenantId, isDemoData: true } }),
+      prisma.classification.count({ where: { tenantId: req.tenantId, isDemoData: true } }),
+      prisma.quote.count({ where: { tenantId: req.tenantId, isDemoData: true } }),
+    ]);
+    const hasDemoData = demoImports + demoClassifications + demoQuotes > 0;
+
     const now = Date.now();
     const pilotDaysLeft = tenant.pilotEndsAt ? Math.max(0, Math.ceil((tenant.pilotEndsAt.getTime() - now) / 86400000)) : null;
     const contractDaysLeft = tenant.contractEndsAt ? Math.ceil((tenant.contractEndsAt.getTime() - now) / 86400000) : null;
@@ -674,6 +684,7 @@ authRouter.get('/tenant-status', authenticate, async (req: AuthRequest, res, nex
         plan: tenant.plan,
         status: tenant.status,
         isPilot: tenant.plan === 'PILOT',
+        hasDemoData,
         pilotStartedAt: tenant.pilotStartedAt,
         pilotEndsAt: tenant.pilotEndsAt,
         pilotDaysLeft,

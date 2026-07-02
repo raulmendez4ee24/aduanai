@@ -1,3 +1,4 @@
+import { DemoTag } from '../components/DemoBanner'
 import { useState, useEffect } from 'react'
 import { api } from '../lib/api'
 import type { InventoryStats, InventoryBalance, TemporaryImportRecord, DischargeRecord, ProductRecord, AssemblyRecord, AssemblyResultRecord, ImportTraceabilityRecord } from '../lib/api'
@@ -52,7 +53,7 @@ export function InventoryPage() {
       <div className={`${GLASS} rounded-[2rem] p-6`}>
         <div className="flex items-center gap-2 mb-4">
           <Warehouse className="w-5 h-5 text-emerald-500" />
-          <h1 className="text-xl font-bold text-slate-900">Inventario IMMEX</h1>
+          <h1 className="text-xl font-bold text-slate-900">Inventario IMMEX</h1> <DemoTag />
         </div>
 
         <div className="mb-4"><ROITile moduleKey="inventoryIMMEX" /></div>
