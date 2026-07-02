@@ -234,6 +234,38 @@ hacer aritmética. Cubre AMBOS casos (2 y 3) y reduce la varianza.
 
 ---
 
+# Trabajo diferido — Fase 2 honestidad de datos (2026-07-01)
+
+## 12) Corpus de precedentes por verificar contra TFJA/SAT reales — hoy sintético, no citable
+
+Las 24 filas de `LegalPrecedent` son citas legales SINTÉTICAS: referencias con
+placeholder ("Tesis V-P-2aS-XX/2023"), 0 de 24 con URL de fuente oficial.
+Se conservan en BD (desactivar > borrar) pero están APAGADAS para todos los
+consumidores vía `PRECEDENT_CORPUS_VERIFIED=false` en
+`server/src/services/precedent-lookup.ts` (commit `2a4bb35`): Clasificador
+(prompt, result.precedents, litigationAlert) y /api/precedents devuelven vacío.
+El módulo Precedentes está oculto del menú (AppLayout, comentado, reversible).
+
+**Fix:** cotejar cada precedente contra TFJA/SCJN/SAT reales (número de tesis
+verificable + URL oficial); corregir o eliminar los no verificables; poblar
+`source` con URL citable; SOLO entonces flip a `PRECEDENT_CORPUS_VERIFIED=true`
+y restaurar el item del menú. No reactivar parcialmente sin cotejo completo.
+
+## 13) Analizador de decretos sin hogar visible
+
+El único componente real del módulo Actualizaciones (`/updates`) es el
+analizador de decretos con IA (pega texto de decreto → análisis de impacto).
+Las tablas TIGIEUpdate/UpdateNotification tienen 0 filas y NO existe pipeline
+de monitoreo DOF (verificado: los setInterval de index.ts son tokens, pilot
+lifecycle, retención, thresholds y backups). El módulo quedó oculto del menú;
+la página sigue viva por URL directa /updates.
+
+**Fix:** cuando haya hogar natural, mover el analizador de decretos a un lugar
+visible — candidato: Biblioteca Legal. Si algún día se construye el pipeline
+DOF real, restaurar el item Actualizaciones con datos verdaderos.
+
+---
+
 ## Notas de proceso
 
 - Eval de retrieval y snapshot de `reseed-upci` se acordaron diferir

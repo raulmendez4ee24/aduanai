@@ -3,9 +3,9 @@ import { NavLink, useNavigate, useLocation } from 'react-router-dom'
 import {
   LayoutDashboard, Search, Bell, Settings, Menu, X, ChevronLeft,
   Boxes, Calculator, Bot, Clock, FolderOpen, ShieldCheck, FileText,
-  Truck, Megaphone, LineChart, Warehouse, RefreshCw, Globe, Package,
+  Truck, Megaphone, LineChart, Warehouse, Globe, Package,
   HelpCircle, MessageCircle, Users, Rocket, Building2, TrendingUp, RotateCcw,
-  Shield, BookOpen, Database, Sparkles, Scale, BadgeCheck, Briefcase, AlertTriangle,
+  Shield, BookOpen, Database, Sparkles, BadgeCheck, Briefcase, AlertTriangle,
   Anchor, UserCircle2, LogOut, Target
 } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
@@ -97,8 +97,11 @@ const USER_NAV_GROUPS: NavGroup[] = [
   {
     section: 'Consulta normativa',
     items: [
-      { label: 'Precedentes', path: '/precedentes', icon: Scale },
-      { label: 'Actualizaciones', path: '/updates', icon: RefreshCw },
+      // Fase 2.3 — ocultos del menú (rutas siguen vivas por URL directa, reversible):
+      // Precedentes: corpus sintético no citable, pendiente de cotejo TFJA/SAT (DEFERRED_WORK #12).
+      // Actualizaciones: 0 filas y sin pipeline DOF; su analizador de decretos sigue en /updates (DEFERRED_WORK #13).
+      // { label: 'Precedentes', path: '/precedentes', icon: Scale },
+      // { label: 'Actualizaciones', path: '/updates', icon: RefreshCw },
       { label: 'Biblioteca Legal', path: '/biblioteca-legal', icon: BookOpen },
       { label: 'Cuotas activas', path: '/cuotas-activas', icon: AlertTriangle },
       { label: 'Cumplimiento', path: '/cumplimiento', icon: ShieldCheck },
