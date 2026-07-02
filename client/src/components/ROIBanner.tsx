@@ -1,7 +1,19 @@
 import { useEffect, useState } from 'react'
-import { TrendingUp, Sparkles } from 'lucide-react'
+import { TrendingUp, Sparkles, Info } from 'lucide-react'
 import { api } from '../lib/api'
 import type { ROISummary } from '../lib/api'
+
+/**
+ * Fase 2.4 (honestidad): fórmula visible en hover para las cifras grandes.
+ * Construye "Módulo: N × $costo MXN" por cada módulo con valor > 0, a partir
+ * de los mismos count/perUnitMXN que calcula roi-service (no se inventa nada).
+ */
+function buildFormulaTooltip(data: ROISummary): string {
+  const parts = (Object.entries(data.byModule) as [keyof ROISummary['byModule'], ROISummary['byModule']['classifier']][])
+    .filter(([, m]) => m.savingsMXN > 0)
+    .map(([key, m]) => `${MODULE_LABELS[key]}: ${m.count} × $${m.perUnitMXN.toLocaleString('es-MX')} MXN`)
+  return `Estimación (no cifra auditada): actividad del periodo × costo de referencia evitado por unidad.\n${parts.join('\n')}\nAbre el desglose para ver la base de cada costo.`
+}
 
 function mxn(n: number): string {
   return new Intl.NumberFormat('es-MX', { style: 'currency', currency: 'MXN', maximumFractionDigits: 0 }).format(n)
@@ -35,8 +47,11 @@ export function ROIBanner({ days = 30 }: { days?: number }) {
           <Sparkles className="w-5 h-5" />
         </div>
         <div className="flex-1 min-w-0">
-          <p className="text-[11px] uppercase tracking-wider text-emerald-50/80">ADUANAI te ha ahorrado {periodLabel}</p>
-          <p className="text-[32px] font-bold leading-none mt-1">{mxn(data.totalSavingsMXN)}</p>
+          <p className="text-[11px] uppercase tracking-wider text-emerald-50/80">Valor estimado entregado {periodLabel}</p>
+          <p className="text-[32px] font-bold leading-none mt-1 cursor-help inline-flex items-center gap-2" title={buildFormulaTooltip(data)}>
+            {mxn(data.totalSavingsMXN)}
+            <Info className="w-4 h-4 opacity-60" />
+          </p>
           <p className="text-[12px] text-emerald-50/90 mt-2">
             <button onClick={() => setShowBreakdown(v => !v)} className="hover:underline inline-flex items-center gap-1">
               <TrendingUp className="w-3 h-3" />
@@ -86,8 +101,8 @@ export function ROITile({ moduleKey, days = 30 }: { moduleKey: keyof ROISummary[
         <Sparkles className="w-4 h-4" />
       </div>
       <div className="flex-1 min-w-0">
-        <p className="text-[11px] text-emerald-700 uppercase tracking-wider">Valor entregado · {days}d</p>
-        <p className="text-[18px] font-bold text-emerald-700 leading-none mt-0.5">{mxn(m.savingsMXN)}</p>
+        <p className="text-[11px] text-emerald-700 uppercase tracking-wider">Valor estimado · {days}d</p>
+        <p className="text-[18px] font-bold text-emerald-700 leading-none mt-0.5 cursor-help" title={`Estimación (no cifra auditada): ${m.count} × $${m.perUnitMXN.toLocaleString('es-MX')} MXN. ${m.rationale}`}>{mxn(m.savingsMXN)}</p>
         <p className="text-[10px] text-emerald-600/80 mt-1 leading-snug">{m.rationale}</p>
       </div>
     </div>
