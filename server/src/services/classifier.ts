@@ -184,7 +184,7 @@ b) Material PRINCIPAL (regla de peso): ¿algodón (>50%)?, ¿fibra sintética?, 
 c) ¿Es prenda exterior, interior, o accesorio?
 d) ¿Para hombre/niño o mujer/niña?
 e) Ropa de cama, mesa, tocador, cocina → cap 63
-Cada combinación material+tejido+tipo+género tiene su propia fracción. NO uses .99 si existe una específica.
+Cada combinación material+tejido+tipo+género tiene su propia fracción. Usa la fracción específica que corresponda a esa combinación; si el producto no encaja EXPLÍCITAMENTE en ninguna específica, la residual (.99) ES la correcta.
 
 CALZADO (Capítulo 64):
 a) Material de la SUELA determina la partida: caucho/plástico (6402-6405), cuero natural (6403)
@@ -276,7 +276,7 @@ Los últimos 2 dígitos de la fracción mexicana (posiciones 7-8) distinguen var
 - Grado de elaboración o procesamiento
 - Para quién es (hombre, mujer, niño)
 
-OBLIGATORIO: Revisa TODAS las fracciones del subheading (6 dígitos) que te proporcioné antes de elegir. NO uses fracciones terminadas en .99 o .00 (cajón de sastre) si existe una fracción más específica que describa mejor el producto. La fracción .01 suele ser la más específica y común.
+OBLIGATORIO: Revisa TODAS las fracciones del subheading (6 dígitos) que te proporcioné antes de elegir. Prefiere una fracción específica SÓLO si el producto cumple EXPLÍCITAMENTE sus criterios (material, dimensiones, especificación técnica). Si NINGUNA fracción específica de las disponibles aplica al producto, la residual .99/.00 ("los demás") ES la clasificación correcta — NO la evites cuando es la que corresponde, ni fuerces una específica (tampoco la .01) cuyos criterios el producto no cumple.
 
 GUÍA DE DESAMBIGUACIÓN (últimos 2 dígitos de la fracción):
 
@@ -306,14 +306,16 @@ Cuando identifiques la subpartida (6 dígitos), ANTES de dar la fracción final 
    - cápsulas/tabletas vs polvo vs líquido (suplementos 2106.90.01 vs .09 vs .10)
    - primaria (pellets) vs semiacabado (láminas) vs terminado (envases) en plásticos
 
-REGLA: si la descripción del producto no especifica estos detalles, NO asumas .99 genérica. Busca la fracción MÁS ESPECÍFICA que sea consistente con la descripción. Si realmente no hay información suficiente, elige la más común (.01) antes que .99.
+REGLA: elige la fracción específica que sea consistente con la descripción y cuyos criterios el producto cumpla EXPLÍCITAMENTE. Si la descripción no aporta el detalle que distingue una específica, o si ninguna específica aplica al producto, NO inventes una específica ni asumas la .01: usa la residual .99/.00 ("los demás"), que es la clasificación correcta cuando no hay una específica aplicable.
+
+REGLA DIMENSIONAL: si la descripción incluye dimensiones numéricas (diámetro, longitud, capacidad, peso, cilindrada), compáralas EXPLÍCITAMENTE contra los umbrales numéricos de las fracciones candidatas ANTES de decidir entre específica y residual (ej.: fracción "diámetro inferior a 6.4 mm y longitud inferior a 50.8 mm" + producto "4 mm × 30 mm" → 4 < 6.4 Y 30 < 50.8 → la específica APLICA; producto "M8 = 8 mm" → 8 ≥ 6.4 → NO aplica → residual). Muestra la comparación en el razonamiento.
 
 PROCESO DE CLASIFICACIÓN:
 1. Identifica la Sección y Capítulo correctos
 2. Determina la Partida (4 dígitos) aplicando GRI 1
 3. Determina la Subpartida (6 dígitos) aplicando GRI 6
 4. Elige la Fracción mexicana (8 dígitos) revisando TODAS las opciones disponibles del subheading
-5. Verifica que la fracción elegida sea la MÁS ESPECÍFICA posible
+5. Verifica que la fracción elegida sea la que CORRESPONDE al producto: una específica sólo si el producto cumple sus criterios; si ninguna aplica, la residual (.99/.00)
 
 ${SECTOR_RULES}
 
@@ -510,12 +512,11 @@ async function verifyClassification(
   const text = await llmGenerate({
     model: 'fast',
     maxTokens: 300,
-    system: `Eres un verificador de clasificación arancelaria mexicana. Se te da un producto, una fracción sugerida, y TODAS las fracciones del mismo subheading. Tu trabajo es verificar si la fracción sugerida es la MÁS ESPECÍFICA y correcta, o si hay otra mejor.
+    system: `Eres un verificador de clasificación arancelaria mexicana. Se te da un producto, una fracción sugerida, y TODAS las fracciones del mismo subheading. Tu trabajo es verificar si la fracción sugerida CORRESPONDE al producto según los criterios textuales de cada fracción (material, dimensiones, especificación), o si otra de la lista corresponde mejor.
 
 Responde ÚNICAMENTE con JSON: {"code": "XXXX.XX.XX", "changed": true/false, "reason": "..."}
-- Si la sugerida es correcta, devuélvela con changed=false
-- Si hay una más específica, devuélvela con changed=true
-- NUNCA elijas .99 o .00 si existe una más específica
+- Si la sugerida corresponde al producto, devuélvela con changed=false
+- Elige una fracción específica SÓLO si el producto cumple EXPLÍCITAMENTE sus criterios (material, dimensiones, especificación). Si ninguna específica aplica, la residual .99/.00 ("los demás") ES la correcta — no fuerces una específica que no corresponde ni la evites cuando aplica
 - El código DEBE ser una de las opciones listadas`,
     user: `PRODUCTO: ${description}
 FRACCIÓN SUGERIDA: ${suggestedCode}
@@ -523,7 +524,7 @@ FRACCIÓN SUGERIDA: ${suggestedCode}
 TODAS LAS FRACCIONES DISPONIBLES EN ESTE SUBHEADING Y ALTERNATIVAS:
 ${allOptions}
 
-¿Es ${suggestedCode} la correcta o hay una más específica?`,
+¿Es ${suggestedCode} la que corresponde al producto según los criterios (material, dimensiones, especificación) de cada fracción, o corresponde mejor otra de la lista?`,
   });
 
   try {
@@ -694,8 +695,8 @@ ${chapterContext}
 INSTRUCCIONES:
 1. Revisa TODAS las fracciones del capítulo proporcionadas arriba
 2. Identifica la subpartida (6 dígitos) correcta
-3. Dentro de esa subpartida, elige la fracción (8 dígitos) MÁS ESPECÍFICA
-4. NO uses fracciones .99 o .00 si hay una más específica disponible
+3. Dentro de esa subpartida, elige la fracción (8 dígitos) que CORRESPONDA al producto
+4. Prefiere una fracción específica SÓLO si el producto cumple EXPLÍCITAMENTE sus criterios (material, dimensiones, especificación técnica). Si NINGUNA específica de los candidatos aplica, la residual .99/.00 ("los demás") ES la correcta — no la evites cuando aplica ni fuerces una específica que no corresponde
 5. Si alguna fracción de la lista coincide EXACTAMENTE con el producto, úsala
 6. Las alternativas deben ser del MISMO capítulo pero diferentes subpartidas
 7. Si el USO o SECTOR declarado activa una clasificación alternativa (autopartes, aeronáutico, médico), llena 'useBasedAnalysis' con ambas opciones, criterio, recomendación, riesgo y precedentes. Si no aplica, useBasedAnalysis = null.

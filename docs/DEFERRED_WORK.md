@@ -185,6 +185,55 @@ Anexo 10 (y entonces recalcularlo) o PROSEC (y renombrar el campo para no confun
 
 ---
 
+# Trabajo diferido — Fase 1b Clasificador (2026-07-01)
+
+Hallazgos de la paridad bidireccional del fix anti-.99 (Fase 1b). Contexto:
+commits `4990a2a` (candado `enforceCatalogFraction`) y el commit de la
+reformulación de prompts. Ninguno bloquea el cierre de la Fase 1b.
+
+## 10) Casos del accuracy set con línea base ROTA (pre-existentes, NO regresiones)
+
+Verificado con el prompt VIEJO (A/B con stash, 2026-07-01) — ya fallaban antes
+de cualquier cambio de la Fase 1b:
+
+- **Caso 52** "Compresor de aire de tornillo rotativo, 100 HP" → esperado
+  `84143001`, ambos prompts dan `8414.40.02` ("capacidad superior a 31.5 m³/min"
+  — dudoso también en lo técnico: ~100 HP ≈ 12–15 m³/min). Revisar si el
+  expectedFraction del accuracy set es correcto ANTES de culpar al clasificador.
+- **Caso 13** "Televisor LED 55'' 4K Smart TV" → esperado `85287201`, prompt
+  viejo da `8528.72.06`. Misma clase de problema (variante específica de la
+  misma subpartida).
+
+**Fix propuesto:** correr el accuracy-runner completo (159 casos) para separar
+expectativas incorrectas del set vs errores reales del clasificador; cotejar
+los expectedFraction dudosos contra la Base Única/SNICE.
+
+## 11) Limitación documentada: criterios de material/dimensión no se aplican
+## de forma confiable vía prompt (casos inox → .01 y 4mm → .04)
+
+Con la reformulación condicional anti-.99 (Fase 1b), en 2 corridas ×2:
+- "Tornillo acero inoxidable M10x40" NO llega a `.01` (da `.99` válido-pero-
+  genérico, o el LLM emite `7318.15` truncado y el candado falla cerrado).
+  OJO: con el prompt viejo este caso SÍ salía `.01` — el prompt viejo lo
+  acertaba por su sesgo pro-.01, no por razonamiento; el trade-off se aceptó
+  para matar el falso-específico del M8 (dirección de error menos dañina:
+  residual genérica > específica falsa).
+- "Tornillo 4mm × 30mm" NO llega a `.04` aunque cumple los umbrales numéricos
+  (<6.4mm y <50.8mm) — ni siquiera con la REGLA DIMENSIONAL explícita añadida.
+  Tope de iteración de prompt alcanzado por decisión del 2026-07-01.
+
+**Fix propuesto (Fase 1c, aprobación pendiente): pre-check determinista.**
+En código, no en prompt: (1) extraer atributos estructurados de la descripción
+(material, diámetro, longitud, capacidad) con regex/parser ligero; (2) parsear
+umbrales numéricos y materiales de las descripciones de las fracciones
+candidatas del subheading; (3) resolver la comparación EN CÓDIGO
+(ej. `4 < 6.4 ∧ 30 < 50.8 → 73181504 CUMPLE`; `material=carbono ≠ inoxidable →
+73181501 NO CUMPLE`); (4) inyectar el veredicto ya resuelto al prompt como
+hechos, no como tarea. El LLM elige entre opciones pre-filtradas en vez de
+hacer aritmética. Cubre AMBOS casos (2 y 3) y reduce la varianza.
+
+---
+
 ## Notas de proceso
 
 - Eval de retrieval y snapshot de `reseed-upci` se acordaron diferir
