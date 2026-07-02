@@ -266,6 +266,41 @@ DOF real, restaurar el item Actualizaciones con datos verdaderos.
 
 ---
 
+# Trabajo diferido — Fase 3 Copilot/corpus (2026-07-02)
+
+## 14) Patrón "huérfano por cambio de reference" en el corpus legal
+
+El upsert de `seedLegalDocuments` usa `(source, reference)` como clave. Cuando
+una corrección CAMBIA la reference (como el fix de junio: "Regla 7.1.5 RGCE
+2026" → "Reglas 7.1.1, 7.1.2 y 7.1.3 RGCE 2026"), el doc corregido se inserta
+bajo la clave nueva pero **la fila vieja con el contenido incorrecto queda
+huérfana en prod** y el retrieval la sigue sirviendo (así volvió a salir la
+cita "Regla 7.1.5" en la batería 3.3, pese a que el seed estaba corregido).
+Resuelto para este caso: huérfano desactivado (isActive=false, supersededBy
+anotado) el 2026-07-02.
+
+**Regla de proceso:** toda corrección que cambie la `reference` de un doc DEBE
+acompañarse de la desactivación del huérfano en prod (isActive=false +
+supersededBy), idealmente en el propio seed o script de despliegue.
+
+**Barrido 2026-07-02 de correcciones pasadas seed-vs-BD:** antidumping ✓ (las
+19 desactivadas viven en DESACTIVADAS_PENDIENTE_VERIF del seed, delete+recreate),
+sectores ✓ (regulations.ts dejó de sembrar padron_sectorial con comentario
+explícito), ISAN ✓ (tarifa 2026 cotejada con fuente DOF en regimes-programs.ts).
+No se encontraron más bombas de este tipo.
+
+## 15) Vigencia "1/2/3 años por rubro" del registro IVA/IEPS — desactualizada
+
+Cotejo RGCE 2026 (DOF 27-12-2025, regla 7.1.6): el Registro modalidad IVA e
+IEPS se otorga con vigencia de UN AÑO renovable para TODOS los rubros (A/AA/
+AAA); dos años solo para Comercializadora/OEA/Socio Comercial Certificado. El
+esquema "1/2/3 años por rubro" que citaban el corpus y la memoria de junio ya
+no está vigente. Corpus corregido 2026-07-02. Si alguna otra parte del producto
+(UI, prompts, docs) menciona vigencias 1/2/3 por rubro, corregirla con esta
+misma cita.
+
+---
+
 ## Notas de proceso
 
 - Eval de retrieval y snapshot de `reseed-upci` se acordaron diferir

@@ -124,11 +124,17 @@ export const LEGAL_DOCUMENTS: LegalDocSeed[] = [
     topics: ['regimen', 'pedimento'], keywords: ['pedimento', 'datos', 'Anexo 22', 'RFC', 'fracción'],
   },
   {
-    type: 'ley', source: 'Ley_Aduanera', title: 'Ley Aduanera — Multa por incorrecta clasificación arancelaria',
+    // CORREGIDO 2026-07-02: la versión previa afirmaba "70% al 100% de las
+    // contribuciones omitidas" — cifra INEXISTENTE en los Arts. 178/184/185.
+    // Cotejado contra LAdua.pdf consolidada (últ. reforma DOF 19-11-2025,
+    // multas actualizadas DOF 27-12-2025). La UI del Clasificador (130-150%,
+    // Art. 178) ya era correcta.
+    type: 'ley', source: 'Ley_Aduanera', title: 'Ley Aduanera — Multas por fracción arancelaria inexacta (con y sin omisión de contribuciones)',
     reference: 'Art. 184 LA',
-    content: 'Cometen infracciones relacionadas con la obligación de presentar documentación, declarar correctamente o cumplir requisitos, entre otros: III. Declarar inexactamente la fracción arancelaria. La sanción es del 70% al 100% de las contribuciones omitidas (Art. 185). Si no hay omisión de contribuciones (misma carga arancelaria), la multa puede reducirse por proporcionalidad.',
-    officialUrl: `${DOF}/nota_detalle.php?codigo=LA`, effectiveDate: '2026-01-01',
-    topics: ['sanciones', 'clasificacion'], keywords: ['multa', 'incorrecta clasificación', 'PAMA', 'Art. 184', 'infracción'],
+    content: 'Multa por clasificación arancelaria incorrecta — dos rutas según haya o no omisión de contribuciones (LA vigente, últ. reforma DOF 19-11-2025; cuotas de multa actualizadas DOF 27-12-2025): (1) CON OMISIÓN de contribuciones: la infracción es del Art. 176 fr. I (omitir el pago total o parcial de los impuestos al comercio exterior) y la sanción del Art. 178 fr. I — texto vigente: "Multa del 130% al 150% de los impuestos al comercio exterior omitidos, cuando no se haya cubierto lo que correspondía pagar." (2) SIN OMISIÓN (dato inexacto en pedimento/documento con la misma carga tributaria): la infracción es del Art. 184 fr. III — "Transmitan o presenten los informes o documentos con datos inexactos o falsos u omitiendo algún dato" — y la sanción del Art. 185 fr. II: multa de $2,640.00 a $3,750.00 por cada documento (cuota vigente 2026). NO existe en la Ley Aduanera una multa del "70% al 100%" por clasificación inexacta.',
+    officialUrl: 'https://www.diputados.gob.mx/LeyesBiblio/pdf/LAdua.pdf', effectiveDate: '2026-01-01',
+    version: 'LA vigente — últ. reforma DOF 19-11-2025; multas actualizadas DOF 27-12-2025',
+    topics: ['sanciones', 'clasificacion'], keywords: ['multa', 'incorrecta clasificación', 'fracción inexacta', 'Art. 178', 'Art. 184', 'Art. 185', '130% al 150%', 'infracción', 'PAMA'],
   },
   {
     type: 'ley', source: 'Ley_Aduanera', title: 'Ley Aduanera — Audiencia y procedimiento administrativo',
@@ -224,7 +230,7 @@ export const LEGAL_DOCUMENTS: LegalDocSeed[] = [
   {
     type: 'rgce', source: 'RGCE_2026', title: 'RGCE 2026 — Esquema de Certificación de Empresas, modalidad IVA e IEPS (rubros A/AA/AAA)',
     reference: 'Reglas 7.1.1, 7.1.2 y 7.1.3 RGCE 2026',
-    content: 'El Esquema de Certificación de Empresas en la modalidad de IVA e IEPS (Título 7 del RGCE) tiene tres rubros: A, AA y AAA. Los requisitos generales para obtener el Registro están en la regla 7.1.1 (que invoca los artículos 28-A primer párrafo LIVA, 15-A primer párrafo LIEPS y 100-A de la Ley Aduanera); los requisitos específicos del rubro A en la regla 7.1.2 y los de los rubros AA y AAA en la regla 7.1.3. Los rubros superiores exigen mayor antigüedad operativa y nivel de cumplimiento: el rubro AA requiere haber realizado operaciones durante al menos cuatro años, y el rubro AAA durante al menos siete años. El beneficio de la certificación es un crédito fiscal equivalente al 100% del IVA (y, en su caso, IEPS) que se cause por la importación temporal, conforme al Art. 28-A LIVA y 15-A LIEPS. Aplicable al Régimen IMMEX. No exime ni difiere el impuesto: es un crédito fiscal acreditable.',
+    content: 'El Esquema de Certificación de Empresas en la modalidad de IVA e IEPS (Título 7 del RGCE) tiene tres rubros: A, AA y AAA. Los requisitos generales para obtener el Registro están en la regla 7.1.1 (que invoca los artículos 28-A primer párrafo LIVA, 15-A primer párrafo LIEPS y 100-A de la Ley Aduanera); los requisitos específicos del rubro A en la regla 7.1.2 y los de los rubros AA y AAA en la regla 7.1.3. Los rubros superiores exigen mayor antigüedad operativa y nivel de cumplimiento: el rubro AA requiere haber realizado operaciones durante al menos cuatro años, y el rubro AAA durante al menos siete años. El beneficio de la certificación es un crédito fiscal equivalente al 100% del IVA (y, en su caso, IEPS) que se cause por la importación temporal, conforme al Art. 28-A LIVA y 15-A LIEPS. Aplicable al Régimen IMMEX. No exime ni difiere el impuesto: es un crédito fiscal acreditable. VIGENCIA (regla 7.1.6 RGCE 2026, cotejada vs DOF 27-12-2025): el Registro se otorga con vigencia de UN AÑO y es renovable, para TODOS los rubros de la modalidad IVA e IEPS (A, AA y AAA) — la vigencia de dos años aplica únicamente a las modalidades Comercializadora e Importadora, Operador Económico Autorizado y Socio Comercial Certificado. OJO: la regla 7.1.5 regula la modalidad Socio Comercial Certificado (transportistas, agentes aduanales, recintos), NO la certificación IVA/IEPS; y el esquema de vigencias "1/2/3 años por rubro A/AA/AAA" NO está vigente en RGCE 2026.',
     officialUrl: 'https://www.sat.gob.mx/minisitio/NormatividadRMFyRGCE/documentos2026/rgce/rgce/ReglasGeneralesComercioExteriorpara2026.pdf', effectiveDate: '2026-01-01',
     topics: ['certificacion', 'iva_ieps'], keywords: ['IVA-IEPS', 'rubro A', 'rubro AA', 'rubro AAA', 'modalidades', 'IMMEX', 'certificación', 'esquema de certificación de empresas', 'crédito fiscal'],
   },
@@ -459,6 +465,94 @@ Tratándose de los derechos de trámite aduanero que se recauden en Colombia, Nu
     version: 'Vigente 2026 — últ. reforma DOF 07-11-2025; cuotas Anexo 4 RMF 2026 (DOF 28-12-2025)',
     topics: ['dta', 'pedimento', 'fiscal'],
     keywords: ['dta', 'derecho de trámite aduanero', 'art. 49 lfd', 'ley federal de derechos', '8 al millar', '1.76 al millar', 'cuota fija', 'immex', 'tratados internacionales', 'tránsito', 'rectificación'],
+  },
+  {
+    // Fase 3.3-A — VERBATIM de la LIVA consolidada (diputados.gob.mx, última
+    // reforma DOF 12-11-2021), extraído del PDF oficial el 2026-07-02.
+    type: 'ley', source: 'LIVA', title: 'LIVA — Base gravable del IVA en la importación (valor + IGI + demás contribuciones)',
+    reference: 'Art. 27 LIVA',
+    content: `Base gravable del IVA en la importación — Art. 27 LIVA (TEXTO VIGENTE): la base NO es solo el valor en aduana; es el valor para efectos del IGI ADICIONADO con el IGI pagado y con las demás contribuciones y aprovechamientos que se paguen por la importación (p. ej. DTA, cuotas compensatorias, IEPS cuando aplique).
+
+TEXTO VERBATIM:
+
+Artículo 27. Para calcular el impuesto al valor agregado tratándose de importación de bienes tangibles, se considerará el valor que se utilice para los fines del impuesto general de importación, adicionado con el monto de este último gravamen y del monto de las demás contribuciones y aprovechamientos que se tengan que pagar con motivo de la importación.
+
+Tratándose de bienes que se destinen a los regímenes aduaneros de importación temporal para elaboración, transformación o reparación en programas de maquila o de exportación; de depósito fiscal para someterse al proceso de ensamble y fabricación de vehículos; de elaboración, transformación o reparación en recinto fiscalizado, y de recinto fiscalizado estratégico, para calcular el impuesto al valor agregado se considerará el valor en aduana a que se refiere la Ley Aduanera, adicionado del monto de las contribuciones y aprovechamientos que se tuvieran que pagar en caso de que se tratara de una importación definitiva.
+
+El valor que se tomará en cuenta tratándose de importación de bienes o servicios a que se refieren las fracciones II, III, IV y V del artículo 24, será el que les correspondería en esta Ley por enajenación de bienes, uso o goce de bienes o prestación de servicios, en territorio nacional, según sea el caso.
+
+Tratándose de bienes exportados temporalmente y retornados al país con incremento de valor, éste será el que se utilice para los fines del impuesto general de importación, con las adiciones a que se refiere el primer párrafo de este artículo.`,
+    officialUrl: 'https://www.diputados.gob.mx/LeyesBiblio/pdf/LIVA.pdf',
+    version: 'LIVA vigente — últ. reforma DOF 12-11-2021',
+    topics: ['iva', 'valoracion'],
+    keywords: ['base gravable', 'iva importación', 'art. 27 liva', 'valor en aduana', 'igi', 'contribuciones', 'aprovechamientos', 'dta', 'importación temporal'],
+  },
+  {
+    // Fase 3.3-B — VERBATIM de la Ley Aduanera consolidada (diputados.gob.mx,
+    // última reforma DOF 19-11-2025), extraído del PDF oficial el 2026-07-02.
+    type: 'ley', source: 'Ley_Aduanera', title: 'Ley Aduanera — Responsabilidad del agente aduanal y agencia aduanal (clasificación, NICO, contribuciones)',
+    reference: 'Art. 54 LA',
+    content: `Responsabilidad del agente aduanal — Art. 54 LA (TEXTO VIGENTE, reformado DOF 19-11-2025): el agente aduanal y la agencia aduanal responden por la veracidad de datos, la correcta determinación del pago de contribuciones, el régimen aduanero, la CORRECTA CLASIFICACIÓN ARANCELARIA y el NICO exacto.
+
+TEXTO VERBATIM:
+
+ARTICULO 54. El agente aduanal y la agencia aduanal serán responsables de la veracidad y exactitud de los datos e información suministrados, de la correcta determinación del pago de las contribuciones, de la determinación del régimen aduanero de las mercancías, de su correcta clasificación arancelaria y de la exacta determinación del número de identificación comercial, así como de asegurarse que el importador o exportador cuenta con los documentos que acrediten fehacientemente el cumplimiento de sus obligaciones en materia de comercio exterior y en materia de regulaciones y restricciones no arancelarias que rijan para dichas mercancías, de conformidad con lo previsto por esta Ley y por las demás leyes y disposiciones jurídicas aplicables.
+
+(Artículo reformado DOF 31-12-1998, 01-01-2002, 25-06-2018, 01-07-2020, 19-11-2025.)`,
+    officialUrl: 'https://www.diputados.gob.mx/LeyesBiblio/pdf/LAdua.pdf',
+    version: 'LA vigente — últ. reforma DOF 19-11-2025',
+    topics: ['clasificacion', 'pedimento'],
+    keywords: ['agente aduanal', 'agencia aduanal', 'responsabilidad', 'art. 54', 'clasificación arancelaria', 'nico', 'régimen aduanero', 'veracidad'],
+  },
+  {
+    // Fase 3.3-C — VERBATIM del texto oficial en español del T-MEC, Capítulo 4
+    // (gob.mx/cms 04ESPReglasdeOrigen.pdf), extraído el 2026-07-02.
+    type: 'tratado', source: 'TMEC', title: 'T-MEC Art. 4.5 — Valor de Contenido Regional: métodos de valor de transacción y costo neto',
+    reference: 'Art. 4.5 T-MEC',
+    content: `RVC/VCR bajo T-MEC — Art. 4.5 (Cap. 4, texto oficial en español): DOS métodos a elección del importador, exportador o productor — valor de transacción: VCR = (VT − VMNO) / VT × 100; costo neto: VCR = (CN − VMNO) / CN × 100. Los PORCENTAJES requeridos por producto están en el Anexo 4-B (Reglas de Origen Específicas por Producto); el costo neto es obligatorio cuando el Anexo 4-B no prevé regla por valor de transacción (p. ej. sector automotriz).
+
+TEXTO VERBATIM (párrafos 1 a 6):
+
+1. Salvo lo dispuesto en el párrafo 6, cada Parte dispondrá que el valor de contenido regional de una mercancía sea calculado, a elección del importador, exportador o productor de la mercancía, bajo el método del valor de transacción establecido en el párrafo 2 o del método de costo neto establecido en el párrafo 3.
+
+2. Cada Parte dispondrá que un importador, exportador o productor pueda calcular el valor de contenido regional de la mercancía bajo el método de valor de transacción siguiente: VCR = (VT − VMNO) / VT × 100, donde: VCR es el valor de contenido regional, expresado como un porcentaje; VT es el valor de transacción de la mercancía, ajustado para excluir cualquier costo incurrido en el envío internacional de la mercancía; y VMNO es el valor de los materiales no originarios, incluyendo materiales de origen indeterminado, utilizados por el productor en la producción de la mercancía.
+
+3. Cada Parte dispondrá que un importador, exportador o productor pueda calcular el valor de contenido regional de la mercancía bajo el método de costo neto siguiente: VCR = (CN − VMNO) / CN × 100, donde: VCR es el valor de contenido regional, expresado en porcentaje; CN es el costo neto de la mercancía; y VMNO es el valor de los materiales no originarios, incluyendo materiales de origen indeterminado, utilizados por el productor en la producción de la mercancía.
+
+4. Cada Parte dispondrá que el valor de los materiales no originarios utilizados por el productor en la producción de una mercancía no deberá incluir, para los efectos del cálculo de valor de contenido regional de la mercancía conforme al párrafo 2 o 3, el valor de los materiales no originarios utilizados para producir materiales originarios que se utilizarán posteriormente en la producción de la mercancía.
+
+5. Cada Parte dispondrá que, si un material no originario es utilizado en la producción de la mercancía, lo siguiente podrá ser contabilizado como contenido originario con el propósito de determinar si la mercancía cumple con el requisito de valor de contenido regional: (a) el valor del procesamiento de los materiales no originarios realizado en el territorio de una o más de las Partes; y (b) el valor de cualquier material originario utilizado en la producción del material no originario realizado en el territorio de una o más de las Partes.
+
+6. Cada Parte dispondrá que un importador, exportador o productor calcule el valor de contenido regional de una mercancía únicamente bajo el método de costo neto establecido en el párrafo 3 si la regla conforme al Anexo 4-B (Reglas de Origen Específicas por Producto) no provee una regla basada en el método de valor de transacción.`,
+    officialUrl: 'https://www.gob.mx/cms/uploads/attachment/file/465788/04ESPReglasdeOrigen.pdf',
+    version: 'Texto oficial T-MEC en español (Cap. 4)',
+    topics: ['origen'],
+    keywords: ['rvc', 'vcr', 'valor de contenido regional', 'art. 4.5', 'valor de transacción', 'costo neto', 'vmno', 'materiales no originarios', 'tmec', 'anexo 4-b'],
+  },
+  {
+    // Fase 3.3-F — VERBATIM de la LIEPS consolidada (diputados.gob.mx, última
+    // reforma DOF 07-11-2025), extraído del PDF oficial el 2026-07-02.
+    type: 'ley', source: 'LIEPS', title: 'LIEPS — Crédito fiscal 100% IEPS en importación temporal con certificación (Art. 15-A)',
+    reference: 'Art. 15-A LIEPS',
+    content: `Crédito fiscal IEPS en importaciones temporales — Art. 15-A LIEPS (TEXTO VIGENTE): crédito del 100% del IEPS por importación temporal IMMEX/depósito fiscal automotriz/recinto fiscalizado (estratégico) con certificación del SAT; la certificación de este artículo tiene vigencia de UN AÑO renovable. Alternativa sin certificación: garantía del interés fiscal mediante fianza.
+
+TEXTO VERBATIM:
+
+Artículo 15-A. Las personas que introduzcan bienes a los regímenes aduaneros de importación temporal para elaboración, transformación o reparación en programas de maquila o de exportación; de depósito fiscal para someterse al proceso de ensamble y fabricación de vehículos; de elaboración, transformación o reparación en recinto fiscalizado, y de recinto fiscalizado estratégico, podrán aplicar un crédito fiscal consistente en una cantidad equivalente al 100% del impuesto especial sobre producción y servicios que deba pagarse por la importación, el cual será acreditable contra el impuesto especial sobre producción y servicios que deba pagarse por las citadas actividades, siempre que obtengan una certificación por parte del Servicio de Administración Tributaria. Para obtener dicha certificación, las empresas deberán acreditar que cumplen con los requisitos que permitan un adecuado control de las operaciones realizadas al amparo de los regímenes mencionados, de conformidad con las reglas de carácter general que al efecto emita dicho órgano.
+
+La certificación a que se refiere el párrafo anterior tendrá una vigencia de un año y podrá ser renovada por las empresas dentro de los treinta días anteriores a que venza el plazo de vigencia, siempre que acrediten que continúan cumpliendo con los requisitos para su certificación.
+
+El impuesto cubierto con el crédito fiscal previsto en este artículo, no será acreditable en forma alguna.
+
+El crédito fiscal a que se refiere este artículo no se considerará como ingreso acumulable para los efectos del impuesto sobre la renta.
+
+Las personas a que se refiere este artículo que no ejerzan la opción de certificarse, podrán no pagar el impuesto especial sobre producción y servicios por la introducción de los bienes a los regímenes aduaneros antes mencionados, siempre que garanticen el interés fiscal mediante fianza otorgada por institución autorizada, de conformidad con las reglas de carácter general que al efecto emita el Servicio de Administración Tributaria.
+
+(Artículo adicionado DOF 11-12-2013.)`,
+    officialUrl: 'https://www.diputados.gob.mx/LeyesBiblio/pdf/LIEPS.pdf',
+    version: 'LIEPS vigente — últ. reforma DOF 07-11-2025',
+    topics: ['iva_ieps', 'ieps'],
+    keywords: ['ieps', 'crédito fiscal', 'art. 15-a lieps', 'certificación', 'importación temporal', 'immex', 'fianza', 'vigencia un año'],
   },
 ];
 
