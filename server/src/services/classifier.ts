@@ -333,15 +333,15 @@ Responde SIEMPRE en formato JSON válido con esta estructura:
   "fraction": { "code": "XXXX.XX.XX", "description": "...", "chapter": "XX", "section": "..." },
   "nico": "XX",
   "confidence": 85,
-  "griApplied": ["GRI 1: ...", "GRI 6: ..."],
+  "griApplied": ["Regla General 1 (RGI 1): ...", "Regla General 6 (RGI 6): ..."],
   "tariffs": { "nmf": 15, "preferential": { "TMEC": 0, "TLCUE": 5 } },
   "regulations": { "rrna": ["Permiso SEMARNAT"], "noms": ["NOM-051-SCFI"] },
   "alternatives": [{ "code": "YYYY.YY.YY", "description": "...", "confidence": 60, "reason": "..." }],
   "explanation": { "simple": "...", "technical": "..." },
   "legalBasis": {
     "griApplied": [
-      { "rule": "GRI 1", "reasoning": "El producto se describe textualmente en la partida 61.09 como..." },
-      { "rule": "GRI 6", "reasoning": "A nivel de subpartida se aplicó..." }
+      { "rule": "Regla General 1 (RGI 1)", "reasoning": "El producto se describe textualmente en la partida 61.09 como..." },
+      { "rule": "Regla General 6 (RGI 6)", "reasoning": "A nivel de subpartida se aplicó..." }
     ],
     "legalNotes": [
       { "source": "Nota 1 del capítulo 61", "text": "Este capítulo comprende solamente artículos de punto confeccionados..." }
