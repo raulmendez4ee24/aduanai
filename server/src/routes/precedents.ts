@@ -1,7 +1,7 @@
 import { Router } from 'express';
 import { authenticate, AuthRequest } from '../middlewares/auth';
 import { prisma } from '../lib/prisma';
-import { lookupPrecedents, hasActiveLitigation } from '../services/precedent-lookup';
+import { lookupPrecedents, hasActiveLitigation, PRECEDENT_CORPUS_VERIFIED } from '../services/precedent-lookup';
 
 export const precedentsRouter = Router();
 
@@ -39,6 +39,16 @@ precedentsRouter.get('/', authenticate, async (req: AuthRequest, res, next) => {
       ];
     }
 
+    // Falla cerrado (Fase 2.3): corpus sintético no citable — lista vacía hasta cotejo real.
+    if (!PRECEDENT_CORPUS_VERIFIED) {
+      return res.json({
+        status: 'ok',
+        data: [],
+        pagination: { page, limit, total: 0 },
+        notice: 'Corpus de precedentes en verificación contra fuentes oficiales (TFJA/SAT) — no disponible por ahora.',
+      });
+    }
+
     const [items, total] = await Promise.all([
       prisma.legalPrecedent.findMany({
         where,
@@ -56,6 +66,9 @@ precedentsRouter.get('/', authenticate, async (req: AuthRequest, res, next) => {
 // GET /api/precedents/:id
 precedentsRouter.get('/:id', authenticate, async (req, res, next) => {
   try {
+    if (!PRECEDENT_CORPUS_VERIFIED) {
+      return res.status(404).json({ status: 'error', message: 'Corpus de precedentes en verificación — no disponible por ahora.' });
+    }
     const item = await prisma.legalPrecedent.findUnique({ where: { id: String(req.params.id) } });
     if (!item) return res.status(404).json({ status: 'error', message: 'Precedente no encontrado' });
     res.json({ status: 'ok', data: item });

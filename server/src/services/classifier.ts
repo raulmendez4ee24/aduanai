@@ -159,8 +159,13 @@ CUANDO LA DUALIDAD APLICA, en tu respuesta DEBES llenar 'useBasedAnalysis':
   "criterion": "Si el tornillo está específicamente diseñado para una pieza vehicular y se importa por la armadora con destino a ensamble, hay precedentes donde el SAT y la OMA reclasifican a cap 87 vía Nota 2 sección XVII.",
   "recommendation": "Si NO es importación específica para autopartes → 7318.15.99. Si SÍ → considerar 8708.99 con análisis de criterio.",
   "riskNote": "Reclasificar a 8708 sin sustento puede generar PAMA por incorrecta clasificación. Documentar con plano de pieza, número de parte OEM, contrato de suministro a armadora.",
-  "precedents": ["TFJA Sala Especializada — Tesis V-P-2aS-XX (Reclasificación tornillería automotriz)"]
+  "precedents": []
 }
+
+IMPORTANTE sobre "precedents": NUNCA inventes referencias de tesis, criterios o
+resoluciones (números de tesis, años, salas). SOLO cita precedentes que aparezcan
+textualmente en el contexto que se te proporcionó; si no se te dio ninguno, deja
+el arreglo vacío.
 
 Si NO hay dualidad de clasificación (producto claro por material o producto claramente específico por uso), useBasedAnalysis = null.
 

@@ -11,6 +11,20 @@
 
 import { prisma } from '../lib/prisma';
 
+/**
+ * SWITCH (Fase 2.3 — honestidad de datos): el corpus LegalPrecedent actual es
+ * SINTÉTICO — 24 filas, 0 con URL de fuente oficial, referencias con placeholder
+ * ("Tesis V-P-2aS-XX/2023"). Tesis y criterios que NO existen no son citables
+ * (principio: nunca fabricar datos legales).
+ *
+ * Mientras sea false, TODOS los consumidores reciben vacío (falla cerrado):
+ * Clasificador (prompt + result.precedents + litigationAlert) y /api/precedents.
+ * Las 24 filas se conservan en BD (desactivar > borrar) pendientes de cotejo
+ * contra TFJA/SAT reales — ver docs/DEFERRED_WORK.md. Flip a true SOLO cuando
+ * ese cotejo esté cerrado con fuentes citables.
+ */
+export const PRECEDENT_CORPUS_VERIFIED = false;
+
 export interface PrecedentMatch {
   id: string;
   type: string;
@@ -40,6 +54,7 @@ interface LookupInput {
 }
 
 export async function lookupPrecedents(input: LookupInput): Promise<PrecedentMatch[]> {
+  if (!PRECEDENT_CORPUS_VERIFIED) return []; // corpus sintético — no citable
   const limit = input.limit ?? 5;
   const cleanFraction = input.fractionCode?.replace(/[^0-9]/g, '');
   const chapter = input.chapter ?? cleanFraction?.slice(0, 2);
@@ -109,6 +124,7 @@ export async function lookupPrecedents(input: LookupInput): Promise<PrecedentMat
 
 /** ¿Esta fracción/capítulo tiene precedentes con litigio activo? */
 export async function hasActiveLitigation(fractionCode: string): Promise<{ has: boolean; precedents: PrecedentMatch[] }> {
+  if (!PRECEDENT_CORPUS_VERIFIED) return { has: false, precedents: [] }; // corpus sintético — no citable
   const cleanFraction = fractionCode.replace(/[^0-9]/g, '');
   const chapter = cleanFraction.slice(0, 2);
 
