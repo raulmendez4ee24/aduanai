@@ -83,6 +83,18 @@ export const EMBEDDING_DIM = process.env.VOYAGE_API_KEY
  * un 429 de Voyage) y corromper el corpus en silencio.
  */
 export function assertCorpusEmbedding(embedding: number[], ctx = 'corpus'): void {
+  // HUECO CERRADO (2026-07-02): sin proveedor real configurado, EMBEDDING_DIM
+  // "esperado" era el fallback hashed (256) y este assert aceptaba corpus
+  // envenenado como válido — así se sembraron docs a 256 en prod desde una
+  // máquina sin VOYAGE_API_KEY. Los ESCRITORES del corpus requieren proveedor
+  // real SIEMPRE: el hashed es solo para el path de LECTURA resiliente.
+  if (!process.env.VOYAGE_API_KEY && !process.env.OPENAI_API_KEY) {
+    throw new Error(
+      `Escritura al corpus BLOQUEADA para "${ctx}": no hay proveedor de embeddings configurado ` +
+      `(falta VOYAGE_API_KEY/OPENAI_API_KEY) y el fallback hashed de ${EMBEDDING_DIM_FALLBACK} dims ` +
+      `corrompería el corpus. Exporta la llave (railway variables) antes de seedear.`,
+    );
+  }
   if (embedding.length !== EMBEDDING_DIM) {
     throw new Error(
       `Embedding inválido para "${ctx}": dim ${embedding.length} ≠ ${EMBEDDING_DIM} esperado por el proveedor activo. ` +

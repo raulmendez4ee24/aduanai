@@ -401,6 +401,65 @@ export const LEGAL_DOCUMENTS: LegalDocSeed[] = [
     topics: ['clasificacion'], keywords: ['smartphones', '8517.13', 'OMA', 'GRI 3b'],
     fractionRefs: ['85171301'],
   },
+  {
+    // Fase 3.1 — TEXTO VERBATIM de la LFD consolidada (Cámara de Diputados,
+    // última reforma DOF 07-11-2025; cantidades 2026 actualizadas por RMF
+    // DOF 28-12-2025, Anexo 4). Extraído del PDF oficial LeyesBiblio el
+    // 2026-07-02. Se omiten solo las notas editoriales de reforma por fracción.
+    type: 'ley', source: 'LFD', title: 'LFD — Derecho de Trámite Aduanero (DTA): tasas y cuotas vigentes 2026',
+    reference: 'Art. 49 LFD',
+    content: `DTA (derecho de trámite aduanero) — Art. 49 Ley Federal de Derechos, TEXTO VIGENTE 2026 (últ. reforma DOF 07-11-2025; cuotas actualizadas por RMF 2026, DOF 28-12-2025). Tasas clave: general 8 al millar (fracc. I); activo fijo IMMEX 1.76 al millar (fracc. II); IMMEX temporal cuota fija $461.61 (fracc. III); exentas/retornos/tratados internacionales $461.61 por operación (fracc. IV); exportación $462.86 (fracc. V).
+
+TEXTO VERBATIM:
+
+Artículo 49.- Se pagará el derecho de trámite aduanero, por las operaciones aduaneras que se efectúen utilizando un pedimento o el documento aduanero correspondiente en los términos de la Ley Aduanera, conforme a las siguientes tasas o cuotas:
+
+I. Del 8 al millar, sobre el valor que tengan los bienes para los efectos del impuesto general de importación, en los casos distintos a los señalados en las siguientes fracciones o cuando se trate de mercancías exentas conforme a la Ley de los Impuestos Generales de Importación y de Exportación o a los Tratados Internacionales.
+
+II. Del 1.76 al millar sobre el valor que tengan los bienes, tratándose de la importación temporal de bienes de activo fijo que efectúen las maquiladoras o las empresas que tengan programas de exportación autorizados por la Secretaría de Economía o, en su caso, la maquinaria y equipo que se introduzca al territorio nacional para destinarlos al régimen de elaboración, transformación o reparación en recintos fiscalizados.
+
+III. Tratándose de importaciones temporales de bienes distintos de los señalados en la fracción anterior siempre que sea para elaboración, transformación o reparación en las empresas con programas autorizados por la Secretaría de Economía (Industria Manufacturera, Maquiladora y de Servicios de Exportación IMMEX): $461.61
+
+Asimismo, se pagará la cuota señalada en el párrafo anterior, por la introducción al territorio nacional de bienes distintos a los señalados en la fracción II de este artículo, bajo el régimen de elaboración, transformación o reparación en recintos fiscalizados, así como en los retornos respectivos.
+
+IV. En el caso de operaciones de importación y exportación de mercancías exentas de los impuestos al comercio exterior conforme a la Ley Aduanera; de retorno de mercancías importadas o exportadas definitivamente; de importaciones o exportaciones temporales para retornar en el mismo estado; de las operaciones aduaneras que amparen mercancías que de conformidad con las disposiciones aplicables no tengan valor en aduana, así como de importación y exportación de mercancías en las que, de conformidad con los tratados internacionales, no deban aplicarse cargos o derechos sobre el valor que éstas tengan, por cada operación: $461.61
+
+V.- En las operaciones de exportación: $462.86
+
+Cuando la exportación de mercancías se efectúe mediante pedimento consolidado a que se refiere la Ley Aduanera, el derecho de trámite aduanero se pagará por cada operación al presentarse el pedimento respectivo, debiendo considerarse a cada vehículo de transporte como una operación distinta ante la aduana correspondiente.
+
+También se pagará este derecho por cada operación en que se utilice el pedimento complementario del pedimento de exportación o retorno de mercancías.
+
+VI.- Tratándose de las efectuadas por los Estados extranjeros: $452.66
+
+VII.- Por aquellas operaciones en que se rectifique un pedimento y no se esté en los supuestos de las fracciones anteriores, así como cuando se utilice algunos de los siguientes pedimentos:
+a) De tránsito interno: $461.61
+b) De tránsito internacional: $438.36
+c) De extracción del régimen de depósito fiscal para retorno: $461.61
+d) La parte II de los pedimentos de importación; exportación o tránsito: $461.61
+e) Por cada rectificación de pedimento: $444.42
+
+VIII.- Del 8 al millar, sobre el valor que tenga el oro para los efectos del impuesto general de importación, sin exceder de la cuota de: $4,891.35
+
+Cuando la cantidad que resulte de aplicar lo dispuesto en las fracciones I y II de este artículo sea inferior a la señalada en la fracción III, se aplicará esta última.
+
+Cuando la importación de las mercancías a que se refieren las fracciones II y III, primer párrafo, de este artículo, se efectúe mediante pedimento o pedimento consolidado, el derecho de trámite aduanero se pagará por cada operación al presentarse el pedimento respectivo, debiendo considerarse a cada vehículo de transporte como una operación distinta ante la aduana correspondiente y no se pagará por el retorno de dichas mercancías.
+
+En las operaciones de depósito fiscal y en el tránsito de mercancías, el derecho se pagará al presentarse el pedimento definitivo y en su caso, al momento de pagarse el impuesto general de importación.
+
+Cuando por la operación aduanera de que se trate, no se tenga que pagar el impuesto general de importación, el derecho se determinará sobre el valor en aduana de las mercancías.
+
+El pago del derecho, se efectuará conjuntamente con el impuesto general de importación o exportación, según se trate. Cuando no se esté obligado al pago de los impuestos citados, el derecho a que se refiere este artículo deberá pagarse antes de retirar las mercancías del recinto fiscal.
+
+La recaudación de los derechos de trámite aduanero, incluyendo el adicional a que se refiere el artículo 50 de esta Ley, se destinará a la Secretaría de Hacienda y Crédito Público.
+
+Tratándose de los derechos de trámite aduanero que se recauden en Colombia, Nuevo León, los mismos se destinarán al pago de la inversión que el Gobierno del Estado de Nuevo León hubiere hecho en la construcción de la garita y hasta por el monto de la misma.`,
+    officialUrl: 'https://www.diputados.gob.mx/LeyesBiblio/pdf/LFD.pdf',
+    publishedDate: '2025-11-07', effectiveDate: '2026-01-01',
+    version: 'Vigente 2026 — últ. reforma DOF 07-11-2025; cuotas Anexo 4 RMF 2026 (DOF 28-12-2025)',
+    topics: ['dta', 'pedimento', 'fiscal'],
+    keywords: ['dta', 'derecho de trámite aduanero', 'art. 49 lfd', 'ley federal de derechos', '8 al millar', '1.76 al millar', 'cuota fija', 'immex', 'tratados internacionales', 'tránsito', 'rectificación'],
+  },
 ];
 
 function hashContent(s: string): string {

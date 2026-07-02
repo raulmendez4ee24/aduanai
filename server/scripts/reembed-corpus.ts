@@ -3,6 +3,11 @@
 // evitando el rate limit del free tier. Retry/backoff en 429. Solo acepta 1024.
 import { PrismaClient } from '@prisma/client';
 import { PrismaPg } from '@prisma/adapter-pg';
+import dotenv from 'dotenv';
+
+// DATABASE_URL del .env (como el resto del server); VOYAGE_API_KEY puede venir
+// del entorno (p.ej. railway variables) sin tocar el .env.
+dotenv.config();
 
 const prisma = new PrismaClient({ adapter: new PrismaPg({ connectionString: process.env.DATABASE_URL! }) });
 const KEY = process.env.VOYAGE_API_KEY!;

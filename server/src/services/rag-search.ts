@@ -86,6 +86,11 @@ const TOPIC_KEYWORDS: Record<string, string[]> = {
   ieps: ['ieps', 'art. 1 lieps', 'lieps', 'alcohol', 'tabaco', 'refresco', 'combustible', 'plaguicida'],
   noms: ['nom', 'noms', 'anexo 2.4.1', 'etiquetado'],
   garantias: ['garantia', 'garantía', 'fianza', 'cuenta aduanera', 'anexo 31', 'carta de credito', 'carta de crédito'],
+  dta: [
+    'dta', 'derecho de tramite', 'derecho de trámite', 'tramite aduanero', 'trámite aduanero',
+    'art. 49 lfd', 'articulo 49 lfd', 'artículo 49 lfd', 'ley federal de derechos', 'lfd',
+    '8 al millar', '1.76 al millar',
+  ],
 };
 
 // Aliases: cuando el detector emite topic X, también buscar estos topics en
@@ -105,6 +110,7 @@ const TOPIC_ALIASES: Record<string, string[]> = {
   clasificacion: ['clasificacion', 'reclasificacion', 'uso_destinado'],
   padrones: ['padrones', 'regimen'],
   pedimento: ['pedimento', 'regimen'],
+  dta: ['dta', 'pedimento', 'fiscal'],
 };
 
 /** Expande topics con sus aliases. */
