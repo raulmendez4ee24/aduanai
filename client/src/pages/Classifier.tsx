@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { api } from '../lib/api'
 import type { ClassificationResult, IndustrialSector, ImporterType, ClassifierAlert, ClassifierAntidumpingMetadata } from '../lib/api'
 import { Search, Sparkles, AlertCircle, ThumbsUp, ThumbsDown, Copy, Check, Scale, ChevronDown, AlertTriangle, ShieldCheck, Car, Link as LinkIcon, Target, ExternalLink } from 'lucide-react'
@@ -41,6 +41,29 @@ export function ClassifierPage() {
   const [feedbackSent, setFeedbackSent] = useState(false)
   const [copied, setCopied] = useState(false)
   const [legalOpen, setLegalOpen] = useState(false)
+  // Fase 4.10 — UX: etapa visible durante los ~15s de clasificación + scroll al resultado
+  const [stage, setStage] = useState(0)
+  const resultRef = useRef<HTMLDivElement>(null)
+
+  const STAGES = [
+    'Buscando fracciones candidatas en el catálogo (8,256 fracciones TIGIE)…',
+    'Analizando con IA — aplicando Reglas Generales de Interpretación…',
+    'Verificando la fracción elegida contra el catálogo…',
+  ]
+
+  useEffect(() => {
+    if (!loading) return
+    setStage(0)
+    const t1 = setTimeout(() => setStage(1), 4000)
+    const t2 = setTimeout(() => setStage(2), 11000)
+    return () => { clearTimeout(t1); clearTimeout(t2) }
+  }, [loading])
+
+  useEffect(() => {
+    // El resultado aparecía abajo sin desplazar la vista — el usuario se
+    // quedaba viendo el formulario sin saber que ya terminó.
+    if (result) resultRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+  }, [result])
 
   async function handleClassify() {
     if (!query.trim()) return
@@ -212,6 +235,23 @@ export function ClassifierPage() {
             {loading ? <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" /> : <Search className="w-4 h-4" />}
             {loading ? 'Clasificando...' : 'Clasificar con IA'}
           </button>
+
+          {/* Fase 4.10: progreso por etapas — la espera de ~15s ya no es pantalla muda */}
+          {loading && (
+            <div className="mt-4 rounded-xl bg-emerald-50 border border-emerald-100 p-4 space-y-2">
+              {STAGES.map((s, i) => (
+                <div key={i} className={`flex items-center gap-2 text-[12px] ${i < stage ? 'text-emerald-700' : i === stage ? 'text-emerald-800 font-semibold' : 'text-slate-400'}`}>
+                  {i < stage
+                    ? <Check className="w-3.5 h-3.5 text-emerald-500 shrink-0" />
+                    : i === stage
+                      ? <div className="w-3.5 h-3.5 border-2 border-emerald-500 border-t-transparent rounded-full animate-spin shrink-0" />
+                      : <div className="w-3.5 h-3.5 rounded-full border border-slate-300 shrink-0" />}
+                  <span>{s}</span>
+                </div>
+              ))}
+              <p className="text-[10px] text-emerald-600/70 pt-1">La clasificación fundamentada suele tomar 10-20 segundos.</p>
+            </div>
+          )}
         </div>
 
         {error && (
@@ -224,7 +264,7 @@ export function ClassifierPage() {
 
       {/* Result card */}
       {result && (
-        <div className={`${GLASS} rounded-[2rem] p-6 md:p-8 space-y-6`}>
+        <div ref={resultRef} className={`${GLASS} rounded-[2rem] p-6 md:p-8 space-y-6 scroll-mt-4`}>
           {/* Disclaimer prominente Art. 54 LA */}
           <div className="rounded-2xl bg-amber-50 border border-amber-200 p-4">
             <div className="flex items-start gap-3">
