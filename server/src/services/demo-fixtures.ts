@@ -6,6 +6,9 @@
  *
  * Convenciones:
  *  - Las fechas se serializan como ISO string (Prisma las parsea OK).
+ */
+import { formatPedimentoNumero } from '../lib/anexo22';
+/**
  *  - Las relaciones cross-categoría usan índices (importIndex, mveIndex)
  *    que el loader resuelve a IDs después de crear cada batch.
  */
@@ -78,12 +81,14 @@ function pick<T>(arr: T[]): T {
 }
 
 function pedimento(seed: number): string {
-  // formato: AÑO PATENTE ADUANA CONSECUTIVO
+  // Fase 4.6 — formato OFICIAL del Anexo 22 (instructivo, 15 dígitos):
+  // AÑO(2) ADUANA(2) PATENTE(4) CONSECUTIVO(7). El generador previo invertía
+  // patente y aduana (AÑO PATENTE ADUANA CONSEC).
   const year = String(new Date().getFullYear() - 1).slice(-2);
+  const aduana = '47'; // AICM (Apéndice 1)
   const patente = '3461';
-  const aduana = '47';
   const consec = String(4000000 + seed).padStart(7, '0');
-  return `${year} ${patente} ${aduana} ${consec}`;
+  return formatPedimentoNumero(year, aduana, patente, consec);
 }
 
 // Patrón determinista para estabilidad (mismo demo cada vez que regeneramos)

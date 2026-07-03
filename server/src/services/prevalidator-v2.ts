@@ -16,7 +16,7 @@
  */
 
 import { prisma } from '../lib/prisma';
-import { REGIMENES_POR_CLAVE } from '../lib/anexo22';
+import { REGIMENES_POR_CLAVE, validatePedimentoNumero } from '../lib/anexo22';
 import { getHistoricalRate } from './exchange-rate';
 import { lookupCompliance } from './compliance-lookup';
 import { llmGenerate } from '../lib/llm';
@@ -129,6 +129,18 @@ export async function validatePedimento(input: PedimentoInput, opts: { aiCheck?:
       field: 'regimen', severity: 'error', rule: 'CLAVE_REGIMEN_MISMATCH',
       message: `La clave ${input.clave} no es compatible con el régimen ${input.regimen}. Permitidos: ${allowedRegimenes.join(', ')}`,
     });
+  }
+
+  // 1b) Formato del número de pedimento (Fase 4.6 — instructivo Anexo 22:
+  // AÑO(2) ADUANA(2) PATENTE(4) CONSECUTIVO(7), 15 dígitos)
+  if (input.numero && input.numero.trim() !== '') {
+    const nv = validatePedimentoNumero(input.numero);
+    if (!nv.valid) {
+      issues.push({
+        field: 'numero', severity: 'warning', rule: 'NUMERO_PEDIMENTO_FORMAT',
+        message: `Número de pedimento "${input.numero}": ${nv.reason}`,
+      });
+    }
   }
 
   // 2) Coherencia tipo de operación / régimen

@@ -7,7 +7,7 @@
  * Determinista, sin BD ni LLM.
  */
 import { strict as assert } from 'node:assert';
-import { ADUANAS, LEGACY_CUSTOMS_ALIASES, normalizeCustomsCode, REGIMENES, CLAVES_PEDIMENTO, REGIMENES_POR_CLAVE } from '../lib/anexo22';
+import { ADUANAS, LEGACY_CUSTOMS_ALIASES, normalizeCustomsCode, REGIMENES, CLAVES_PEDIMENTO, REGIMENES_POR_CLAVE, formatPedimentoNumero, validatePedimentoNumero } from '../lib/anexo22';
 
 let passed = 0;
 let failed = 0;
@@ -77,6 +77,20 @@ test('mapa clave→regímenes (consumido por Pre-validador y Glosa): duales y co
   assert.equal('IM' in REGIMENES_POR_CLAVE, false);
   assert.equal('G1' in REGIMENES_POR_CLAVE, false);
   assert.equal('ITR' in REGIMENES_POR_CLAVE, false); // ITR es régimen, no clave
+});
+
+test('número de pedimento: orden oficial AÑO ADUANA PATENTE CONSECUTIVO (Fase 4.6)', () => {
+  assert.equal(formatPedimentoNumero('25', '47', '3461', '4000123'), '25 47 3461 4000123');
+  assert.equal(validatePedimentoNumero('25 47 3461 4000123').valid, true);
+  // El orden VIEJO del generador demo (año PATENTE ADUANA consec) debe fallar:
+  // "3461" en posición de aduana no es clave de 2 dígitos → ni siquiera pasa el regex
+  assert.equal(validatePedimentoNumero('25 3461 47 4000123').valid, false);
+  // Aduana inexistente en el Apéndice 1
+  const bad = validatePedimentoNumero('25 99 3461 4000123');
+  assert.equal(bad.valid, false);
+  assert.match(bad.reason ?? '', /Apéndice 1/);
+  // Malformado
+  assert.equal(validatePedimentoNumero('pedimento 123').valid, false);
 });
 
 console.log(`\n  ${passed} passed, ${failed} failed\n`);

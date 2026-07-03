@@ -130,5 +130,28 @@ export const CLAVES_PEDIMENTO: ClavePedimento[] = [
 export const REGIMENES_POR_CLAVE: Record<string, string[]> =
   Object.fromEntries(CLAVES_PEDIMENTO.map((c) => [c.clave, c.regimenes]));
 
+/**
+ * Número de pedimento (instructivo del Anexo 22, texto oficial): "integrado
+ * con quince dígitos, que corresponden a: 2 dígitos, del año de validación...
+ * 2 dígitos, de la aduana de despacho... 4 dígitos, del número de la patente
+ * o autorización... 7 dígitos, del consecutivo". Orden: AÑO ADUANA PATENTE
+ * CONSECUTIVO (el generador demo previo lo armaba año-PATENTE-ADUANA-consec).
+ */
+export const PEDIMENTO_NUMERO_REGEX = /^(\d{2})\s+(\d{2})\s+(\d{4})\s+(\d{7})$/;
+
+export function formatPedimentoNumero(year2: string, aduanaClave: string, patente: string, consecutivo: string): string {
+  return `${year2} ${aduanaClave} ${patente} ${consecutivo}`;
+}
+
+export function validatePedimentoNumero(numero: string): { valid: boolean; reason?: string } {
+  const m = PEDIMENTO_NUMERO_REGEX.exec(numero.trim());
+  if (!m) return { valid: false, reason: 'Formato esperado: AÑO(2) ADUANA(2) PATENTE(4) CONSECUTIVO(7) — 15 dígitos (Anexo 22)' };
+  const aduana = m[2];
+  if (!ADUANAS.some((a) => a.clave === aduana)) {
+    return { valid: false, reason: `La posición de aduana ("${aduana}") no es una clave del Apéndice 1 — verifica el orden AÑO ADUANA PATENTE CONSECUTIVO` };
+  }
+  return { valid: true };
+}
+
 export const ANEXO22_FUENTE =
   'Anexo 22 RGCE 2026, Apéndices 1, 2 y 16 — DOF 15-ene-2026 (cotejo 2026-07-02)';
