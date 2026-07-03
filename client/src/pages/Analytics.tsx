@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { api } from '../lib/api'
-import type { StatsData, VolumeDay, ClassificationRecord } from '../lib/api'
+import type { StatsData, VolumeDay } from '../lib/api'
 import { LineChart as LCIcon, TrendingUp } from 'lucide-react'
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid, AreaChart, Area, PieChart, Pie, Cell } from 'recharts'
 
@@ -12,43 +12,26 @@ const CONF_LABELS = ['95-100%', '85-94%', '70-84%', '50-69%', '<50%']
 export function AnalyticsPage() {
   const [stats, setStats] = useState<StatsData | null>(null)
   const [volume, setVolume] = useState<VolumeDay[]>([])
-  const [history, setHistory] = useState<ClassificationRecord[]>([])
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
     async function load() {
-      const [s, v, h] = await Promise.allSettled([api.stats(), api.statsVolume(60), api.classifyHistory(undefined, 1)])
+      const [s, v] = await Promise.allSettled([api.stats(), api.statsVolume(60)])
       if (s.status === 'fulfilled') setStats(s.value.data)
       if (v.status === 'fulfilled') setVolume(v.value.data)
-      if (h.status === 'fulfilled') setHistory(h.value.data)
       setLoading(false)
     }
     load()
   }, [])
 
-  // Compute chapter distribution from history
-  const chapterMap = new Map<string, number>()
-  history.forEach(h => {
-    const ch = h.fractionCode?.slice(0, 2) ?? '??'
-    chapterMap.set(ch, (chapterMap.get(ch) ?? 0) + 1)
-  })
-  const topChapters = [...chapterMap.entries()].sort((a, b) => b[1] - a[1]).slice(0, 10).map(([ch, count]) => ({ ch: `Cap ${ch}`, count }))
-
-  // Confidence distribution
-  const confBuckets = [0, 0, 0, 0, 0]
-  history.forEach(h => {
-    const c = h.confidence
-    if (c >= 95) confBuckets[0]!++
-    else if (c >= 85) confBuckets[1]!++
-    else if (c >= 70) confBuckets[2]!++
-    else if (c >= 50) confBuckets[3]!++
-    else confBuckets[4]!++
-  })
+  // Fase 4.3: TODOS los agregados vienen de /api/stats (fuente única, filas
+  // completas del tenant). Antes se calculaban con la PÁGINA 1 del historial
+  // (20 filas) — por eso "13 fracciones únicas" con ~22 visibles en Historial.
+  const topChapters = (stats?.analytics.topChapters ?? []).map(t => ({ ch: `Cap ${t.ch}`, count: t.count }))
+  const confBuckets = stats?.analytics.confidenceBuckets ?? [0, 0, 0, 0, 0]
   const confData = confBuckets.map((val, i) => ({ name: CONF_LABELS[i], value: val })).filter(d => d.value > 0)
-
-  // Unique fractions
-  const uniqueFractions = new Set(history.map(h => h.fractionCode)).size
-  const avgConf = history.length > 0 ? Math.round(history.reduce((s, h) => s + h.confidence, 0) / history.length) : 0
+  const uniqueFractions = stats?.analytics.uniqueFractions ?? 0
+  const avgConf = stats?.analytics.avgConfidence ?? 0
 
   // Weekly aggregation
   const weeklyMap = new Map<string, { c: number; q: number }>()

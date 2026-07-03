@@ -102,7 +102,7 @@ statsRouter.get('/', authenticate, async (req: AuthRequest, res, next) => {
   try {
     const tenantId = req.tenantId!;
 
-    const [classifications, quotes, copilotMessages, recentClassifications] = await Promise.all([
+    const [classifications, quotes, copilotMessages, recentClassifications, byFraction, allConfidences] = await Promise.all([
       prisma.classification.count({ where: { tenantId } }),
       prisma.quote.count({ where: { tenantId } }),
       prisma.copilotMessage.count({ where: { tenantId, role: 'user' } }),
@@ -119,13 +119,43 @@ statsRouter.get('/', authenticate, async (req: AuthRequest, res, next) => {
           feedback: true,
         },
       }),
+      // Fase 4.3: agregados sobre TODAS las filas del tenant. Antes Analytics
+      // calculaba fracciones únicas / confianza promedio / capítulos con la
+      // PÁGINA 1 del historial (20 filas) y los presentaba como globales —
+      // por eso "13 fracciones únicas" con ~22 visibles. Fuente única: aquí.
+      prisma.classification.groupBy({ by: ['fractionCode'], where: { tenantId }, _count: true }),
+      prisma.classification.findMany({ where: { tenantId }, select: { confidence: true } }),
     ]);
+
+    const uniqueFractions = byFraction.length;
+    const chapterMap = new Map<string, number>();
+    for (const f of byFraction) {
+      const ch = f.fractionCode.replace(/\D/g, '').slice(0, 2) || '??';
+      chapterMap.set(ch, (chapterMap.get(ch) ?? 0) + f._count);
+    }
+    const topChapters = [...chapterMap.entries()]
+      .sort((a, b) => b[1] - a[1])
+      .slice(0, 10)
+      .map(([ch, count]) => ({ ch, count }));
+    const avgConfidence = allConfidences.length > 0
+      ? Math.round(allConfidences.reduce((s, c) => s + c.confidence, 0) / allConfidences.length)
+      : 0;
+    // Buckets: 95-100 / 85-94 / 70-84 / 50-69 / <50 (mismo esquema que la UI)
+    const confidenceBuckets = [0, 0, 0, 0, 0];
+    for (const { confidence: c } of allConfidences) {
+      if (c >= 95) confidenceBuckets[0]++;
+      else if (c >= 85) confidenceBuckets[1]++;
+      else if (c >= 70) confidenceBuckets[2]++;
+      else if (c >= 50) confidenceBuckets[3]++;
+      else confidenceBuckets[4]++;
+    }
 
     res.json({
       status: 'ok',
       data: {
         counts: { classifications, quotes, copilotMessages },
         recentClassifications,
+        analytics: { uniqueFractions, avgConfidence, topChapters, confidenceBuckets },
       },
     });
   } catch (err) {

@@ -1399,6 +1399,13 @@ export interface StatsData {
     createdAt: string;
     feedback: string | null;
   }[];
+  /** Fase 4.3: agregados sobre TODAS las filas del tenant (fuente única del server). */
+  analytics: {
+    uniqueFractions: number;
+    avgConfidence: number;
+    topChapters: { ch: string; count: number }[];
+    confidenceBuckets: number[]; // [95-100, 85-94, 70-84, 50-69, <50]
+  };
 }
 
 export interface QuoteInput {
