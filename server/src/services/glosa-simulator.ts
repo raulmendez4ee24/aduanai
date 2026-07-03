@@ -275,9 +275,12 @@ export async function simulateGlosa(tenantId: string, userId: string, input: Glo
     addFlag('CLA_003', 'Fracción residual ".99.99" (los demás) — revisada con frecuencia para verificar fracción específica.');
   }
 
-  // ── 13. IMMEX A4 sin certificación IVA-IEPS ──
-  if (input.regimenCode === 'A4' && !input.hasIVAIEPSCertification) {
-    addFlag('REG_001', 'Importación temporal A4 sin certificación IVA-IEPS — pago efectivo de IVA.');
+  // ── 13. Importación temporal IMMEX sin certificación IVA-IEPS ──
+  // Fase 4.2: antes revisaba la clave A4 llamándola "temporal IMMEX" — A4 es
+  // INTRODUCCIÓN A DEPÓSITO FISCAL (Apéndice 2). Las claves temporales IMMEX
+  // donde se causa IVA al despacho son IN (insumos) y AF (activo fijo).
+  if (['IN', 'AF'].includes(input.regimenCode.toUpperCase()) && !input.hasIVAIEPSCertification) {
+    addFlag('REG_001', `Importación temporal IMMEX (clave ${input.regimenCode.toUpperCase()}) sin certificación IVA-IEPS — IVA causado se paga o garantiza en el despacho (Art. 28-A LIVA).`);
   }
 
   // ── 14. Aduana de alto riesgo ──

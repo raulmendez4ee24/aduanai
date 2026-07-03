@@ -7,7 +7,7 @@
  * Determinista, sin BD ni LLM.
  */
 import { strict as assert } from 'node:assert';
-import { ADUANAS, LEGACY_CUSTOMS_ALIASES, normalizeCustomsCode, REGIMENES, CLAVES_PEDIMENTO } from '../lib/anexo22';
+import { ADUANAS, LEGACY_CUSTOMS_ALIASES, normalizeCustomsCode, REGIMENES, CLAVES_PEDIMENTO, REGIMENES_POR_CLAVE } from '../lib/anexo22';
 
 let passed = 0;
 let failed = 0;
@@ -57,15 +57,26 @@ test('Apéndice 16: los 10 regímenes oficiales, sin inventados (IMM/EXT no exis
 
 test('Apéndice 2: A4 es DEPÓSITO FISCAL (no "temporal IMMEX"); IN/AF/RT son las claves IMMEX', () => {
   const by = Object.fromEntries(CLAVES_PEDIMENTO.map(c => [c.clave, c]));
-  assert.equal(by['A4'].regimen, 'DFI');
+  assert.deepEqual(by['A4'].regimenes, ['DFI']);
   assert.match(by['A4'].descripcion, /depósito fiscal/i);
-  assert.equal(by['IN'].regimen, 'ITE');
-  assert.equal(by['AF'].regimen, 'ITE');
+  assert.deepEqual(by['IN'].regimenes, ['ITE']);
+  assert.deepEqual(by['AF'].regimenes, ['ITE']);
   assert.match(by['R1'].descripcion, /Rectificación/);
   assert.match(by['A3'].descripcion, /Regularización/);
   // Todo régimen referenciado existe en Apéndice 16
   const regClaves = new Set(REGIMENES.map(r => r.clave));
-  for (const c of CLAVES_PEDIMENTO) if (c.regimen) assert.ok(regClaves.has(c.regimen), `${c.clave}→${c.regimen}`);
+  for (const c of CLAVES_PEDIMENTO) for (const r of c.regimenes) assert.ok(regClaves.has(r), `${c.clave}→${r}`);
+});
+
+test('mapa clave→regímenes (consumido por Pre-validador y Glosa): duales y comodines', () => {
+  assert.deepEqual(REGIMENES_POR_CLAVE['A1'], ['IMD', 'EXD']); // impo O expo definitiva
+  assert.deepEqual(REGIMENES_POR_CLAVE['F5'], ['IMD']);        // cambio a definitiva
+  assert.deepEqual(REGIMENES_POR_CLAVE['R1'], []);             // rectifica cualquier régimen
+  assert.deepEqual(REGIMENES_POR_CLAVE['T3'], ['TRA']);
+  // Claves inventadas del mapa viejo NO existen
+  assert.equal('IM' in REGIMENES_POR_CLAVE, false);
+  assert.equal('G1' in REGIMENES_POR_CLAVE, false);
+  assert.equal('ITR' in REGIMENES_POR_CLAVE, false); // ITR es régimen, no clave
 });
 
 console.log(`\n  ${passed} passed, ${failed} failed\n`);

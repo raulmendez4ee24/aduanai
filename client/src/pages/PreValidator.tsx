@@ -1,16 +1,17 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { api } from '../lib/api'
-import type { PedimentoInputV2, PedimentoPartidaInputV2, PedimentoValidationResult } from '../lib/api'
+import type { Anexo22Catalogs, PedimentoInputV2, PedimentoPartidaInputV2, PedimentoValidationResult } from '../lib/api'
 import { ShieldCheck, AlertTriangle, AlertCircle, CheckCircle2, Plus, Trash2, ChevronLeft, ChevronRight, Sparkles, FileText } from 'lucide-react'
 import { formatFraction } from '../lib/format'
 
 const GLASS = 'bg-white/70 backdrop-blur-xl border border-white/50 shadow-[0_8px_30px_rgb(0,0,0,0.04)]'
 
-const CLAVES = ['A1', 'A3', 'IN', 'ITR', 'RT', 'AF', 'IM', 'R1', 'V1', 'G1']
-const REGIMENES = ['IMD', 'IMM', 'ITE', 'ITR', 'EXD', 'EXT']
+// Fase 4.2: CLAVES/REGIMENES/ADUANAS locales (mezclaban claves y regímenes
+// inventados: IM, G1, IMM, EXT; ITR listado como clave) se reemplazaron por los
+// catálogos OFICIALES del Anexo 22 RGCE 2026 vía GET /api/catalogs/anexo22
+// (fuente única: server/src/lib/anexo22.ts — misma que usa el Simulador de Glosa).
 const INCOTERMS = ['EXW','FCA','FAS','FOB','CFR','CIF','CPT','CIP','DAP','DPU','DDP']
 const TRANSPORTES = ['Marítimo', 'Aéreo', 'Terrestre', 'Ferroviario', 'Multimodal']
-const ADUANAS = ['Nuevo Laredo', 'Manzanillo', 'Veracruz', 'Lázaro Cárdenas', 'Tijuana', 'AICM', 'Altamira']
 
 function emptyPartida(n: number): PedimentoPartidaInputV2 {
   return {
@@ -23,7 +24,7 @@ function emptyPartida(n: number): PedimentoPartidaInputV2 {
 
 function emptyPedimento(): PedimentoInputV2 {
   return {
-    clave: 'A1', aduana: 'Nuevo Laredo', patenteAduanal: '3461',
+    clave: 'A1', aduana: '24', patenteAduanal: '3461', // 24 = Nuevo Laredo (Apéndice 1)
     rfcImportador: '', tipoOperacion: 'IMP', regimen: 'IMD',
     pesoBruto: 0, pesoNeto: 0, bultos: 1,
     valorAduana: 0, valorComercial: 0, valorDolares: 0, tipoCambio: 17.49,
@@ -48,6 +49,11 @@ export function PreValidatorPage() {
   const [aiCheck, setAiCheck] = useState(true)
   const [savedId, setSavedId] = useState<string | null>(null)
   const [error, setError] = useState('')
+  const [catalogs, setCatalogs] = useState<Anexo22Catalogs | null>(null)
+
+  useEffect(() => {
+    api.catalogsAnexo22().then(r => setCatalogs(r.data)).catch(() => {})
+  }, [])
 
   function update<K extends keyof PedimentoInputV2>(k: K, v: PedimentoInputV2[K]) {
     setPed(p => ({ ...p, [k]: v }))
@@ -132,10 +138,10 @@ export function PreValidatorPage() {
             <p className="text-[12px] text-slate-500 mb-2">Datos generales del pedimento (Anexo 22 — encabezado).</p>
             <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
               <Field label="Número pedimento (opcional)"><input className="input" value={ped.numero ?? ''} onChange={e => update('numero', e.target.value)} placeholder="25 47 3461 4000123"/></Field>
-              <Field label="Clave"><select className="input" value={ped.clave} onChange={e => update('clave', e.target.value)}>{CLAVES.map(c => <option key={c}>{c}</option>)}</select></Field>
-              <Field label="Régimen"><select className="input" value={ped.regimen} onChange={e => update('regimen', e.target.value)}>{REGIMENES.map(r => <option key={r}>{r}</option>)}</select></Field>
+              <Field label="Clave de pedimento (Apéndice 2)"><select className="input" value={ped.clave} onChange={e => update('clave', e.target.value)}>{(catalogs?.clavesPedimento ?? [{ clave: ped.clave, descripcion: 'cargando catálogo…', regimenes: [] }]).map(c => <option key={c.clave} value={c.clave} title={c.descripcion}>{c.clave} — {c.descripcion.length > 55 ? c.descripcion.slice(0, 55) + '…' : c.descripcion}</option>)}</select></Field>
+              <Field label="Régimen (Apéndice 16)"><select className="input" value={ped.regimen} onChange={e => update('regimen', e.target.value)}>{(catalogs?.regimenes ?? [{ clave: ped.regimen, descripcion: 'cargando catálogo…' }]).map(r => <option key={r.clave} value={r.clave} title={r.descripcion}>{r.clave} — {r.descripcion.length > 55 ? r.descripcion.slice(0, 55) + '…' : r.descripcion}</option>)}</select></Field>
               <Field label="Tipo operación"><select className="input" value={ped.tipoOperacion} onChange={e => update('tipoOperacion', e.target.value as 'IMP' | 'EXP')}><option value="IMP">IMP</option><option value="EXP">EXP</option></select></Field>
-              <Field label="Aduana de despacho"><select className="input" value={ped.aduana} onChange={e => update('aduana', e.target.value)}>{ADUANAS.map(a => <option key={a}>{a}</option>)}</select></Field>
+              <Field label="Aduana de despacho (Apéndice 1)"><select className="input" value={ped.aduana} onChange={e => update('aduana', e.target.value)}>{(catalogs?.aduanas ?? [{ clave: ped.aduana, denominacion: 'cargando catálogo…' }]).map(a => <option key={a.clave} value={a.clave}>{a.clave} — {a.denominacion}</option>)}</select></Field>
               <Field label="Patente aduanal"><input className="input" value={ped.patenteAduanal} onChange={e => update('patenteAduanal', e.target.value)}/></Field>
               <Field label="RFC importador"><input className="input font-mono uppercase" value={ped.rfcImportador} onChange={e => update('rfcImportador', e.target.value.toUpperCase())} placeholder="MEJ010203AB1"/></Field>
               <Field label="CURP (opcional)"><input className="input font-mono uppercase" value={ped.curp ?? ''} onChange={e => update('curp', e.target.value.toUpperCase())}/></Field>

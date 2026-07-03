@@ -16,6 +16,7 @@
  */
 
 import { prisma } from '../lib/prisma';
+import { REGIMENES_POR_CLAVE } from '../lib/anexo22';
 import { getHistoricalRate } from './exchange-rate';
 import { lookupCompliance } from './compliance-lookup';
 import { llmGenerate } from '../lib/llm';
@@ -90,27 +91,19 @@ export interface ValidationResult {
 // Catálogos de validación
 // ──────────────────────────────────────────────────────────────────────────
 
-// Mapeo clave de pedimento → regímenes compatibles (Apéndice 2 Anexo 22)
-const CLAVE_REGIMEN_MAP: Record<string, string[]> = {
-  // Definitivos
-  A1: ['IMD', 'EXD'],
-  A3: ['IMD', 'EXD'],
-  // Temporales
-  IN: ['ITE', 'ITR'],
-  ITR: ['ITR'],
-  RT: ['EXT', 'ITR'], // retorno
-  // Régimen IMMEX
-  AF: ['IMM'],
-  IM: ['IMM'],
-  // Otros
-  R1: ['IMD'],
-  V1: ['EXD'],
-  G1: ['ITE'],
-};
+// Fase 4.2: mapeo clave de pedimento → regímenes compatibles desde la FUENTE
+// ÚNICA lib/anexo22.ts (Apéndices 2 y 16 del Anexo 22 RGCE 2026, DOF
+// 15-ene-2026). El mapa anterior mezclaba regímenes INEXISTENTES en el
+// Apéndice 16 (IMM, EXT), trataba ITR/IM como claves de pedimento y asignaba
+// V1→EXD y G1→ITE sin sustento oficial.
+const CLAVE_REGIMEN_MAP: Record<string, string[]> = REGIMENES_POR_CLAVE;
 
+// Regímenes (Apéndice 16) esperables por tipo de operación. Los retornos de
+// temporales (RT/H1/BA) son operaciones de SALIDA que amparan regímenes de
+// importación temporal — por eso ITE/ITR también aparecen en EXP.
 const TIPO_OPERACION_REGIMEN: Record<string, string[]> = {
-  IMP: ['IMD', 'IMM', 'ITE', 'ITR'],
-  EXP: ['EXD', 'EXT'],
+  IMP: ['IMD', 'ITE', 'ITR', 'DFI', 'RFE', 'RFS', 'TRA'],
+  EXP: ['EXD', 'ETE', 'ETR', 'ITE', 'ITR'],
 };
 
 const RFC_REGEX_MORAL = /^[A-ZÑ&]{3}[0-9]{2}(0[1-9]|1[0-2])(0[1-9]|[12][0-9]|3[01])[A-Z0-9]{3}$/;
@@ -128,9 +121,10 @@ function isValidRFC(rfc: string): boolean {
 export async function validatePedimento(input: PedimentoInput, opts: { aiCheck?: boolean } = {}): Promise<ValidationResult> {
   const issues: ValidationIssue[] = [];
 
-  // 1) Coherencia clave / régimen
+  // 1) Coherencia clave / régimen (lista vacía = clave válida para cualquier
+  // régimen, p. ej. R1 rectificación y V1 virtuales)
   const allowedRegimenes = CLAVE_REGIMEN_MAP[input.clave?.toUpperCase()];
-  if (input.clave && allowedRegimenes && !allowedRegimenes.includes(input.regimen?.toUpperCase())) {
+  if (input.clave && allowedRegimenes && allowedRegimenes.length > 0 && !allowedRegimenes.includes(input.regimen?.toUpperCase())) {
     issues.push({
       field: 'regimen', severity: 'error', rule: 'CLAVE_REGIMEN_MISMATCH',
       message: `La clave ${input.clave} no es compatible con el régimen ${input.regimen}. Permitidos: ${allowedRegimenes.join(', ')}`,

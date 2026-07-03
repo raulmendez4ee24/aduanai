@@ -101,27 +101,34 @@ export const REGIMENES: Regimen[] = [
 
 /**
  * Apéndice 2 — Claves de pedimento (subconjunto que usa la plataforma).
- * `regimen` = clave del Apéndice 16 cuando la propia descripción oficial del
- * Apéndice 2 lo hace inequívoco; null cuando la clave aplica a varios
- * regímenes (p. ej. R1 rectifica el pedimento original, cualquiera que sea).
+ * `regimenes` = claves del Apéndice 16 compatibles según la propia descripción
+ * oficial del Apéndice 2 (A1 cubre impo Y expo definitiva → IMD/EXD; las
+ * temporales IMMEX IN/AF/RT operan bajo ITE; BA ampara temporal impo/expo
+ * mismo estado → ITR/ETR; F4/F5 son cambio DE régimen HACIA definitivo).
+ * Lista vacía = la clave aplica a cualquier régimen (R1 rectifica el pedimento
+ * original sea cual sea; V1 ampara virtuales de varios regímenes).
  */
-export interface ClavePedimento { clave: string; descripcion: string; regimen: string | null }
+export interface ClavePedimento { clave: string; descripcion: string; regimenes: string[] }
 export const CLAVES_PEDIMENTO: ClavePedimento[] = [
-  { clave: 'A1', descripcion: 'Importación o exportación definitiva', regimen: 'IMD' },
-  { clave: 'A3', descripcion: 'Regularización de mercancías (importación definitiva)', regimen: 'IMD' },
-  { clave: 'A4', descripcion: 'Introducción para depósito fiscal (AGD)', regimen: 'DFI' },
-  { clave: 'IN', descripcion: 'Importación temporal de bienes que serán sujetos a transformación, elaboración o reparación (IMMEX)', regimen: 'ITE' },
-  { clave: 'AF', descripcion: 'Importación temporal de bienes de activo fijo (IMMEX)', regimen: 'ITE' },
-  { clave: 'RT', descripcion: 'Retorno de mercancías (IMMEX)', regimen: 'ITE' },
-  { clave: 'BA', descripcion: 'Importación y exportación temporal de bienes para ser retornados en su mismo estado', regimen: 'ITR' },
-  { clave: 'H1', descripcion: 'Retorno de mercancías en su mismo estado', regimen: 'ITR' },
-  { clave: 'F4', descripcion: 'Cambio de régimen de insumos o de mercancía exportada temporalmente', regimen: 'IMD' },
-  { clave: 'F5', descripcion: 'Cambio de régimen de mercancías de importación temporal a definitiva', regimen: 'IMD' },
-  { clave: 'V1', descripcion: 'Transferencias de mercancías (importación temporal virtual; introducción virtual a depósito fiscal o recinto fiscalizado estratégico)', regimen: null },
-  { clave: 'T3', descripcion: 'Tránsito interno', regimen: 'TRA' },
-  { clave: 'T7', descripcion: 'Tránsito internacional por territorio nacional', regimen: 'TRA' },
-  { clave: 'R1', descripcion: 'Rectificación de pedimentos', regimen: null },
+  { clave: 'A1', descripcion: 'Importación o exportación definitiva', regimenes: ['IMD', 'EXD'] },
+  { clave: 'A3', descripcion: 'Regularización de mercancías (importación definitiva)', regimenes: ['IMD'] },
+  { clave: 'A4', descripcion: 'Introducción para depósito fiscal (AGD)', regimenes: ['DFI'] },
+  { clave: 'IN', descripcion: 'Importación temporal de bienes que serán sujetos a transformación, elaboración o reparación (IMMEX)', regimenes: ['ITE'] },
+  { clave: 'AF', descripcion: 'Importación temporal de bienes de activo fijo (IMMEX)', regimenes: ['ITE'] },
+  { clave: 'RT', descripcion: 'Retorno de mercancías (IMMEX)', regimenes: ['ITE'] },
+  { clave: 'BA', descripcion: 'Importación y exportación temporal de bienes para ser retornados en su mismo estado', regimenes: ['ITR', 'ETR'] },
+  { clave: 'H1', descripcion: 'Retorno de mercancías en su mismo estado', regimenes: ['ITR'] },
+  { clave: 'F4', descripcion: 'Cambio de régimen de insumos o de mercancía exportada temporalmente', regimenes: ['IMD', 'EXD'] },
+  { clave: 'F5', descripcion: 'Cambio de régimen de mercancías de importación temporal a definitiva', regimenes: ['IMD'] },
+  { clave: 'V1', descripcion: 'Transferencias de mercancías (importación temporal virtual; introducción virtual a depósito fiscal o recinto fiscalizado estratégico)', regimenes: [] },
+  { clave: 'T3', descripcion: 'Tránsito interno', regimenes: ['TRA'] },
+  { clave: 'T7', descripcion: 'Tránsito internacional por territorio nacional', regimenes: ['TRA'] },
+  { clave: 'R1', descripcion: 'Rectificación de pedimentos', regimenes: [] },
 ];
+
+/** Mapa clave→regímenes compatibles, derivado de CLAVES_PEDIMENTO (fuente única). */
+export const REGIMENES_POR_CLAVE: Record<string, string[]> =
+  Object.fromEntries(CLAVES_PEDIMENTO.map((c) => [c.clave, c.regimenes]));
 
 export const ANEXO22_FUENTE =
   'Anexo 22 RGCE 2026, Apéndices 1, 2 y 16 — DOF 15-ene-2026 (cotejo 2026-07-02)';

@@ -18,14 +18,11 @@ const STEPS = [
 // catálogo OFICIAL del Apéndice 1 Anexo 22 RGCE 2026, servido por
 // GET /api/catalogs/anexo22 (fuente única: server/src/lib/anexo22.ts).
 
-const REGIMES = [
-  { code: 'A1', name: 'Definitivo' },
-  { code: 'A4', name: 'Temporal IMMEX' },
-  { code: 'F4', name: 'Depósito fiscal' },
-  { code: 'IN', name: 'Importación temporal IMMEX (IN)' },
-  { code: 'RT', name: 'Retorno' },
-  { code: 'R1', name: 'Regularización' },
-]
+// Fase 4.2: REGIMES local eliminado — etiquetaba A4 como "Temporal IMMEX"
+// (A4 = introducción a DEPÓSITO FISCAL), F4 como "Depósito fiscal" (F4 =
+// cambio de régimen) y R1 como "Regularización" (R1 = rectificación; la
+// regularización es A3). Ahora se usan las claves de pedimento OFICIALES del
+// Apéndice 2 (mismo catálogo /api/catalogs/anexo22 que el Pre-validador).
 
 const COUNTRIES = ['CN', 'US', 'MX', 'VN', 'IN', 'KR', 'JP', 'DE', 'IT', 'BR', 'TW', 'TH', 'MY', 'ID', 'KH', 'CA']
 
@@ -65,9 +62,10 @@ export function GlosaSimulatorPage() {
   const [history, setHistory] = useState<GlosaSimulationListItem[]>([])
   const [showHistory, setShowHistory] = useState(false)
   const [aduanas, setAduanas] = useState<{ clave: string; denominacion: string }[]>([])
+  const [clavesPed, setClavesPed] = useState<{ clave: string; descripcion: string; regimenes: string[] }[]>([])
 
   useEffect(() => {
-    api.catalogsAnexo22().then(r => setAduanas(r.data.aduanas)).catch(() => {})
+    api.catalogsAnexo22().then(r => { setAduanas(r.data.aduanas); setClavesPed(r.data.clavesPedimento) }).catch(() => {})
   }, [])
 
   // Pre-fill desde query params (cuando vengo del clasificador / cotizador / pre-validador).
@@ -182,7 +180,8 @@ export function GlosaSimulatorPage() {
             </Field>
             <Field label="Régimen aduanero">
               <select value={input.regimenCode} onChange={e => update('regimenCode', e.target.value)} className="w-full text-[12px] border border-slate-200 rounded-lg px-2 py-1.5">
-                {REGIMES.map(r => <option key={r.code} value={r.code}>{r.code} — {r.name}</option>)}
+                {clavesPed.length === 0 && <option value={input.regimenCode}>Cargando catálogo oficial…</option>}
+                {clavesPed.map(c => <option key={c.clave} value={c.clave} title={c.descripcion}>{c.clave} — {c.descripcion.length > 60 ? c.descripcion.slice(0, 60) + '…' : c.descripcion}</option>)}
               </select>
             </Field>
             <Field label="¿IMMEX con certificación IVA-IEPS?">

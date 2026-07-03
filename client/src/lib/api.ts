@@ -3752,7 +3752,7 @@ export interface DemoStatus {
 export interface Anexo22Catalogs {
   aduanas: { clave: string; denominacion: string }[];
   regimenes: { clave: string; descripcion: string }[];
-  clavesPedimento: { clave: string; descripcion: string; regimen: string | null }[];
+  clavesPedimento: { clave: string; descripcion: string; regimenes: string[] }[];
   fuente: string;
 }
 
