@@ -13,18 +13,10 @@ const STEPS = [
   { id: 4, label: 'Resultado' },
 ]
 
-const CUSTOMS = [
-  { code: 'MAN', name: 'Manzanillo' },
-  { code: 'VER', name: 'Veracruz' },
-  { code: 'TIJ', name: 'Tijuana' },
-  { code: 'NLD', name: 'Nuevo Laredo' },
-  { code: 'ZLO', name: 'Zaragoza Coahuila' },
-  { code: 'LZC', name: 'Lázaro Cárdenas' },
-  { code: 'ALT', name: 'Altamira' },
-  { code: 'PRO', name: 'Progreso' },
-  { code: 'AICM', name: 'AICM (CDMX)' },
-  { code: 'NUS', name: 'Nogales' },
-]
+// Fase 4.1: el catálogo local (códigos inventados de 3 letras; 'ZLO' etiquetado
+// "Zaragoza Coahuila" cuando ZLO es el IATA de Manzanillo) se reemplazó por el
+// catálogo OFICIAL del Apéndice 1 Anexo 22 RGCE 2026, servido por
+// GET /api/catalogs/anexo22 (fuente única: server/src/lib/anexo22.ts).
 
 const REGIMES = [
   { code: 'A1', name: 'Definitivo' },
@@ -43,7 +35,7 @@ function emptyInput(): GlosaSimulationInput {
     productDescription: '',
     countryOrigin: 'CN',
     countryProvider: 'CN',
-    customsCode: 'MAN',
+    customsCode: '16', // clave oficial Apéndice 1: Manzanillo
     regimenCode: 'A1',
     unitValueUSD: 0,
     unitMeasure: 'PIEZA',
@@ -72,6 +64,11 @@ export function GlosaSimulatorPage() {
   const [err, setErr] = useState('')
   const [history, setHistory] = useState<GlosaSimulationListItem[]>([])
   const [showHistory, setShowHistory] = useState(false)
+  const [aduanas, setAduanas] = useState<{ clave: string; denominacion: string }[]>([])
+
+  useEffect(() => {
+    api.catalogsAnexo22().then(r => setAduanas(r.data.aduanas)).catch(() => {})
+  }, [])
 
   // Pre-fill desde query params (cuando vengo del clasificador / cotizador / pre-validador).
   // Se aplica UNA sola vez y solo con valores NO vacíos, para que nunca pise/borre lo
@@ -179,7 +176,8 @@ export function GlosaSimulatorPage() {
           <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
             <Field label="Aduana de despacho">
               <select value={input.customsCode} onChange={e => update('customsCode', e.target.value)} className="w-full text-[12px] border border-slate-200 rounded-lg px-2 py-1.5">
-                {CUSTOMS.map(c => <option key={c.code} value={c.code}>{c.code} — {c.name}</option>)}
+                {aduanas.length === 0 && <option value={input.customsCode}>Cargando catálogo oficial…</option>}
+                {aduanas.map(a => <option key={a.clave} value={a.clave}>{a.clave} — {a.denominacion}</option>)}
               </select>
             </Field>
             <Field label="Régimen aduanero">

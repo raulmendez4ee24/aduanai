@@ -8,6 +8,7 @@
  */
 
 import { prisma } from '../lib/prisma';
+import { ADUANAS, normalizeCustomsCode } from '../lib/anexo22';
 import { lookupEstimatedPrice } from './price-validator';
 import { checkAntidumpingDuty } from './antidumping';
 import { checkRequiredPadrones } from './padron-checker';
@@ -73,7 +74,12 @@ export interface GlosaSimulationResult {
   disclaimer: string;
 }
 
-const HIGH_RISK_CUSTOMS = new Set(['MAN', 'VER', 'TIJ', 'ZLO', 'NLD']);
+// Claves OFICIALES del Apéndice 1 Anexo 22 RGCE 2026 (Fase 4.1, cotejo DOF
+// 15-ene-2026): 16 Manzanillo, 43 Veracruz, 40 Tijuana, 24 Nuevo Laredo,
+// 51 Lázaro Cárdenas. Antes usaba códigos inventados de 3 letras donde 'ZLO'
+// duplicaba Manzanillo bajo la etiqueta errónea "Zaragoza Coahuila".
+// normalizeCustomsCode mantiene compatibilidad con registros históricos.
+const HIGH_RISK_CUSTOMS = new Set(['16', '43', '40', '24', '51']);
 const ASIAN_TRIANGULATION_PROVIDERS = new Set(['VN', 'MY', 'TH', 'KH', 'ID']);
 const COMMON_CHINESE_FRACTION_PREFIXES = ['72', '73', '64', '50', '51', '52', '53', '54', '55', '56', '57', '58', '59', '60', '61', '62', '63', '85', '94', '95'];
 
@@ -275,8 +281,10 @@ export async function simulateGlosa(tenantId: string, userId: string, input: Glo
   }
 
   // ── 14. Aduana de alto riesgo ──
-  if (HIGH_RISK_CUSTOMS.has(input.customsCode.toUpperCase())) {
-    addFlag('ADU_001', `Aduana ${input.customsCode} con tasa histórica alta de RA.`);
+  const customsClave = normalizeCustomsCode(input.customsCode);
+  if (HIGH_RISK_CUSTOMS.has(customsClave)) {
+    const aduana = ADUANAS.find(a => a.clave === customsClave);
+    addFlag('ADU_001', `Aduana ${customsClave}${aduana ? ` (${aduana.denominacion})` : ''} con tasa histórica alta de RA.`);
   }
 
   // ── Score ajustado por histórico propio ──

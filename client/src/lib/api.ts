@@ -322,6 +322,10 @@ export const api = {
   incidentUpdate: (id: string, data: { update?: string; status?: string; resolution?: string; rootCause?: string }) =>
     request<{ status: string; data: SystemIncidentRecord }>(`/admin/incidents/${id}`, { method: 'PATCH', body: JSON.stringify(data) }),
 
+  // Catálogos oficiales Anexo 22 (fuente única en server/lib/anexo22.ts — Fase 4.1/4.2)
+  catalogsAnexo22: () =>
+    request<{ status: string; data: Anexo22Catalogs }>('/catalogs/anexo22'),
+
   // Glosa Simulator
   glosaSimulate: (input: GlosaSimulationInput) =>
     request<{ status: string; data: GlosaSimulationResult }>('/glosa/simulate', { method: 'POST', body: JSON.stringify(input) }),
@@ -3742,6 +3746,14 @@ export interface DemoStatus {
     loadPlans: number;
     alerts: number;
   };
+}
+
+/** Catálogos del Anexo 22 RGCE 2026 (Apéndices 1, 2 y 16) — DOF 15-ene-2026. */
+export interface Anexo22Catalogs {
+  aduanas: { clave: string; denominacion: string }[];
+  regimenes: { clave: string; descripcion: string }[];
+  clavesPedimento: { clave: string; descripcion: string; regimen: string | null }[];
+  fuente: string;
 }
 
 export interface TenantStatusData {
