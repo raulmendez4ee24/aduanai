@@ -16,6 +16,7 @@
 import { PrismaClient } from '@prisma/client';
 import crypto from 'crypto';
 import { generateEmbedding, assertCorpusEmbedding } from '../../src/lib/embeddings';
+import { LIGIE_VERSION } from '../../src/lib/tariff-version';
 
 interface LegalDocSeed {
   type: string;
@@ -163,14 +164,19 @@ export const LEGAL_DOCUMENTS: LegalDocSeed[] = [
   },
 
   // ════════════════════════════════════════════════════════════════════
-  // LIGIE 2026
+  // LIGIE (Fase 4.4: el título decía "LIGIE 2026" — la LEY es la LIGIE
+  // publicada DOF 01-07-2020; lo que es 2026 es la TARIFA reformada (TIGIE).
+  // El Copilot citaba este título y contradecía a Cumplimiento, que lee la
+  // fuente única lib/tariff-version.ts. Ahora la versión del doc también
+  // se toma de esa fuente única.)
   // ════════════════════════════════════════════════════════════════════
   {
-    type: 'ley', source: 'LIGIE', title: 'LIGIE 2026 — Reglas Generales para la Interpretación (GRI 1-6)',
+    type: 'ley', source: 'LIGIE', title: 'LIGIE — Reglas Generales para la Interpretación (RGI 1-6)',
     reference: 'GRI 1-6 LIGIE',
-    content: 'Las Reglas Generales de Interpretación se aplican en orden estricto: GRI 1: La clasificación está determinada legalmente por los textos de las partidas y de las notas de sección o capítulo. GRI 2a: Productos incompletos/sin montar se clasifican como completos. GRI 2b: Mezclas, considerar el material de carácter esencial. GRI 3a: Partida más específica prevalece. GRI 3b: Carácter esencial. GRI 3c: Última partida en orden numérico. GRI 4: Más análoga. GRI 5: Estuches. GRI 6: A nivel de subpartida y fracción.',
-    officialUrl: `${DOF}/nota_detalle.php?codigo=LIGIE_2026`, effectiveDate: '2026-01-01', publishedDate: '2025-12-29',
-    topics: ['clasificacion'], keywords: ['GRI', 'reglas interpretación', 'clasificación', 'notas legales', 'carácter esencial'],
+    content: `Reglas Generales de Interpretación de la LIGIE (Ley de los Impuestos Generales de Importación y de Exportación, DOF 01-07-2020; tarifa vigente: ${LIGIE_VERSION}). Se aplican en orden estricto: Regla General 1 (RGI 1): La clasificación está determinada legalmente por los textos de las partidas y de las notas de sección o capítulo. RGI 2a: Productos incompletos/sin montar se clasifican como completos. RGI 2b: Mezclas, considerar el material de carácter esencial. RGI 3a: Partida más específica prevalece. RGI 3b: Carácter esencial. RGI 3c: Última partida en orden numérico. RGI 4: Más análoga. RGI 5: Estuches. RGI 6: A nivel de subpartida y fracción.`,
+    officialUrl: 'https://www.diputados.gob.mx/LeyesBiblio/pdf/LIGIE.pdf', effectiveDate: '2026-01-01', publishedDate: '2025-12-29',
+    version: LIGIE_VERSION,
+    topics: ['clasificacion'], keywords: ['GRI', 'RGI', 'reglas interpretación', 'clasificación', 'notas legales', 'carácter esencial'],
   },
   {
     type: 'ley', source: 'LIGIE', title: 'LIGIE — Notas Sección XV (partes uso general)',
@@ -319,13 +325,10 @@ export const LEGAL_DOCUMENTS: LegalDocSeed[] = [
     officialUrl: `${DOF}/nota_detalle.php?codigo=Anexo_5`, effectiveDate: '2026-01-01',
     topics: ['valoracion'], keywords: ['Anexo 5', 'E2', 'manifestación valor', 'incrementables'],
   },
-  {
-    type: 'rgce', source: 'Anexo_10_RGCE', title: 'Anexo 10 — Padrones sectoriales',
-    reference: 'Anexo 10 RGCE 2026',
-    content: 'El Anexo 10 de las RGCE lista las fracciones arancelarias sujetas a inscripción en padrones sectoriales de importación (Padrón de Importadores de Sectores Específicos). La omisión de la inscripción, cuando es exigible para la fracción, configura infracción. Para identificar el sector específico que aplica a una fracción dada, consulta el Anexo 10 vigente en el DOF o el módulo de Padrones de la plataforma; la numeración oficial de sectores no debe citarse de memoria.',
-    officialUrl: OFFICIAL_URLS.Anexo_10_RGCE ?? `${DOF}`, effectiveDate: '2026-01-01',
-    topics: ['padrones'], keywords: ['Anexo 10', 'padrón sectorial', 'sectores específicos', 'hierro acero', 'textil', 'inscripción'],
-  },
+  // Fase 4.4 (higiene): aquí había una SEGUNDA entrada con la misma clave
+  // (Anexo_10_RGCE | Anexo 10 RGCE 2026) que la de la sección padrones —
+  // ambas se ping-poneaban la misma fila en CADA corrida del seed (re-embed
+  // perpetuo). Se conserva solo la entrada rica (Apartado A, trámite 5/LA).
   {
     type: 'rgce', source: 'Acuerdo_NOMs', title: 'Anexo 2.4.1 — Excepciones a NOMs en punto de entrada',
     reference: 'Anexo 2.4.1 Acuerdo de NOMs',
