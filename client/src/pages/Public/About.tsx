@@ -287,7 +287,8 @@ export function AboutPage() {
 
           <div className="px-6 md:px-10 pb-0">
             <div className="relative rounded-t-2xl overflow-hidden bg-[#e8e8e4]" style={{ aspectRatio: '21/8' }}>
-              <img src="https://images.unsplash.com/photo-1578575437130-527eed3abbec?w=1400&h=550&fit=crop&q=80" alt="Puerto comercial" className="w-full h-full object-cover object-center" loading="eager" />
+              {/* Fase 4.9: auto-alojada (antes hotlink a Unsplash — dependencia externa en el hero) */}
+              <img src="/assets/hero-puerto.jpg" alt="Puerto comercial" className="w-full h-full object-cover object-center" loading="eager" />
               <div className="absolute inset-0 bg-gradient-to-t from-black/30 to-transparent" />
               <div className="absolute bottom-6 left-6 bg-white/90 backdrop-blur-sm rounded-xl px-5 py-3">
                 <p className="text-[11px] text-[#999] uppercase tracking-wider font-medium">Plataforma líder</p>
