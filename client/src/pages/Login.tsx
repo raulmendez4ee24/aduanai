@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Link, useNavigate } from 'react-router-dom'
+import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import { Mail, Lock, Eye, EyeOff } from 'lucide-react'
 import { motion } from 'framer-motion'
 import { AuthLayout } from '../components/AuthLayout'
@@ -11,12 +11,14 @@ interface Props {
 
 export function LoginPage({ onLogin }: Props) {
   const navigate = useNavigate()
+  const [params] = useSearchParams()
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [rememberMe, setRememberMe] = useState(false)
   const [showPassword, setShowPassword] = useState(false)
   const [loading, setLoading] = useState(false)
-  const [error, setError] = useState('')
+  // Fase 4.5: llegada por sesión expirada (interceptor 401 en api.ts)
+  const [error, setError] = useState(params.get('expired') === '1' ? 'Tu sesión expiró. Vuelve a iniciar sesión para continuar.' : '')
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()

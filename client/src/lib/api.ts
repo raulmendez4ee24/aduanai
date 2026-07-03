@@ -1,5 +1,9 @@
 const API_BASE = '/api';
 
+// Fase 4.5: guard para no disparar N redirects cuando varias peticiones
+// paralelas (Dashboard carga 7 a la vez) reciben 401 al mismo tiempo.
+let redirectingToLogin = false;
+
 async function request<T>(path: string, options?: RequestInit): Promise<T> {
   const token = localStorage.getItem('aduanai_token');
 
@@ -13,6 +17,19 @@ async function request<T>(path: string, options?: RequestInit): Promise<T> {
   });
 
   if (!res.ok) {
+    // Fase 4.5: sesión expirada — antes cada módulo se tragaba el 401 y
+    // pintaba "Sin clasificaciones"/"Sin inventario" como si no hubiera datos.
+    // Un 401 con token presente = token vencido/revocado → limpiar y mandar a
+    // login con mensaje. Los endpoints /auth/* se excluyen (ahí un 401 es
+    // credencial inválida y lo maneja su propia pantalla).
+    if (res.status === 401 && token && !path.startsWith('/auth/')) {
+      if (!redirectingToLogin) {
+        redirectingToLogin = true;
+        localStorage.removeItem('aduanai_token');
+        window.location.href = '/login?expired=1';
+      }
+      throw new Error('Tu sesión expiró. Inicia sesión de nuevo.');
+    }
     const error = await res.json().catch(() => ({ message: 'Error de conexión' }));
     throw new Error(error.message || `Error ${res.status}`);
   }
