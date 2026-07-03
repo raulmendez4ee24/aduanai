@@ -187,7 +187,7 @@ auditAdminRouter.post('/report', async (req: AuthRequest, res: Response, next: N
       confirmedCount: confirmedAnchors.length,
       lastBitcoinBlock: lastConfirmed?.bitcoinBlock ?? null,
       lastConfirmedAt: lastConfirmed?.confirmedAt?.toISOString() ?? null,
-      legalNotice: 'CERTIFICACIÓN DE INTEGRIDAD CRIPTOGRÁFICA: Las acciones críticas de este reporte han sido ancladas al blockchain de Bitcoin mediante OpenTimestamps, generando un sello de tiempo no-repudiable conforme a los principios de la NOM-151-SCFI sobre conservación de mensajes de datos. Cualquier verificador independiente puede validar la integridad descargando el proof .ots desde /verify/timestamp/<hash> y ejecutando `ots verify` con el cliente oficial.',
+      legalNotice: 'INTEGRIDAD CRIPTOGRÁFICA: Las acciones críticas de este reporte han sido ancladas al blockchain de Bitcoin mediante OpenTimestamps — sellado de tiempo verificable públicamente. Cualquier verificador independiente puede validar la integridad descargando el proof .ots desde /verify/timestamp/<hash> y ejecutando `ots verify` con el cliente oficial. Este sellado NO constituye ni sustituye una constancia de conservación conforme a la NOM-151-SCFI, que solo puede emitir un Prestador de Servicios de Certificación autorizado.',
     };
 
     // Registrar la generación del reporte (auto-auditable)

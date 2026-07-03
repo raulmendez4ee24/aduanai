@@ -54,7 +54,7 @@ export function AdminTimestampsPage() {
           <h1 className="text-xl font-bold text-slate-900">Anclajes blockchain (OpenTimestamps)</h1>
         </div>
         <p className="text-[12px] text-slate-500">
-          Acciones críticas se anclan automáticamente al blockchain de Bitcoin vía OpenTimestamps. Cumple con principios de NOM-151-SCFI sobre conservación de mensajes de datos.
+          Acciones críticas se anclan automáticamente al blockchain de Bitcoin vía OpenTimestamps — sellado de tiempo verificable públicamente. No constituye ni sustituye una constancia de conservación NOM-151-SCFI (esa la emite un Prestador de Servicios de Certificación autorizado).
         </p>
       </div>
 

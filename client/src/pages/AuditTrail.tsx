@@ -48,7 +48,7 @@ export function AuditTrailPage() {
           <h1 className="text-xl font-bold text-slate-900">Audit Trail</h1>
         </div>
         <p className="text-[12px] text-slate-500 mb-3">
-          Registro inmutable de todas las acciones críticas de tu empresa. Cada evento encadenado con SHA-256 + acciones críticas ancladas a Bitcoin (NOM-151-SCFI).
+          Registro de las acciones críticas de tu empresa. Cada evento encadenado con SHA-256 + sellado de tiempo verificable vía OpenTimestamps/Bitcoin en acciones críticas. No sustituye una constancia NOM-151 (requiere un PSC autorizado).
         </p>
 
         {chain && (

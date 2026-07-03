@@ -133,7 +133,7 @@ pip install opentimestamps-client
 
 # Verifica el proof contra el documento original
 ots verify documento.txt -f documento.txt.ots</pre>
-  <p style="font-size:11px;color:#64748b;margin-top:8px;">El timestamp cumple con principios de NOM-151-SCFI sobre conservación de mensajes de datos y no-repudio criptográfico.</p>
+  <p style="font-size:11px;color:#64748b;margin-top:8px;">Sellado de tiempo verificable públicamente vía OpenTimestamps/Bitcoin. No constituye ni sustituye una constancia de conservación NOM-151-SCFI (esa la emite un Prestador de Servicios de Certificación autorizado).</p>
 </div>
 
 <p class="footer">ADUANAI · Anclaje vía OpenTimestamps al blockchain Bitcoin</p>

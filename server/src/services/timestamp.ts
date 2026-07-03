@@ -21,10 +21,22 @@ import {
 
 export type ResourceType = 'audit_log' | 'classification' | 'quote' | 'pedimento' | 'certificate' | 'consult' | 'custom';
 
+// Fase 4.7 — BUG: este set usaba nombres que NINGÚN emisor produce
+// (CLASSIFICATION_CREATE, QUOTE_CREATE, PEDIMENTO_VALIDATE...) mientras el
+// middleware de audit emite CLASSIFY, QUOTE, QUOTE_MULTI, PEDIMENTO_VALIDATION.
+// Resultado: shouldAnchor() siempre false → timestamp_proofs VACÍA en prod
+// desde el origen de la feature (0 anclajes jamás). Alineado al vocabulario
+// REAL verificado contra audit_logs de prod (2026-07-03).
 const CRITICAL_AUDIT_ACTIONS = new Set([
-  'CLASSIFICATION_CREATE',
-  'QUOTE_CREATE',
-  'PEDIMENTO_VALIDATE',
+  'CLASSIFY',              // clasificaciones (middleware /classify)
+  'QUOTE',                 // cotizaciones
+  'QUOTE_MULTI',
+  'QUOTE_SCENARIOS',
+  'PEDIMENTO_VALIDATION',  // pre-validación de pedimento
+  'PRE_VALIDATE',
+  'GLOSA_SIMULATE',        // simulaciones de glosa (patrón añadido en 4.7)
+  'VERIFICATION_REVIEW',   // verificación profesional (patrón añadido en 4.7)
+  // Legacy (por si algún caller directo los usa):
   'CERTIFICATE_ISSUE',
   'EXPORT_DICTAMEN',
   'VERIFY_PROFESSIONAL',

@@ -60,6 +60,21 @@ const PATH_TO_ENTITY: Array<{ pattern: RegExp; entity: string; actionOverride?: 
   { pattern: /\/leads/, entity: 'Lead' },
   { pattern: /\/knowledge/, entity: 'ClassificationKnowledge' },
   { pattern: /\/copilot/, entity: 'CopilotMessage' },
+  // Fase 4.7: patrones faltantes detectados con datos reales de prod
+  // (43/205 filas de audit_logs con entity='Unknown'; endpoints agrupados):
+  { pattern: /\/noms\/evaluate/, entity: 'NOMEvaluation', actionOverride: 'NOM_EVALUATE' },
+  { pattern: /\/noms/, entity: 'NOMEvaluation' },
+  { pattern: /\/permissions\/users\/invite/, entity: 'Invitation', actionOverride: 'USER_INVITE' },
+  { pattern: /\/permissions/, entity: 'UserRole', actionOverride: 'PERMISSION_CHANGE' },
+  { pattern: /\/admin\/legal-docs/, entity: 'LegalDocument' },
+  { pattern: /\/admin\/antidumping/, entity: 'AntidumpingDuty' },
+  { pattern: /\/admin\/security/, entity: 'SecurityOperation', actionOverride: 'SECURITY_OP' },
+  { pattern: /\/origin/, entity: 'OriginAnalysis', actionOverride: 'ORIGIN_ANALYZE' },
+  { pattern: /\/glosa/, entity: 'GlosaSimulation', actionOverride: 'GLOSA_SIMULATE' },
+  { pattern: /\/documents/, entity: 'Document', actionOverride: 'DOCUMENT_UPLOAD' },
+  { pattern: /\/precedents/, entity: 'LegalPrecedent' },
+  { pattern: /\/traceability/, entity: 'ConsultTrace', actionOverride: 'TRACE_VERIFY' },
+  { pattern: /\/admin\/verifications/, entity: 'ProfessionalVerification', actionOverride: 'VERIFICATION_REVIEW' },
 ];
 
 function inferEntityAndAction(method: string, path: string): { action: string; entity: string } {
