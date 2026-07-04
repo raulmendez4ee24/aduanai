@@ -150,13 +150,38 @@ Cambios verificables contra el texto vigente:
 5. **NOMs de información comercial ahora embargan** (151-II reformada) — F6 dejó de ser "riesgo de multa" para ser "riesgo de embargo"; considerar reflejo en el peso o en el mensaje.
 6. Menor: los "excluyentes" prácticos de MVE existen pero son de la REGLA, no de la ley (RGCE 1.5.1-VII: casos donde no se transmite E2) — el scorer no debe penalizar ausencia de E2 en esos supuestos.
 
-## PENDIENTES DE FUENTE (no se rellenó nada)
+## ADDENDUM (2026-07-04) — REGLAMENTO LA REFORMADO: **DOF 23-02-2026** (cierra PENDIENTE #5)
+
+**Fuente:** Decreto por el que se reforman, adicionan y derogan diversas disposiciones del Reglamento de la Ley Aduanera, **DOF 23-02-2026**, https://www.dof.gob.mx/nota_detalle.php?codigo=5780677&fecha=23/02/2026 — texto íntegro descargado y artículos objetivo extraídos verbatim (cotejo 2026-07-04). Nota de método: el decreto publica solo las fracciones reformadas (las no reformadas aparecen como "..." y conservan su texto anterior).
+
+### (a) Qué CAMBIA en el escudo de evidencia vs. lo anclado en 0.2
+
+1. **RLA 81-A (NUEVO) — pieza mayor**: *"Para efectos de los artículos 59, fracción V, 112, 162, fracciones VI y VII y 167-H, fracción III, de la Ley, los sujetos obligados a formar un expediente electrónico… deberán implementar **procedimientos de control interno debidamente documentados**, razonables y necesarios para obtener, proporcionar y conservar la información y documentación referida. Además… deberán proporcionar y permitir a las Autoridades Aduaneras el acceso…"* → **Nueva entrada del checklist del escudo: "procedimientos de control interno documentados" que cubren los expedientes 59-V, KYC 162-VI y 162-VII.** No basta TENER el expediente; hay que tener el procedimiento documentado. (Cierra parcialmente el PENDIENTE #4: el RLA ya impone el estándar; la regla RGCE/ficha operativa sigue pendiente.)
+2. **RLA 81 reformado — el soporte documental de la MVE se AMPLÍA**: fr. VII ahora incluye *"y, en su caso, **órdenes de compra**"*; fr. VIII = soporte de incrementables (Art. 65 LA); fr. IX = cláusula abierta ("cualquier otra información… necesaria para la determinación de valor"); **fr. X NUEVA**: *"Las **notas de crédito** o documentos donde consten **descuentos especiales** en numerario o especie…"* → el checklist E2/MVE del escudo debe incluir órdenes de compra y notas de crédito/descuentos.
+3. **RLA 220 reformado** (cita de RGCE 1.5.1 estable): *"…como parte de la manifestación de valor de las Mercancías, el agente aduanal deberá conservar los documentos a que se refiere el artículo 81 de este Reglamento."* — confirma el ancla con texto vigente.
+4. **RLA 68 reformado**: aplica al despacho SIN agente (Art. 59-B LA) — expediente electrónico + conservación de MVE simétricos. No altera el escudo del agente; relevante si el scorer se ofrece a importadores directos.
+5. Revisados y **descartados como falsos sospechosos**: 54-A (costos de recinto fiscalizado — coincidencia de numeración), 76-A (reconocimiento en recinto fiscalizado), 76-B (toma de muestras con terceros; tangencial a F1, costos a cargo del importador). Padrones: 83 = inscripción de entes públicos; 84-V = catch-all "los demás que se establezcan mediante Reglas" — anclas 1.3.2/1.3.3 estables.
+
+### (b) Capítulo nuevo "Agencias Aduanales" (235-A a 235-K): tres entradas SÍ merecen checklist/señales
+
+- **235-F**: la **agencia** conserva los documentos del 81 como parte de la MVE (espejo del 220 del agente) → el checklist del escudo aplica igual a agencias.
+- **235-J**: socios, administrador/dirección general y apoderado de la agencia acreditan cumplimiento fiscal mediante la **constancia del art. 32-D CFF** → entrada de checklist para agencias (opinión de cumplimiento positiva vigente).
+- **235-I**: la **ANAM publicará listado de agencias aduanales inhabilitadas/canceladas** (y de patentes suspendidas/canceladas/extintas de integrantes) → **señal pública ingestable** (análoga a 69-B, del lado del despacho) — candidata a Fase 1b junto con la lista 69-B.
+- **235-H** (endurecimiento RRNA): también hay omisión cuando el permiso/documento *"no ampare la Mercancía presentada a Reconocimiento"* — el matching documento↔mercancía es señal de F6/F7, no solo la existencia del documento.
+- Resto (235-A/B/C/D/E/G/K): gobernanza de la autorización (Consejo Aduanero, adscripción, mandatarios, notificaciones, inhabilitación, publicaciones DOF) — contexto, sin entrada de checklist.
+
+### Hallazgo aparte (pedido explícito; NO corregido en esta fase)
+
+- **El producto NO cita el Reglamento LA en ninguna parte** (barrido server/ + client/: 0 referencias) → nada apunta al RLA 78 derogado ni a texto viejo de RLA 65-75. Cotizador y MVE citan la **Ley** (Arts. 64-78 LA, vigentes).
+- Nota menor del barrido: el doc del corpus `Art. 78 LA` (`server/prisma/seed/legal-documents.ts:394`) atribuye al 78 LA una *"presunción de subvaluación vs precio estimado"*; el 78 LA vigente regula el **rechazo del valor con documentación falsa/alterada** y métodos flexibles — la mecánica de precio estimado vive en 86-A/151-VII. Reformulación pendiente de aprobación (fuera de esta fase).
+
+## PENDIENTES DE FUENTE (actualizado post-addendum)
 
 1. **Texto anterior (pre-19-11-2025) de los Arts. 53/54 LA** para diff verbatim — localizable vía decreto DOF 25-06-2018 o consolidada histórica. El alcance del cambio está documentado con la enumeración del decreto vigente.
 2. **Anexo 2.4.1 (SE) texto/lista vigente consolidada** — base DOF 02-09-2020 (nota 5599530) + modificaciones (p. ej. DOF 28-08-…); la versión operativa se consulta en SNICE. Sin esto, F6 se ancla en la consecuencia (LA 151-II/176-II) pero no en el listado de fracciones.
 3. **Dataset de fracciones del decreto DOF 29-12-2025** (agravante F5) — el decreto está identificado (nota 5777376); falta extraer su tabla de fracciones/tasas como dato estructurado (trabajo de datos, no de cotejo).
-4. **Reglas del SAT sobre el expediente KYC 162-VI** (el artículo remite a "reglas"; identificar la regla RGCE específica o su ficha de trámite en Anexo 2).
-5. **Reglamento LA reformado** (Transitorio Sexto ordenaba reformarlo en 120 días desde 01-01-2026): verificar si ya se publicó — los artículos del Reglamento citados en RGCE 1.5.1 (68, 81, 220) podrían haber cambiado.
+4. **Regla RGCE/ficha operativa del expediente KYC 162-VI** — parcialmente cubierto: RLA 81-A (DOF 23-02-2026) ya impone procedimientos de control interno documentados; falta la regla/ficha del SAT con requisitos operativos.
+5. ~~Reglamento LA reformado~~ — **CERRADO** por este addendum (DOF 23-02-2026, nota 5780677).
 
 ---
 
