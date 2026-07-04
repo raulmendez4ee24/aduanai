@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { api } from '../lib/api'
 import type { RiskAssessResult, RiskChecklistItem, RiskRegla } from '../lib/api'
 import { ShieldAlert, ShieldCheck, Scale, AlertTriangle, ExternalLink, CheckCircle2, Circle, Loader2 } from 'lucide-react'
@@ -96,6 +96,8 @@ function FundamentoLink({ regla }: { regla: { fundamento: RiskRegla['fundamento'
 }
 
 function TriSelect({ value, onChange }: { value: Tri; onChange: (v: Tri) => void }) {
+  // Selección NEUTRA (petróleo) para Sí/No — nunca verde: un "Sí" puede sumar
+  // riesgo (filas ALERTA). El "sin responder" se pinta ámbar (cuenta como riesgo).
   const opt = (v: Tri, label: string, cls: string) => (
     <button type="button" onClick={() => onChange(v)}
       className={`px-2 py-0.5 text-[11px] font-semibold rounded-md border transition-colors ${value === v ? cls : 'bg-white/50 text-slate-400 border-slate-200 hover:bg-white'}`}>
@@ -104,12 +106,14 @@ function TriSelect({ value, onChange }: { value: Tri; onChange: (v: Tri) => void
   )
   return (
     <div className="flex gap-1 shrink-0">
-      {opt(true, 'Sí', 'bg-emerald-100 text-emerald-700 border-emerald-300')}
-      {opt(false, 'No', 'bg-rose-100 text-rose-700 border-rose-300')}
-      {opt(null, '—', 'bg-slate-200 text-slate-600 border-slate-300')}
+      {opt(true, 'Sí', 'bg-teal-900 text-white border-teal-900')}
+      {opt(false, 'No', 'bg-teal-900 text-white border-teal-900')}
+      {opt(null, '—', 'bg-amber-100 text-amber-800 border-amber-400')}
     </div>
   )
 }
+
+const esAlerta = (label: string) => label.startsWith('ALERTA:')
 
 export function RiskScorerPage() {
   const [tipoSujeto, setTipoSujeto] = useState<'agente' | 'agencia'>('agente')
@@ -120,6 +124,20 @@ export function RiskScorerPage() {
   const [result, setResult] = useState<RiskAssessResult | null>(null)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
+  const bandaRef = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    // Mismo patrón del Clasificador: el resultado no debe aparecer fuera de vista.
+    if (result) bandaRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+  }, [result])
+
+  // Preguntas sin responder = riesgo (falla cerrada del motor). Contador junto a Evaluar.
+  const preguntas: Tri[] = [
+    ...DECL_GRUPOS.flatMap(g => g.items.map(it => decl[it.key] ?? null)),
+    ...DECL_59V.map(it => v59[it.key] ?? null),
+    ...(tipoSujeto === 'agencia' ? DECL_AGENCIA.map(it => decl[it.key] ?? null) : []),
+  ]
+  const sinResponder = preguntas.filter(v => v === null).length
 
   async function evaluar() {
     setLoading(true); setError(''); setResult(null)
@@ -205,8 +223,9 @@ export function RiskScorerPage() {
               <p className="text-[11px] font-bold text-slate-600 uppercase tracking-wider mb-2">{g.titulo} <span className="normal-case font-normal text-amber-600">· declarado por ti</span></p>
               <div className="space-y-2">
                 {g.items.map(it => (
-                  <div key={it.key} className="flex items-center justify-between gap-2">
-                    <span className="text-[12px] text-slate-700">{it.label}</span>
+                  <div key={it.key}
+                    className={`flex items-center justify-between gap-2 ${esAlerta(it.label) ? 'bg-rose-50/70 border border-rose-200 rounded-lg px-2 py-1 -mx-1' : ''}`}>
+                    <span className={`text-[12px] ${esAlerta(it.label) ? 'text-rose-800' : 'text-slate-700'}`}>{it.label}</span>
                     <TriSelect value={decl[it.key] ?? null} onChange={v => setDecl({ ...decl, [it.key]: v })} />
                   </div>
                 ))}
@@ -239,11 +258,18 @@ export function RiskScorerPage() {
           )}
         </div>
 
-        <button onClick={evaluar} disabled={loading}
-          className="flex items-center gap-2 bg-emerald-500 hover:bg-emerald-600 disabled:opacity-50 text-white text-[13px] font-semibold px-6 py-3 rounded-full transition-all">
-          {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Scale className="w-4 h-4" />}
-          {loading ? 'Evaluando…' : 'Evaluar exposición y escudo'}
-        </button>
+        <div className="flex items-center gap-4 flex-wrap">
+          <button onClick={evaluar} disabled={loading}
+            className="flex items-center gap-2 bg-emerald-500 hover:bg-emerald-600 disabled:opacity-50 text-white text-[13px] font-semibold px-6 py-3 rounded-full transition-all">
+            {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Scale className="w-4 h-4" />}
+            {loading ? 'Evaluando…' : 'Evaluar exposición y escudo'}
+          </button>
+          {sinResponder > 0 && (
+            <span className="text-[12px] font-semibold text-amber-700 bg-amber-50 border border-amber-300 rounded-full px-3 py-1.5">
+              {sinResponder} pregunta{sinResponder === 1 ? '' : 's'} sin responder — cuentan como riesgo (falla cerrada)
+            </span>
+          )}
+        </div>
         {error && <p className="text-[12px] text-rose-600">{error}</p>}
       </div>
 
@@ -251,7 +277,7 @@ export function RiskScorerPage() {
       {result && banda && (
         <div className="space-y-4">
           {/* Banda */}
-          <div className={`rounded-2xl p-4 flex items-center gap-3 ${banda.bg} text-white`}>
+          <div ref={bandaRef} className={`rounded-2xl p-4 flex items-center gap-3 scroll-mt-4 ${banda.bg} text-white`}>
             {result.banda.startsWith('ROJO') ? <ShieldAlert className="w-6 h-6" /> : <ShieldCheck className="w-6 h-6" />}
             <div>
               <p className="text-[15px] font-bold">{banda.label}</p>
@@ -275,7 +301,8 @@ export function RiskScorerPage() {
                     <div className="flex justify-between text-[11px] text-slate-600">
                       <span>{FACTOR_LABEL[f.factor] ?? f.factor}</span><span className="font-mono">{f.puntos}/{f.peso}</span>
                     </div>
-                    <div className="bg-slate-200/60 h-1.5 rounded-full">
+                    {/* riel gris SIEMPRE visible — los factores en 0 también se leen */}
+                    <div className="bg-slate-300/80 h-1.5 rounded-full">
                       <div className={`h-1.5 rounded-full ${f.puntos > 0 ? 'bg-rose-400' : 'bg-emerald-300'}`} style={{ width: `${f.peso > 0 ? (f.puntos / f.peso) * 100 : 0}%` }} />
                     </div>
                   </div>

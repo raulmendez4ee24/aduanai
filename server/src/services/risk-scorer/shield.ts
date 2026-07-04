@@ -31,7 +31,7 @@ const siempre = () => true;
 const soloAgencia = (s: Signals) => s.tipoSujeto === 'agencia';
 
 const EXP59V: { key: keyof NonNullable<Signals['declarado']['expediente59V']>; desc: string; accion: string }[] = [
-  { key: 'a', desc: 'Garantía 36-A-I-e (cuenta aduanera, si el valor es inferior al precio estimado)', accion: 'Constituye/documenta la garantía en cuenta aduanera de garantía' },
+  { key: 'a', desc: 'Garantía 36-A-I-e (cuenta aduanera, si el valor es inferior al precio estimado)', accion: 'Constituye y documenta la garantía en cuenta aduanera (si aplica precio estimado)' },
   { key: 'b', desc: 'Comprobantes fiscales digitales por Internet (CFDI)', accion: 'Integra los CFDI de la operación al expediente' },
   { key: 'c', desc: 'Facturas comerciales o documentos equivalentes', accion: 'Integra la factura comercial' },
   { key: 'd', desc: 'Transferencias electrónicas del pago o cartas de crédito', accion: 'Integra el comprobante de pago bancario' },
