@@ -408,23 +408,96 @@ function formatKnowledgeForPrompt(kn: Awaited<ReturnType<typeof findRelevantKnow
 // IMPROVED DB SEARCH — Mejora #2
 // ============================================
 
-async function findRelatedFractions(description: string) {
-  const searchWords = description.toLowerCase().split(/\s+/).filter(w => w.length > 3);
+// 2ª Ola Etapa 2 (F1) — higiene de términos de búsqueda. El diagnóstico de los
+// 37 candados de la línea base mostró que "para"/"tipo" (substring) matcheaban
+// "preparaciones"/"reparación" en miles de filas y el take-30 SIN ORDEN devolvía
+// filas arbitrarias (headings ganadores absurdos: 0101 caballos, 0306 crustáceos,
+// 0407 huevos... para mouse, tornillos y escritorios).
+const SEARCH_STOPWORDS = new Set([
+  'para', 'tipo', 'tipos', 'con', 'como', 'sobre', 'hasta', 'entre', 'cada', 'desde',
+  'este', 'esta', 'estos', 'estas', 'pero', 'porque', 'cuando', 'donde', 'cual',
+  'cuales', 'producto', 'productos', 'nuevo', 'nueva', 'nuevos', 'nuevas', 'uso', 'usos',
+]);
 
-  // Phase 1: Quick keyword search to identify probable headings
-  const keywordMatches = await prisma.fraction.findMany({
-    where: {
-      OR: [
-        { keywords: { hasSome: searchWords.slice(0, 8) } },
-        ...searchWords.slice(0, 3).map(w => ({
-          description: { contains: w, mode: 'insensitive' as const },
-        })),
-      ],
-      active: true,
-    },
-    select: { code: true, codeFormatted: true, description: true, tariffNMF: true, noms: true, requiresPermit: true, permitType: true, sectoralRegistry: true },
-    take: 30,
-  });
+/** Términos útiles: sin puntuación, sin stopwords, sin números sueltos/medidas. */
+function extractSearchTerms(description: string): string[] {
+  return [...new Set(
+    description
+      .toLowerCase()
+      .replace(/[^a-z0-9áéíóúüñ\s-]/gi, ' ') // fuera puntuación (paréntesis, comas, %…)
+      .split(/\s+/)
+      .filter(w =>
+        w.length > 3 &&
+        !SEARCH_STOPWORDS.has(w) &&
+        !/^\d/.test(w), // fuera "250cc", "500ml", "205" — medidas no discriminan partida
+      ),
+  )];
+}
+
+interface RankedFraction {
+  code: string; codeFormatted: string; description: string;
+  tariffNMF: number | null; noms: string[]; requiresPermit: boolean;
+  permitType: string | null; sectoralRegistry: boolean;
+}
+
+async function findRelatedFractions(description: string) {
+  const terms = extractSearchTerms(description).slice(0, 8);
+  const searchWords = terms; // mismo nombre aguas abajo
+
+  // 2ª Ola Etapa 2 (F2) — fase 1 RANKEADA: una consulta por término (match por
+  // FRONTERA DE PALABRA en descripción, no substring; y elemento exacto en
+  // keywords), unión puntuada en JS: keywords pesa 3, descripción 2. El top-30
+  // sale por score — la partida correcta ya no pierde la votación por ruido.
+  const SELECT = 'code, "codeFormatted", description, "tariffNMF", noms, "requiresPermit", "permitType", "sectoralRegistry"';
+  const scored2 = new Map<string, { frac: RankedFraction; score: number }>();
+  const addHit = (frac: RankedFraction, weight: number) => {
+    const cur = scored2.get(frac.code);
+    if (cur) cur.score += weight;
+    else scored2.set(frac.code, { frac, score: weight });
+  };
+  await Promise.all(terms.map(async (term) => {
+    // Raíz por prefijo para flexiones del español ("motocicleta" debe matchear
+    // "motociclos"; "calcetines" ↔ "calcetín"): palabras ≥6 chars se recortan
+    // 3 (mínimo 5) y el regex ancla en frontera de palabra (\m + prefijo).
+    const stem = term.length >= 6 ? term.slice(0, Math.max(5, term.length - 3)) : term;
+    // Variantes naive singular/plural para el match exacto del array keywords.
+    const kwVariants = [...new Set([term, `${term}s`, `${term}es`, term.replace(/e?s$/, '')])].filter(Boolean);
+    const [kwRows, descRows, dfRaw] = await Promise.all([
+      // LIMIT 200 + orden determinista: con 40, términos de df>40 ("ácido",
+      // 137 filas) devolvían una muestra arbitraria y la fracción correcta
+      // podía perder su crédito (re-introducía el bug del take-30 ciego).
+      prisma.fraction.findMany({
+        where: { active: true, keywords: { hasSome: kwVariants } },
+        select: { code: true, codeFormatted: true, description: true, tariffNMF: true, noms: true, requiresPermit: true, permitType: true, sectoralRegistry: true },
+        orderBy: { code: 'asc' },
+        take: 200,
+      }),
+      prisma.$queryRawUnsafe<RankedFraction[]>(
+        `SELECT ${SELECT} FROM fractions WHERE active = true AND description ~* $1 ORDER BY code LIMIT 200`,
+        `\\m${stem}`,
+      ),
+      // Frecuencia documental del término en el catálogo (para IDF).
+      prisma.$queryRawUnsafe<{ n: bigint }[]>(
+        `SELECT count(*) AS n FROM fractions WHERE active = true AND description ~* $1`,
+        `\\m${stem}`,
+      ),
+    ]);
+    // Ponderación IDF (regresión detectada en la re-medición): sin ella,
+    // "ácido" (cientos de fracciones) pesa igual que "sulfúrico" (poquísimas)
+    // y el ruido con 3 términos genéricos le gana a la correcta con 2
+    // específicos ("Aguacate Hass fresco" perdía contra capítulos de carne
+    // porque "frescos o refrigerados" aparece en cientos de descripciones).
+    const df = Number(dfRaw[0]?.n ?? 0);
+    const idf = 1 / Math.log2(4 + df);
+    for (const r of kwRows) addHit(r as RankedFraction, 3 * idf);
+    // El raw SQL puede traer noms NULL (filas cargadas fuera de Prisma) — el
+    // formateador del prompt hace f.noms.length; normalizamos aquí.
+    for (const r of descRows) addHit({ ...r, noms: r.noms ?? [] }, 2 * idf);
+  }));
+  const keywordMatches = [...scored2.values()]
+    .sort((a, b) => b.score - a.score || a.frac.code.localeCompare(b.frac.code))
+    .slice(0, 30)
+    .map(x => x.frac);
 
   // Determine most likely headings (4 digits) from initial matches
   const headingCounts = new Map<string, number>();
@@ -515,13 +588,14 @@ async function verifyClassification(
   if (!allOptions) return { verifiedCode: suggestedCode, changed: false };
 
   const text = await llmGenerate({
+    temperature: 0, // clasificación determinista (2ª Ola Etapa 2)
     model: 'fast',
     maxTokens: 300,
     system: `Eres un verificador de clasificación arancelaria mexicana. Se te da un producto, una fracción sugerida, y TODAS las fracciones del mismo subheading. Tu trabajo es verificar si la fracción sugerida CORRESPONDE al producto según los criterios textuales de cada fracción (material, dimensiones, especificación), o si otra de la lista corresponde mejor.
 
 Responde ÚNICAMENTE con JSON: {"code": "XXXX.XX.XX", "changed": true/false, "reason": "..."}
 - Si la sugerida corresponde al producto, devuélvela con changed=false
-- Elige una fracción específica SÓLO si el producto cumple EXPLÍCITAMENTE sus criterios (material, dimensiones, especificación). Si ninguna específica aplica, la residual .99/.00 ("los demás") ES la correcta — no fuerces una específica que no corresponde ni la evites cuando aplica
+- REGLA SIMÉTRICA específica/residual: elige una específica SOLO si el producto declara explícitamente el criterio que esa fracción exige (región, origen, material, uso, dimensión). Si la específica exige algo NO declarado (p. ej. "del Estado de Morelos", "Café Veracruz" cuando la descripción no menciona ese origen) → la residual .99/.00 ES la correcta. Pero si el producto SÍ declara el criterio de una específica (p. ej. "de acero inoxidable") → esa específica, NO la residual
 - El código DEBE ser una de las opciones listadas`,
     user: `PRODUCTO: ${description}
 FRACCIÓN SUGERIDA: ${suggestedCode}
@@ -645,23 +719,12 @@ export async function classifyProduct(
       ).join('\n\n')}\n\nUSA estos precedentes para fundamentar tu decisión. Si un precedente aplica directamente al producto, MENCIÓNALO en el campo legalBasis.griApplied como reasoning.`
     : '';
 
-  // Build context with related fractions (scored by relevance)
-  const searchWords = description.toLowerCase().split(/\s+/).filter(w => w.length > 3);
-  const scored = new Map<string, { frac: typeof relatedFractions[0]; score: number }>();
-  for (const frac of relatedFractions) {
-    const key = frac.codeFormatted;
-    const existing = scored.get(key);
-    if (existing) {
-      existing.score++;
-    } else {
-      scored.set(key, { frac, score: 1 });
-    }
-  }
-
-  const topRelated = [...scored.values()]
-    .sort((a, b) => b.score - a.score)
-    .slice(0, 10)
-    .map(s => s.frac);
+  // 2ª Ola Etapa 2.3-iter2: aquí vivía una capa de re-scoring MUERTA (contaba
+  // score=1 por fracción — venían ya dedupeadas — y un sort no-op) cuyo único
+  // efecto real era truncar el top-30 rankeado a 10: el ácido sulfúrico llegaba
+  // #16 del ranking IDF y el modelo jamás lo veía. Los 30 pasan directo — ya
+  // vienen ordenados por relevancia desde findRelatedFractions.
+  const topRelated = relatedFractions;
 
   // Format related fractions
   const relatedContext = topRelated.length > 0
@@ -701,16 +764,18 @@ INSTRUCCIONES:
 1. Revisa TODAS las fracciones del capítulo proporcionadas arriba
 2. Identifica la subpartida (6 dígitos) correcta
 3. Dentro de esa subpartida, elige la fracción (8 dígitos) que CORRESPONDA al producto
-4. Prefiere una fracción específica SÓLO si el producto cumple EXPLÍCITAMENTE sus criterios (material, dimensiones, especificación técnica). Si NINGUNA específica de los candidatos aplica, la residual .99/.00 ("los demás") ES la correcta — no la evites cuando aplica ni fuerces una específica que no corresponde
+4. REGLA SIMÉTRICA específica/residual: elige una específica SOLO si el producto declara explícitamente el criterio que esa fracción exige (región, origen, material, uso, dimensión, especificación técnica). Si la específica exige algo NO declarado (p. ej. "del Estado de Morelos" cuando la descripción no menciona origen) → la residual .99/.00 ES la correcta. Pero si el producto SÍ declara el criterio de una específica (p. ej. "de acero inoxidable" y existe fracción de inoxidable) → esa específica, NO la residual
 5. Si alguna fracción de la lista coincide EXACTAMENTE con el producto, úsala
 6. Las alternativas deben ser del MISMO capítulo pero diferentes subpartidas
 7. Si el USO o SECTOR declarado activa una clasificación alternativa (autopartes, aeronáutico, médico), llena 'useBasedAnalysis' con ambas opciones, criterio, recomendación, riesgo y precedentes. Si no aplica, useBasedAnalysis = null.
+8. SOLO puedes responder con una fracción de 8 dígitos que APAREZCA en las listas de candidatos proporcionadas arriba. Si NINGUNA fracción listada aplica al producto, responde con "fraction": {"code": "SIN_CANDIDATO", "description": "", "chapter": "", "section": ""} — NUNCA escribas de memoria un código que no esté en las listas (los códigos de memoria suelen ser subpartidas de 6 dígitos u obsoletos y se rechazan).
 
 Responde en JSON válido.`;
 
   const generation = await llmGenerateWithMeta({
     model: 'strong',
-    maxTokens: 2000,
+    maxTokens: 3000,
+    temperature: 0, // clasificación determinista (2ª Ola Etapa 2)
     system: SYSTEM_PROMPT,
     user: userMessage,
   });
@@ -745,6 +810,15 @@ Responde en JSON válido.`;
   // la fuente para que la API nunca devuelva una forma que truene al cliente.
   if (!result.fraction || typeof result.fraction.code !== 'string') {
     throw new Error('El clasificador no devolvió una fracción válida. Reintenta o reformula la descripción.');
+  }
+  // 2ª Ola Etapa 2 (F3): el modelo declaró honestamente que NINGÚN candidato
+  // del catálogo aplica — falla cerrada ANTES de verificación (misma familia
+  // que el candado final, que queda intacto como última línea).
+  if (/SIN_CANDIDATO/i.test(result.fraction.code)) {
+    throw new Error(
+      'El clasificador no encontró en el catálogo un candidato aplicable a esta descripción. ' +
+      'Reformula con más detalle (material, uso, características) o consulta el catálogo/DOF oficial.',
+    );
   }
   if (!result.explanation || typeof result.explanation.simple !== 'string') {
     result.explanation = {
@@ -840,7 +914,8 @@ ${chapterFractions.slice(0, 100).map(f => `- ${f.codeFormatted}: ${f.description
     try {
       const retryText = await llmGenerate({
         model: 'strong',
-        maxTokens: 2000,
+        maxTokens: 3000,
+        temperature: 0, // clasificación determinista (2ª Ola Etapa 2)
         system: SYSTEM_PROMPT,
         user: retryMessage,
       });

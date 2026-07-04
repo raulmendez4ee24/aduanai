@@ -4,6 +4,7 @@ import { api } from '../lib/api'
 import type { ClassificationRecord } from '../lib/api'
 import { Clock, Search, ChevronLeft, ChevronRight, ChevronDown, ChevronUp, ShieldCheck } from 'lucide-react'
 import { formatFraction } from '../lib/format'
+import { CONFIDENCE_LABEL, CONFIDENCE_TOOLTIP } from '../lib/confidence'
 import { usePermissions } from '../hooks/usePermissions'
 
 const GLASS = 'bg-white/70 backdrop-blur-xl border border-white/50 shadow-[0_8px_30px_rgb(0,0,0,0.04)]'
@@ -68,7 +69,7 @@ export function HistoryPage() {
         <div className="hidden md:grid grid-cols-[1fr_120px_80px_80px_100px_40px] gap-3 px-4 py-2 text-[10px] font-medium text-slate-500 uppercase tracking-wider border-b border-slate-200/50">
           <span>Producto</span>
           <span>Fracción</span>
-          <span>Confianza</span>
+          <span title={CONFIDENCE_TOOLTIP} className="cursor-help">{CONFIDENCE_LABEL}</span>
           <span>Feedback</span>
           <span>Fecha</span>
           <span></span>
@@ -87,7 +88,7 @@ export function HistoryPage() {
                     className="w-full grid grid-cols-1 md:grid-cols-[1fr_120px_80px_80px_100px_40px] gap-2 md:gap-3 px-4 py-3 hover:bg-white/40 transition-colors text-left items-center">
                     <p className="text-[12px] text-slate-700 line-clamp-1">{r.inputDescription}</p>
                     <span className="font-mono text-[13px] font-bold text-slate-900">{formatFraction(r.fractionCode)}</span>
-                    <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full inline-block w-fit ${confBadge(r.confidence)}`}>
+                    <span title={CONFIDENCE_TOOLTIP} className={`text-[10px] font-semibold px-2 py-0.5 rounded-full inline-block w-fit cursor-help ${confBadge(r.confidence)}`}>
                       {Math.round(r.confidence)}%
                     </span>
                     <span>
@@ -112,7 +113,7 @@ export function HistoryPage() {
                           <p className="font-mono text-[15px] font-bold text-slate-900">{formatFraction(r.fractionCode)}</p>
                         </div>
                         <div className="bg-white/40 rounded-xl p-3">
-                          <p className="text-[10px] text-slate-500">Confianza</p>
+                          <p className="text-[10px] text-slate-500 cursor-help" title={CONFIDENCE_TOOLTIP}>{CONFIDENCE_LABEL}</p>
                           <div className="flex items-center gap-2 mt-1">
                             <div className="flex-1 bg-slate-200/50 rounded-full h-2">
                               <div className="bg-emerald-500 h-2 rounded-full" style={{ width: `${Math.min(100, r.confidence)}%` }} />

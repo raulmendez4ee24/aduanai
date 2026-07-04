@@ -3,6 +3,7 @@ import { api } from '../lib/api'
 import type { ClassificationResult, IndustrialSector, ImporterType, ClassifierAlert, ClassifierAntidumpingMetadata } from '../lib/api'
 import { Search, Sparkles, AlertCircle, ThumbsUp, ThumbsDown, Copy, Check, Scale, ChevronDown, AlertTriangle, ShieldCheck, Car, Link as LinkIcon, Target, ExternalLink } from 'lucide-react'
 import { formatFraction } from '../lib/format'
+import { CONFIDENCE_LABEL, CONFIDENCE_TOOLTIP } from '../lib/confidence'
 import { ROITile } from '../components/ROIBanner'
 import { NOMExceptionPanel } from '../components/NOMExceptionPanel'
 import { PadronCheckBanner, PadronOkBadge } from './Settings/Padrones'
@@ -291,10 +292,10 @@ export function ClassifierPage() {
               </div>
               {result.nico && <p className="font-mono text-[13px] text-slate-500 mt-1">NICO: {result.nico}</p>}
             </div>
-            <div className="text-right">
-              <p className="text-[10px] text-slate-400 uppercase tracking-wider">Métrica técnica IA</p>
-              <p className="text-[18px] font-semibold text-slate-700">{Math.round(result.confidence)}%</p>
-              <p className="text-[10px] text-slate-400">no es certeza fiscal</p>
+            <div className="text-right" title={CONFIDENCE_TOOLTIP}>
+              <p className="text-[10px] text-slate-400 uppercase tracking-wider">{CONFIDENCE_LABEL}</p>
+              <p className="text-[18px] font-semibold text-slate-700 cursor-help">{Math.round(result.confidence)}%</p>
+              <p className="text-[10px] text-slate-400">no es tasa de acierto medida</p>
             </div>
           </div>
 

@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import { api } from '../lib/api'
 import type { StatsData, VolumeDay } from '../lib/api'
 import { LineChart as LCIcon, TrendingUp } from 'lucide-react'
+import { CONFIDENCE_LABEL, CONFIDENCE_TOOLTIP } from '../lib/confidence'
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid, AreaChart, Area, PieChart, Pie, Cell } from 'recharts'
 
 const GLASS = 'bg-white/70 backdrop-blur-xl border border-white/50 shadow-[0_8px_30px_rgb(0,0,0,0.04)]'
@@ -52,10 +53,10 @@ export function AnalyticsPage() {
         {[
           { label: 'Clasificaciones Totales', val: stats?.counts.classifications ?? 0, icon: '📦' },
           { label: 'Cotizaciones', val: stats?.counts.quotes ?? 0, icon: '💰' },
-          { label: 'Confianza promedio del modelo', val: `${avgConf}%`, icon: '🎯' },
+          { label: `${CONFIDENCE_LABEL} (promedio)`, val: `${avgConf}%`, icon: '🎯', tip: CONFIDENCE_TOOLTIP },
           { label: 'Fracciones Únicas', val: uniqueFractions, icon: '🔢' },
-        ].map((k, i) => (
-          <div key={i} className={`${GLASS} rounded-[2rem] p-5`}>
+        ].map((k: { label: string; val: number | string; icon: string; tip?: string }, i) => (
+          <div key={i} className={`${GLASS} rounded-[2rem] p-5 ${k.tip ? 'cursor-help' : ''}`} title={k.tip}>
             <div className="flex items-center justify-between mb-2">
               <span className="text-[20px]">{k.icon}</span>
               <TrendingUp className="w-3.5 h-3.5 text-emerald-500" />

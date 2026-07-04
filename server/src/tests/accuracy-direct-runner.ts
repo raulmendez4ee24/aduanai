@@ -55,12 +55,15 @@ async function runCase(t: (typeof TEST_PRODUCTS)[number]): Promise<Row> {
   } catch (e) {
     const msg = e instanceof Error ? e.message : String(e);
     const candado = /no produjo una fracción válida del catálogo/.test(msg);
+    // 2ª Ola Etapa 2 (F3): el modelo declaró que ningún candidato aplica —
+    // falla cerrada honesta, misma familia que el candado (no se muestra código)
+    const sinCandidato = /no encontró en el catálogo un candidato aplicable/.test(msg);
     return {
       id: t.id, category: t.category, description: t.description,
       expected: clean(t.expectedFraction), accepted,
       predicted: null, confidence: null,
       hit: false, hitTop3: false, chapterOk: false,
-      errorType: candado ? 'candado' : `excepcion: ${msg.slice(0, 80)}`,
+      errorType: candado ? 'candado' : sinCandidato ? 'sin_candidato' : `excepcion: ${msg.slice(0, 80)}`,
       verifierFallback: false, ms: Date.now() - t0,
     };
   }

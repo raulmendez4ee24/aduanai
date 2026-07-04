@@ -36,6 +36,9 @@ export async function llmGenerate(opts: {
   system: string;
   user: string;
   maxTokens?: number;
+  /** Temperatura de muestreo. El Clasificador pasa 0 (2ª Ola Etapa 2: con el
+   * default ~1.0 el mismo producto clasificaba distinto entre corridas). */
+  temperature?: number;
   log?: AILogContext;
 }): Promise<string> {
   const tier: ModelTier = opts.model ?? 'strong';
@@ -57,7 +60,7 @@ export async function llmGenerate(opts: {
       const m = getGemini().getGenerativeModel({ model, systemInstruction: opts.system });
       const result = await m.generateContent({
         contents: [{ role: 'user', parts: [{ text: opts.user }] }],
-        generationConfig: { maxOutputTokens: maxTokens, responseMimeType: 'application/json' },
+        generationConfig: { maxOutputTokens: maxTokens, responseMimeType: 'application/json', ...(opts.temperature !== undefined && { temperature: opts.temperature }) },
       });
       text = result.response.text();
       // Gemini devuelve usageMetadata
@@ -70,6 +73,7 @@ export async function llmGenerate(opts: {
         max_tokens: maxTokens,
         system: opts.system,
         messages: [{ role: 'user', content: opts.user }],
+        ...(opts.temperature !== undefined && { temperature: opts.temperature }),
       });
       text = response.content[0].type === 'text' ? response.content[0].text : '';
       inputTokens = response.usage.input_tokens;
@@ -109,6 +113,7 @@ export async function llmGenerateWithMeta(opts: {
   system: string;
   user: string;
   maxTokens?: number;
+  temperature?: number;
   log?: AILogContext;
 }): Promise<{ text: string; model: string; provider: string }> {
   const tier: ModelTier = opts.model ?? 'strong';
