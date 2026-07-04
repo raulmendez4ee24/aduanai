@@ -339,42 +339,42 @@ model ClassificationKnowledge {
 // ============================================
 
 model Classification {
-  id                  String   @id @default(cuid())
-  inputDescription    String
-  inputContext        String?
-  inputCountryOfOrigin String?
+  id                    String   @id @default(cuid())
+  inputDescription      String
+  inputContext          String?
+  inputCountryOfOrigin  String?
   inputDeclaredValueUSD Float?
-  inputUseCase        String?  // uso destinado del producto (texto libre)
-  inputSector         String?  // sector industrial (automotive, aeronautic, medical, etc.)
-  inputImporterType   String?  // "IMMEX" | "DEFINITIVO" | "PERSONA_FISICA"
-  useBasedAnalysis    Json?    // análisis comparativo material vs uso si aplica
-  fractionCode        String
-  fractionDescription String?
-  confidence          Float
-  griApplied          String[]
-  alternatives        String? // JSON
-  legalBasis          Json? // GRI aplicadas, notas legales, partidas descartadas
-  fullResponse        String? // JSON completo de la IA
-  feedback            String? // "correct", "incorrect", "partial"
-  feedbackNote        String?
+  inputUseCase          String? // uso destinado del producto (texto libre)
+  inputSector           String? // sector industrial (automotive, aeronautic, medical, etc.)
+  inputImporterType     String? // "IMMEX" | "DEFINITIVO" | "PERSONA_FISICA"
+  useBasedAnalysis      Json? // análisis comparativo material vs uso si aplica
+  fractionCode          String
+  fractionDescription   String?
+  confidence            Float
+  griApplied            String[]
+  alternatives          String? // JSON
+  legalBasis            Json? // GRI aplicadas, notas legales, partidas descartadas
+  fullResponse          String? // JSON completo de la IA
+  feedback              String? // "correct", "incorrect", "partial"
+  feedbackNote          String?
 
   // Trazabilidad regulatoria
-  tigieVersion        String?  // Versión TIGIE consultada
-  ligieVersion        String?  // Versión LIGIE consultada
-  consultHash         String?  // SHA-256 del prompt + respuesta para verificación pública
-  consultedAt         DateTime?
+  tigieVersion String? // Versión TIGIE consultada
+  ligieVersion String? // Versión LIGIE consultada
+  consultHash  String? // SHA-256 del prompt + respuesta para verificación pública
+  consultedAt  DateTime?
 
   // Alertas generadas durante la clasificación (cuotas comp, NOMs, automotive, etc.)
-  alertsJson          Json?
+  alertsJson Json?
 
   // SOD workflow — clasificador crea, validador aprueba
   // status: "approved" (default, legacy) | "pending_approval" | "rejected"
-  status         String    @default("approved")
-  approvedAt     DateTime?
-  approvedById   String?
+  status       String    @default("approved")
+  approvedAt   DateTime?
+  approvedById String?
 
-  isDemoData          Boolean  @default(false)
-  createdAt           DateTime @default(now())
+  isDemoData Boolean  @default(false)
+  createdAt  DateTime @default(now())
 
   tenantId String
   tenant   Tenant @relation(fields: [tenantId], references: [id])
@@ -396,12 +396,12 @@ model Classification {
 // ============================================
 
 model Quote {
-  id           String   @id @default(cuid())
-  fractionCode String   // legacy / convenience — primer item para queries simples
-  customsValue Float    // legacy — total USD del primer item
+  id           String @id @default(cuid())
+  fractionCode String // legacy / convenience — primer item para queries simples
+  customsValue Float // legacy — total USD del primer item
   origin       String
-  incoterm     String   @default("CIF")
-  currency     String   @default("USD")
+  incoterm     String @default("CIF")
+  currency     String @default("USD")
   result       String // JSON con el desglose completo
 
   // Metadata operación
@@ -427,9 +427,9 @@ model Quote {
   totalAll        Float? // landed + despacho
 
   // SOD workflow — cotizador crea, validador aprueba
-  status         String    @default("approved")
-  approvedAt     DateTime?
-  approvedById   String?
+  status       String    @default("approved")
+  approvedAt   DateTime?
+  approvedById String?
 
   isDemoData Boolean  @default(false)
   createdAt  DateTime @default(now())
@@ -462,8 +462,8 @@ model QuoteItem {
   unit            String?
   unitValueUSD    Float
   totalValueUSD   Float
-  freightUSD      Float  @default(0)
-  insuranceUSD    Float  @default(0)
+  freightUSD      Float   @default(0)
+  insuranceUSD    Float   @default(0)
   customsValueUSD Float
   customsValueMXN Float
 
@@ -515,13 +515,13 @@ model Pedimento {
   curp           String?
 
   // Datos generales
-  tipoOperacion   String // IMP, EXP
-  regimen         String // Definitivo, temporal, etc.
-  destino         String?
-  origen          String?
-  pesoBruto       Float
-  pesoNeto        Float
-  bultos          Int
+  tipoOperacion String // IMP, EXP
+  regimen       String // Definitivo, temporal, etc.
+  destino       String?
+  origen        String?
+  pesoBruto     Float
+  pesoNeto      Float
+  bultos        Int
 
   // Valores
   valorAduana    Float
@@ -540,7 +540,7 @@ model Pedimento {
   bl      String?
 
   // Validación
-  errors   Json?  // [{ partida?: number, field: string, severity: 'error'|'warning'|'info', message: string, rule: string }]
+  errors   Json? // [{ partida?: number, field: string, severity: 'error'|'warning'|'info', message: string, rule: string }]
   warnings Json?
   aiNotes  Json? // Notas IA (inconsistencias detectadas por LLM)
   status   PedimentoStatus @default(DRAFT)
@@ -664,28 +664,29 @@ model Alert {
   fractionCodes String[]
 
   // Inteligencia y accionabilidad
-  severity            String   @default("medium") // "critical" | "high" | "medium" | "low"
-  affectedFraction    String?  // fracción específica (8 dígitos sin puntos)
-  affectedOperations  String[] // IDs de TemporaryImport / Operation / TaxCredit / Guarantee impactados
-  estimatedImpactMXN  Float?   // monto estimado en MXN (positivo = ahorro, negativo = costo)
-  impactType          String?  // "savings" | "cost" | "risk"
-  actionRequired      String?  // descripción corta de la acción requerida
-  suggestedAction     Json?    // { type, label, payload? } estructurado
+  severity           String   @default("medium") // "critical" | "high" | "medium" | "low"
+  affectedFraction   String? // fracción específica (8 dígitos sin puntos)
+  affectedOperations String[] // IDs de TemporaryImport / Operation / TaxCredit / Guarantee impactados
+  estimatedImpactMXN Float? // monto estimado en MXN (positivo = ahorro, negativo = costo)
+  impactType         String? // "savings" | "cost" | "risk"
+  actionRequired     String? // descripción corta de la acción requerida
+  suggestedAction    Json? // { type, label, payload? } estructurado
 
   // Vencimiento y workflow
-  dueDate     DateTime?
-  daysToDue   Int?      // calculado al insertar; se recalcula con cron si es necesario
-  acknowledged Boolean  @default(false)
+  dueDate        DateTime?
+  daysToDue      Int? // calculado al insertar; se recalcula con cron si es necesario
+  acknowledged   Boolean   @default(false)
   acknowledgedAt DateTime?
-  snoozedUntil DateTime?
-  ignored     Boolean   @default(false)
-  resolvedAt  DateTime?
+  snoozedUntil   DateTime?
+  ignored        Boolean   @default(false)
+  resolvedAt     DateTime?
 
   // Deduplicación: hash determinista de (tenantId|type|fingerprint)
   fingerprint String?
 
   updatedAt DateTime @default(now()) @updatedAt
 
+  @@unique([tenantId, fingerprint])
   @@index([tenantId])
   @@index([createdAt])
   @@index([isDemoData])
@@ -693,7 +694,6 @@ model Alert {
   @@index([affectedFraction])
   @@index([dueDate])
   @@index([fingerprint])
-  @@unique([tenantId, fingerprint])
   @@map("alerts")
 }
 
@@ -792,23 +792,23 @@ enum DocumentStatus {
 }
 
 model Document {
-  id         String         @id @default(cuid())
-  tenantId   String?        // null para legacy; nuevo upload siempre lleva tenantId
-  name       String
-  type       String // tipo declarado por el usuario o slot
-  status     DocumentStatus @default(PENDING)
-  required   Boolean        @default(true)
-  fileName   String?
-  fileSize   Int?
-  mimeType   String?
-  filePath   String?
-  fileUrl    String?  // URL pública o data: URI corta
-  fileHash   String?  // SHA-256 del contenido — para cache de extracción
+  id       String         @id @default(cuid())
+  tenantId String? // null para legacy; nuevo upload siempre lleva tenantId
+  name     String
+  type     String // tipo declarado por el usuario o slot
+  status   DocumentStatus @default(PENDING)
+  required Boolean        @default(true)
+  fileName String?
+  fileSize Int?
+  mimeType String?
+  filePath String?
+  fileUrl  String? // URL pública o data: URI corta
+  fileHash String? // SHA-256 del contenido — para cache de extracción
 
   // Extracción IA
   docType       String? // tipo detectado por IA (factura, pedimento, bl, etc.)
-  confidence    Float?  // 0-100
-  extractedData Json?   // datos estructurados por tipo
+  confidence    Float? // 0-100
+  extractedData Json? // datos estructurados por tipo
   rawText       String? // texto OCR/extraído (truncado)
   aiErrors      Json?
   processedAt   DateTime?
@@ -817,8 +817,8 @@ model Document {
   verifiedAt DateTime?
   verifiedBy String?
   notes      String?
-  createdAt  DateTime       @default(now())
-  updatedAt  DateTime       @updatedAt
+  createdAt  DateTime  @default(now())
+  updatedAt  DateTime  @updatedAt
 
   operationId String?
   operation   Operation? @relation(fields: [operationId], references: [id], onDelete: SetNull)
@@ -1426,10 +1426,10 @@ model TokenBlacklist {
 model Product {
   id           String   @id @default(cuid())
   tenantId     String
-  productCode  String   // SKU del cliente
+  productCode  String // SKU del cliente
   description  String
-  fractionCode String?  // Fracción arancelaria si aplica (8 dígitos sin puntos)
-  unit         String   // Pza, Kg, m, etc.
+  fractionCode String? // Fracción arancelaria si aplica (8 dígitos sin puntos)
+  unit         String // Pza, Kg, m, etc.
   isFinished   Boolean  @default(false) // false = materia prima, true = producto terminado
   active       Boolean  @default(true)
   isDemoData   Boolean  @default(false)
@@ -1452,11 +1452,11 @@ model Product {
 
 model ProductComponent {
   id           String   @id @default(cuid())
-  productId    String   // Producto terminado
+  productId    String // Producto terminado
   product      Product  @relation("ProductBOM", fields: [productId], references: [id], onDelete: Cascade)
-  componentId  String   // Materia prima / sub-ensamble
+  componentId  String // Materia prima / sub-ensamble
   component    Product  @relation("ComponentOfBOM", fields: [componentId], references: [id])
-  quantity     Float    // Unidades de componente requeridas por 1 unidad de producto terminado
+  quantity     Float // Unidades de componente requeridas por 1 unidad de producto terminado
   unit         String
   scrapPercent Float    @default(0) // Merma esperada (%)
   notes        String?
@@ -1471,11 +1471,11 @@ model ProductComponent {
 model Assembly {
   id           String   @id @default(cuid())
   tenantId     String
-  productId    String   // Producto terminado ensamblado
+  productId    String // Producto terminado ensamblado
   product      Product  @relation(fields: [productId], references: [id])
-  quantity     Float    // Cantidad ensamblada
+  quantity     Float // Cantidad ensamblada
   assemblyDate DateTime
-  reference    String?  // Orden de producción / referencia interna
+  reference    String? // Orden de producción / referencia interna
   notes        String?
   isDemoData   Boolean  @default(false)
   createdAt    DateTime @default(now())
@@ -1493,11 +1493,11 @@ model AssemblyConsumption {
   id                String   @id @default(cuid())
   assemblyId        String
   assembly          Assembly @relation(fields: [assemblyId], references: [id], onDelete: Cascade)
-  componentId       String   // Producto materia prima consumido
-  componentCode     String   // SKU snapshot
-  fractionCode      String?  // Fracción snapshot
-  quantityRequired  Float    // Por BOM, sin merma
-  quantityWithScrap Float    // Real consumido = required × (1 + scrapPercent/100)
+  componentId       String // Producto materia prima consumido
+  componentCode     String // SKU snapshot
+  fractionCode      String? // Fracción snapshot
+  quantityRequired  Float // Por BOM, sin merma
+  quantityWithScrap Float // Real consumido = required × (1 + scrapPercent/100)
   unit              String
   // Trazabilidad: IDs de TemporaryImport descontados FIFO
   importIds         String[]
@@ -1522,7 +1522,7 @@ model AntidumpingDuty {
 
   // Producto y origen
   fractionCode    String
-  countryOfOrigin String  // ISO-2 normalizado
+  countryOfOrigin String // ISO-2 normalizado
   productDesc     String? // descripción del producto cubierto
 
   // Productor específico (si la cuota es para un productor)
@@ -1530,8 +1530,8 @@ model AntidumpingDuty {
 
   // Cuota — soporta % o específica
   rateType String @default("percentage") // "percentage" | "specific_USD_kg" | "specific_USD_unit"
-  rate     Float  // valor numérico
-  rateUnit String @default("%")          // "%", "USD/kg", "USD/par", "USD/pieza"
+  rate     Float // valor numérico
+  rateUnit String @default("%") // "%", "USD/kg", "USD/par", "USD/pieza"
 
   // Vigencia
   publishDateDOF DateTime?
@@ -1540,13 +1540,13 @@ model AntidumpingDuty {
   expiryDate     DateTime?
 
   // Estado de la resolución
-  status            String @default("vigente") // "vigente" | "suspendida" | "revocada" | "en_revision"
+  status            String  @default("vigente") // "vigente" | "suspendida" | "revocada" | "en_revision"
   investigationType String? // "elusion" | "examen_vigencia" | "revision" | "nueva"
 
   // Documentación
-  decree  String? // legacy — mantenido para compat
-  dofUrl  String?
-  notes   String?
+  decree String? // legacy — mantenido para compat
+  dofUrl String?
+  notes  String?
 
   active    Boolean  @default(true)
   createdAt DateTime @default(now())
@@ -1566,19 +1566,19 @@ model AntidumpingDuty {
 // ============================================
 
 model PROSECEligibility {
-  id            String   @id @default(cuid())
-  fractionCode  String   // 8 dígitos sin puntos o prefijo (capítulo)
-  matchType     String   @default("exact") // "exact" | "prefix"
-  sector        String   // "automotive" | "electronics" | "textile" | etc.
-  prosecRate    Float    @default(0) // tasa preferencial (%)
-  conditions    Json?    // requisitos adicionales del programa
-  active        Boolean  @default(true)
+  id            String    @id @default(cuid())
+  fractionCode  String // 8 dígitos sin puntos o prefijo (capítulo)
+  matchType     String    @default("exact") // "exact" | "prefix"
+  sector        String // "automotive" | "electronics" | "textile" | etc.
+  prosecRate    Float     @default(0) // tasa preferencial (%)
+  conditions    Json? // requisitos adicionales del programa
+  active        Boolean   @default(true)
   effectiveDate DateTime
   expiryDate    DateTime?
   decree        String? // referencia DOF
   notes         String?
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
 
   @@index([fractionCode, active])
   @@index([sector])
@@ -1586,38 +1586,38 @@ model PROSECEligibility {
 }
 
 model Regla8vaMapping {
-  id              String   @id @default(cuid())
-  vehicleFraction String   // fracción del producto terminado
-  vehicleDesc     String
-  partsAllowed    Json     // [{ fraction, desc, maxValue? }]
+  id               String   @id @default(cuid())
+  vehicleFraction  String // fracción del producto terminado
+  vehicleDesc      String
+  partsAllowed     Json // [{ fraction, desc, maxValue? }]
   preferentialRate Float
-  conditions      String?
-  active          Boolean  @default(true)
-  effectiveDate   DateTime
-  notes           String?
-  createdAt       DateTime @default(now())
-  updatedAt       DateTime @updatedAt
+  conditions       String?
+  active           Boolean  @default(true)
+  effectiveDate    DateTime
+  notes            String?
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
 
   @@index([vehicleFraction])
   @@map("regla_8va_mappings")
 }
 
 model IEPSRate {
-  id              String   @id @default(cuid())
-  fractionCode    String   // partida o fracción específica
-  matchType       String   @default("exact") // "exact" | "prefix"
-  productCategory String   // "gasoline" | "diesel" | "alcohol" | "tobacco" | "soda" | "high_calorie" | "pesticide"
+  id              String    @id @default(cuid())
+  fractionCode    String // partida o fracción específica
+  matchType       String    @default("exact") // "exact" | "prefix"
+  productCategory String // "gasoline" | "diesel" | "alcohol" | "tobacco" | "soda" | "high_calorie" | "pesticide"
   rate            Float
-  rateType        String   // "ad_valorem" | "specific"
-  unit            String?  // "MXN/L" | "MXN/kg" | "%"
+  rateType        String // "ad_valorem" | "specific"
+  unit            String? // "MXN/L" | "MXN/kg" | "%"
   description     String?
-  active          Boolean  @default(true)
+  active          Boolean   @default(true)
   effectiveDate   DateTime
   expiryDate      DateTime?
   decree          String?
   notes           String?
-  createdAt       DateTime @default(now())
-  updatedAt       DateTime @updatedAt
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
 
   @@index([fractionCode, active])
   @@index([productCategory])
@@ -1625,19 +1625,19 @@ model IEPSRate {
 }
 
 model ISANRate {
-  id              String   @id @default(cuid())
-  fractionCode    String   // ej "8703"
-  vehicleType     String   // "passenger" | "commercial" | "luxury" | "electric"
-  priceRangeMin   Float
-  priceRangeMax   Float?
-  fixedAmount     Float    // cuota fija MXN
-  marginalRate    Float    // % sobre excedente
-  exempt          Boolean  @default(false)
-  active          Boolean  @default(true)
-  fiscalYear      Int      // 2026
-  notes           String?
-  createdAt       DateTime @default(now())
-  updatedAt       DateTime @updatedAt
+  id            String   @id @default(cuid())
+  fractionCode  String // ej "8703"
+  vehicleType   String // "passenger" | "commercial" | "luxury" | "electric"
+  priceRangeMin Float
+  priceRangeMax Float?
+  fixedAmount   Float // cuota fija MXN
+  marginalRate  Float // % sobre excedente
+  exempt        Boolean  @default(false)
+  active        Boolean  @default(true)
+  fiscalYear    Int // 2026
+  notes         String?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
 
   @@index([fractionCode, active])
   @@index([priceRangeMin])
@@ -1652,10 +1652,10 @@ model ISANRate {
 model EstimatedPrice {
   id              String    @id @default(cuid())
   fractionCode    String
-  countryOfOrigin String?   // null = aplica a cualquier origen
-  estimatedValue  Float     // USD por unidad
-  unit            String    // "USD/kg" | "USD/pieza" | "USD/m" | "USD/par"
-  decree          String?   // ej "DOF-2024-09-12 — Resolución que modifica el Anexo 2 RGCE"
+  countryOfOrigin String? // null = aplica a cualquier origen
+  estimatedValue  Float // USD por unidad
+  unit            String // "USD/kg" | "USD/pieza" | "USD/m" | "USD/par"
+  decree          String? // ej "DOF-2024-09-12 — Resolución que modifica el Anexo 2 RGCE"
   publishDate     DateTime
   effectiveDate   DateTime
   expiryDate      DateTime?
@@ -1729,9 +1729,9 @@ model LegalDocument {
   effectiveDate DateTime?
   expiryDate    DateTime?
 
-  version       String?
-  isActive      Boolean @default(true)
-  supersededBy  String?
+  version      String?
+  isActive     Boolean @default(true)
+  supersededBy String?
 
   keywords     String[]
   topics       String[] // ["clasificacion", "valoracion", "regimen", "origen", "antidumping", "noms", "inventarios", "garantias"]
@@ -1758,12 +1758,12 @@ model CopilotConsult {
   question String @db.Text
   answer   String @db.Text
 
-  citedDocuments Json   // [{ docId, reference, excerpt, score }]
+  citedDocuments Json // [{ docId, reference, excerpt, score }]
 
-  modelUsed   String
-  tokensUsed  Int
-  latencyMs   Int
-  confidence  Float
+  modelUsed  String
+  tokensUsed Int
+  latencyMs  Int
+  confidence Float
 
   consultHash String @unique
 
@@ -1783,8 +1783,8 @@ model CopilotConsult {
 // ============================================
 
 model DemoProfile {
-  id              String   @id @default(cuid())
-  industryCode    String   @unique // "automotive" | "textile" | "electronics" | "food" | "pharma"
+  id              String  @id @default(cuid())
+  industryCode    String  @unique // "automotive" | "textile" | "electronics" | "food" | "pharma"
   industryName    String
   description     String
   longDescription String?
@@ -1816,15 +1816,15 @@ model DemoProfile {
 // ============================================
 
 model BackupRecord {
-  id              String   @id @default(cuid())
-  type            String   // "daily" | "weekly" | "monthly" | "manual"
-  status          String   // "running" | "success" | "failed" | "verifying"
+  id     String @id @default(cuid())
+  type   String // "daily" | "weekly" | "monthly" | "manual"
+  status String // "running" | "success" | "failed" | "verifying"
 
   startedAt   DateTime  @default(now())
   completedAt DateTime?
   durationMs  Int?
 
-  storageProvider String  // "local" | "r2" | "s3"
+  storageProvider String // "local" | "r2" | "s3"
   storageUrl      String?
   storageKey      String?
 
@@ -1855,8 +1855,8 @@ model RestoreLog {
   backupId String
   backup   BackupRecord @relation(fields: [backupId], references: [id])
 
-  type        String   // "full" | "partial" | "test"
-  startedAt   DateTime @default(now())
+  type        String // "full" | "partial" | "test"
+  startedAt   DateTime  @default(now())
   completedAt DateTime?
   status      String
 
@@ -1880,13 +1880,13 @@ model SystemIncident {
   severity String // "minor" | "major" | "critical"
   status   String // "investigating" | "identified" | "monitoring" | "resolved"
 
-  startedAt   DateTime  @default(now())
-  resolvedAt  DateTime?
+  startedAt  DateTime  @default(now())
+  resolvedAt DateTime?
 
   components String[] // ["api", "database", "ai", "frontend", "email", "storage"]
 
   description String
-  updates     Json[]    // [{ ts, message, status }]
+  updates     Json[] // [{ ts, message, status }]
 
   affectedUsers Int?
   rootCause     String?
@@ -1903,10 +1903,10 @@ model SystemIncident {
 }
 
 model IncidentSubscription {
-  id        String   @id @default(cuid())
-  email     String   @unique
-  active    Boolean  @default(true)
-  createdAt DateTime @default(now())
+  id             String    @id @default(cuid())
+  email          String    @unique
+  active         Boolean   @default(true)
+  createdAt      DateTime  @default(now())
   unsubscribedAt DateTime?
 
   @@index([active])
@@ -1926,18 +1926,18 @@ model UserVerification {
   professionalType String? // "agent_customs" | "broker" | "importer" | "consultant" | "other"
 
   // Datos de agente aduanal (si aplica)
-  agentPatente   String?
+  agentPatente    String?
   agentSocialName String?
-  agentPort      String?
-  agentVerified  Boolean   @default(false)
-  agentExpiry    DateTime?
+  agentPort       String?
+  agentVerified   Boolean   @default(false)
+  agentExpiry     DateTime?
 
   // Documentos (URLs/data:URI o referencia a Document.id)
   patenteDocUrl String?
   rfcDocUrl     String?
   cspDocUrl     String?
 
-  status          String   @default("pending") // pending | submitted | verified | rejected | expired
+  status          String    @default("pending") // pending | submitted | verified | rejected | expired
   submittedAt     DateTime?
   verifiedAt      DateTime?
   verifiedBy      String?
@@ -1954,17 +1954,17 @@ model UserVerification {
 }
 
 model ProfessionalRegistry {
-  id           String    @id @default(cuid())
-  patente      String    @unique
-  socialName   String
-  active       Boolean   @default(true)
-  expiry       DateTime?
-  port         String? // aduana principal
-  professionalType String @default("agent_customs")
-  source       String? // "CAAAREM_2026" | "manual" | "SAT"
-  lastSyncedAt DateTime?
-  createdAt    DateTime  @default(now())
-  updatedAt    DateTime  @updatedAt
+  id               String    @id @default(cuid())
+  patente          String    @unique
+  socialName       String
+  active           Boolean   @default(true)
+  expiry           DateTime?
+  port             String? // aduana principal
+  professionalType String    @default("agent_customs")
+  source           String? // "CAAAREM_2026" | "manual" | "SAT"
+  lastSyncedAt     DateTime?
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
 
   @@index([active])
   @@index([expiry])
@@ -2016,11 +2016,11 @@ model TimestampProof {
 
 model SecurityEvent {
   id        String   @id @default(cuid())
-  type      String   // "failed_login" | "rate_limit_hit" | "ip_blocked" | "user_locked" | "suspicious_pattern" | "honeypot_triggered" | "form_too_fast"
+  type      String // "failed_login" | "rate_limit_hit" | "ip_blocked" | "user_locked" | "suspicious_pattern" | "honeypot_triggered" | "form_too_fast"
   severity  String   @default("medium") // "low" | "medium" | "high" | "critical"
   ip        String
   userId    String?
-  email     String?  // para failed_login antes de tener userId
+  email     String? // para failed_login antes de tener userId
   endpoint  String?
   details   Json?
   createdAt DateTime @default(now())
@@ -2033,12 +2033,12 @@ model SecurityEvent {
 }
 
 model BlockedIP {
-  id        String    @id @default(cuid())
-  ip        String    @unique
-  reason    String
-  expiresAt DateTime  // cuando termina el bloqueo
-  active    Boolean   @default(true)
-  createdAt DateTime  @default(now())
+  id          String    @id @default(cuid())
+  ip          String    @unique
+  reason      String
+  expiresAt   DateTime // cuando termina el bloqueo
+  active      Boolean   @default(true)
+  createdAt   DateTime  @default(now())
   unblockedAt DateTime?
   unblockedBy String?
 
@@ -2053,7 +2053,7 @@ model BlockedIP {
 
 model SystemLog {
   id        String   @id @default(cuid())
-  level     String   // "DEBUG" | "INFO" | "WARN" | "ERROR" | "CRITICAL"
+  level     String // "DEBUG" | "INFO" | "WARN" | "ERROR" | "CRITICAL"
   timestamp DateTime @default(now())
 
   tenantId  String?
@@ -2091,9 +2091,9 @@ model AIUsageLog {
   tenantId String?
   userId   String?
 
-  model     String  // ej "claude-sonnet-4-20250514", "gemini-2.0-flash-exp"
-  provider  String  // "anthropic" | "gemini"
-  operation String  // "classify" | "copilot" | "extract" | "verify_classifier" | "doc_extract"
+  model     String // ej "claude-sonnet-4-20250514", "gemini-2.0-flash-exp"
+  provider  String // "anthropic" | "gemini"
+  operation String // "classify" | "copilot" | "extract" | "verify_classifier" | "doc_extract"
 
   inputTokens  Int
   outputTokens Int
@@ -2121,27 +2121,27 @@ model AIUsageLog {
 // ============================================
 
 model LegalPrecedent {
-  id            String   @id @default(cuid())
-  type          String   // "TFJA" | "SCJN" | "CRITERIO_SAT" | "CONSULTA_SAT" | "OMA" | "RESOLUCION_UPCI"
-  reference     String   // ej "Tesis V-P-2aS-XX/2023" o "Criterio Normativo 14/CFF/N"
-  title         String
+  id        String @id @default(cuid())
+  type      String // "TFJA" | "SCJN" | "CRITERIO_SAT" | "CONSULTA_SAT" | "OMA" | "RESOLUCION_UPCI"
+  reference String // ej "Tesis V-P-2aS-XX/2023" o "Criterio Normativo 14/CFF/N"
+  title     String
 
   fractionCodes String[] // 8 dígitos sin puntos; vacío = aplica genéricamente
   chapterCodes  String[] // 2 dígitos; para búsqueda por capítulo
-  topic         String   // "subvaluación" | "reclasificación" | "origen" | "noms" | "vinculación" | "antidumping" | "valor_aduanero" | "uso_destinado"
+  topic         String // "subvaluación" | "reclasificación" | "origen" | "noms" | "vinculación" | "antidumping" | "valor_aduanero" | "uso_destinado"
 
-  summary       String   // resumen del caso
-  ruling        String   // determinación / sentido del fallo
-  reasoning     String   // razonamiento legal
-  applicability String?  // "cuándo aplica" — guía práctica para clasificadores
+  summary       String // resumen del caso
+  ruling        String // determinación / sentido del fallo
+  reasoning     String // razonamiento legal
+  applicability String? // "cuándo aplica" — guía práctica para clasificadores
 
   yearPublished Int
-  isVigente     Boolean  @default(true)
-  litigated     Boolean  @default(false)  // marca casos con litigio activo / controversiales
+  isVigente     Boolean @default(true)
+  litigated     Boolean @default(false) // marca casos con litigio activo / controversiales
 
-  source        String?  // URL o referencia oficial DOF/TFJA
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
+  source    String? // URL o referencia oficial DOF/TFJA
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   @@index([type])
   @@index([topic])
@@ -2157,13 +2157,13 @@ model LegalPrecedent {
 
 model VersionSnapshot {
   id            String    @id @default(cuid())
-  type          String    // "TIGIE" | "LIGIE" | "RGCE" | "DOF" | "TMEC" | "ANEXO_22" | "ACUERDO_NOMs"
-  version       String    // "2026-01-01" o "post-reforma-29dic2025" o "v4.7"
+  type          String // "TIGIE" | "LIGIE" | "RGCE" | "DOF" | "TMEC" | "ANEXO_22" | "ACUERDO_NOMs"
+  version       String // "2026-01-01" o "post-reforma-29dic2025" o "v4.7"
   publishDate   DateTime
   effectiveDate DateTime
   expiryDate    DateTime?
-  contentHash   String    // SHA-256 del contenido normativo
-  source        String?   // URL del DOF / referencia oficial
+  contentHash   String // SHA-256 del contenido normativo
+  source        String? // URL del DOF / referencia oficial
   notes         String?
   active        Boolean   @default(true)
   createdAt     DateTime  @default(now())
@@ -2175,36 +2175,36 @@ model VersionSnapshot {
 }
 
 model ClassificationConsult {
-  id               String   @id @default(cuid())
-  classificationId String?  // referencia opcional al Classification.id
-  tenantId         String?  // para reportes por tenant
+  id               String  @id @default(cuid())
+  classificationId String? // referencia opcional al Classification.id
+  tenantId         String? // para reportes por tenant
   userId           String?
 
-  inputHash         String  // SHA-256 de los inputs canonicalizados
-  inputs            Json    // descripción, contexto, país, valor, sector, etc.
+  inputHash String // SHA-256 de los inputs canonicalizados
+  inputs    Json // descripción, contexto, país, valor, sector, etc.
 
-  outputHash        String  // SHA-256 del JSON de resultado
-  outputs           Json    // resultado completo del clasificador
+  outputHash String // SHA-256 del JSON de resultado
+  outputs    Json // resultado completo del clasificador
 
   // Versiones consultadas en el momento
-  tigieVersion      String
-  ligieVersion      String
-  rgceVersion       String?
+  tigieVersion       String
+  ligieVersion       String
+  rgceVersion        String?
   acuerdoNomsVersion String?
-  tmecVersion       String?
+  tmecVersion        String?
 
   // Knowledge base que entró al prompt
-  knowledgeBaseHash String  // SHA-256 de IDs+contenido de KB usado
-  knowledgeUsed     Json    // [{ id, title, type, fractionCode? }]
+  knowledgeBaseHash String // SHA-256 de IDs+contenido de KB usado
+  knowledgeUsed     Json // [{ id, title, type, fractionCode? }]
 
   // Modelo IA
-  modelUsed         String  // "claude-sonnet-4-20250514" | "gemini-2.0-flash-exp" | ...
-  modelProvider     String  // "anthropic" | "gemini"
+  modelUsed     String // "claude-sonnet-4-20250514" | "gemini-2.0-flash-exp" | ...
+  modelProvider String // "anthropic" | "gemini"
 
   // Hash combinado para verificación pública
-  consultHash       String  @unique  // SHA-256 final
+  consultHash String @unique // SHA-256 final
 
-  consultedAt       DateTime @default(now())
+  consultedAt DateTime @default(now())
 
   @@index([classificationId])
   @@index([tenantId])
@@ -2219,18 +2219,18 @@ model ClassificationConsult {
 // ============================================
 
 model NOMException {
-  id             String   @id @default(cuid())
-  nomCode        String?  // "NOM-008-SCFI-2002"; null = aplica a cualquier NOM (excepción genérica)
-  nomScope       String?  // "ALL" | "INFO" (NOM informativa) | "SEG" (NOM seguridad) — para reglas amplias
-  exceptionCode  String   // "Anexo 2.4.1 fracción II"
-  fraction       String   // "I", "II", "III"... — número de fracción del anexo
-  description    String
-  conditions     Json     // { immex?: bool, samples?: bool, industrial?: bool, automotive?: bool, etc. }
-  requiredDoc    String?  // "Carta de No Comercialización" | "Pedimento IMMEX" | "Carta industrial"
-  legalBasis     String?  // referencia legal — Acuerdo de NOMs, fecha DOF
-  active         Boolean  @default(true)
-  createdAt      DateTime @default(now())
-  updatedAt      DateTime @updatedAt
+  id            String   @id @default(cuid())
+  nomCode       String? // "NOM-008-SCFI-2002"; null = aplica a cualquier NOM (excepción genérica)
+  nomScope      String? // "ALL" | "INFO" (NOM informativa) | "SEG" (NOM seguridad) — para reglas amplias
+  exceptionCode String // "Anexo 2.4.1 fracción II"
+  fraction      String // "I", "II", "III"... — número de fracción del anexo
+  description   String
+  conditions    Json // { immex?: bool, samples?: bool, industrial?: bool, automotive?: bool, etc. }
+  requiredDoc   String? // "Carta de No Comercialización" | "Pedimento IMMEX" | "Carta industrial"
+  legalBasis    String? // referencia legal — Acuerdo de NOMs, fecha DOF
+  active        Boolean  @default(true)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
 
   @@index([nomCode])
   @@index([nomScope])
@@ -2243,32 +2243,32 @@ model NOMException {
 // ============================================
 
 model OriginRule {
-  id              String   @id @default(cuid())
-  fractionCode    String   // 8 dígitos sin puntos; o prefijo (capítulo/partida) con matchType=prefix
-  matchType       String   @default("exact") // "exact" | "prefix"
-  agreement       String   // "TMEC" | "TLCUEM" | "CPTPP" | "ALADI" | "AAP"
-  ruleType        String   // "wholly_obtained" | "tariff_shift" | "rvc" | "specific_process" | "combined"
+  id              String  @id @default(cuid())
+  fractionCode    String // 8 dígitos sin puntos; o prefijo (capítulo/partida) con matchType=prefix
+  matchType       String  @default("exact") // "exact" | "prefix"
+  agreement       String // "TMEC" | "TLCUEM" | "CPTPP" | "ALADI" | "AAP"
+  ruleType        String // "wholly_obtained" | "tariff_shift" | "rvc" | "specific_process" | "combined"
   description     String
-  rvcRequired     Float?   // % requerido si aplica RVC
-  rvcMethod       String?  // "transaction_value" | "net_cost" | "either" | "build_up" | "build_down"
-  tariffShift     String?  // descripción del cambio (ej. "cambio a partida 8703 desde cualquier otro capítulo")
-  tariffShiftCode String?  // "CC" (cambio capítulo) | "CTH" (cambio partida) | "CTSH" (cambio subpartida)
-  specificProcess String?  // proceso productivo requerido (ej. "fundido y vaciado en territorio")
-  annex           String?  // "4-B" automotriz, etc.
+  rvcRequired     Float? // % requerido si aplica RVC
+  rvcMethod       String? // "transaction_value" | "net_cost" | "either" | "build_up" | "build_down"
+  tariffShift     String? // descripción del cambio (ej. "cambio a partida 8703 desde cualquier otro capítulo")
+  tariffShiftCode String? // "CC" (cambio capítulo) | "CTH" (cambio partida) | "CTSH" (cambio subpartida)
+  specificProcess String? // proceso productivo requerido (ej. "fundido y vaciado en territorio")
+  annex           String? // "4-B" automotriz, etc.
 
   // Automotriz Anexo 4-B
-  isAutomotive          Boolean @default(false)
-  autoCategory          String? // "vehicle" | "core_part" | "principal_part" | "complementary_part"
-  laborValueContent     Float?  // % LVC requerido
-  steelAluminumPercent  Float?  // % acero/aluminio NA requerido
+  isAutomotive         Boolean @default(false)
+  autoCategory         String? // "vehicle" | "core_part" | "principal_part" | "complementary_part"
+  laborValueContent    Float? // % LVC requerido
+  steelAluminumPercent Float? // % acero/aluminio NA requerido
 
   // Textiles
   textileRule String? // "yarn_forward" | "fiber_forward" | "fabric_forward"
 
-  notes           String?
-  active          Boolean  @default(true)
-  createdAt       DateTime @default(now())
-  updatedAt       DateTime @updatedAt
+  notes     String?
+  active    Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   @@index([fractionCode, agreement])
   @@index([agreement])
@@ -2278,50 +2278,50 @@ model OriginRule {
 }
 
 model OriginAnalysis {
-  id           String  @id @default(cuid())
-  fractionCode String
-  agreement   String   // "TMEC", etc.
+  id                 String  @id @default(cuid())
+  fractionCode       String
+  agreement          String // "TMEC", etc.
   productDescription String?
 
   // Inputs declarados
-  productValue       Float
-  originatingValue   Float   // valor de materiales originarios
-  nonOriginatingValue Float
-  originatingMaterials    Json?  // [{ description, value, fraction, origin }]
+  productValue            Float
+  originatingValue        Float // valor de materiales originarios
+  nonOriginatingValue     Float
+  originatingMaterials    Json? // [{ description, value, fraction, origin }]
   nonOriginatingMaterials Json?
-  laborCost          Float?
-  highWageLaborCost  Float?  // pagado >$16 USD/hr (LVC)
-  overheadCost       Float?
-  profit             Float?
-  packagingCost      Float?
-  royalties          Float?
-  rvcMethod          String  @default("transaction_value")
+  laborCost               Float?
+  highWageLaborCost       Float? // pagado >$16 USD/hr (LVC)
+  overheadCost            Float?
+  profit                  Float?
+  packagingCost           Float?
+  royalties               Float?
+  rvcMethod               String @default("transaction_value")
 
   // Steel/Aluminum (automotriz)
-  totalSteelAluminumValue       Float?
+  totalSteelAluminumValue         Float?
   northAmericanSteelAluminumValue Float?
 
   // Resultados RVC por método
-  rvcCalculated      Float?  // legacy — método elegido
+  rvcCalculated       Float? // legacy — método elegido
   rvcTransactionValue Float?
-  rvcNetCost         Float?
-  rvcBuildUp         Float?
-  rvcBuildDown       Float?
+  rvcNetCost          Float?
+  rvcBuildUp          Float?
+  rvcBuildDown        Float?
 
   // Tariff shift
   tariffShiftCompliance Boolean?
   tariffShiftDetails    Json?
 
   // Automotriz checks
-  laborValueContentPct  Float?
-  lvcCompliance         Boolean?
-  steelAluminumNAPct    Float?
-  saCompliance          Boolean?
+  laborValueContentPct Float?
+  lvcCompliance        Boolean?
+  steelAluminumNAPct   Float?
+  saCompliance         Boolean?
 
   // Veredicto
   ruleApplied      String?
   qualifies        Boolean
-  qualifyingMethod String?  // "transaction_value" | "net_cost" | "build_up" | "build_down" | "wholly_obtained" | "tariff_shift" | "specific_process"
+  qualifyingMethod String? // "transaction_value" | "net_cost" | "build_up" | "build_down" | "wholly_obtained" | "tariff_shift" | "specific_process"
   reason           String
   reasons          String[]
   recommendations  Json?
@@ -2364,24 +2364,24 @@ model OriginCertificate {
   producerAddress String?
   producerTaxId   String?
 
-  originCountry       String  // "MX" | "US" | "CA"
-  preferenceCriterion String  // "A" | "B" | "C" | "D" | "E"
+  originCountry       String // "MX" | "US" | "CA"
+  preferenceCriterion String // "A" | "B" | "C" | "D" | "E"
 
   blanketPeriodFrom DateTime?
   blanketPeriodTo   DateTime?
 
-  signedDate    DateTime
-  signedBy      String
-  signedByRole  String
+  signedDate   DateTime
+  signedBy     String
+  signedByRole String
 
   originAnalysisId String?
   analysis         OriginAnalysis? @relation(fields: [originAnalysisId], references: [id])
 
-  status   String  @default("issued") // "draft" | "issued" | "active" | "expired" | "revoked"
-  pdfUrl   String?
+  status      String  @default("issued") // "draft" | "issued" | "active" | "expired" | "revoked"
+  pdfUrl      String?
   contentHash String?
 
-  tenantId String
+  tenantId  String
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
@@ -2397,32 +2397,32 @@ model OriginCertificate {
 // ──────────────────────────────────────────────────────────────────
 
 model SATPadron {
-  id              String @id @default(cuid())
+  id String @id @default(cuid())
 
-  type            String   // "general", "sectorial", "encargo_conferido"
-  sectorialCode   String?  // 1, 2, 3... según Anexo 10 RGCE
-  sectorialName   String?
+  type          String // "general", "sectorial", "encargo_conferido"
+  sectorialCode String? // 1, 2, 3... según Anexo 10 RGCE
+  sectorialName String?
 
-  fractionCodes   String[] @default([])
+  fractionCodes    String[] @default([])
   fractionPatterns String[] @default([])
 
-  description     String
-  legalBasis      String
-  authority       String   // "SAT-AGACE", "SAT", etc.
+  description String
+  legalBasis  String
+  authority   String // "SAT-AGACE", "SAT", etc.
 
-  requiresEFirma  Boolean @default(true)
-  estimatedDays   Int?
-  costMXN         Float?
-  validityMonths  Int     @default(12)
+  requiresEFirma Boolean @default(true)
+  estimatedDays  Int?
+  costMXN        Float?
+  validityMonths Int     @default(12)
 
   renewalRequired Boolean @default(true)
   renewalAdvance  Int     @default(30)
 
-  active          Boolean @default(true)
-  createdAt       DateTime @default(now())
-  updatedAt       DateTime @updatedAt
+  active    Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
-  tenantStatuses  TenantPadronStatus[]
+  tenantStatuses TenantPadronStatus[]
 
   @@index([type, sectorialCode])
   @@index([active])
@@ -2430,27 +2430,27 @@ model SATPadron {
 }
 
 model TenantPadronStatus {
-  id              String @id @default(cuid())
-  tenantId        String
-  padronId        String
-  padron          SATPadron @relation(fields: [padronId], references: [id], onDelete: Cascade)
+  id       String    @id @default(cuid())
+  tenantId String
+  padronId String
+  padron   SATPadron @relation(fields: [padronId], references: [id], onDelete: Cascade)
 
-  status          String   // "active", "suspended", "expired", "rejected", "in_process", "not_registered"
+  status String // "active", "suspended", "expired", "rejected", "in_process", "not_registered"
 
   registrationDate DateTime?
-  expirationDate  DateTime?
-  lastVerified    DateTime  @default(now())
+  expirationDate   DateTime?
+  lastVerified     DateTime  @default(now())
   nextVerification DateTime?
 
-  verifiedBy      String?  // "manual", "satApi", "self_declared"
-  evidence        String?  // URL/base64 de constancia
+  verifiedBy String? // "manual", "satApi", "self_declared"
+  evidence   String? // URL/base64 de constancia
 
-  notes           String?
-  rejectionReason String?
+  notes            String?
+  rejectionReason  String?
   suspensionReason String?
 
-  createdAt       DateTime @default(now())
-  updatedAt       DateTime @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   @@unique([tenantId, padronId])
   @@index([tenantId, status])
@@ -2463,24 +2463,24 @@ model TenantPadronStatus {
 // ──────────────────────────────────────────────────────────────────
 
 model TenantRole {
-  id              String @id @default(cuid())
-  tenantId        String
+  id       String @id @default(cuid())
+  tenantId String
 
-  code            String   // "TENANT_ADMIN", "CLASSIFIER", "VALIDATOR", "FINANCIAL", "AUDITOR", "VIEWER"
-  name            String
-  description     String?
+  code        String // "TENANT_ADMIN", "CLASSIFIER", "VALIDATOR", "FINANCIAL", "AUDITOR", "VIEWER"
+  name        String
+  description String?
 
-  isSystem        Boolean @default(false)
-  isCustom        Boolean @default(false)
+  isSystem Boolean @default(false)
+  isCustom Boolean @default(false)
 
-  permissions     Json
-  conflictsWith   String[] @default([])
+  permissions   Json
+  conflictsWith String[] @default([])
 
-  active          Boolean @default(true)
-  createdAt       DateTime @default(now())
-  updatedAt       DateTime @updatedAt
+  active    Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
-  userRoles       UserTenantRole[]
+  userRoles UserTenantRole[]
 
   @@unique([tenantId, code])
   @@index([tenantId, active])
@@ -2488,22 +2488,22 @@ model TenantRole {
 }
 
 model UserTenantRole {
-  id              String @id @default(cuid())
-  userId          String
-  tenantId        String
-  roleId          String
-  role            TenantRole @relation(fields: [roleId], references: [id], onDelete: Cascade)
+  id       String     @id @default(cuid())
+  userId   String
+  tenantId String
+  roleId   String
+  role     TenantRole @relation(fields: [roleId], references: [id], onDelete: Cascade)
 
   scopeRestrictions Json?
 
-  effectiveFrom   DateTime @default(now())
-  effectiveUntil  DateTime?
+  effectiveFrom  DateTime  @default(now())
+  effectiveUntil DateTime?
 
-  assignedBy      String
-  assignedAt      DateTime @default(now())
-  reason          String?
+  assignedBy String
+  assignedAt DateTime @default(now())
+  reason     String?
 
-  active          Boolean @default(true)
+  active Boolean @default(true)
 
   @@unique([userId, tenantId, roleId])
   @@index([userId, tenantId, active])
@@ -2512,20 +2512,20 @@ model UserTenantRole {
 }
 
 model PermissionAuditLog {
-  id              String @id @default(cuid())
-  tenantId        String
-  userId          String
+  id       String @id @default(cuid())
+  tenantId String
+  userId   String
 
-  action          String   // "ROLE_ASSIGNED", "ROLE_REMOVED", "PERMISSION_DENIED", "ROLE_CREATED", "ROLE_UPDATED"
+  action String // "ROLE_ASSIGNED", "ROLE_REMOVED", "PERMISSION_DENIED", "ROLE_CREATED", "ROLE_UPDATED"
 
-  targetUserId    String?
-  roleId          String?
+  targetUserId String?
+  roleId       String?
 
-  details         Json
-  ipAddress       String?
-  userAgent       String?
+  details   Json
+  ipAddress String?
+  userAgent String?
 
-  createdAt       DateTime @default(now())
+  createdAt DateTime @default(now())
 
   @@index([tenantId, createdAt])
   @@index([userId, createdAt])
@@ -2534,28 +2534,28 @@ model PermissionAuditLog {
 }
 
 model Invitation {
-  id                String    @id @default(cuid())
-  tenantId          String
-  email             String
-  name              String
+  id       String @id @default(cuid())
+  tenantId String
+  email    String
+  name     String
 
-  invitedBy         String
+  invitedBy String
 
   // Roles a asignar cuando el invitado acepte. Se guardan como códigos
   // para evitar dependencia de IDs específicos de tenant role records.
-  initialRoleCodes  String[]  @default([])
+  initialRoleCodes String[] @default([])
 
-  token             String    @unique
-  expiresAt         DateTime
+  token     String   @unique
+  expiresAt DateTime
 
   // PENDING | ACCEPTED | EXPIRED | CANCELED
-  status            String    @default("PENDING")
-  acceptedAt        DateTime?
-  acceptedUserId    String?
+  status         String    @default("PENDING")
+  acceptedAt     DateTime?
+  acceptedUserId String?
 
-  createdAt         DateTime  @default(now())
-  updatedAt         DateTime  @updatedAt
-  lastSentAt        DateTime?
+  createdAt  DateTime  @default(now())
+  updatedAt  DateTime  @updatedAt
+  lastSentAt DateTime?
 
   @@index([tenantId, status])
   @@index([token])
@@ -2568,11 +2568,11 @@ model Invitation {
 // ──────────────────────────────────────────────────────────────────
 
 model GlosaSimulation {
-  id              String @id @default(cuid())
-  tenantId        String
-  userId          String
+  id       String @id @default(cuid())
+  tenantId String
+  userId   String
 
-  pedimentoData   Json
+  pedimentoData Json
 
   fractionCode    String
   countryOrigin   String
@@ -2580,18 +2580,18 @@ model GlosaSimulation {
   customsCode     String
   regimenCode     String
 
-  valueUSD        Float
-  valueMXN        Float
-  weightKg        Float
-  units           Int?
-  unitMeasure     String?
+  valueUSD    Float
+  valueMXN    Float
+  weightKg    Float
+  units       Int?
+  unitMeasure String?
 
-  riskScore       Float
-  riskLevel       String
+  riskScore Float
+  riskLevel String
 
-  raProbability   Float
-  cotejoProb      Float
-  glosaProb       Float
+  raProbability Float
+  cotejoProb    Float
+  glosaProb     Float
 
   riskFlags       Json
   recommendations Json
@@ -2600,11 +2600,11 @@ model GlosaSimulation {
   yourHistory     Float?
 
   // Aprendizaje continuo: feedback del usuario sobre el resultado real
-  actualOutcome   String?  // "ra_yes", "ra_no", "documental", "free"
-  feedbackAt      DateTime?
-  feedbackNotes   String?
+  actualOutcome String? // "ra_yes", "ra_no", "documental", "free"
+  feedbackAt    DateTime?
+  feedbackNotes String?
 
-  createdAt       DateTime @default(now())
+  createdAt DateTime @default(now())
 
   @@index([tenantId, createdAt])
   @@index([fractionCode])
@@ -2613,25 +2613,25 @@ model GlosaSimulation {
 }
 
 model GlosaRiskRule {
-  id              String @id @default(cuid())
+  id String @id @default(cuid())
 
-  ruleCode        String @unique
-  category        String
+  ruleCode String @unique
+  category String
 
-  name            String
-  description     String
+  name        String
+  description String
 
-  detectionLogic  Json
+  detectionLogic Json
 
-  weight          Float
-  severity        String
+  weight   Float
+  severity String
 
-  recommendation  String
-  legalBasis      String?
+  recommendation String
+  legalBasis     String?
 
-  active          Boolean @default(true)
-  createdAt       DateTime @default(now())
-  updatedAt       DateTime @updatedAt
+  active    Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   @@index([category])
   @@index([active])
@@ -2639,21 +2639,64 @@ model GlosaRiskRule {
 }
 
 model PadronCheck {
-  id              String @id @default(cuid())
-  tenantId        String
-  fractionCode    String
+  id           String @id @default(cuid())
+  tenantId     String
+  fractionCode String
 
   requiredPadrones Json
-  canOperate      Boolean
+  canOperate       Boolean
   blockingPadrones Json
-  warningPadrones Json
+  warningPadrones  Json
 
-  context         String?  // "classify", "quote", "prevalidate"
-  resourceId      String?
+  context    String? // "classify", "quote", "prevalidate"
+  resourceId String?
 
-  checkedAt       DateTime @default(now())
+  checkedAt DateTime @default(now())
 
   @@index([tenantId, fractionCode])
   @@index([tenantId, checkedAt])
   @@map("padron_checks")
+}
+
+// ════════════════════════════════════════════════════════════════════
+// RISK SCORER — responsabilidad solidaria (docs/RISK_SCORER_DESIGN.md)
+// ════════════════════════════════════════════════════════════════════
+
+model RiskFactorWeight {
+  id        String   @id @default(cuid())
+  factor    String   @unique // 'VALOR'|'PERFIL'|'CUOTAS'|'PADRONES'|'TEMPORALES'|'CLASIFICACION'|'NOMS'|'DOCUMENTACION'
+  peso      Int
+  updatedAt DateTime @updatedAt
+  updatedBy String?
+
+  @@map("risk_factor_weights")
+}
+
+model RiskAssessment {
+  id            String   @id @default(cuid())
+  tenantId      String
+  userId        String
+  input         Json // snapshot de señales (verificadas + declaradas)
+  exposicion    Int // 0-100
+  escudoPct     Int // 0-100
+  banda         String // 'VERDE'|'AMARILLO'|'NARANJA'|'ROJO'|'ROJO_CRITICO'
+  detalle       Json // por regla: puntos, fundamento sellado, origen de señal
+  checklist     Json // estado del escudo por ítem
+  rulesVersion  String
+  pesosSnapshot Json
+  createdAt     DateTime @default(now())
+
+  @@index([tenantId, createdAt])
+  @@map("risk_assessments")
+}
+
+model Sat69B {
+  rfc         String    @id
+  razonSocial String
+  situacion   String // 'DEFINITIVO'|'PRESUNTO'|'DESVIRTUADO'|'SENTENCIA_FAVORABLE'
+  fechaOficio DateTime?
+  importedAt  DateTime
+
+  @@index([situacion])
+  @@map("sat_69b")
 }
