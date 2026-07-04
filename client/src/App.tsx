@@ -41,6 +41,7 @@ import { AdminTimestampsPage } from './pages/Admin/AdminTimestamps'
 import { AdminPadronesPage } from './pages/Admin/AdminPadrones'
 import { PadronesPage } from './pages/Settings/Padrones'
 import { GlosaSimulatorPage } from './pages/GlosaSimulator'
+import { RiskScorerPage } from './pages/RiskScorer'
 import { AdminGlosaPage } from './pages/Admin/AdminGlosa'
 import { AuditTrailPage } from './pages/AuditTrail'
 import { EmpresaPage } from './pages/Settings/Empresa'
@@ -374,6 +375,11 @@ export function App() {
       <Route path="/simulador-glosa" element={
         <RequireAuth token={token} user={user}>
           <AppLayout onLogout={handleLogout} userRole={user?.role} userName={user?.name} userEmail={user?.email} tenantName={user?.tenant?.name}><GlosaSimulatorPage /></AppLayout>
+        </RequireAuth>
+      } />
+      <Route path="/risk-scorer" element={
+        <RequireAuth token={token} user={user}>
+          <AppLayout onLogout={handleLogout} userRole={user?.role} userName={user?.name} userEmail={user?.email} tenantName={user?.tenant?.name}><RiskScorerPage /></AppLayout>
         </RequireAuth>
       } />
       <Route path="/audit" element={

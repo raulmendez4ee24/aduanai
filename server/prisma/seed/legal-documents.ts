@@ -398,13 +398,12 @@ export const LEGAL_DOCUMENTS: LegalDocSeed[] = [
   // subvaluación por precio estimado" que vive en 86-A-I y 151-VII). La fila
   // huérfana se desactiva en BD (patrón DEFERRED #14). OJO: "AGA 4/2024" (abajo)
   // también tiene referencia pendiente de cotejo — reportado, no tocado.
-  {
-    type: 'criterio_sat', source: 'AGA', title: 'Criterio AGA — Anexo 2.4.1 fracción II IMMEX',
-    reference: 'Criterio Normativo AGA 4/2024',
-    content: 'Procede la excepción del Anexo 2.4.1 fracción II cuando concurren: (1) programa IMMEX vigente, (2) mercancía será incorporada a proceso productivo, (3) NO comercializada al consumidor final tal cual, (4) Carta de No Comercialización presentada. NO aplica a NOMs de seguridad esencial.',
-    officialUrl: 'https://www.sat.gob.mx/criterios',
-    topics: ['noms', 'inmex'], keywords: ['Anexo 2.4.1', 'IMMEX', 'fracción II', 'No Comercialización'],
-  },
+  // ELIMINADO 2026-07-04: "Criterio Normativo AGA 4/2024 — Anexo 2.4.1 fracción II
+  // IMMEX". Referencia NO cotejable contra fuente oficial (mismo tratamiento que
+  // AGA 7/2024). Fila huérfana desactivada en BD (DEFERRED #16).
+  // OJO: "AGCE 5/2024" (abajo) también es referencia pendiente de cotejo Y su
+  // contenido dice "8517.13" cuando el catálogo TIGIE vigente clasifica
+  // smartphones en 85171401 — reportado, NO tocado (fuera del alcance aprobado).
   {
     type: 'criterio_sat', source: 'AGCE', title: 'Criterio AGCE — Smartphones clasificación 8517.13',
     reference: 'Criterio Normativo AGCE 5/2024',

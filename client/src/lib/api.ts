@@ -343,6 +343,10 @@ export const api = {
   catalogsAnexo22: () =>
     request<{ status: string; data: Anexo22Catalogs }>('/catalogs/anexo22'),
 
+  // Risk Scorer — responsabilidad solidaria (motor determinista)
+  riskAssess: (input: RiskAssessInput) =>
+    request<{ status: string; data: RiskAssessResult }>('/risk/assess', { method: 'POST', body: JSON.stringify(input) }),
+
   // Glosa Simulator
   glosaSimulate: (input: GlosaSimulationInput) =>
     request<{ status: string; data: GlosaSimulationResult }>('/glosa/simulate', { method: 'POST', body: JSON.stringify(input) }),
@@ -1584,6 +1588,26 @@ export interface HealthStatus {
     anthropic_api: { ok: boolean; error?: string };
     resend_email: { ok: boolean; error?: string };
   };
+}
+
+// ── Risk Scorer (responsabilidad solidaria) ──
+export interface RiskFundamento { articulo: string; citaCorta: string; fuente: string; url: string; fechaCotejo: string }
+export interface RiskRegla { id: string; factor: string; descripcion: string; puntos: number; maxPuntos: number; bandera?: string; origenSenal: string; fundamento: RiskFundamento }
+export interface RiskFactor { factor: string; puntos: number; peso: number; reglas: RiskRegla[] }
+export interface RiskChecklistItem { id: string; grupo: string; descripcion: string; aplicable: boolean; completo: boolean; origenSenal: string; accionSugerida: string; fundamento: RiskFundamento }
+export interface RiskAssessInput {
+  tipoSujeto: 'agente' | 'agencia';
+  operacion: {
+    fraccion?: string; nico?: string; valorUnitario?: number; paisOrigen?: string;
+    paisProcedencia?: string; numeroPedimento?: string; importadorRfc?: string;
+    preferenciaArancelaria?: boolean;
+  };
+  declarado: Record<string, unknown>;
+}
+export interface RiskAssessResult {
+  exposicion: number; escudoPct: number; banda: string; banderas: string[];
+  factores: RiskFactor[]; checklist: RiskChecklistItem[]; faltantes: string[];
+  rulesVersion: string; disclaimer: string; assessmentId: string;
 }
 
 export interface GlosaSimulationInput {

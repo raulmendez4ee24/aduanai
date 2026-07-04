@@ -6,7 +6,7 @@ import {
   Truck, Megaphone, LineChart, Warehouse, Globe, Package,
   HelpCircle, MessageCircle, Users, Rocket, Building2, TrendingUp, RotateCcw,
   Shield, BookOpen, Database, Sparkles, BadgeCheck, Briefcase, AlertTriangle,
-  Anchor, UserCircle2, LogOut, Target
+  Anchor, UserCircle2, LogOut, Target, Scale
 } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
 import { api } from '../lib/api'
@@ -78,6 +78,7 @@ const USER_NAV_GROUPS: NavGroup[] = [
       { label: 'Auto MVE', path: '/mve', icon: FileText },
       { label: 'Origen TMEC', path: '/origen-tmec', icon: Globe },
       { label: 'Simulador de Glosa', path: '/simulador-glosa', icon: Target },
+      { label: 'Risk Scorer', path: '/risk-scorer', icon: Scale },
       { label: 'Expedientes IA', path: '/expediente-ia', icon: Sparkles },
       { label: 'Copilot', path: '/copilot', icon: Bot },
     ],

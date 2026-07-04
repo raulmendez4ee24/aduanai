@@ -301,6 +301,30 @@ misma cita.
 
 ---
 
+## 16) Criterios SAT sintéticos en el corpus — pendientes de cotejo real
+
+"Criterio Normativo AGA 7/2024" (desactivado 2026-07-04, atribución incorrecta
+al Art. 78 LA) y "Criterio Normativo AGA 4/2024" (desactivado 2026-07-04, misma
+razón: referencia no localizable en fuente oficial) fueron retirados del seed y
+sus filas huérfanas desactivadas (isActive=false) en LOCAL y PROD. Queda VIVO
+"Criterio Normativo AGCE 5/2024" (smartphones): referencia igualmente no
+cotejable Y contenido que contradice el catálogo vigente (dice "8517.13";
+TIGIE 2026 clasifica smartphones en 8517.14.01) — candidato al mismo
+tratamiento, pendiente de aprobación. Si algún criterio resulta REAL en el
+cotejo, se restaura con su texto verbatim y URL oficial.
+
+## 17) Cuota activa sobre fracción INEXISTENTE en catálogo (73181505)
+
+AntidumpingDuty tiene una cuota ACTIVA (73181505, CN, 2.07 USD/kg) cuya
+fracción NO existe en el catálogo de 8,256 (verificado 2026-07-04 durante la
+paridad del Risk Scorer). NO se tocó (regla vigente: tabla intocable hasta la
+lista UPCI 2026). Evidencia adicional de que la tabla necesita RECONSTRUCCIÓN
+completa con la lista oficial de la UPCI — no parches. El Risk Scorer solo
+evalúa cuotas de fracciones válidas, así que esta fila es invisible para el
+scoring (falla silenciosa del dato, no del producto).
+
+---
+
 ## Notas de proceso
 
 - Eval de retrieval y snapshot de `reseed-upci` se acordaron diferir
