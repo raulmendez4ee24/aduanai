@@ -104,11 +104,15 @@ export const LEGAL_DOCUMENTS: LegalDocSeed[] = [
     topics: ['valoracion', 'vinculacion'], keywords: ['vinculación', 'comprador', 'vendedor', 'precios transferencia', 'matriz', 'subsidiaria'],
   },
   {
-    type: 'ley', source: 'Ley_Aduanera', title: 'Ley Aduanera — Rechazo del valor de transacción',
+    // COTEJADO VERBATIM 2026-07-04 contra LA consolidada (Última Reforma DOF
+    // 19-11-2025, diputados LeyesBiblio). El texto anterior de este doc tenía
+    // fracciones I-IV FABRICADAS (el 78 no tiene fracciones) y atribuía al 78
+    // la presunción por precio estimado, que vive en 86-A-I y 151-VII.
+    type: 'ley', source: 'Ley_Aduanera', title: 'Ley Aduanera — Determinación flexible y rechazo del valor declarado',
     reference: 'Art. 78 LA',
-    content: 'La autoridad aduanera podrá rechazar el valor de transacción cuando: I. No exista venta para la exportación; II. No se demuestre el precio efectivamente pagado; III. Se trate de operaciones entre vinculados y no se acredite la independencia del precio; IV. El precio declarado sea significativamente inferior al precio estimado publicado conforme al Art. 84-A. En tal caso, se determinará el valor por los métodos sucesivos de los Arts. 72-77 (mercancías idénticas, similares, deductivo, reconstruido, último recurso).',
-    officialUrl: `${DOF}/nota_detalle.php?codigo=LA`, effectiveDate: '2026-01-01',
-    topics: ['valoracion', 'subvaluacion'], keywords: ['rechazo', 'valor', 'subvaluación', 'precio estimado', 'métodos secundarios'],
+    content: 'El Art. 78 LA regula la determinación FLEXIBLE del valor y el RECHAZO del valor declarado con documentación falsa — NO establece presunción de subvaluación por precio estimado (esa mecánica vive en los Arts. 86-A-I y 151-VII). Texto vigente: "Cuando el valor de las mercancías importadas no pueda determinarse con arreglo a los métodos a que se refieren los Artículos 64 y 71, fracciones I, II, III y IV, de esta Ley, dicho valor se determinará aplicando los métodos señalados en dichos artículos, en orden sucesivo y por exclusión, con mayor flexibilidad, o conforme a criterios razonables y compatibles con los principios y disposiciones legales, sobre la base de los datos disponibles en territorio nacional o la documentación comprobatoria de las operaciones realizadas en territorio extranjero. Cuando la documentación comprobatoria del valor sea falsa o esté alterada o tratándose de mercancías usadas, la autoridad aduanera podrá rechazar el valor declarado y determinar el valor comercial de la mercancía con base en la cotización y avalúo que practique la autoridad aduanera." (Tercer párrafo: base gravable especial para vehículos usados: valor de vehículo nuevo equivalente menos 30% el primer año y 10% por año subsecuente, tope 80%.) DÓNDE SÍ vive la mecánica del precio estimado: Art. 86-A fracción I LA — obligación de GARANTIZAR mediante depósito en cuenta aduanera de garantía "quienes efectúen la importación definitiva de mercancías y declaren en el pedimento un valor inferior al precio estimado que dé a conocer la Secretaría, por las contribuciones y cuotas compensatorias que correspondan a la diferencia entre el valor declarado y el precio estimado"; y Art. 151-VII LA — EMBARGO precautorio cuando el valor declarado sea inferior en un 50% o más al valor de transacción de mercancías idénticas o similares (Arts. 72-73), salvo que se haya otorgado la garantía del 86-A.',
+    officialUrl: 'https://www.diputados.gob.mx/LeyesBiblio/pdf/LAdua.pdf', effectiveDate: '2026-01-01',
+    topics: ['valoracion', 'subvaluacion'], keywords: ['rechazo', 'valor', 'subvaluación', 'precio estimado', 'métodos flexibles', 'garantía', 'cuenta aduanera', 'embargo'],
   },
   {
     type: 'ley', source: 'Ley_Aduanera', title: 'Ley Aduanera — Precios estimados y garantía',
@@ -388,13 +392,12 @@ export const LEGAL_DOCUMENTS: LegalDocSeed[] = [
   // ════════════════════════════════════════════════════════════════════
   // CRITERIOS SAT
   // ════════════════════════════════════════════════════════════════════
-  {
-    type: 'criterio_sat', source: 'AGA', title: 'Criterio AGA — Carga probatoria del valor en aduana',
-    reference: 'Criterio Normativo AGA 7/2024',
-    content: 'Cuando exista diferencia significativa entre el valor declarado y el precio estimado del Anexo 2 RGCE, opera presunción de subvaluación (Art. 78 LA). El importador puede desvirtuar con: factura comercial original, contrato de compraventa con cláusulas verificables, transferencias bancarias internacionales, comparables de operaciones idénticas/similares.',
-    officialUrl: 'https://www.sat.gob.mx/criterios', publishedDate: '2024-04-15',
-    topics: ['valoracion', 'subvaluacion'], keywords: ['carga probatoria', 'precio estimado', 'subvaluación', 'Anexo 2'],
-  },
+  // ELIMINADO 2026-07-04: "Criterio Normativo AGA 7/2024 — Carga probatoria del
+  // valor en aduana". Referencia NO cotejable contra fuente oficial y contenido
+  // con atribución legal incorrecta (imputaba al Art. 78 LA una "presunción de
+  // subvaluación por precio estimado" que vive en 86-A-I y 151-VII). La fila
+  // huérfana se desactiva en BD (patrón DEFERRED #14). OJO: "AGA 4/2024" (abajo)
+  // también tiene referencia pendiente de cotejo — reportado, no tocado.
   {
     type: 'criterio_sat', source: 'AGA', title: 'Criterio AGA — Anexo 2.4.1 fracción II IMMEX',
     reference: 'Criterio Normativo AGA 4/2024',
