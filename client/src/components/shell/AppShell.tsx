@@ -173,7 +173,7 @@ export function AppShell({ onLogout, userRole, userName, userEmail, tenantName }
     <ShellActionsContext.Provider value={ctxAcciones}>
       <div className="min-h-screen bg-papel text-tinta font-sello-ui">
         {/* Sidebar fija (≥1024px) */}
-        <aside className="hidden lg:flex fixed inset-y-0 left-0 w-64 bg-papel-2 border-r border-linea flex-col z-30">
+        <aside className="hidden lg:flex print:lg:hidden fixed inset-y-0 left-0 w-64 bg-papel-2 border-r border-linea flex-col z-30">
           {sidebar}
         </aside>
 
@@ -196,9 +196,9 @@ export function AppShell({ onLogout, userRole, userName, userEmail, tenantName }
         )}
 
         {/* Contenido */}
-        <div className="lg:pl-64 flex flex-col min-h-screen">
+        <div className="lg:pl-64 print:lg:pl-0 flex flex-col min-h-screen">
           {/* Topbar */}
-          <header className="sticky top-0 z-20 bg-papel/95 border-b border-linea">
+          <header className="sticky top-0 z-20 bg-papel/95 border-b border-linea print:hidden">
             <div className="flex items-center gap-3 px-4 lg:px-8 h-14">
               <button
                 type="button"
