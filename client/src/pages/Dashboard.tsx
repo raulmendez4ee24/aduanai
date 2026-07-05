@@ -1,331 +1,313 @@
-import { useState, useEffect } from 'react'
+/**
+ * SELLO · Inicio v2 (docs/DESIGN_SYSTEM.md) — la pantalla responde en 5s:
+ * "¿hay algo hoy que me pueda meter en problemas?"
+ *
+ * Datos REALES: stats (clasificaciones), alerts (activas), operationsList
+ * (operaciones del mes + tabla), legalLibraryList (% corpus verificado,
+ * computado de officialUrl/publishedDate por doc).
+ * MOCK señalizado: panel "Regulatorio hoy" detrás de MOCK_WATCHDOG (el
+ * backend del watchdog DOF aún no existe — ver TODO).
+ */
+import { useEffect, useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
+import { FileSearch, FolderOpen, Radar, ArrowRight } from 'lucide-react'
+import { api, type Alert, type OperationRecord, type LegalDocSummary } from '../lib/api'
 import {
-  Package, TrendingUp, Bot, AlertTriangle, Eye, Clock,
-  CheckCircle2, Circle, ArrowUpRight, Boxes, FileText,
-  Warehouse, BarChart3
-} from 'lucide-react'
-import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from 'recharts'
-import { api } from '../lib/api'
-import type { StatsData, VolumeDay, Alert, ClassificationRecord, InventoryBalance, InventoryStats } from '../lib/api'
-import { formatFraction } from '../lib/format'
-import { ROIBanner } from '../components/ROIBanner'
-import { ComplianceGauge } from '../components/ComplianceGauge'
+  Button, Card, Badge, DataTable, EmptyState, SelloVerificacion, formatFechaSello,
+  type Columna,
+} from '../components/ui'
 
-const GLASS = 'bg-white/70 backdrop-blur-xl border border-white/50 shadow-[0_8px_30px_rgb(0,0,0,0.04)]'
+// ════════════════════════════════════════════════════════════════════════
+// Watchdog regulatorio — TODO(watchdog): reemplazar el mock por el endpoint
+// real cuando exista el backend del feed DOF (no existe según
+// docs/AUDIT_FRONTEND.md §5). La UI ya consume el tipo final.
+// ════════════════════════════════════════════════════════════════════════
+const MOCK_WATCHDOG = true
 
-function Skeleton({ className = '' }: { className?: string }) {
-  return <div className={`animate-pulse bg-slate-200/60 rounded-xl ${className}`} />
+export interface AlertaRegulatoria {
+  id: string
+  titulo: string
+  fuenteNombre: string       // "DOF"
+  fuenteUrl: string
+  fechaPublicacion: string   // ISO
+  fechaVerificacion?: string // ISO — cuándo la cotejamos nosotros
+  metodo?: 'manual' | 'scraper'
+  /** Fracciones del tenant afectadas por el cambio (0 = informativo). */
+  fraccionesAfectadas: number
 }
 
-function timeAgo(date: string) {
-  const diff = Date.now() - new Date(date).getTime()
-  const mins = Math.floor(diff / 60000)
-  if (mins < 1) return 'Ahora'
-  if (mins < 60) return `Hace ${mins}m`
-  const hrs = Math.floor(mins / 60)
-  if (hrs < 24) return `Hace ${hrs}h`
-  return `Hace ${Math.floor(hrs / 24)}d`
+// Eventos DOF REALES (cotejados en fases previas del producto) usados como
+// datos de ejemplo mientras no exista el watchdog. Señalizados en la UI.
+const ALERTAS_MOCK: AlertaRegulatoria[] = [
+  {
+    id: 'mock-1',
+    titulo: 'Decreto que modifica aranceles de la TIGIE en sectores estratégicos (acero, textil, calzado)',
+    fuenteNombre: 'DOF',
+    fuenteUrl: 'https://www.dof.gob.mx/nota_detalle.php?codigo=5777376&fecha=29/12/2025',
+    fechaPublicacion: '2025-12-29',
+    fechaVerificacion: '2026-07-04',
+    metodo: 'manual',
+    fraccionesAfectadas: 3,
+  },
+  {
+    id: 'mock-2',
+    titulo: 'Reforma al Reglamento de la Ley Aduanera: expedientes con control interno documentado (81-A)',
+    fuenteNombre: 'DOF',
+    fuenteUrl: 'https://www.dof.gob.mx/nota_detalle.php?codigo=5780677&fecha=23/02/2026',
+    fechaPublicacion: '2026-02-23',
+    fechaVerificacion: '2026-07-04',
+    metodo: 'manual',
+    fraccionesAfectadas: 0,
+  },
+  {
+    id: 'mock-3',
+    titulo: 'Anexo 10 RGCE 2026: padrones de sectores específicos re-publicados',
+    fuenteNombre: 'DOF',
+    fuenteUrl: 'https://www.dof.gob.mx/nota_detalle.php?codigo=5778300&fecha=15/01/2026',
+    fechaPublicacion: '2026-01-14',
+    fechaVerificacion: '2026-07-03',
+    metodo: 'manual',
+    fraccionesAfectadas: 1,
+  },
+  {
+    id: 'mock-4',
+    titulo: 'SAT actualiza el listado definitivo del Art. 69-B CFF (operaciones inexistentes)',
+    fuenteNombre: 'SAT',
+    fuenteUrl: 'http://omawww.sat.gob.mx/cifras_sat/Paginas/datos/vinculo.html?page=ListCompleta69B.html',
+    fechaPublicacion: '2025-12-31',
+    fechaVerificacion: '2026-07-04',
+    metodo: 'scraper',
+    fraccionesAfectadas: 0,
+  },
+]
+
+// ── Estado de la operación (Badge por status) ─────────────────────────────
+const ESTADO_OPERACION: Record<string, { label: string; tono: 'neutral' | 'petroleo' | 'ambar' | 'carmin' }> = {
+  draft: { label: 'Borrador', tono: 'neutral' },
+  in_progress: { label: 'En proceso', tono: 'petroleo' },
+  complete: { label: 'Completo', tono: 'petroleo' },
+  completed: { label: 'Completo', tono: 'petroleo' },
+  pending: { label: 'Pendiente', tono: 'ambar' },
+  blocked: { label: 'Bloqueado', tono: 'carmin' },
 }
 
-function EmptyState({ message, cta, onCta }: { message: string; cta?: string; onCta?: () => void }) {
-  return (
-    <div className="flex flex-col items-center justify-center py-8 text-center">
-      <Boxes className="w-8 h-8 text-slate-300 mb-2" />
-      <p className="text-[12px] text-slate-400 mt-2">{message}</p>
-      {cta && onCta && (
-        <button onClick={onCta} className="mt-3 text-[11px] font-medium text-emerald-500 hover:text-emerald-600 bg-emerald-50 px-4 py-1.5 rounded-full transition-colors">
-          {cta}
-        </button>
-      )}
-    </div>
-  )
+function saludoPorHora(): string {
+  const h = new Date().getHours()
+  if (h < 12) return 'Buenos días'
+  if (h < 19) return 'Buenas tardes'
+  return 'Buenas noches'
+}
+
+// ── Skeleton (papel-2 pulsando; misma altura que el contenido: sin layout shift)
+function SkeletonBloque({ className = '' }: { className?: string }) {
+  return <div className={`bg-papel-2 rounded-sello-sm animate-pulse ${className}`} aria-hidden />
 }
 
 export function DashboardPage() {
   const navigate = useNavigate()
-  const [stats, setStats] = useState<StatsData | null>(null)
-  const [volume, setVolume] = useState<VolumeDay[] | null>(null)
-  const [alerts, setAlerts] = useState<Alert[] | null>(null)
-  const [unreadAlerts, setUnreadAlerts] = useState(0)
-  const [recentClassifications, setRecentClassifications] = useState<ClassificationRecord[] | null>(null)
-  const [invStats, setInvStats] = useState<InventoryStats | null>(null)
-  const [invBalances, setInvBalances] = useState<InventoryBalance[] | null>(null)
-  const [loading, setLoading] = useState(true)
+  const [cargando, setCargando] = useState(true)
+  const [clasificaciones, setClasificaciones] = useState<number | null>(null)
+  const [alertasActivas, setAlertasActivas] = useState<number | null>(null)
+  const [operaciones, setOperaciones] = useState<OperationRecord[]>([])
+  const [corpus, setCorpus] = useState<LegalDocSummary[]>([])
 
   useEffect(() => {
-    async function load() {
-      setLoading(true)
-      const results = await Promise.allSettled([
-        api.stats(),
-        api.statsVolume(30),
-        api.alerts(),
-        api.alertsUnreadCount(),
-        api.classifyHistory(undefined, 1),
-        api.inventoryStats(),
-        api.inventoryBalances(),
-      ])
-      if (results[0]?.status === 'fulfilled') setStats(results[0].value.data)
-      if (results[1]?.status === 'fulfilled') setVolume(results[1].value.data)
-      if (results[2]?.status === 'fulfilled') setAlerts(results[2].value.data.slice(0, 5))
-      if (results[3]?.status === 'fulfilled') setUnreadAlerts(results[3].value.data.count)
-      if (results[4]?.status === 'fulfilled') setRecentClassifications(results[4].value.data.slice(0, 5))
-      if (results[5]?.status === 'fulfilled') setInvStats(results[5].value.data)
-      if (results[6]?.status === 'fulfilled') setInvBalances(results[6].value.data.slice(0, 5))
-      setLoading(false)
-    }
-    load()
+    let vivo = true
+    Promise.allSettled([
+      api.stats(),
+      api.alerts(),
+      api.operationsList(),
+      api.legalLibraryList(),
+    ]).then(([st, al, op, co]) => {
+      if (!vivo) return
+      if (st.status === 'fulfilled') setClasificaciones(st.value.data.counts.classifications)
+      if (al.status === 'fulfilled') setAlertasActivas((al.value.data as Alert[]).filter(a => !a.read).length)
+      if (op.status === 'fulfilled') setOperaciones(op.value.data as OperationRecord[])
+      if (co.status === 'fulfilled') setCorpus(co.value.data as LegalDocSummary[])
+      setCargando(false)
+    })
+    return () => { vivo = false }
   }, [])
 
-  const lastClassification = recentClassifications?.[0] ?? null
+  const hoy = new Date()
+  const fechaLarga = hoy.toLocaleDateString('es-MX', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })
+
+  const opsDelMes = useMemo(() => {
+    const inicioMes = new Date(new Date().getFullYear(), new Date().getMonth(), 1).getTime()
+    return operaciones.filter(o => new Date(o.operationDate ?? o.createdAt).getTime() >= inicioMes).length
+  }, [operaciones])
+
+  // % del corpus verificado contra fuente oficial — REAL, computado por doc:
+  // un doc cuenta como verificado si trae officialUrl Y publishedDate.
+  const corpusPct = useMemo(() => {
+    if (corpus.length === 0) return null
+    const verificados = corpus.filter(d => d.officialUrl && d.publishedDate).length
+    return Math.round((verificados / corpus.length) * 100)
+  }, [corpus])
+
+  const opsRecientes = useMemo(
+    () => [...operaciones]
+      .sort((a, b) => new Date(b.operationDate ?? b.createdAt).getTime() - new Date(a.operationDate ?? a.createdAt).getTime())
+      .slice(0, 8),
+    [operaciones],
+  )
+
+  const columnas: Columna<OperationRecord>[] = [
+    { key: 'fecha', header: 'Fecha', mono: true, render: o => formatFechaSello(o.operationDate ?? o.createdAt) ?? '—' },
+    { key: 'producto', header: 'Producto / referencia', render: o => (
+      <span className="text-tinta">{o.description || o.reference}</span>
+    ) },
+    { key: 'fraccion', header: 'Fracción', mono: true, render: o => o.fractionCode ?? '—' },
+    { key: 'estado', header: 'Estado', render: o => {
+      const e = ESTADO_OPERACION[o.status] ?? { label: o.status, tono: 'neutral' as const }
+      return <Badge tono={e.tono}>{e.label}</Badge>
+    } },
+    { key: 'riesgo', header: 'Riesgo pre-glosa', render: () => (
+      // La operación aún no guarda vínculo con reportes pre-glosa (sin dato ≠ sin riesgo)
+      <span className="text-tinta-suave" title="Sin reporte pre-glosa vinculado a esta operación">—</span>
+    ) },
+    { key: 'accion', header: '', align: 'right', render: o => (
+      <button
+        type="button"
+        onClick={() => navigate(`/expediente?ref=${encodeURIComponent(o.reference)}`)}
+        className="inline-flex items-center gap-1 text-sm text-petroleo hover:underline underline-offset-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-petroleo rounded-sello-sm"
+      >
+        Abrir expediente <ArrowRight className="w-3.5 h-3.5" strokeWidth={1.5} aria-hidden />
+      </button>
+    ) },
+  ]
 
   return (
-    <div className="space-y-4">
-
-      {/* ROI banner — valor entregado mes a la fecha */}
-      <ROIBanner days={30} />
-
-      {/* Grid principal con Compliance Gauge prominente */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3 md:gap-4 auto-rows-min">
-
-      {/* Compliance Score */}
-      <div className="lg:col-span-2 lg:row-span-2">
-        <ComplianceGauge />
-      </div>
-
-      {/* ── W1: Centro de Control ── */}
-      <div className={`${GLASS} rounded-[2rem] p-6`}>
-        <div className="flex items-center justify-between mb-5">
-          <h3 className="text-[14px] font-bold text-slate-900">Centro de Control</h3>
-          <span className="text-[10px] font-medium text-slate-400 bg-white/60 px-2.5 py-1 rounded-full">Hoy</span>
+    <div className="max-w-6xl mx-auto space-y-6">
+      {/* 1 · Saludo + fecha (discretos) + 5 · acciones rápidas */}
+      <div className="flex flex-wrap items-end justify-between gap-4">
+        <div>
+          <p className="text-sm text-tinta-suave">{saludoPorHora()}</p>
+          <p className="text-13 text-tinta-suave font-sello-mono">{fechaLarga}</p>
         </div>
-        {loading ? (
-          <div className="space-y-4"><Skeleton className="h-16" /><Skeleton className="h-16" /><Skeleton className="h-16" /></div>
-        ) : stats ? (
-          <div className="divide-y divide-slate-200/50">
-            {[
-              { icon: Package, label: 'Clasificaciones IA', value: stats.counts.classifications.toLocaleString() },
-              { icon: TrendingUp, label: 'Cotizaciones', value: stats.counts.quotes.toLocaleString() },
-              { icon: Bot, label: 'Consultas Copilot', value: stats.counts.copilotMessages.toLocaleString() },
-            ].map((m, i) => (
-              <div key={i} className="flex items-center gap-3 py-4 first:pt-0 last:pb-0">
-                <div className="w-10 h-10 bg-white rounded-xl flex items-center justify-center shadow-sm shrink-0">
-                  <m.icon className="w-4 h-4 text-slate-600" />
-                </div>
-                <div className="flex-1 min-w-0">
-                  <p className="text-[11px] text-slate-500">{m.label}</p>
-                  <p className="text-[20px] font-bold text-slate-900 leading-tight">{m.value}</p>
-                </div>
-                <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full text-emerald-600 bg-emerald-50 flex items-center gap-0.5">
-                  <ArrowUpRight className="w-2.5 h-2.5" />
-                </span>
-              </div>
-            ))}
-          </div>
-        ) : <EmptyState message="No hay datos disponibles" />}
-      </div>
-
-      {/* ── W2: Última Clasificación ── */}
-      <div className={`${GLASS} rounded-[2rem] p-6`}>
-        <div className="flex items-center justify-between mb-4">
-          <h3 className="text-[14px] font-bold text-slate-900">Última Clasificación</h3>
-          <button onClick={() => navigate('/historial')} className="text-[10px] font-medium text-emerald-500 hover:text-emerald-600">Ver todas →</button>
-        </div>
-        {loading ? (
-          <div className="space-y-3"><Skeleton className="h-10" /><Skeleton className="h-6" /><Skeleton className="h-4 w-3/4" /></div>
-        ) : lastClassification ? (
-          <>
-            <p className="font-mono text-[28px] font-bold text-slate-900 tracking-tight">{formatFraction(lastClassification.fractionCode)}</p>
-            <p className="text-[12px] text-slate-500 mt-1 line-clamp-2">{lastClassification.inputDescription}</p>
-            <div className="mt-5">
-              <div className="flex justify-between text-[11px] mb-1.5">
-                <span className="text-slate-500">Confianza</span>
-                <span className="font-bold text-emerald-500">{Math.round(lastClassification.confidence)}%</span>
-              </div>
-              <div className="w-full bg-slate-200/50 rounded-full h-2.5">
-                <div className="bg-gradient-to-r from-emerald-400 to-emerald-500 h-2.5 rounded-full transition-all duration-700" style={{ width: `${Math.min(100, lastClassification.confidence)}%` }} />
-              </div>
-            </div>
-            <div className="mt-4 flex items-center gap-2">
-              {lastClassification.feedback === 'correct' && <span className="text-[10px] font-medium px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-600">✓ Validada</span>}
-              {lastClassification.feedback === 'incorrect' && <span className="text-[10px] font-medium px-2 py-0.5 rounded-full bg-rose-50 text-rose-600">✗ Incorrecta</span>}
-              {!lastClassification.feedback && <span className="text-[10px] font-medium px-2 py-0.5 rounded-full bg-slate-100 text-slate-500">Sin feedback</span>}
-              <span className="text-[10px] text-slate-400">{timeAgo(lastClassification.createdAt)}</span>
-            </div>
-          </>
-        ) : <EmptyState message="Sin clasificaciones" cta="Clasificar producto" onCta={() => navigate('/clasificador')} />}
-      </div>
-
-      {/* ── W3: Alertas ── */}
-      <div className={`${GLASS} rounded-[2rem] p-6 lg:col-span-2`}>
-        <div className="flex items-center gap-2 mb-5">
-          <AlertTriangle className="w-4 h-4 text-emerald-500" />
-          <h3 className="text-[14px] font-bold text-slate-900">Alertas de Compliance</h3>
-          {unreadAlerts > 0 && <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-600">{unreadAlerts} nuevas</span>}
-          <button onClick={() => navigate('/alertas')} className="ml-auto text-[10px] font-medium text-emerald-500 hover:text-emerald-600">Ver todas →</button>
-        </div>
-        {loading ? (
-          <div className="space-y-3">{[1,2,3].map(i => <Skeleton key={i} className="h-14" />)}</div>
-        ) : alerts && alerts.length > 0 ? (
-          <div className="space-y-2">
-            {alerts.map(alert => (
-              <div key={alert.id} className={`flex items-start gap-3 p-3 rounded-xl border ${
-                alert.type === 'critical' ? 'bg-rose-50/50 border-rose-100' :
-                alert.type === 'warning' ? 'bg-amber-50/50 border-amber-100' :
-                'bg-blue-50/50 border-blue-100'
-              }`}>
-                <div className={`w-2 h-2 rounded-full mt-1.5 shrink-0 ${
-                  alert.type === 'critical' ? 'bg-rose-500' : alert.type === 'warning' ? 'bg-amber-500' : 'bg-blue-500'
-                }`} />
-                <div className="flex-1 min-w-0">
-                  <p className="text-[12px] font-semibold text-slate-800 line-clamp-1">{alert.title}</p>
-                  <p className="text-[11px] text-slate-500 line-clamp-1 mt-0.5">
-                    {alert.fractionCodes.length > 0 && <span className="font-mono text-slate-600">{formatFraction(alert.fractionCodes[0])}</span>}
-                    {alert.fractionCodes.length > 0 && ' — '}{alert.content.slice(0, 80)}
-                  </p>
-                </div>
-                <span className="text-[10px] text-slate-400 shrink-0">{timeAgo(alert.createdAt)}</span>
-              </div>
-            ))}
-          </div>
-        ) : <EmptyState message="Sin alertas activas" />}
-      </div>
-
-      {/* ── W4: Recientes ── */}
-      <div className={`${GLASS} rounded-[2rem] p-6`}>
-        <div className="flex items-center justify-between mb-5">
-          <h3 className="text-[14px] font-bold text-slate-900">Recientes</h3>
-          <button onClick={() => navigate('/historial')} className="text-[10px] font-medium text-emerald-500 hover:text-emerald-600">Historial →</button>
-        </div>
-        {loading ? (
-          <div className="space-y-3">{[1,2,3,4].map(i => <Skeleton key={i} className="h-12" />)}</div>
-        ) : recentClassifications && recentClassifications.length > 0 ? (
-          <div className="space-y-2">
-            {recentClassifications.slice(0, 5).map(c => (
-              <div key={c.id} className="flex items-center gap-3 p-2.5 rounded-xl bg-white/40 hover:bg-white/60 transition-colors">
-                <div className="w-8 h-8 bg-white rounded-lg flex items-center justify-center shadow-sm shrink-0">
-                  <Eye className="w-3.5 h-3.5 text-slate-500" />
-                </div>
-                <div className="flex-1 min-w-0">
-                  <p className="font-mono text-[12px] font-semibold text-slate-900">{formatFraction(c.fractionCode)}</p>
-                  <p className="text-[10px] text-slate-500 line-clamp-1">{c.inputDescription}</p>
-                </div>
-                <div className="text-right shrink-0">
-                  <p className="text-[11px] font-bold text-emerald-500">{Math.round(c.confidence)}%</p>
-                  <p className="text-[9px] text-slate-400">{timeAgo(c.createdAt)}</p>
-                </div>
-              </div>
-            ))}
-          </div>
-        ) : <EmptyState message="Sin clasificaciones" cta="Clasificar" onCta={() => navigate('/clasificador')} />}
-      </div>
-
-      {/* ── W5: Timeline ── */}
-      <div className={`${GLASS} rounded-[2rem] p-6`}>
-        <div className="flex items-center justify-between mb-2">
-          <div>
-            <p className="text-[11px] text-slate-500">Último proceso</p>
-            <p className="font-mono text-[18px] font-bold text-slate-900 tracking-tight">
-              {lastClassification ? `#CLS-${lastClassification.id.slice(0, 8).toUpperCase()}` : '—'}
-            </p>
-          </div>
-          <span className="text-[10px] font-semibold px-3 py-1 rounded-full bg-emerald-100 text-emerald-600">En proceso</span>
-        </div>
-        <div className="mt-5 space-y-0">
-          {[
-            { label: 'Clasificación completada', detail: lastClassification ? `Fracción ${formatFraction(lastClassification.fractionCode)}` : '—', status: 'done' as const },
-            { label: 'Cotización generada', detail: 'IGI + DTA + IVA calculados', status: 'done' as const },
-            { label: 'En despacho aduanal', detail: lastClassification ? timeAgo(lastClassification.createdAt) : '', status: 'current' as const },
-            { label: 'Entrega estimada', detail: 'Pendiente', status: 'future' as const },
-          ].map((step, i) => (
-            <div key={i} className="flex gap-3">
-              <div className="flex flex-col items-center">
-                <div className={`w-5 h-5 rounded-full flex items-center justify-center shrink-0 ${
-                  step.status === 'done' ? 'bg-emerald-500' : step.status === 'current' ? 'bg-emerald-400' : 'bg-white border-2 border-slate-200'
-                }`}>
-                  {step.status === 'done' && <CheckCircle2 className="w-3 h-3 text-white" />}
-                  {step.status === 'current' && <Circle className="w-2 h-2 text-white fill-white" />}
-                  {step.status === 'future' && <Clock className="w-2.5 h-2.5 text-slate-300" />}
-                </div>
-                {i < 3 && <div className={`w-px h-8 ${step.status === 'future' ? 'bg-slate-200/60' : 'bg-emerald-200'}`} />}
-              </div>
-              <div className="pb-4">
-                <p className={`text-[12px] font-semibold ${step.status === 'future' ? 'text-slate-400' : 'text-slate-900'}`}>{step.label}</p>
-                <p className="text-[10px] text-slate-500 font-mono">{step.detail}</p>
-              </div>
-            </div>
-          ))}
+        <div className="flex gap-2">
+          <Button variante="primario" onClick={() => navigate('/clasificador')}>Clasificar producto</Button>
+          <Button variante="secundario" onClick={() => navigate('/simulador-glosa')}>Nuevo reporte pre-glosa</Button>
         </div>
       </div>
 
-      {/* ── W6: Volumen ── */}
-      <div className={`${GLASS} rounded-[2rem] p-6`}>
-        <div className="flex items-center justify-between mb-5">
-          <h3 className="text-[14px] font-bold text-slate-900">Volumen</h3>
-          <div className="flex items-center gap-3">
-            <span className="flex items-center gap-1 text-[10px] text-slate-500"><span className="w-2 h-2 rounded-full bg-emerald-500" /> Clasif.</span>
-            <span className="flex items-center gap-1 text-[10px] text-slate-500"><span className="w-2 h-2 rounded-full bg-emerald-300" /> Cotiz.</span>
-          </div>
-        </div>
-        {loading ? <Skeleton className="h-44" /> : volume && volume.length > 0 ? (
-          <div className="h-44">
-            <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={volume.slice(-14).map(v => ({
-                d: new Date(v.date).toLocaleDateString('es-MX', { day: '2-digit', month: 'short' }),
-                c: v.classifications, q: v.quotes,
-              }))} barGap={2}>
-                <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" strokeOpacity={0.5} />
-                <XAxis dataKey="d" tick={{ fontSize: 9, fill: '#94a3b8' }} axisLine={false} tickLine={false} />
-                <YAxis hide />
-                <Tooltip contentStyle={{ background: 'rgba(255,255,255,0.9)', backdropFilter: 'blur(10px)', border: '1px solid rgba(255,255,255,0.5)', borderRadius: '12px', fontSize: '11px' }} />
-                <Bar dataKey="q" name="Cotizaciones" fill="#6ee7b7" radius={[4, 4, 0, 0]} />
-                <Bar dataKey="c" name="Clasificaciones" fill="#10b981" radius={[4, 4, 0, 0]} />
-              </BarChart>
-            </ResponsiveContainer>
-          </div>
-        ) : <EmptyState message="Sin datos de volumen" />}
-      </div>
-
-      {/* ── W7: Inventario IMMEX ── */}
-      <div className={`${GLASS} rounded-[2rem] p-6`}>
-        <div className="flex items-center justify-between mb-4">
-          <h3 className="text-[14px] font-bold text-slate-900">Inventario IMMEX</h3>
-          <button onClick={() => navigate('/inventario')} className="text-[10px] font-medium text-emerald-500 hover:text-emerald-600">Detalle →</button>
-        </div>
-        {loading ? (
-          <div className="space-y-3"><Skeleton className="h-32" /><Skeleton className="h-12" /></div>
-        ) : invBalances && invBalances.length > 0 ? (
-          <>
-            <div className="h-36">
-              <ResponsiveContainer width="100%" height="100%">
-                <BarChart data={invBalances.slice(0, 5).map(b => ({ f: formatFraction(b.fractionCode), val: b.balance }))}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" strokeOpacity={0.5} />
-                  <XAxis dataKey="f" tick={{ fontSize: 8, fill: '#94a3b8', fontFamily: 'monospace' }} axisLine={false} tickLine={false} />
-                  <YAxis hide />
-                  <Tooltip contentStyle={{ background: 'rgba(255,255,255,0.9)', backdropFilter: 'blur(10px)', border: '1px solid rgba(255,255,255,0.5)', borderRadius: '12px', fontSize: '11px' }} />
-                  <Bar dataKey="val" name="Saldo" fill="#10b981" radius={[6, 6, 0, 0]} />
-                </BarChart>
-              </ResponsiveContainer>
-            </div>
-            <div className="flex items-center justify-between mt-3 pt-3 border-t border-slate-200/50">
-              <div>
-                <p className="text-[10px] text-slate-500">Activas</p>
-                <p className="text-[16px] font-bold text-slate-900">{invStats?.activeImports?.toLocaleString() ?? '—'}</p>
-              </div>
-              {invStats && invStats.expiringIn90Days > 0 && (
-                <span className="text-[10px] font-semibold px-2.5 py-1 rounded-full bg-rose-50 text-rose-600 flex items-center gap-1">
-                  <AlertTriangle className="w-3 h-3" />{invStats.expiringIn90Days} por vencer
-                </span>
+      {/* 2 · Fila de 4 métricas */}
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+        {[
+          { label: 'Operaciones del mes', valor: cargando ? null : String(opsDelMes), alerta: false, sello: false },
+          { label: 'Alertas regulatorias activas', valor: cargando ? null : String(alertasActivas ?? '—'), alerta: (alertasActivas ?? 0) > 0, sello: false },
+          { label: 'Clasificaciones realizadas', valor: cargando ? null : String(clasificaciones ?? '—'), alerta: false, sello: false },
+          { label: 'Corpus verificado vs fuente oficial', valor: cargando ? null : (corpusPct === null ? '—' : `${corpusPct}%`), alerta: false, sello: true },
+        ].map(m => (
+          <Card key={m.label} denso>
+            <div className="h-24 flex flex-col justify-between">
+              {m.valor === null ? (
+                <>
+                  <SkeletonBloque className="h-10 w-20" />
+                  <SkeletonBloque className="h-4 w-full" />
+                </>
+              ) : (
+                <>
+                  <p className={`font-sello-display text-4xl ${m.alerta ? 'text-ambar' : 'text-tinta'}`}>{m.valor}</p>
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <p className="text-13 text-tinta-suave leading-snug">{m.label}</p>
+                    {m.sello && corpusPct !== null && (
+                      <SelloVerificacion
+                        estado={corpusPct === 100 ? 'verificado' : 'sin_verificar'}
+                        fuenteNombre="DOF / Diputados"
+                        metodo="manual"
+                      />
+                    )}
+                  </div>
+                </>
               )}
-              <div className="text-right">
-                <p className="text-[10px] text-slate-500">Valor total</p>
-                <p className="text-[16px] font-bold text-slate-900">${invStats ? Math.round(invStats.totalValueActive).toLocaleString() : '—'}</p>
-              </div>
             </div>
-          </>
-        ) : <EmptyState message="Sin inventario" cta="Ir a inventario" onCta={() => navigate('/inventario')} />}
+          </Card>
+        ))}
       </div>
-      </div>
+
+      {/* 3 · Regulatorio hoy */}
+      <Card
+        header={
+          <div className="flex items-center gap-2 flex-wrap">
+            <Radar className="w-[18px] h-[18px] text-petroleo" strokeWidth={1.5} aria-hidden />
+            <h2 className="font-sello-display text-lg text-tinta">Regulatorio hoy</h2>
+            {MOCK_WATCHDOG && <Badge tono="ambar">Datos de ejemplo — watchdog en construcción</Badge>}
+            <button
+              type="button"
+              onClick={() => navigate('/alertas')}
+              className="ml-auto text-sm text-petroleo hover:underline underline-offset-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-petroleo rounded-sello-sm"
+            >
+              Ver todo lo regulatorio
+            </button>
+          </div>
+        }
+      >
+        {cargando ? (
+          <div className="space-y-3">
+            {[0, 1, 2].map(i => <SkeletonBloque key={i} className="h-12 w-full" />)}
+          </div>
+        ) : (
+          <ul className="divide-y divide-linea -my-2">
+            {(MOCK_WATCHDOG ? ALERTAS_MOCK : []).map(a => (
+              <li key={a.id} className="py-3 flex items-start gap-3 flex-wrap">
+                <div className="min-w-0 flex-1">
+                  <p className="text-base text-tinta leading-snug">{a.titulo}</p>
+                  <div className="mt-1.5">
+                    <SelloVerificacion
+                      estado="verificado"
+                      fuenteNombre={a.fuenteNombre}
+                      fuenteUrl={a.fuenteUrl}
+                      fechaPublicacion={a.fechaPublicacion}
+                      fechaVerificacion={a.fechaVerificacion}
+                      metodo={a.metodo}
+                    />
+                  </div>
+                </div>
+                <Badge tono={a.fraccionesAfectadas > 0 ? 'ambar' : 'neutral'}>
+                  {a.fraccionesAfectadas > 0
+                    ? `Afecta ${a.fraccionesAfectadas} de tus fracciones`
+                    : 'Sin impacto en tus fracciones'}
+                </Badge>
+              </li>
+            ))}
+          </ul>
+        )}
+      </Card>
+
+      {/* 4 · Operaciones recientes */}
+      <section className="space-y-3">
+        <h2 className="font-sello-display text-lg text-tinta">Operaciones recientes</h2>
+        {cargando ? (
+          <SkeletonBloque className="h-64 w-full" />
+        ) : (
+          <DataTable
+            columnas={columnas}
+            filas={opsRecientes}
+            filaKey={o => o.id}
+            vacio={
+              <EmptyState
+                icono={FolderOpen}
+                titulo="Aún no registras operaciones"
+                descripcion="Crea tu primer expediente y te muestro cómo se ve una operación con su documentación al día."
+                accion={{ label: 'Crear expediente', onClick: () => navigate('/expediente') }}
+              />
+            }
+          />
+        )}
+      </section>
+
+      {/* 6 · Dirección para cuentas nuevas (solo si tampoco hay clasificaciones) */}
+      {!cargando && clasificaciones === 0 && (
+        <Card>
+          <EmptyState
+            icono={FileSearch}
+            titulo="Aún no clasificas ningún producto"
+            descripcion="Clasifica el primero y te muestro cómo se ve un expediente con citas legales verificadas contra el DOF."
+            accion={{ label: 'Clasificar mi primer producto', onClick: () => navigate('/clasificador') }}
+          />
+        </Card>
+      )}
     </div>
   )
 }
