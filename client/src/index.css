@@ -175,3 +175,59 @@ body {
 .delay-8 { animation-delay: 0.8s; }
 .delay-9 { animation-delay: 0.9s; }
 .delay-10 { animation-delay: 1.0s; }
+
+/* ════════════════════════════════════════════════════════════════════════
+   SELLO · impresión de documentos (Reporte Pre-Glosa, Expediente).
+   Legible en blanco y negro: fuerza tinta oscura sobre blanco, conserva los
+   bordes de 1px, no parte un hallazgo a la mitad, y repite el pie en cada
+   hoja. Aplica solo cuando la raíz lleva la clase `.doc-imprimible`.
+   ════════════════════════════════════════════════════════════════════════ */
+@media print {
+  @page {
+    size: A4;
+    margin: 18mm 16mm 22mm 16mm;
+  }
+  html, body {
+    background: #fff !important;
+  }
+  /* Nada de la app fuera del documento se imprime. */
+  body:has(.doc-imprimible) *:not(.doc-imprimible):not(.doc-imprimible *):not(.doc-pie):not(.doc-pie *) {
+    visibility: hidden;
+  }
+  .doc-imprimible, .doc-imprimible * { visibility: visible; }
+  .doc-imprimible {
+    position: absolute;
+    left: 0; top: 0; width: 100%;
+    max-width: 100% !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    color: #131A1C !important;
+  }
+  /* La "hoja" pierde su marco flotante: el papel real es el marco. */
+  .doc-hoja {
+    border: none !important;
+    box-shadow: none !important;
+    max-width: 100% !important;
+    padding: 0 !important;
+  }
+  .doc-evitar-corte { break-inside: avoid; }
+  .doc-salto-antes { break-before: page; }
+  .no-print { display: none !important; }
+  /* Preserva colores de los sellos/badges en impresión a color; en escala de
+     grises los bordes de 1px garantizan que se distingan igual. */
+  .doc-imprimible * {
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+  /* Pie repetido en cada hoja. */
+  .doc-pie {
+    display: block !important;
+    position: fixed;
+    bottom: 0; left: 0; right: 0;
+    font-size: 9px;
+    color: #5A6467 !important;
+    border-top: 1px solid #E1E5E3;
+    padding-top: 4px;
+  }
+}
+.doc-pie { display: none; }

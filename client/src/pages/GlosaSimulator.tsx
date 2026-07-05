@@ -1,505 +1,418 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
+/**
+ * SELLO · Reporte de Revisión Pre-Glosa (docs/DESIGN_SYSTEM.md).
+ *
+ * NO es un dashboard: es el DOCUMENTO que el agente imprime, archiva y —si las
+ * cosas se ponen feas— usa para defenderse. Layout de documento (columna 860px,
+ * hoja blanca sobre papel), encabezado con folio + versión de corpus sellada,
+ * resumen ejecutivo con semáforo, hallazgos numerados (con el dato del
+ * pedimento cuando el flag mapea a uno real), fundamentos con URL visible, y
+ * pie repetido en cada hoja impresa.
+ *
+ * PDF: no hay librería de PDF en el stack (auditoría) y el servidor solo tiene
+ * dictamen.html para clasificaciones, no glosa. Decisión: print CSS + impresión
+ * del navegador ("Descargar PDF" → window.print()). Para un documento legal es
+ * la MEJOR opción del stack: texto vectorial seleccionable/buscable, fuentes
+ * embebidas, sobrevive en escala de grises — jspdf/html2canvas lo rasterizaría
+ * a imagen borrosa, peor para archivar. Ver print CSS en index.css.
+ *
+ * HONESTIDAD (docs/GAP_API_EXPEDIENTE.md): la respuesta de glosa da el texto
+ * del fundamento (legalBasis) pero NO su cotejo por-dato (URL+fecha+método) →
+ * cada cita rinde sello ámbar "sin_verificar". La versión de corpus SÍ es un
+ * cotejo real (fechas SNICE/DOF) → verde. Números de campo del pedimento: solo
+ * se muestra el DATO del pedimento cuando el flag mapea a uno; no se fabrican
+ * números de campo del Anexo 22 (no cotejados). La estructura dice la verdad.
+ */
+import { useEffect, useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
-import { Target, ChevronRight, ChevronLeft, AlertTriangle, FileText, ShieldCheck, Download, Save, RotateCcw, Clock } from 'lucide-react'
+import {
+  Printer, RotateCcw, CheckCircle2, AlertTriangle, ShieldAlert, ClipboardCheck,
+} from 'lucide-react'
 import { api } from '../lib/api'
-import type { GlosaSimulationInput, GlosaSimulationResult, GlosaSimulationListItem } from '../lib/api'
+import type { GlosaSimulationInput, GlosaSimulationResult, GlosaRiskFlag, Anexo22Catalogs } from '../lib/api'
+import { Button, Card, Badge, Input, Select, SelloVerificacion, type EstadoSello } from '../components/ui'
+import { CORPUS_VERSION } from '../lib/corpus-version'
 
-const GLASS = 'bg-white/70 backdrop-blur-xl border border-white/50 shadow-[0_8px_30px_rgb(0,0,0,0.04)]'
+// ── Mapa flag.category → dato del pedimento (solo lo que mapea de verdad) ──
+// Homenaje honesto a la estructura del pedimento: mostramos el NOMBRE del dato
+// que el agente reconoce, no un número de campo del Anexo 22 sin cotejar.
+const CATEGORIA_A_DATO: Record<string, string> = {
+  valuation: 'Valor en aduana',
+  value: 'Valor en aduana',
+  valor: 'Valor en aduana',
+  origin: 'País de origen / vendedor',
+  origen: 'País de origen / vendedor',
+  classification: 'Fracción arancelaria y NICO',
+  clasificacion: 'Fracción arancelaria y NICO',
+  antidumping: 'Identificador de cuota compensatoria',
+  cuotas: 'Identificador de cuota compensatoria',
+  nom: 'Regulaciones y restricciones no arancelarias',
+  noms: 'Regulaciones y restricciones no arancelarias',
+  rrna: 'Regulaciones y restricciones no arancelarias',
+  padron: 'Padrón de importadores de sectores específicos',
+  regime: 'Clave de pedimento / régimen',
+  regimen: 'Clave de pedimento / régimen',
+  documentation: 'Anexos del pedimento (36-A LA)',
+  tmec: 'Certificación de origen (preferencia arancelaria)',
+}
 
-const STEPS = [
-  { id: 1, label: 'Identificación' },
-  { id: 2, label: 'Mercancía' },
-  { id: 3, label: 'Documentación' },
-  { id: 4, label: 'Resultado' },
+function datoDelPedimento(flag: GlosaRiskFlag): string | null {
+  const c = flag.category?.toLowerCase() ?? ''
+  for (const [k, v] of Object.entries(CATEGORIA_A_DATO)) if (c.includes(k)) return v
+  return null
+}
+
+// ── Fuente oficial de una cita legal (URL estable de la ley; el cotejo por
+// artículo sigue pendiente → sello ámbar). Da URL visible en impresión. ──
+const LEYES: { re: RegExp; nombre: string; url: string }[] = [
+  { re: /\bLA\b|Ley Aduanera|\bL\.?A\.?\b/i, nombre: 'Ley Aduanera', url: 'https://www.diputados.gob.mx/LeyesBiblio/pdf/LAdua.pdf' },
+  { re: /\bLCE\b|Comercio Exterior/i, nombre: 'Ley de Comercio Exterior', url: 'https://www.diputados.gob.mx/LeyesBiblio/pdf/LCE.pdf' },
+  { re: /\bCFF\b|Código Fiscal/i, nombre: 'Código Fiscal de la Federación', url: 'https://www.diputados.gob.mx/LeyesBiblio/pdf/CFF.pdf' },
+  { re: /\bRGCE\b|Reglas Generales/i, nombre: 'RGCE 2026', url: 'https://www.sat.gob.mx/minisitio/NormatividadRMFyRGCE/documentos2026/rgce/rgce/ReglasGeneralesComercioExteriorpara2026.pdf' },
+  { re: /Anexo 22/i, nombre: 'Anexo 22 RGCE 2026', url: 'https://www.dof.gob.mx/nota_detalle.php?codigo=5778300&fecha=15/01/2026' },
 ]
 
-// Fase 4.1: el catálogo local (códigos inventados de 3 letras; 'ZLO' etiquetado
-// "Zaragoza Coahuila" cuando ZLO es el IATA de Manzanillo) se reemplazó por el
-// catálogo OFICIAL del Apéndice 1 Anexo 22 RGCE 2026, servido por
-// GET /api/catalogs/anexo22 (fuente única: server/src/lib/anexo22.ts).
+interface FuenteCitada { id: string; texto: string; nombre?: string; url?: string; estado: EstadoSello }
 
-// Fase 4.2: REGIMES local eliminado — etiquetaba A4 como "Temporal IMMEX"
-// (A4 = introducción a DEPÓSITO FISCAL), F4 como "Depósito fiscal" (F4 =
-// cambio de régimen) y R1 como "Regularización" (R1 = rectificación; la
-// regularización es A3). Ahora se usan las claves de pedimento OFICIALES del
-// Apéndice 2 (mismo catálogo /api/catalogs/anexo22 que el Pre-validador).
-
-const COUNTRIES = ['CN', 'US', 'MX', 'VN', 'IN', 'KR', 'JP', 'DE', 'IT', 'BR', 'TW', 'TH', 'MY', 'ID', 'KH', 'CA']
-
-function emptyInput(): GlosaSimulationInput {
+function fuenteDeCita(legalBasis: string): FuenteCitada {
+  const m = LEYES.find(l => l.re.test(legalBasis))
   return {
-    fractionCode: '',
-    productDescription: '',
-    countryOrigin: 'CN',
-    countryProvider: 'CN',
-    customsCode: '16', // clave oficial Apéndice 1: Manzanillo
-    regimenCode: 'A1',
-    unitValueUSD: 0,
-    unitMeasure: 'PIEZA',
-    units: 1,
-    weightKg: 0,
-    totalValueUSD: 0,
-    declaresAntidumping: false,
-    declaresLink: false,
-    appliesTMEC: false,
-    hasTMECCertificate: false,
-    declaresNOMs: false,
-    hasIVAIEPSCertification: false,
-    documents: {
-      invoice: true, bl: true, packingList: true,
-      originCertificate: false, mve: false, permits: false, nomCertificates: false,
-    },
+    id: legalBasis,
+    texto: legalBasis,
+    nombre: m?.nombre,
+    url: m?.url,
+    estado: 'sin_verificar', // cotejo por-artículo pendiente (GAP); ámbar honesto
   }
+}
+
+// ── Semáforo del veredicto ────────────────────────────────────────────────
+function veredicto(result: GlosaSimulationResult) {
+  const criticos = result.flags.filter(f => f.severity === 'critical').length
+  const observaciones = result.flags.filter(f => f.severity !== 'critical').length
+  if (criticos > 0) return {
+    color: 'carmin' as const, icono: ShieldAlert,
+    titulo: `${criticos} ${criticos === 1 ? 'hallazgo crítico' : 'hallazgos críticos'}`,
+    frase: 'Hay observaciones que un glosador del SAT muy probablemente marcaría. Atiéndelas antes de transmitir el pedimento.',
+  }
+  if (observaciones > 0) return {
+    color: 'ambar' as const, icono: AlertTriangle,
+    titulo: `${observaciones} ${observaciones === 1 ? 'observación' : 'observaciones'}`,
+    frase: 'No hay hallazgos críticos, pero conviene revisar y documentar los puntos siguientes para reducir la probabilidad de una revisión.',
+  }
+  return {
+    color: 'sello' as const, icono: CheckCircle2,
+    titulo: 'Sin hallazgos',
+    frase: 'Con la información proporcionada, la operación no dispara reglas de riesgo de glosa. Conserva este reporte y la documentación soporte.',
+  }
+}
+
+const SEVERIDAD: Record<GlosaRiskFlag['severity'], { label: string; tono: 'neutral' | 'ambar' | 'carmin' }> = {
+  low: { label: 'Aviso', tono: 'neutral' },
+  medium: { label: 'Observación', tono: 'ambar' },
+  high: { label: 'Observación relevante', tono: 'ambar' },
+  critical: { label: 'Crítico', tono: 'carmin' },
+}
+
+function fechaHoraLarga(d: Date): string {
+  return d.toLocaleString('es-MX', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })
+}
+
+// Folio legible derivado del simulationId (estable, no fabricado).
+function folioDe(simulationId: string, fecha: Date): string {
+  const y = fecha.getFullYear()
+  const corto = simulationId.replace(/[^a-zA-Z0-9]/g, '').slice(-6).toUpperCase()
+  return `PG-${y}-${corto}`
 }
 
 export function GlosaSimulatorPage() {
   const [params] = useSearchParams()
-  const [step, setStep] = useState(1)
-  const [input, setInput] = useState<GlosaSimulationInput>(emptyInput())
+  const [catalogos, setCatalogos] = useState<Anexo22Catalogs | null>(null)
+  const [form, setForm] = useState<GlosaSimulationInput>({
+    fractionCode: params.get('fraccion') ?? '',
+    countryOrigin: '', countryProvider: '', customsCode: '', regimenCode: 'IMD',
+    unitValueUSD: 0, weightKg: 0, totalValueUSD: 0,
+    declaresAntidumping: false, appliesTMEC: false, hasTMECCertificate: false,
+    declaresNOMs: false, hasIVAIEPSCertification: false, declaresLink: false,
+  })
+  const [estado, setEstado] = useState<'form' | 'generando' | 'listo' | 'error'>('form')
+  const [paso, setPaso] = useState(0)
   const [result, setResult] = useState<GlosaSimulationResult | null>(null)
-  const [running, setRunning] = useState(false)
-  const [err, setErr] = useState('')
-  const [history, setHistory] = useState<GlosaSimulationListItem[]>([])
-  const [showHistory, setShowHistory] = useState(false)
-  const [aduanas, setAduanas] = useState<{ clave: string; denominacion: string }[]>([])
-  const [clavesPed, setClavesPed] = useState<{ clave: string; descripcion: string; regimenes: string[] }[]>([])
+  const [error, setError] = useState('')
+  const [generadoEn, setGeneradoEn] = useState<Date | null>(null)
+
+  useEffect(() => { api.catalogsAnexo22().then(r => setCatalogos(r.data)).catch(() => {}) }, [])
 
   useEffect(() => {
-    api.catalogsAnexo22().then(r => { setAduanas(r.data.aduanas); setClavesPed(r.data.clavesPedimento) }).catch(() => {})
-  }, [])
+    if (estado !== 'generando') return
+    setPaso(0)
+    const t1 = setTimeout(() => setPaso(1), 700)
+    const t2 = setTimeout(() => setPaso(2), 1500)
+    return () => { clearTimeout(t1); clearTimeout(t2) }
+  }, [estado])
 
-  // Pre-fill desde query params (cuando vengo del clasificador / cotizador / pre-validador).
-  // Se aplica UNA sola vez y solo con valores NO vacíos, para que nunca pise/borre lo
-  // que el usuario teclee después (un ?fraction= vacío no debe vaciar el campo).
-  const prefilled = useRef(false)
-  useEffect(() => {
-    if (prefilled.current) return
-    const fc = params.get('fraction')
-    const co = params.get('origin')
-    const v = params.get('valueUSD')
-    if (fc || co || v) {
-      prefilled.current = true
-      setInput(prev => ({
-        ...prev,
-        ...(fc ? { fractionCode: fc } : {}),
-        ...(co ? { countryOrigin: co, countryProvider: co } : {}),
-        ...(v ? { unitValueUSD: parseFloat(v), totalValueUSD: parseFloat(v) } : {}),
-      }))
-    }
-  }, [params])
+  const set = <K extends keyof GlosaSimulationInput>(k: K, v: GlosaSimulationInput[K]) =>
+    setForm(f => ({ ...f, [k]: v }))
 
-  useEffect(() => {
-    if (showHistory) api.glosaHistory().then(r => setHistory(r.data)).catch(() => setHistory([]))
-  }, [showHistory])
-
-  function update<K extends keyof GlosaSimulationInput>(key: K, value: GlosaSimulationInput[K]) {
-    setInput(prev => ({ ...prev, [key]: value }))
-  }
-
-  function updateDocs(key: string, value: boolean) {
-    setInput(prev => ({ ...prev, documents: { ...prev.documents, [key]: value } }))
-  }
-
-  async function runSimulation() {
-    setRunning(true); setErr('')
+  async function generar() {
+    setEstado('generando'); setError('')
     try {
-      const totalUSD = input.totalValueUSD || (input.unitValueUSD * (input.units ?? 1))
-      const r = await api.glosaSimulate({ ...input, totalValueUSD: totalUSD })
-      setResult(r.data)
-      setStep(4)
+      const res = await api.glosaSimulate({ ...form, totalValueUSD: form.totalValueUSD || (form.unitValueUSD * (form.units ?? 1)) })
+      setResult(res.data)
+      setGeneradoEn(new Date())
+      setEstado('listo')
     } catch (e) {
-      setErr(e instanceof Error ? e.message : 'Error al simular')
+      setError(e instanceof Error ? e.message : 'No se pudo generar el reporte.')
+      setEstado('error')
     }
-    setRunning(false)
   }
 
-  function reset() {
-    setInput(emptyInput())
-    setResult(null)
-    setStep(1)
-    setErr('')
-  }
-
-  const fractionDigits = input.fractionCode.replace(/\D/g, '').length
-
-  // Campos requeridos faltantes en el paso actual (para mostrar al usuario qué
-  // completar en vez de dejar el botón "Siguiente" deshabilitado en silencio).
-  const missing = useMemo(() => {
-    const m: string[] = []
-    if (step === 1) {
-      if (!input.customsCode) m.push('aduana')
-      if (!input.regimenCode) m.push('régimen')
-    } else if (step === 2) {
-      if (fractionDigits < 8) m.push('fracción arancelaria (8 dígitos)')
-      if (!(input.unitValueUSD > 0)) m.push('valor unitario USD')
-      if (!(input.weightKg > 0)) m.push('peso bruto (kg)')
-    }
-    return m
-  }, [step, input, fractionDigits])
-
-  const canAdvance = missing.length === 0
-
-  return (
-    <div className="max-w-5xl mx-auto space-y-4">
-      <div className={`${GLASS} rounded-[2rem] p-6`}>
-        <div className="flex items-center gap-2 mb-1">
-          <Target className="w-5 h-5 text-emerald-600"/>
-          <h1 className="text-xl font-bold text-slate-900">Simulador de Glosa</h1>
-          <button onClick={() => setShowHistory(prev => !prev)} className="ml-auto text-[11px] flex items-center gap-1 text-slate-600 hover:text-slate-900">
-            <Clock className="w-3 h-3"/> {showHistory ? 'Cerrar histórico' : 'Histórico'}
-          </button>
-        </div>
-        <p className="text-[12px] text-slate-500 mb-4">Predice probabilidad de Reconocimiento Aduanero (RA) basado en el modelo de riesgo del SAT. Simula antes de despachar para evitar embargos y demoras.</p>
-
-        {/* Stepper */}
-        <div className="flex items-center gap-2">
-          {STEPS.map((s, i) => (
-            <div key={s.id} className="flex items-center gap-2 flex-1">
-              <div className={`w-7 h-7 rounded-full flex items-center justify-center text-[11px] font-bold shrink-0 ${
-                step === s.id ? 'bg-emerald-600 text-white' : step > s.id ? 'bg-emerald-100 text-emerald-700' : 'bg-slate-100 text-slate-400'
-              }`}>{step > s.id ? '✓' : s.id}</div>
-              <span className={`text-[11px] truncate ${step === s.id ? 'font-semibold text-slate-900' : 'text-slate-500'}`}>{s.label}</span>
-              {i < STEPS.length - 1 && <div className={`flex-1 h-0.5 ${step > s.id ? 'bg-emerald-300' : 'bg-slate-200'}`}/>}
-            </div>
-          ))}
-        </div>
-      </div>
-
-      {showHistory && <HistoryPanel items={history}/>}
-
-      {/* Paso 1 */}
-      {step === 1 && (
-        <div className={`${GLASS} rounded-2xl p-5 space-y-3`}>
-          <h2 className="text-[13px] font-semibold text-slate-900">Identificación del pedimento</h2>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-            <Field label="Aduana de despacho">
-              <select value={input.customsCode} onChange={e => update('customsCode', e.target.value)} className="w-full text-[12px] border border-slate-200 rounded-lg px-2 py-1.5">
-                {aduanas.length === 0 && <option value={input.customsCode}>Cargando catálogo oficial…</option>}
-                {aduanas.map(a => <option key={a.clave} value={a.clave}>{a.clave} — {a.denominacion}</option>)}
-              </select>
-            </Field>
-            <Field label="Régimen aduanero">
-              <select value={input.regimenCode} onChange={e => update('regimenCode', e.target.value)} className="w-full text-[12px] border border-slate-200 rounded-lg px-2 py-1.5">
-                {clavesPed.length === 0 && <option value={input.regimenCode}>Cargando catálogo oficial…</option>}
-                {clavesPed.map(c => <option key={c.clave} value={c.clave} title={c.descripcion}>{c.clave} — {c.descripcion.length > 60 ? c.descripcion.slice(0, 60) + '…' : c.descripcion}</option>)}
-              </select>
-            </Field>
-            <Field label="¿IMMEX con certificación IVA-IEPS?">
-              <select value={String(input.hasIVAIEPSCertification ?? false)} onChange={e => update('hasIVAIEPSCertification', e.target.value === 'true')} className="w-full text-[12px] border border-slate-200 rounded-lg px-2 py-1.5">
-                <option value="false">No</option>
-                <option value="true">Sí (A/AA/AAA)</option>
-              </select>
-            </Field>
-          </div>
-        </div>
-      )}
-
-      {/* Paso 2 */}
-      {step === 2 && (
-        <div className={`${GLASS} rounded-2xl p-5 space-y-3`}>
-          <h2 className="text-[13px] font-semibold text-slate-900">Datos de la mercancía</h2>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-            <Field label="Fracción arancelaria (8 dígitos)">
-              <input value={input.fractionCode} onChange={e => update('fractionCode', e.target.value)} placeholder="0000.00.00" className="w-full text-[13px] font-mono border border-slate-200 rounded-lg px-2 py-1.5"/>
-            </Field>
-            <Field label="País de origen (ISO-2)">
-              <select value={input.countryOrigin} onChange={e => update('countryOrigin', e.target.value)} className="w-full text-[12px] border border-slate-200 rounded-lg px-2 py-1.5">
-                {COUNTRIES.map(c => <option key={c} value={c}>{c}</option>)}
-              </select>
-            </Field>
-            <Field label="País de embarque (ISO-2)">
-              <select value={input.countryProvider} onChange={e => update('countryProvider', e.target.value)} className="w-full text-[12px] border border-slate-200 rounded-lg px-2 py-1.5">
-                {COUNTRIES.map(c => <option key={c} value={c}>{c}</option>)}
-              </select>
-            </Field>
-            <Field label="Unidad de medida">
-              <select value={input.unitMeasure} onChange={e => update('unitMeasure', e.target.value)} className="w-full text-[12px] border border-slate-200 rounded-lg px-2 py-1.5">
-                <option>PIEZA</option><option>KILOGRAMO</option><option>METRO</option><option>LITRO</option><option>TONELADA</option>
-              </select>
-            </Field>
-            <Field label="Cantidad">
-              <input type="number" value={input.units ?? ''} onChange={e => update('units', parseInt(e.target.value) || 0)} className="w-full text-[12px] border border-slate-200 rounded-lg px-2 py-1.5"/>
-            </Field>
-            <Field label="Valor unitario USD">
-              <input type="number" step="0.01" value={input.unitValueUSD || ''} onChange={e => update('unitValueUSD', parseFloat(e.target.value) || 0)} className="w-full text-[12px] border border-slate-200 rounded-lg px-2 py-1.5"/>
-            </Field>
-            <Field label="Valor total USD">
-              <input type="number" step="0.01" value={input.totalValueUSD || ''} onChange={e => update('totalValueUSD', parseFloat(e.target.value) || 0)} className="w-full text-[12px] border border-slate-200 rounded-lg px-2 py-1.5"/>
-            </Field>
-            <Field label="Peso bruto (kg)">
-              <input type="number" step="0.01" value={input.weightKg || ''} onChange={e => update('weightKg', parseFloat(e.target.value) || 0)} className="w-full text-[12px] border border-slate-200 rounded-lg px-2 py-1.5"/>
-            </Field>
-            <Field label="Descripción detallada del producto" full>
-              <textarea value={input.productDescription ?? ''} onChange={e => update('productDescription', e.target.value)} rows={3} placeholder="Ej. Tornillos de acero zincado cabeza hexagonal métrica M10x40, marca XYZ, modelo 12345…" className="w-full text-[12px] border border-slate-200 rounded-lg px-2 py-1.5"/>
-            </Field>
-          </div>
-        </div>
-      )}
-
-      {/* Paso 3 */}
-      {step === 3 && (
-        <div className={`${GLASS} rounded-2xl p-5 space-y-4`}>
-          <h2 className="text-[13px] font-semibold text-slate-900">Documentación y declaraciones</h2>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-            <Checkbox checked={input.documents?.invoice ?? false} onChange={v => updateDocs('invoice', v)} label="Factura comercial"/>
-            <Checkbox checked={input.documents?.bl ?? false} onChange={v => updateDocs('bl', v)} label="BL / Guía aérea"/>
-            <Checkbox checked={input.documents?.packingList ?? false} onChange={v => updateDocs('packingList', v)} label="Packing list"/>
-            <Checkbox checked={input.documents?.originCertificate ?? false} onChange={v => updateDocs('originCertificate', v)} label="Certificado de origen"/>
-            <Checkbox checked={input.documents?.mve ?? false} onChange={v => updateDocs('mve', v)} label="MVE (Manifestación de Valor)"/>
-            <Checkbox checked={input.documents?.permits ?? false} onChange={v => updateDocs('permits', v)} label="Permisos previos"/>
-            <Checkbox checked={input.documents?.nomCertificates ?? false} onChange={v => updateDocs('nomCertificates', v)} label="Certificados NOM"/>
-          </div>
-          <div className="border-t border-slate-200 pt-3 grid grid-cols-1 md:grid-cols-2 gap-3">
-            <Checkbox checked={input.declaresAntidumping ?? false} onChange={v => update('declaresAntidumping', v)} label="Declaro cuotas compensatorias (si aplican)"/>
-            <Checkbox checked={input.appliesTMEC ?? false} onChange={v => update('appliesTMEC', v)} label="Aplica preferencia TMEC"/>
-            <Checkbox checked={input.hasTMECCertificate ?? false} onChange={v => update('hasTMECCertificate', v)} label="Tengo certificado TMEC firmado"/>
-            <Checkbox checked={input.declaresNOMs ?? false} onChange={v => update('declaresNOMs', v)} label="Declaro cumplimiento NOMs aplicables"/>
-            <Checkbox checked={input.declaresLink ?? false} onChange={v => update('declaresLink', v)} label="Hay vinculación comprador-vendedor (declarada)"/>
-          </div>
-        </div>
-      )}
-
-      {/* Paso 4 - Resultado */}
-      {step === 4 && result && <ResultPanel result={result} onReset={reset} simulationId={result.simulationId}/>}
-
-      {err && <p className="text-[11px] text-rose-700">{err}</p>}
-
-      {/* Nav */}
-      {step < 4 && (
-        <div className="space-y-2">
-        {missing.length > 0 && (
-          <p className="text-[11px] text-amber-700">
-            Para continuar, completa: {missing.join(', ')}.
+  // ── Estado: formulario ──
+  if (estado === 'form' || estado === 'generando' || estado === 'error') {
+    return (
+      <div className="max-w-2xl mx-auto space-y-5">
+        <div>
+          <h1 className="font-sello-display text-28 text-tinta">Reporte de revisión pre-glosa</h1>
+          <p className="text-base text-tinta-suave leading-relaxed mt-1">
+            Captura los datos de la operación y genera el documento que te dice qué te observaría un glosador del SAT antes de transmitir.
           </p>
+        </div>
+
+        <Card>
+          <div className="grid sm:grid-cols-2 gap-4">
+            <Input label="Fracción arancelaria" mono requerido placeholder="7318.15.01"
+              value={form.fractionCode} onChange={e => set('fractionCode', e.target.value)} />
+            <Input label="País de origen (ISO-2)" mono placeholder="CN"
+              value={form.countryOrigin} onChange={e => set('countryOrigin', e.target.value.toUpperCase())} />
+            <Input label="País del vendedor (ISO-2)" mono placeholder="CN"
+              value={form.countryProvider} onChange={e => set('countryProvider', e.target.value.toUpperCase())} />
+            <Select label="Aduana" value={form.customsCode} onChange={e => set('customsCode', e.target.value)}>
+              <option value="">Selecciona…</option>
+              {catalogos?.aduanas.map(a => <option key={a.clave} value={a.clave}>{a.clave} — {a.denominacion}</option>)}
+            </Select>
+            <Select label="Clave de pedimento" value={form.regimenCode} onChange={e => set('regimenCode', e.target.value)}>
+              {catalogos?.clavesPedimento.map(c => <option key={c.clave} value={c.clave}>{c.clave} — {c.descripcion}</option>)}
+            </Select>
+            <Input label="Valor unitario (USD)" mono type="number" placeholder="0.00"
+              value={form.unitValueUSD || ''} onChange={e => set('unitValueUSD', parseFloat(e.target.value) || 0)} />
+            <Input label="Peso (kg)" mono type="number" placeholder="0"
+              value={form.weightKg || ''} onChange={e => set('weightKg', parseFloat(e.target.value) || 0)} />
+            <Input label="Valor total de la operación (USD)" mono type="number" placeholder="0.00"
+              value={form.totalValueUSD || ''} onChange={e => set('totalValueUSD', parseFloat(e.target.value) || 0)} />
+          </div>
+
+          <div className="mt-5 pt-4 border-t border-linea">
+            <p className="text-sm text-tinta-suave mb-3">Declaraciones de la operación</p>
+            <div className="grid sm:grid-cols-2 gap-2">
+              {([
+                ['declaresAntidumping', 'Declara cuota compensatoria'],
+                ['appliesTMEC', 'Aplica preferencia T-MEC'],
+                ['hasTMECCertificate', 'Cuenta con certificado de origen T-MEC'],
+                ['declaresNOMs', 'Declara cumplimiento de NOMs'],
+                ['hasIVAIEPSCertification', 'Tiene certificación IVA/IEPS'],
+                ['declaresLink', 'Declara vinculación comprador-vendedor'],
+              ] as const).map(([k, label]) => (
+                <label key={k} className="flex items-center gap-2 text-sm text-tinta cursor-pointer py-1">
+                  <input type="checkbox" className="accent-petroleo w-4 h-4"
+                    checked={!!form[k]} onChange={e => set(k, e.target.checked as never)} />
+                  {label}
+                </label>
+              ))}
+            </div>
+          </div>
+        </Card>
+
+        {estado === 'error' && (
+          <Card className="border-carmin/30 bg-carmin-suave">
+            <div className="flex items-start gap-3">
+              <ShieldAlert className="w-5 h-5 text-carmin shrink-0" strokeWidth={1.5} aria-hidden />
+              <div>
+                <p className="text-base font-medium text-carmin">No se pudo generar el reporte</p>
+                <p className="text-sm text-tinta-suave mt-0.5">{error}</p>
+                <Button variante="secundario" tamano="sm" className="mt-3" onClick={generar}>
+                  <RotateCcw className="w-4 h-4" strokeWidth={1.5} aria-hidden /> Reintentar
+                </Button>
+              </div>
+            </div>
+          </Card>
         )}
-        <div className="flex justify-between">
-          <button onClick={() => setStep(prev => Math.max(1, prev - 1))} disabled={step === 1} className="text-[12px] text-slate-600 hover:text-slate-900 disabled:opacity-30 flex items-center gap-1">
-            <ChevronLeft className="w-3 h-3"/> Anterior
-          </button>
-          {step < 3 ? (
-            <button onClick={() => setStep(prev => prev + 1)} disabled={!canAdvance} className="text-[12px] bg-slate-900 hover:bg-slate-800 disabled:opacity-50 text-white px-4 py-1.5 rounded-lg flex items-center gap-1">
-              Siguiente <ChevronRight className="w-3 h-3"/>
-            </button>
-          ) : (
-            <button onClick={runSimulation} disabled={running || !canAdvance} className="text-[12px] bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 text-white px-4 py-1.5 rounded-lg flex items-center gap-1">
-              {running ? 'Simulando…' : 'Simular glosa'} <Target className="w-3 h-3"/>
-            </button>
+
+        <div className="flex items-center gap-3">
+          <Button variante="primario" tamano="lg" loading={estado === 'generando'}
+            disabled={!form.fractionCode.trim() || estado === 'generando'} onClick={generar}>
+            <ClipboardCheck className="w-4 h-4" strokeWidth={1.5} aria-hidden />
+            Generar reporte pre-glosa
+          </Button>
+          {estado === 'generando' && (
+            <ul className="text-sm space-y-0.5">
+              {['Evaluando reglas de valoración y origen…', 'Cotejando cuotas, NOMs y padrones…', 'Redactando hallazgos y recomendaciones…'].map((t, i) => (
+                <li key={i} className={`flex items-center gap-2 ${i < paso ? 'text-sello' : i === paso ? 'text-tinta' : 'text-tinta-suave/50'}`}>
+                  {i < paso ? <CheckCircle2 className="w-3.5 h-3.5" strokeWidth={1.5} aria-hidden />
+                    : i === paso ? <span className="w-3.5 h-3.5 rounded-full border-2 border-petroleo border-t-transparent animate-spin" aria-hidden />
+                    : <span className="w-3.5 h-3.5 rounded-full border border-linea" aria-hidden />}
+                  {t}
+                </li>
+              ))}
+            </ul>
           )}
         </div>
-        </div>
-      )}
-    </div>
-  )
-}
-
-function Field({ label, children, full }: { label: string; children: React.ReactNode; full?: boolean }) {
-  return (
-    <div className={full ? 'md:col-span-2' : ''}>
-      <label className="text-[10px] font-medium uppercase tracking-wide text-slate-500 mb-1 block">{label}</label>
-      {children}
-    </div>
-  )
-}
-
-function Checkbox({ checked, onChange, label }: { checked: boolean; onChange: (v: boolean) => void; label: string }) {
-  return (
-    <label className="flex items-center gap-2 text-[12px] text-slate-700 cursor-pointer">
-      <input type="checkbox" checked={checked} onChange={e => onChange(e.target.checked)} className="w-4 h-4 accent-emerald-600"/>
-      {label}
-    </label>
-  )
-}
-
-function HistoryPanel({ items }: { items: GlosaSimulationListItem[] }) {
-  return (
-    <div className={`${GLASS} rounded-2xl p-4`}>
-      <p className="text-[12px] font-semibold text-slate-900 mb-2">Histórico de simulaciones</p>
-      {items.length === 0 ? <p className="text-[11px] text-slate-400 italic">Sin simulaciones previas</p> : (
-        <table className="w-full text-[11px]">
-          <thead>
-            <tr className="text-left border-b border-slate-100">
-              <th className="py-1.5 text-slate-500 font-medium">Fecha</th>
-              <th className="py-1.5 text-slate-500 font-medium">Fracción</th>
-              <th className="py-1.5 text-slate-500 font-medium">Aduana</th>
-              <th className="py-1.5 text-slate-500 font-medium">Riesgo</th>
-              <th className="py-1.5 text-slate-500 font-medium text-right">RA prob</th>
-              <th className="py-1.5 text-slate-500 font-medium">Resultado real</th>
-            </tr>
-          </thead>
-          <tbody>
-            {items.map(s => (
-              <tr key={s.id} className="border-b border-slate-100/50">
-                <td className="py-1.5 text-slate-600">{new Date(s.createdAt).toLocaleDateString('es-MX')}</td>
-                <td className="py-1.5 font-mono">{s.fractionCode}</td>
-                <td className="py-1.5">{s.customsCode}</td>
-                <td className="py-1.5"><RiskBadge level={s.riskLevel}/></td>
-                <td className="py-1.5 text-right font-mono">{s.raProbability}%</td>
-                <td className="py-1.5 text-[10px]">
-                  {s.actualOutcome ? <span className="text-slate-700">{s.actualOutcome}</span> : <span className="text-slate-400 italic">pendiente</span>}
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      )}
-    </div>
-  )
-}
-
-function RiskBadge({ level }: { level: string }) {
-  const map: Record<string, string> = {
-    critical: 'bg-rose-100 text-rose-800 border-rose-200',
-    high: 'bg-amber-100 text-amber-800 border-amber-200',
-    medium: 'bg-sky-100 text-sky-800 border-sky-200',
-    low: 'bg-emerald-100 text-emerald-800 border-emerald-200',
-  }
-  const label: Record<string, string> = { critical: 'CRÍTICO', high: 'ALTO', medium: 'MEDIO', low: 'BAJO' }
-  return <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded border ${map[level] ?? map.low}`}>{label[level] ?? level}</span>
-}
-
-function ResultPanel({ result, onReset, simulationId }: { result: GlosaSimulationResult; onReset: () => void; simulationId: string }) {
-  const [outcomeLogged, setOutcomeLogged] = useState(false)
-  const ringClass = result.riskLevel === 'critical' ? 'stroke-rose-500' :
-                    result.riskLevel === 'high' ? 'stroke-amber-500' :
-                    result.riskLevel === 'medium' ? 'stroke-sky-500' : 'stroke-emerald-500'
-  const radius = 60
-  const circ = 2 * Math.PI * radius
-  const offset = circ - (result.riskScore / 100) * circ
-
-  async function logOutcome(outcome: 'ra_yes' | 'ra_no' | 'documental' | 'free') {
-    try {
-      await api.glosaOutcome(simulationId, outcome)
-      setOutcomeLogged(true)
-    } catch {}
+      </div>
+    )
   }
 
+  // ── Estado: reporte listo ──
+  if (!result || !generadoEn) return null
+  const v = veredicto(result)
+  const folio = folioDe(result.simulationId, generadoEn)
+  const fuentes = [...new Map(
+    result.flags.filter(f => f.legalBasis).map(f => { const s = fuenteDeCita(f.legalBasis as string); return [s.texto, s] }),
+  ).values()]
+  const pieTexto = `${folio} · ${fechaHoraLarga(generadoEn)} · Generado por ADUANAI — cada cita es verificable en la fuente oficial`
+
   return (
-    <div className="space-y-4">
-      {/* Score */}
-      <div className={`${GLASS} rounded-2xl p-6`}>
-        <div className="flex items-center justify-between gap-6 flex-wrap">
-          <div className="flex items-center gap-6">
-            <svg width="140" height="140" className="shrink-0">
-              <circle cx="70" cy="70" r={radius} className="stroke-slate-200" strokeWidth="10" fill="none"/>
-              <circle
-                cx="70" cy="70" r={radius}
-                className={ringClass}
-                strokeWidth="10"
-                fill="none"
-                strokeDasharray={circ}
-                strokeDashoffset={offset}
-                strokeLinecap="round"
-                transform="rotate(-90 70 70)"
-              />
-              <text x="70" y="70" textAnchor="middle" className="fill-slate-900 font-bold" fontSize="28">{result.riskScore}</text>
-              <text x="70" y="90" textAnchor="middle" className="fill-slate-500" fontSize="10">de 100</text>
-            </svg>
-            <div>
-              <p className="text-[10px] uppercase tracking-wider text-slate-500">Nivel de riesgo</p>
-              <p className="text-[20px] font-bold"><RiskBadge level={result.riskLevel}/></p>
-              <p className="text-[12px] text-slate-700 mt-2">Probabilidad de RA: <strong className="text-rose-700">{result.raProbability}%</strong></p>
-              <p className="text-[11px] text-slate-500">Cotejo documental: {result.cotejoProb}% · Glosa: {result.glosaProb}%</p>
-            </div>
-          </div>
-          <div className="text-[11px] space-y-0.5">
-            {result.industryAverage !== null && <p className="text-slate-600">Promedio industria: <strong>{result.industryAverage}%</strong></p>}
-            {result.yourHistory !== null && <p className="text-slate-600">Tu histórico: <strong>{result.yourHistory}%</strong></p>}
-          </div>
-        </div>
+    <div>
+      {/* Barra de acciones (no se imprime) */}
+      <div className="max-w-[860px] mx-auto mb-4 flex items-center gap-2 no-print">
+        <Button variante="primario" onClick={() => window.print()}>
+          <Printer className="w-4 h-4" strokeWidth={1.5} aria-hidden /> Descargar PDF
+        </Button>
+        <Button variante="secundario" onClick={() => { setEstado('form'); setResult(null) }}>
+          <RotateCcw className="w-4 h-4" strokeWidth={1.5} aria-hidden /> Nuevo reporte
+        </Button>
       </div>
 
-      {/* Banderas */}
-      {result.flags.length > 0 && (
-        <div className={`${GLASS} rounded-2xl p-5`}>
-          <p className="text-[13px] font-semibold text-slate-900 mb-3 flex items-center gap-1">
-            <AlertTriangle className="w-4 h-4 text-amber-600"/> Banderas detectadas ({result.flags.length})
-          </p>
-          <div className="space-y-2">
-            {result.flags.map((f, i) => (
-              <div key={i} className={`rounded-xl border p-3 ${
-                f.severity === 'critical' ? 'bg-rose-50 border-rose-200' :
-                f.severity === 'high' ? 'bg-amber-50 border-amber-200' :
-                f.severity === 'medium' ? 'bg-sky-50 border-sky-200' :
-                'bg-slate-50 border-slate-200'
-              }`}>
-                <div className="flex items-start gap-2">
-                  <span className={`text-[10px] font-bold uppercase px-1.5 py-0.5 rounded shrink-0 ${
-                    f.severity === 'critical' ? 'bg-rose-200 text-rose-900' :
-                    f.severity === 'high' ? 'bg-amber-200 text-amber-900' :
-                    f.severity === 'medium' ? 'bg-sky-200 text-sky-900' :
-                    'bg-slate-200 text-slate-700'
-                  }`}>{f.severity}</span>
-                  <div className="flex-1">
-                    <p className="text-[12px] font-semibold text-slate-900">{f.name}</p>
-                    <p className="text-[11px] text-slate-700 mt-0.5">{f.reason}</p>
-                    <p className="text-[10px] text-slate-600 mt-1">→ {f.recommendation}</p>
-                    {f.legalBasis && <p className="text-[10px] text-slate-400 font-mono mt-0.5">{f.legalBasis}</p>}
-                  </div>
-                  <span className="text-[10px] font-mono text-slate-400 shrink-0">{f.ruleCode}</span>
-                </div>
+      {/* El documento */}
+      <article className="doc-imprimible max-w-[860px] mx-auto">
+        <div className="doc-hoja bg-superficie border border-linea rounded-sello p-8 sm:p-12 text-tinta">
+          {/* Encabezado */}
+          <header className="doc-evitar-corte">
+            <div className="flex items-start justify-between gap-4 flex-wrap">
+              <div>
+                <p className="font-sello-display text-lg text-tinta">ADUANAI</p>
+                <h1 className="font-sello-display text-28 text-tinta mt-3">Reporte de revisión pre-glosa</h1>
               </div>
-            ))}
-          </div>
-        </div>
-      )}
+              <dl className="text-13 font-sello-ui text-right space-y-0.5">
+                <div><dt className="inline text-tinta-suave">Folio: </dt><dd className="inline font-sello-mono text-tinta">{folio}</dd></div>
+                <div><dt className="inline text-tinta-suave">Generado: </dt><dd className="inline font-sello-mono text-tinta">{fechaHoraLarga(generadoEn)}</dd></div>
+                <div><dt className="inline text-tinta-suave">Fracción: </dt><dd className="inline font-sello-mono text-tinta">{form.fractionCode}</dd></div>
+              </dl>
+            </div>
+            {/* Versión del corpus — cotejo REAL (verde) */}
+            <div className="mt-4 pt-4 border-t border-linea flex items-center gap-2 flex-wrap">
+              <span className="text-sm text-tinta-suave">Base normativa usada:</span>
+              <span className="text-sm text-tinta">{CORPUS_VERSION.tigie} · {CORPUS_VERSION.baseUnica}</span>
+              <SelloVerificacion
+                estado="verificado"
+                fuenteNombre={CORPUS_VERSION.fuenteNombre}
+                fuenteUrl={CORPUS_VERSION.fuenteUrl}
+                fechaPublicacion={CORPUS_VERSION.fechaPublicacion}
+                fechaVerificacion={CORPUS_VERSION.fechaVerificacion}
+                metodo="manual"
+              />
+            </div>
+          </header>
 
-      {/* Recomendaciones */}
-      {result.recommendations.length > 0 && (
-        <div className={`${GLASS} rounded-2xl p-5`}>
-          <p className="text-[13px] font-semibold text-slate-900 mb-2 flex items-center gap-1">
-            <ShieldCheck className="w-4 h-4 text-emerald-600"/> Recomendaciones prioritarias
-          </p>
-          {result.recommendations.map((r, i) => (
-            <div key={i} className="mb-3">
-              <p className="text-[11px] font-bold uppercase tracking-wide mb-1.5" style={{ color: r.priority === 'critical' ? '#be123c' : '#0369a1' }}>
-                {r.priority === 'critical' ? '🔴 Resolver antes de despachar' : '📋 Preparar para posible RA'}
-              </p>
-              <ul className="space-y-1 ml-4">
-                {r.items.map((item, j) => <li key={j} className="text-[11px] text-slate-700 list-disc">{item}</li>)}
+          {/* Resumen ejecutivo */}
+          <section className="mt-8 doc-evitar-corte">
+            <h2 className="text-13 uppercase tracking-wide text-tinta-suave mb-2">Resumen ejecutivo</h2>
+            <div className={`rounded-sello border p-5 ${v.color === 'carmin' ? 'border-carmin/30 bg-carmin-suave' : v.color === 'ambar' ? 'border-ambar/30 bg-ambar-suave' : 'border-sello/30'}`}
+              style={v.color === 'sello' ? { backgroundColor: 'var(--color-petroleo-suave)' } : undefined}>
+              <div className="flex items-center gap-3">
+                <v.icono className={`w-6 h-6 shrink-0 ${v.color === 'carmin' ? 'text-carmin' : v.color === 'ambar' ? 'text-ambar' : 'text-sello'}`} strokeWidth={1.5} aria-hidden />
+                <p className={`font-sello-display text-22 ${v.color === 'carmin' ? 'text-carmin' : v.color === 'ambar' ? 'text-ambar' : 'text-sello'}`}>{v.titulo}</p>
+              </div>
+              <p className="text-base text-tinta leading-relaxed mt-2">{v.frase}</p>
+              <div className="mt-3 pt-3 border-t border-linea grid grid-cols-3 gap-4 text-13">
+                <div><span className="text-tinta-suave">Prob. de revisión: </span><span className="font-sello-mono text-tinta">{Math.round(result.raProbability)}%</span></div>
+                <div><span className="text-tinta-suave">Prob. de cotejo: </span><span className="font-sello-mono text-tinta">{Math.round(result.cotejoProb)}%</span></div>
+                <div><span className="text-tinta-suave">Prob. de glosa: </span><span className="font-sello-mono text-tinta">{Math.round(result.glosaProb)}%</span></div>
+              </div>
+            </div>
+          </section>
+
+          {/* Hallazgos */}
+          <section className="mt-8">
+            <h2 className="text-13 uppercase tracking-wide text-tinta-suave mb-3">
+              Hallazgos {result.flags.length > 0 && `(${result.flags.length})`}
+            </h2>
+            {result.flags.length === 0 ? (
+              <p className="text-base text-tinta-suave">Sin hallazgos que reportar para esta operación.</p>
+            ) : (
+              <ol className="space-y-5">
+                {result.flags.map((f, i) => {
+                  const sev = SEVERIDAD[f.severity]
+                  const dato = datoDelPedimento(f)
+                  return (
+                    <li key={f.ruleCode + i} className="doc-evitar-corte border-l-2 pl-4"
+                      style={{ borderColor: f.severity === 'critical' ? 'var(--color-carmin)' : f.severity === 'low' ? 'var(--color-linea)' : 'var(--color-ambar)' }}>
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <span className="font-sello-mono text-sm text-tinta-suave">Hallazgo {String(i + 1).padStart(2, '0')}</span>
+                        <Badge tono={sev.tono}>{sev.label}</Badge>
+                        {dato && <span className="font-sello-mono text-13 text-tinta-suave">· Dato del pedimento: {dato}</span>}
+                      </div>
+                      <p className="text-base font-medium text-tinta mt-1.5">{f.name}</p>
+                      <p className="text-sm text-tinta leading-relaxed mt-1">{f.reason}</p>
+                      {f.legalBasis && (
+                        <div className="flex items-center gap-2 flex-wrap mt-2">
+                          <span className="text-sm text-tinta-suave">Fundamento:</span>
+                          <span className="text-sm text-tinta">{f.legalBasis}</span>
+                          <SelloVerificacion estado="sin_verificar" fuenteNombre={fuenteDeCita(f.legalBasis).nombre} fuenteUrl={fuenteDeCita(f.legalBasis).url} />
+                        </div>
+                      )}
+                      <div className="mt-2 rounded-sello-sm bg-papel-2 border border-linea px-3 py-2">
+                        <span className="text-13 uppercase tracking-wide text-tinta-suave">Recomendación · </span>
+                        <span className="text-sm text-tinta">{f.recommendation}</span>
+                      </div>
+                    </li>
+                  )
+                })}
+              </ol>
+            )}
+          </section>
+
+          {/* Recomendaciones priorizadas */}
+          {result.recommendations.some(r => r.items.length > 0) && (
+            <section className="mt-8 doc-evitar-corte">
+              <h2 className="text-13 uppercase tracking-wide text-tinta-suave mb-3">Acciones recomendadas</h2>
+              {result.recommendations.filter(r => r.items.length > 0).map((rec, i) => (
+                <div key={i} className="mb-3">
+                  <Badge tono={rec.priority === 'critical' ? 'carmin' : 'petroleo'}>
+                    {rec.priority === 'critical' ? 'Prioritario' : 'Recomendado'}
+                  </Badge>
+                  <ul className="mt-2 space-y-1.5 list-disc pl-5">
+                    {rec.items.map((it, j) => <li key={j} className="text-sm text-tinta leading-relaxed">{it}</li>)}
+                  </ul>
+                </div>
+              ))}
+            </section>
+          )}
+
+          {/* Fundamentos — URL completa visible (en papel el link no sirve si no se lee) */}
+          <section className="mt-8 doc-evitar-corte">
+            <h2 className="text-13 uppercase tracking-wide text-tinta-suave mb-3">Fundamentos legales citados</h2>
+            {fuentes.length === 0 ? (
+              <p className="text-sm text-tinta-suave">Este reporte no citó fundamentos legales estructurados.</p>
+            ) : (
+              <ul className="space-y-3">
+                {fuentes.map(f => (
+                  <li key={f.id} className="doc-evitar-corte">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <span className="text-base text-tinta">{f.texto}</span>
+                      <SelloVerificacion estado={f.estado} fuenteNombre={f.nombre} fuenteUrl={f.url} />
+                    </div>
+                    {f.url && <p className="font-sello-mono text-13 text-tinta-suave break-all mt-0.5">{f.nombre}: {f.url}</p>}
+                  </li>
+                ))}
               </ul>
-            </div>
-          ))}
+            )}
+            <p className="text-13 text-tinta-suave mt-4 pt-3 border-t border-linea leading-relaxed">
+              El sello ámbar indica que la cita aún no está cotejada artículo por artículo contra la fuente
+              dentro de esta respuesta; la URL apunta a la ley vigente consolidada. {result.disclaimer}
+            </p>
+          </section>
         </div>
-      )}
+      </article>
 
-      {/* Disclaimer */}
-      <div className="rounded-xl border border-slate-200 bg-slate-50/70 p-3">
-        <p className="text-[10px] text-slate-600 italic">{result.disclaimer}</p>
-      </div>
-
-      {/* Acciones */}
-      <div className="flex gap-2 flex-wrap">
-        <button onClick={onReset} className="text-[11px] bg-slate-900 hover:bg-slate-800 text-white px-3 py-1.5 rounded-lg flex items-center gap-1">
-          <RotateCcw className="w-3 h-3"/> Nueva simulación
-        </button>
-        <a href={`/api/glosa/${simulationId}`} target="_blank" rel="noreferrer" className="text-[11px] bg-white border border-slate-200 hover:bg-slate-50 text-slate-700 px-3 py-1.5 rounded-lg flex items-center gap-1">
-          <Download className="w-3 h-3"/> JSON completo
-        </a>
-        <button onClick={() => window.print()} className="text-[11px] bg-white border border-slate-200 hover:bg-slate-50 text-slate-700 px-3 py-1.5 rounded-lg flex items-center gap-1">
-          <FileText className="w-3 h-3"/> Imprimir
-        </button>
-      </div>
-
-      {/* Feedback de aprendizaje */}
-      <div className={`${GLASS} rounded-2xl p-4`}>
-        {outcomeLogged ? (
-          <p className="text-[11px] text-emerald-700 text-center">✓ Resultado registrado — gracias, mejora la calibración del modelo.</p>
-        ) : (
-          <>
-            <p className="text-[11px] text-slate-700 mb-2">Una vez despachado, ¿qué pasó realmente? (mejora el modelo)</p>
-            <div className="flex gap-2 flex-wrap">
-              <button onClick={() => logOutcome('ra_yes')} className="text-[10px] bg-rose-50 border border-rose-200 hover:bg-rose-100 text-rose-700 px-2.5 py-1 rounded-lg">Hubo RA</button>
-              <button onClick={() => logOutcome('documental')} className="text-[10px] bg-amber-50 border border-amber-200 hover:bg-amber-100 text-amber-700 px-2.5 py-1 rounded-lg">Solo documental</button>
-              <button onClick={() => logOutcome('ra_no')} className="text-[10px] bg-sky-50 border border-sky-200 hover:bg-sky-100 text-sky-700 px-2.5 py-1 rounded-lg">Sin RA</button>
-              <button onClick={() => logOutcome('free')} className="text-[10px] bg-emerald-50 border border-emerald-200 hover:bg-emerald-100 text-emerald-700 px-2.5 py-1 rounded-lg">Despacho libre</button>
-            </div>
-          </>
-        )}
-      </div>
-
-      <button onClick={() => { /* save persisted ya */ }} className="hidden">
-        <Save/>
-      </button>
+      {/* Pie repetido en cada hoja impresa */}
+      <div className="doc-pie font-sello-mono">{pieTexto}</div>
     </div>
   )
 }
