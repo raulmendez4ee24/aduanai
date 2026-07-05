@@ -304,14 +304,30 @@ misma cita.
 ## 16) Criterios SAT sintéticos en el corpus — pendientes de cotejo real
 
 "Criterio Normativo AGA 7/2024" (desactivado 2026-07-04, atribución incorrecta
-al Art. 78 LA) y "Criterio Normativo AGA 4/2024" (desactivado 2026-07-04, misma
-razón: referencia no localizable en fuente oficial) fueron retirados del seed y
-sus filas huérfanas desactivadas (isActive=false) en LOCAL y PROD. Queda VIVO
-"Criterio Normativo AGCE 5/2024" (smartphones): referencia igualmente no
-cotejable Y contenido que contradice el catálogo vigente (dice "8517.13";
-TIGIE 2026 clasifica smartphones en 8517.14.01) — candidato al mismo
-tratamiento, pendiente de aprobación. Si algún criterio resulta REAL en el
-cotejo, se restaura con su texto verbatim y URL oficial.
+al Art. 78 LA), "Criterio Normativo AGA 4/2024" (desactivado 2026-07-04) y
+"Criterio Normativo AGCE 5/2024" (desactivado 2026-07-05) fueron retirados del
+seed y sus filas huérfanas desactivadas (isActive=false) en LOCAL y PROD.
+Razón común: referencia NO cotejable contra fuente oficial. Si algún criterio
+resulta REAL en el cotejo, se restaura con su texto verbatim y URL oficial.
+
+CORRECCIÓN (2026-07-05): la nota previa afirmaba que el AGCE 5/2024
+"contradecía el catálogo" por decir 8517.13 — FALSO. Verificado contra el
+catálogo: 8517.13.01 "Teléfonos inteligentes." SÍ existe activa (subpartida
+creada por HS 2022). Su desactivación es SOLO por referencia no cotejable.
+El hallazgo real derivado es del CATÁLOGO → ver #18.
+
+## 18) Catálogo: smartphones duplicados en dos subpartidas activas
+
+Verificado 2026-07-05: el catálogo tiene 8517.13.01 "Teléfonos inteligentes."
+(ACTIVA — subpartida HS 2022 específica de smartphones) Y 8517.14.01
+"Teléfonos inteligentes (smartphones)" (ACTIVA) conviviendo. En HS 2022,
+8517.13 ES la subpartida de smartphones y 8517.14 es "los demás teléfonos…";
+que la .14.01 describa también smartphones huele a residuo de seed o a texto
+raro de la Base Única. Pendiente: cotejar ambas contra la Base Única
+SNICE/TIGIE vigente y decidir cuál es la canónica. Implicaciones mientras
+tanto: el accuracy set (caso #12) espera 85171401 — si la canónica resulta
+ser la .13, el caso necesita corrección o aceptación dual (patrón
+fracción-espejo ya usado en 6109.10.01/.03).
 
 ## 17) Cuota activa sobre fracción INEXISTENTE en catálogo (73181505)
 

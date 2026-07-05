@@ -401,17 +401,13 @@ export const LEGAL_DOCUMENTS: LegalDocSeed[] = [
   // ELIMINADO 2026-07-04: "Criterio Normativo AGA 4/2024 — Anexo 2.4.1 fracción II
   // IMMEX". Referencia NO cotejable contra fuente oficial (mismo tratamiento que
   // AGA 7/2024). Fila huérfana desactivada en BD (DEFERRED #16).
-  // OJO: "AGCE 5/2024" (abajo) también es referencia pendiente de cotejo Y su
-  // contenido dice "8517.13" cuando el catálogo TIGIE vigente clasifica
-  // smartphones en 85171401 — reportado, NO tocado (fuera del alcance aprobado).
-  {
-    type: 'criterio_sat', source: 'AGCE', title: 'Criterio AGCE — Smartphones clasificación 8517.13',
-    reference: 'Criterio Normativo AGCE 5/2024',
-    content: 'Los teléfonos inteligentes (smartphones) que combinan función de telefonía celular con cámara, GPS, internet y aplicaciones, se clasifican en 8517.13 cuando la función principal es la telefonía celular. La presencia de funciones adicionales no cambia la clasificación esencial. Concuerda con Decisión OMA HS-2520-EN.',
-    officialUrl: 'https://www.sat.gob.mx/criterios',
-    topics: ['clasificacion'], keywords: ['smartphones', '8517.13', 'OMA', 'GRI 3b'],
-    fractionRefs: ['85171301'],
-  },
+  // ELIMINADO 2026-07-05: "Criterio Normativo AGCE 5/2024 — Smartphones 8517.13".
+  // Razón ÚNICA: referencia NO cotejable contra fuente oficial (mismo tratamiento
+  // que AGA 7/2024 y 4/2024). NOTA de corrección: la observación previa de que su
+  // contenido "contradecía el catálogo" era FALSA — 8517.13.01 "Teléfonos
+  // inteligentes." SÍ existe activa en el catálogo (subpartida HS 2022). El
+  // hallazgo real es del CATÁLOGO: 85171301 y 85171401 conviven activas ambas
+  // describiendo smartphones (pendiente de cotejo vs Base Única SNICE).
   {
     // Fase 3.1 — TEXTO VERBATIM de la LFD consolidada (Cámara de Diputados,
     // última reforma DOF 07-11-2025; cantidades 2026 actualizadas por RMF
