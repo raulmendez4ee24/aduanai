@@ -42,6 +42,7 @@ import { AdminPadronesPage } from './pages/Admin/AdminPadrones'
 import { PadronesPage } from './pages/Settings/Padrones'
 import { GlosaSimulatorPage } from './pages/GlosaSimulator'
 import { RiskScorerPage } from './pages/RiskScorer'
+import { DesignSystemPage } from './pages/DesignSystem'
 import { AdminGlosaPage } from './pages/Admin/AdminGlosa'
 import { AuditTrailPage } from './pages/AuditTrail'
 import { EmpresaPage } from './pages/Settings/Empresa'
@@ -163,6 +164,8 @@ export function App() {
     <ErrorBoundary resetKey={location.pathname}>
     <Routes>
       {/* Public */}
+      {/* SELLO: espejo de QA visual — SOLO build de desarrollo (docs/DESIGN_SYSTEM.md §8) */}
+      {import.meta.env.DEV && <Route path="/design-system" element={<DesignSystemPage />} />}
       <Route path="/" element={<AboutPage />} />
       <Route path="/about" element={<AboutPage />} />
       <Route path="/terminos" element={<TermsPage />} />

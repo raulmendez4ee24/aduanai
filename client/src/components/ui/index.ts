@@ -1,0 +1,23 @@
+/**
+ * SELLO · componentes base (docs/DESIGN_SYSTEM.md).
+ * import { Button, Card, SelloVerificacion } from '../components/ui'
+ */
+export { Button } from './Button'
+export type { ButtonProps } from './Button'
+export { Card } from './Card'
+export type { CardProps } from './Card'
+export { Badge } from './Badge'
+export type { BadgeProps } from './Badge'
+export { SelloVerificacion, formatFechaSello } from './SelloVerificacion'
+export type { SelloVerificacionProps, EstadoSello } from './SelloVerificacion'
+export { Input } from './Input'
+export type { InputProps } from './Input'
+export { Select } from './Select'
+export type { SelectProps } from './Select'
+export { Textarea } from './Textarea'
+export type { TextareaProps } from './Textarea'
+export { FieldShell } from './FieldShell'
+export { DataTable } from './DataTable'
+export type { DataTableProps, Columna } from './DataTable'
+export { EmptyState } from './EmptyState'
+export type { EmptyStateProps } from './EmptyState'
