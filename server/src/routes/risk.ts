@@ -1,7 +1,7 @@
 /**
  * RISK SCORER — API (docs/RISK_SCORER_DESIGN.md §6).
  * POST /api/risk/assess · GET /api/risk/assessments · GET /api/risk/assessments/:id
- * GET/PUT /api/risk/weights (PUT solo admin, Σ=100 validada, auditado)
+ * GET/PUT /api/risk/weights (PUT solo SUPERADMIN: los pesos son globales, Σ=100 validada)
  */
 import { Router, type Response } from 'express';
 import { z } from 'zod';
@@ -115,7 +115,7 @@ router.get('/weights', async (_req: AuthRequest, res: Response) => {
   res.json({ status: 'ok', data: await getWeights(), rulesVersion: RULES_VERSION });
 });
 
-router.put('/weights', requireRole('admin'), async (req: AuthRequest, res: Response) => {
+router.put('/weights', requireRole('SUPERADMIN'), async (req: AuthRequest, res: Response) => {
   const schema = z.record(z.string(), z.number().int().min(0).max(100));
   const parsed = schema.safeParse(req.body);
   if (!parsed.success) return res.status(400).json({ status: 'error', message: 'Pesos inválidos' });

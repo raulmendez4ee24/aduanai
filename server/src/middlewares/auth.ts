@@ -2,11 +2,12 @@ import { Request, Response, NextFunction } from 'express';
 import jwt from 'jsonwebtoken';
 import { AppError } from './error';
 import { prisma } from '../lib/prisma';
+import type { UserRole } from '@prisma/client';
 
 export interface AuthRequest extends Request {
   userId?: string;
   tenantId?: string;
-  userRole?: string;
+  userRole?: UserRole;
   emailVerified?: boolean;
   userStatus?: string;
 }
@@ -57,7 +58,7 @@ export async function authenticate(req: AuthRequest, _res: Response, next: NextF
 }
 
 // Role-based access
-export function requireRole(...roles: string[]) {
+export function requireRole(...roles: UserRole[]) {
   return (req: AuthRequest, _res: Response, next: NextFunction) => {
     if (!req.userRole || !roles.includes(req.userRole)) {
       return next(new AppError('No tienes permiso para esta acción', 403));
