@@ -11,7 +11,12 @@
  */
 
 import { strict as assert } from 'node:assert';
-import { computeQuoteAmounts, resolveCuotaCompensatoria } from '../services/quoter';
+import {
+  computeQuoteAmounts,
+  getPreferentialRates,
+  requireQuotableFraction,
+  resolveCuotaCompensatoria,
+} from '../services/quoter';
 import type { AntidumpingMatch } from '../services/compliance-lookup';
 
 let passed = 0;
@@ -314,6 +319,69 @@ test('End-to-end del incidente: $25,000 USD + 1500 kg + $2.07 USD/kg + TC 17', (
   assert.equal(r.preIVABase, 502435.00);
   assert.equal(r.iva, 80389.60);
   assert.equal(r.totalLandedCost, 582824.60);
+});
+
+console.log('\n▸ Candados fail-closed — fracción y preferenciales');
+
+test('Fracción inexistente rechaza la cotización con error explícito', () => {
+  assert.throws(
+    () => requireQuotableFraction(null),
+    (err: unknown) => err instanceof Error
+      && err.message === 'Fracción no encontrada, no se puede cotizar'
+      && 'statusCode' in err
+      && err.statusCode === 422,
+  );
+});
+
+test('Fracción inactiva se trata como no encontrada', () => {
+  assert.throws(
+    () => requireQuotableFraction({ active: false, tariffNMF: 15 }),
+    /Fracción no encontrada, no se puede cotizar/,
+  );
+});
+
+test('Tasa NMF ausente rechaza en vez de inventar 15%', () => {
+  assert.throws(
+    () => requireQuotableFraction({ active: true, tariffNMF: null }),
+    /Tasa NMF no disponible para la fracción, no se puede cotizar/,
+  );
+});
+
+test('Override IGI explícito permite una fracción vigente sin NMF', () => {
+  assert.doesNotThrow(() => requireQuotableFraction({ active: true, tariffNMF: null }, true));
+});
+
+test('Tratado sin tasa conserva NMF y expone aviso, no 0%', () => {
+  const result = getPreferentialRates('US', 5, {
+    tariffTMEC: null,
+    tariffTLCUE: null,
+    tariffCPTPP: null,
+  });
+  assert.equal(result?.[0]?.treaty, 'TMEC');
+  assert.equal(result?.[0]?.igi, null);
+  assert.equal(result?.[0]?.available, false);
+  assert.equal(result?.[0]?.savings, 0);
+  assert.match(result?.[0]?.note ?? '', /no disponible, se cotiza NMF 5%/);
+});
+
+test('Tasa preferencial literal 0% sí se conserva como dato disponible', () => {
+  const result = getPreferentialRates('US', 5, {
+    tariffTMEC: 0,
+    tariffTLCUE: null,
+    tariffCPTPP: null,
+  });
+  assert.equal(result?.[0]?.igi, 0);
+  assert.equal(result?.[0]?.available, true);
+  assert.equal(result?.[0]?.savings, 0.05);
+});
+
+test('Origen con substring engañoso no activa un tratado', () => {
+  const result = getPreferentialRates('AUSTRIA', 5, {
+    tariffTMEC: 0,
+    tariffTLCUE: null,
+    tariffCPTPP: null,
+  });
+  assert.equal(result, null);
 });
 
 console.log('\n═══════════════════════════════════════════════');

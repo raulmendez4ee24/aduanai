@@ -1,6 +1,7 @@
 import { prisma } from '../lib/prisma';
-import { getExchangeRate } from './exchange-rate';
+import { getOfficialRate } from './exchange-rate';
 import { lookupCompliance, type AntidumpingMatch, type RegulationMatch } from './compliance-lookup';
+import { AppError } from '../middlewares/error';
 
 // ──────────────────────────────────────────────────────────────────────────
 // Pure quote calculation (testeable, sin DB ni red)
@@ -223,6 +224,9 @@ interface QuoteResult {
   incoterm: string;
   exchangeRate: number;
   exchangeRateDate: string;
+  exchangeRateSource: string;
+  exchangeRateIsOfficial: boolean;
+  exchangeRateWarning: string | null;
   valueMXN: number;
   breakdown: {
     igi: { rate: number; base: number; amount: number };
@@ -239,8 +243,10 @@ interface QuoteResult {
   totalLandedCostUSD: number;
   preferential: {
     treaty: string;
-    igi: number;
+    igi: number | null;
     savings: number;
+    available: boolean;
+    note: string | null;
   }[] | null;
   // Compliance — cuotas compensatorias + regulaciones aplicables
   compensatorias: AntidumpingMatch | null;
@@ -250,23 +256,52 @@ interface QuoteResult {
 
 const PREVALIDATION_FEE_MXN = 321;
 
+export interface QuotableFraction {
+  active: boolean;
+  tariffNMF: number | null;
+}
+
+/** Cierra el fallback histórico de 15% antes de ejecutar cualquier cálculo. */
+export function requireQuotableFraction(
+  fraction: QuotableFraction | null | undefined,
+  hasExplicitIgiOverride = false,
+): asserts fraction is QuotableFraction {
+  if (!fraction || !fraction.active) {
+    throw new AppError('Fracción no encontrada, no se puede cotizar', 422);
+  }
+  if (fraction.tariffNMF == null && !hasExplicitIgiOverride) {
+    throw new AppError('Tasa NMF no disponible para la fracción, no se puede cotizar', 422);
+  }
+}
+
 export async function calculateQuote(input: QuoteInput): Promise<QuoteResult> {
   const { fractionCode, customsValue, origin, incoterm, currency } = input;
 
   // Buscar fracción en la DB
-  const fraction = await prisma.fraction.findFirst({
+  const fraction = await prisma.fraction.findUnique({
     where: { code: fractionCode.replace(/\./g, '') },
   });
+  requireQuotableFraction(fraction, input.igiRateOverride != null);
 
-  // Tasas — fracción de la DB con fallback a 15% (NMF default)
-  const igiRate = input.igiRateOverride ?? fraction?.tariffNMF ?? 15;
-  const iepsRate = fraction?.iepsRate ?? 0;
+  // Tasas — siempre desde fracción verificada o override explícito; nunca default.
+  const igiRate = input.igiRateOverride ?? fraction.tariffNMF!;
+  const iepsRate = fraction.iepsRate ?? 0;
 
-  // Tipo de cambio
-  const fetchedRate = await getExchangeRate();
-  const exchangeRate = input.exchangeRate
-    ?? (currency === 'MXN' ? 1 : fetchedRate);
-  const exchangeRateDate = new Date().toISOString();
+  // Tipo de cambio con procedencia y fecha reales. Si no hay DB/proveedor,
+  // getOfficialRate falla explícitamente; nunca cae a un escalar inventado.
+  const rateInfo = currency === 'MXN'
+    ? { rate: 1, source: 'identity', asOf: new Date(), isOfficial: true, warning: null }
+    : input.exchangeRate != null
+      ? {
+          rate: input.exchangeRate,
+          source: 'manual',
+          asOf: new Date(),
+          isOfficial: false,
+          warning: `TC manual del ${new Date().toISOString().slice(0, 10)} — verifica su fuente antes de pagar contribuciones.`,
+        }
+      : await getOfficialRate();
+  const exchangeRate = rateInfo.rate;
+  const exchangeRateDate = rateInfo.asOf.toISOString();
 
   // Compliance — cuota compensatoria + regulaciones aplicables al país.
   // lookupCompliance falla cerrado: si el DB no responde, lanza error en
@@ -297,7 +332,11 @@ export async function calculateQuote(input: QuoteInput): Promise<QuoteResult> {
 
   const totalWithDispatch = round2(amounts.totalLandedCost + PREVALIDATION_FEE_MXN);
 
+  const preferential = getPreferentialRates(origin, igiRate, fraction);
   const alertas = [...compliance.alertas];
+  for (const pref of preferential ?? []) {
+    if (!pref.available && pref.note && !alertas.includes(pref.note)) alertas.push(pref.note);
+  }
   if (cuota.cvNeedsWeight && compliance.antidumping) {
     const ad = compliance.antidumping;
     const dataLabel = ad.rateType === 'specific_USD_kg' ? 'weightKg (peso bruto en kg)' : 'quantity (unidades)';
@@ -314,6 +353,9 @@ export async function calculateQuote(input: QuoteInput): Promise<QuoteResult> {
     incoterm,
     exchangeRate,
     exchangeRateDate,
+    exchangeRateSource: rateInfo.source,
+    exchangeRateIsOfficial: rateInfo.isOfficial,
+    exchangeRateWarning: rateInfo.warning,
     valueMXN: amounts.valueMXN,
     breakdown: {
       igi: { rate: igiRate, base: amounts.valueMXN, amount: amounts.igi },
@@ -332,28 +374,39 @@ export async function calculateQuote(input: QuoteInput): Promise<QuoteResult> {
     totalLandedCost: amounts.totalLandedCost,
     totalWithDispatch,
     totalLandedCostUSD: round2(amounts.totalLandedCost / exchangeRate),
-    preferential: getPreferentialRates(origin, igiRate),
+    preferential,
     compensatorias: compliance.antidumping,
     regulaciones: compliance.regulations,
     alertas,
   };
 }
 
-function getPreferentialRates(origin: string, baseRate: number) {
-  const treaties: Record<string, string[]> = {
-    'TMEC': ['US', 'USA', 'ESTADOS UNIDOS', 'CA', 'CAN', 'CANADA', 'CANADÁ'],
-    'TLCUE': ['DE', 'FR', 'IT', 'ES', 'ALEMANIA', 'FRANCIA', 'ITALIA', 'ESPAÑA'],
-    'CPTPP': ['JP', 'JAPÓN', 'JAPON', 'AU', 'AUSTRALIA', 'VN', 'VIETNAM'],
-  };
+export function getPreferentialRates(
+  origin: string,
+  baseRate: number,
+  fraction: { tariffTMEC: number | null; tariffTLCUE: number | null; tariffCPTPP: number | null },
+) {
+  const treaties = [
+    { treaty: 'TMEC', countries: ['US', 'USA', 'ESTADOS UNIDOS', 'CA', 'CAN', 'CANADA', 'CANADÁ'], rate: fraction.tariffTMEC },
+    { treaty: 'TLCUEM', countries: ['DE', 'FR', 'IT', 'ES', 'ALEMANIA', 'FRANCIA', 'ITALIA', 'ESPAÑA'], rate: fraction.tariffTLCUE },
+    { treaty: 'CPTPP', countries: ['JP', 'JAPÓN', 'JAPON', 'AU', 'AUSTRALIA', 'VN', 'VIETNAM'], rate: fraction.tariffCPTPP },
+  ];
 
-  const originUpper = origin.toUpperCase();
-  const results: { treaty: string; igi: number; savings: number }[] = [];
+  const originUpper = origin.trim().toUpperCase();
+  const results: { treaty: string; igi: number | null; savings: number; available: boolean; note: string | null }[] = [];
 
-  for (const [treaty, countries] of Object.entries(treaties)) {
-    if (countries.some(c => originUpper.includes(c))) {
-      const prefRate = 0;
-      const savings = (baseRate - prefRate) / 100;
-      results.push({ treaty, igi: prefRate, savings });
+  for (const { treaty, countries, rate } of treaties) {
+    if (countries.includes(originUpper)) {
+      const available = rate != null;
+      results.push({
+        treaty,
+        igi: rate,
+        savings: available ? (baseRate - rate) / 100 : 0,
+        available,
+        note: available
+          ? null
+          : `Tasa preferencial ${treaty} no disponible, se cotiza NMF ${baseRate}%.`,
+      });
     }
   }
 

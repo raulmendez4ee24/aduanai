@@ -18,13 +18,12 @@
 
 import { prisma } from '../lib/prisma';
 import { logger } from './../lib/logger';
-
-const FALLBACK_RATE = 17.5;
+import { AppError } from '../middlewares/error';
 
 /** Resultado enriquecido con metadatos para UI. */
 export interface OfficialRate {
   rate: number;
-  source: 'banxico' | 'fallback' | 'synthetic' | 'manual';
+  source: 'banxico' | 'fallback' | 'synthetic' | 'manual' | 'mixed';
   asOf: Date;
   /** true si el row leído proviene de Banxico (DOF). */
   isOfficial: boolean;
@@ -40,24 +39,15 @@ function todayUTC(): Date {
 
 /**
  * TC más reciente en DB (cualquier fuente). Si no hay registros se
- * intenta un refresh externo. Si todo falla, FALLBACK_RATE.
+ * intenta un refresh externo. Si todo falla, lanza error: nunca inventa
+ * un tipo de cambio fijo.
  *
  * SHARED entry-point — debe ser la única forma en que los módulos
  * resuelven "el TC del día" para mantener consistencia entre cotizador,
  * pre-validador, MVE y demás.
  */
 export async function getExchangeRate(): Promise<number> {
-  const today = todayUTC();
-  const latest = await prisma.exchangeRate.findFirst({
-    where: { date: { lte: today } },
-    orderBy: { date: 'desc' },
-  });
-  if (latest) return latest.rate;
-
-  const refreshed = await refreshOfficialRate().catch(() => null);
-  if (refreshed) return refreshed.rate;
-
-  return FALLBACK_RATE;
+  return (await getOfficialRate()).rate;
 }
 
 /**
@@ -76,13 +66,16 @@ export async function getOfficialRate(): Promise<OfficialRate> {
     const source = (['banxico', 'fallback', 'synthetic', 'manual'].includes(latest.source)
       ? latest.source : 'manual') as OfficialRate['source'];
     const ageDays = Math.floor((today.getTime() - latest.date.getTime()) / 86400000);
+    const asOf = latest.date.toISOString().slice(0, 10);
     let warning: string | null = null;
     if (source === 'synthetic') {
-      warning = 'TC referencial sintético — no es DOF. Verifica con tu agente aduanal antes de pagar contribuciones.';
+      warning = `TC de respaldo sintético del ${asOf} — no es DOF. Verifica con tu agente aduanal antes de pagar contribuciones.`;
     } else if (source === 'fallback') {
-      warning = 'TC obtenido de fuente alternativa (no Banxico). Para pagos oficiales usa el DOF del día.';
+      warning = `TC de respaldo de fuente alternativa del ${asOf} (no Banxico). Para pagos oficiales usa el DOF aplicable.`;
+    } else if (source === 'manual') {
+      warning = `TC manual del ${asOf} — verifica su fuente antes de pagar contribuciones.`;
     } else if (ageDays >= 2) {
-      warning = `Último TC oficial es de hace ${ageDays} días (${latest.date.toISOString().slice(0, 10)}). Banxico no ha respondido recientemente.`;
+      warning = `TC de respaldo del ${asOf}; el último dato oficial tiene ${ageDays} días. Banxico no ha respondido recientemente.`;
     }
     return {
       rate: latest.rate,
@@ -96,13 +89,7 @@ export async function getOfficialRate(): Promise<OfficialRate> {
   const refreshed = await refreshOfficialRate().catch(() => null);
   if (refreshed) return refreshed;
 
-  return {
-    rate: FALLBACK_RATE,
-    source: 'fallback',
-    asOf: today,
-    isOfficial: false,
-    warning: 'No hay datos de TC en la base ni se pudo contactar a Banxico. Usando valor por defecto.',
-  };
+  throw new AppError('Tipo de cambio no disponible, no se puede cotizar', 503);
 }
 
 /** Banxico SIE — serie SF43718 (FIX USD/MXN). */
@@ -183,42 +170,77 @@ export async function refreshOfficialRate(): Promise<OfficialRate | null> {
     asOf: result.asOf,
     isOfficial: source === 'banxico',
     warning: source === 'fallback'
-      ? 'TC obtenido de fuente alternativa (no Banxico). Para pagos oficiales usa el DOF del día.'
+      ? `TC de respaldo de fuente alternativa del ${result.asOf.toISOString().slice(0, 10)} (no Banxico). Para pagos oficiales usa el DOF aplicable.`
       : null,
   };
 }
 
 /**
- * TC para una fecha específica. Si no hay registro exacto, el inmediatamente
- * anterior (no devuelve nada futuro). Si no hay nada → rate actual.
+ * TC para una fecha específica. Si no hay registro exacto, devuelve el
+ * inmediatamente anterior con su fecha real y una advertencia visible.
  */
-export async function getHistoricalRate(date: Date): Promise<number> {
+export async function getHistoricalRateInfo(date: Date): Promise<OfficialRate> {
   const target = new Date(date);
   target.setUTCHours(0, 0, 0, 0);
 
-  const exact = await prisma.exchangeRate.findUnique({ where: { date: target } });
-  if (exact) return exact.rate;
-
-  const previous = await prisma.exchangeRate.findFirst({
+  const row = await prisma.exchangeRate.findFirst({
     where: { date: { lte: target } },
     orderBy: { date: 'desc' },
   });
-  if (previous) return previous.rate;
+  if (!row) {
+    throw new AppError('Tipo de cambio no disponible para la fecha solicitada, no se puede cotizar', 503);
+  }
 
-  return await getExchangeRate();
+  const source = (['banxico', 'fallback', 'synthetic', 'manual'].includes(row.source)
+    ? row.source : 'manual') as OfficialRate['source'];
+  const requested = target.toISOString().slice(0, 10);
+  const asOf = row.date.toISOString().slice(0, 10);
+  const exact = row.date.getTime() === target.getTime();
+  const sourceWarning = source === 'banxico'
+    ? null
+    : ` Fuente ${source}, no Banxico.`;
+
+  return {
+    rate: row.rate,
+    source,
+    asOf: row.date,
+    isOfficial: source === 'banxico',
+    warning: exact && source === 'banxico'
+      ? null
+      : `TC de respaldo del ${asOf} para la fecha solicitada ${requested}.${sourceWarning ?? ''}`.trim(),
+  };
+}
+
+export async function getHistoricalRate(date: Date): Promise<number> {
+  return (await getHistoricalRateInfo(date)).rate;
 }
 
 /** Promedio del último mes (30 días). */
-export async function getMonthlyAverageRate(): Promise<number> {
+export async function getMonthlyAverageRateInfo(): Promise<OfficialRate> {
   const since = new Date(Date.now() - 30 * 86400000);
   since.setUTCHours(0, 0, 0, 0);
   const rates = await prisma.exchangeRate.findMany({
     where: { date: { gte: since } },
     orderBy: { date: 'desc' },
   });
-  if (rates.length === 0) return await getExchangeRate();
+  if (rates.length === 0) return await getOfficialRate();
   const sum = rates.reduce((s, r) => s + r.rate, 0);
-  return Math.round((sum / rates.length) * 10000) / 10000;
+  const sources = new Set(rates.map(r => r.source));
+  const source = sources.size === 1 && ['banxico', 'fallback', 'synthetic', 'manual'].includes(rates[0]!.source)
+    ? rates[0]!.source as OfficialRate['source']
+    : 'mixed';
+  const asOf = rates[0]!.date;
+  return {
+    rate: Math.round((sum / rates.length) * 10000) / 10000,
+    source,
+    asOf,
+    isOfficial: rates.every(r => r.source === 'banxico'),
+    warning: `Promedio de ${rates.length} tipos de cambio; último dato real del ${asOf.toISOString().slice(0, 10)}.`,
+  };
+}
+
+export async function getMonthlyAverageRate(): Promise<number> {
+  return (await getMonthlyAverageRateInfo()).rate;
 }
 
 /** Rates últimos N días (orden cronológico ASC). */

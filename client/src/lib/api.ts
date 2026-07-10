@@ -1465,6 +1465,9 @@ export interface QuoteResult {
   incoterm: string;
   exchangeRate: number;
   exchangeRateDate: string;
+  exchangeRateSource: string;
+  exchangeRateIsOfficial: boolean;
+  exchangeRateWarning: string | null;
   valueMXN: number;
   breakdown: {
     igi: { rate: number; base: number; amount: number };
@@ -1479,7 +1482,7 @@ export interface QuoteResult {
   totalLandedCost: number;
   totalWithDispatch: number;
   totalLandedCostUSD: number;
-  preferential: { treaty: string; igi: number; savings: number }[] | null;
+  preferential: { treaty: string; igi: number | null; savings: number; available: boolean; note: string | null }[] | null;
   compensatorias: AntidumpingMatch | null;
   regulaciones: RegulationMatch[];
   alertas: string[];
@@ -2756,6 +2759,9 @@ export interface MultiQuoteResult {
   exchangeRate: number;
   exchangeRateDate: string;
   exchangeRateMode: string;
+  exchangeRateSource: string;
+  exchangeRateIsOfficial: boolean;
+  exchangeRateWarning: string | null;
   items: MultiQuoteItem[];
   dispatch: {
     honorariosAgente: number;

@@ -385,9 +385,16 @@ function QuoteResult({ result }: { result: MultiQuoteResult }) {
         <div className="text-right">
           <p className="text-[11px] text-slate-500">Tipo de cambio</p>
           <p className="font-mono text-[16px] font-bold text-slate-900">${result.exchangeRate.toFixed(4)}</p>
-          <p className="text-[10px] text-slate-500">{result.exchangeRateMode} · {shortDate(result.exchangeRateDate)}</p>
+          <p className="text-[10px] text-slate-500">{result.exchangeRateMode} · {result.exchangeRateSource} · TC del {shortDate(result.exchangeRateDate)}</p>
         </div>
       </div>
+
+      {result.exchangeRateWarning && (
+        <div className="rounded-xl border border-amber-200 bg-amber-50 p-3 text-amber-800 flex items-start gap-2">
+          <AlertTriangle className="w-4 h-4 shrink-0 mt-0.5"/>
+          <p className="text-[11px] leading-relaxed">{result.exchangeRateWarning}</p>
+        </div>
+      )}
 
       {/* Tabla de partidas */}
       <div>
@@ -539,7 +546,7 @@ function QuoteResult({ result }: { result: MultiQuoteResult }) {
                         </div>
                         <div>
                           <p className="opacity-70">Preferencial {t.requested}</p>
-                          <p className="font-mono font-semibold">{t.preferentialRate ?? '—'}%</p>
+                          <p className="font-mono font-semibold">{t.preferentialRate == null ? '—' : `${t.preferentialRate}%`}</p>
                         </div>
                         <div>
                           <p className="opacity-70">Aplicado</p>

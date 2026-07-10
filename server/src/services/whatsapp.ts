@@ -185,10 +185,16 @@ function formatQuoteForWhatsApp(result: Awaited<ReturnType<typeof calculateQuote
     ].join('\n'),
   );
 
+  const tcDate = result.exchangeRateDate.slice(0, 10);
+  parts.push(`💱 *TC ${result.exchangeRateSource} del ${tcDate}:* $${result.exchangeRate.toFixed(4)} MXN/USD`);
+  if (result.exchangeRateWarning) parts.push(`⚠️ ${result.exchangeRateWarning}`);
+
   // ── Bloque 6: tratados preferenciales
   if (result.preferential && result.preferential.length > 0) {
     const lines = result.preferential.map(
-      p => `• ${p.treaty}: IGI ${p.igi}% (ahorro ${fmt(p.savings * result.valueMXN)})`,
+      p => p.available && p.igi != null
+        ? `• ${p.treaty}: IGI ${p.igi}% (ahorro ${fmt(p.savings * result.valueMXN)})`
+        : `• ${p.note ?? `Tasa preferencial ${p.treaty} no disponible, se cotiza NMF.`}`,
     );
     parts.push(`🌎 *Con tratado:*\n${lines.join('\n')}`);
   }

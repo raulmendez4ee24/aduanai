@@ -9,8 +9,8 @@
  */
 
 import { prisma } from '../lib/prisma';
-import { getExchangeRate, getHistoricalRate, getMonthlyAverageRate } from './exchange-rate';
-import { computeQuoteAmounts, resolveCuotaCompensatoria } from './quoter';
+import { getOfficialRate, getHistoricalRateInfo, getMonthlyAverageRateInfo } from './exchange-rate';
+import { computeQuoteAmounts, requireQuotableFraction, resolveCuotaCompensatoria } from './quoter';
 import { lookupCompliance } from './compliance-lookup';
 import { validateDeclaredPrice, type PriceCheckResult } from './price-validator';
 import { checkPROSEC, checkRegla8va, checkIEPS, calculateISAN } from './regimes-programs';
@@ -144,6 +144,9 @@ export interface MultiQuoteResult {
   exchangeRate: number;
   exchangeRateDate: string;
   exchangeRateMode: string;
+  exchangeRateSource: string;
+  exchangeRateIsOfficial: boolean;
+  exchangeRateWarning: string | null;
   items: ItemBreakdown[];
   dispatch: {
     honorariosAgente: number;
@@ -172,22 +175,43 @@ export interface MultiQuoteResult {
 
 const round2 = (v: number) => Math.round((v + Number.EPSILON) * 100) / 100;
 
-async function resolveExchangeRate(input: MultiQuoteInput): Promise<{ rate: number; date: Date; mode: string }> {
+async function resolveExchangeRate(input: MultiQuoteInput): Promise<{
+  rate: number;
+  date: Date;
+  mode: string;
+  source: string;
+  isOfficial: boolean;
+  warning: string | null;
+}> {
+  if ((input.currency ?? 'USD') === 'MXN') {
+    return { rate: 1, date: new Date(), mode: 'identity', source: 'identity', isOfficial: true, warning: null };
+  }
   if (input.exchangeRate != null) {
-    return { rate: input.exchangeRate, date: new Date(), mode: 'override' };
+    const date = new Date();
+    return {
+      rate: input.exchangeRate,
+      date,
+      mode: 'override',
+      source: 'manual',
+      isOfficial: false,
+      warning: `TC manual del ${date.toISOString().slice(0, 10)} — verifica su fuente antes de pagar contribuciones.`,
+    };
   }
   const mode = input.exchangeRateMode ?? 'current';
   if (mode === 'average30') {
-    return { rate: await getMonthlyAverageRate(), date: new Date(), mode: 'average30' };
+    const info = await getMonthlyAverageRateInfo();
+    return { rate: info.rate, date: info.asOf, mode: 'average30', source: info.source, isOfficial: info.isOfficial, warning: info.warning };
   }
   // ISO date string
   if (mode !== 'current') {
     const d = new Date(mode);
     if (!isNaN(d.getTime())) {
-      return { rate: await getHistoricalRate(d), date: d, mode: `historical(${mode})` };
+      const info = await getHistoricalRateInfo(d);
+      return { rate: info.rate, date: info.asOf, mode: `historical(${mode})`, source: info.source, isOfficial: info.isOfficial, warning: info.warning };
     }
   }
-  return { rate: await getExchangeRate(), date: new Date(), mode: 'current' };
+  const info = await getOfficialRate();
+  return { rate: info.rate, date: info.asOf, mode: 'current', source: info.source, isOfficial: info.isOfficial, warning: info.warning };
 }
 
 export async function calculateMultiQuote(input: MultiQuoteInput): Promise<MultiQuoteResult> {
@@ -195,31 +219,41 @@ export async function calculateMultiQuote(input: MultiQuoteInput): Promise<Multi
     throw new Error('Se requiere al menos una partida');
   }
 
-  const { rate: exchangeRate, date: exchangeRateDate, mode: exchangeRateMode } = await resolveExchangeRate(input);
   const currency = input.currency ?? 'USD';
   const isMXN = currency === 'MXN';
-  const effectiveRate = isMXN ? 1 : exchangeRate;
 
   const fractionCodes = Array.from(new Set(input.items.map(i => i.fractionCode.replace(/\./g, ''))));
   const fractions = await prisma.fraction.findMany({
-    where: { code: { in: fractionCodes } },
+    where: { code: { in: fractionCodes }, active: true },
   });
   const fractionByCode = new Map(fractions.map(f => [f.code, f]));
 
+  for (const item of input.items) {
+    requireQuotableFraction(
+      fractionByCode.get(item.fractionCode.replace(/\./g, '')),
+      item.igiRateOverride != null,
+    );
+  }
+
+  const rateInfo = await resolveExchangeRate(input);
+  const { rate: exchangeRate, date: exchangeRateDate, mode: exchangeRateMode } = rateInfo;
+  const effectiveRate = isMXN ? 1 : exchangeRate;
+
   const itemsBreakdown: ItemBreakdown[] = [];
   const globalAlertas: string[] = [];
+  if (rateInfo.warning) globalAlertas.push(rateInfo.warning);
 
   for (let i = 0; i < input.items.length; i++) {
     const it = input.items[i];
     const cleanFrac = it.fractionCode.replace(/\./g, '');
-    const fraction = fractionByCode.get(cleanFrac);
+    const fraction = fractionByCode.get(cleanFrac)!;
 
     const totalValueUSD = round2(it.quantity * it.unitValueUSD);
     const freightUSD = it.freightUSD ?? 0;
     const insuranceUSD = it.insuranceUSD ?? 0;
     const customsValueUSD = round2(totalValueUSD + freightUSD + insuranceUSD);
 
-    const nmfRate = it.igiRateOverride ?? fraction?.tariffNMF ?? 15;
+    const nmfRate = it.igiRateOverride ?? fraction.tariffNMF!;
 
     // ── Tratado preferencial: validar elegibilidad de origen + certificado ──
     const treatyRequested = it.applyTreaty ?? null;
@@ -230,10 +264,10 @@ export async function calculateMultiQuote(input: MultiQuoteInput): Promise<Multi
       TLCUEM: ['DE','FR','IT','ES','NL','BE','PT','PL','AT','SE','DK','FI','IE','GR','CZ','HU','RO','BG','HR','SI','SK','LT','LV','EE','LU','CY','MT','UE','EU','ALEMANIA','FRANCIA','ITALIA','ESPAÑA','HOLANDA','BELGICA','BÉLGICA','PORTUGAL'],
       CPTPP:  ['JP','JAPÓN','JAPON','AU','AUSTRALIA','VN','VIETNAM','CL','CHILE','PE','PERU','PERÚ','SG','SINGAPUR','MY','MALASIA','NZ','NUEVA ZELANDA','BN','BRUNEI','CA','CAN'],
     };
-    const treatyPreferential: Record<string, number | undefined> = {
-      TMEC:   fraction?.tariffTMEC ?? 0,
-      TLCUEM: fraction?.tariffTLCUE ?? 0,
-      CPTPP:  fraction?.tariffCPTPP ?? 0,
+    const treatyPreferential: Record<string, number | null> = {
+      TMEC:   fraction.tariffTMEC,
+      TLCUEM: fraction.tariffTLCUE,
+      CPTPP:  fraction.tariffCPTPP,
     };
 
     let appliedRate = nmfRate;
@@ -244,10 +278,12 @@ export async function calculateMultiQuote(input: MultiQuoteInput): Promise<Multi
     if (treatyRequested) {
       const eligibleCountries = TREATY_COUNTRIES[treatyRequested] ?? [];
       const eligibleByCountry = eligibleCountries.some(c => country.includes(c));
-      preferentialRate = treatyPreferential[treatyRequested] ?? 0;
+      preferentialRate = treatyPreferential[treatyRequested] ?? null;
 
       if (!eligibleByCountry) {
         treatyNote = `${treatyRequested} no aplica: el origen "${it.countryOfOrigin}" no es país miembro. Se aplica arancel NMF ${nmfRate}%.`;
+      } else if (preferentialRate == null) {
+        treatyNote = `Tasa preferencial ${treatyRequested} no disponible, se cotiza NMF ${nmfRate}%.`;
       } else if (!hasCert) {
         treatyNote = `Sin certificado de origen ${treatyRequested} vigente, aplica arancel general ${nmfRate}%, no preferencia ${preferentialRate}%. Solicita el certificado al exportador antes del despacho.`;
       } else {
@@ -489,6 +525,9 @@ export async function calculateMultiQuote(input: MultiQuoteInput): Promise<Multi
     exchangeRate,
     exchangeRateDate: exchangeRateDate.toISOString(),
     exchangeRateMode,
+    exchangeRateSource: rateInfo.source,
+    exchangeRateIsOfficial: rateInfo.isOfficial,
+    exchangeRateWarning: rateInfo.warning,
     items: itemsBreakdown,
     dispatch,
     totals,
