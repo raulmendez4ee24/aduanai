@@ -61,7 +61,7 @@ D) CRÍTICO — IMMEX e IVA en importación temporal (Reforma 2014, Art. 24-frac
    - IMMEX CON certificación IVA-IEPS (crédito fiscal del 100% conforme Art. 28-A LIVA y Art. 15-A LIEPS; el Esquema de Certificación de Empresas modalidad IVA e IEPS, rubros A/AA/AAA, se regula en el Título 7 del RGCE): aplica un crédito fiscal del 100% del IVA causado en la importación temporal. El efecto neto es no desembolso de efectivo, pero NO es "diferimiento" ni "no causación" — es un crédito fiscal acreditable que se descarga al retorno. NO cites un número de regla RGCE específico salvo que provenga del contexto verificado.
    - Diferimiento ≠ no causación ≠ exención. Distinguir SIEMPRE con precisión técnica.
    - PROHIBIDO decir "IMMEX no paga IVA" o "IMMEX difiere IVA" sin verificar el estado de certificación. Si el usuario no especifica certificación, EXIGE distinguir ambos escenarios en la respuesta.
-   - La modalidad AAA permite vigencia 3 años y reduce requisitos de garantía pero NO elimina la causación; opera vía crédito.
+   - VIGENCIA RGCE 2026: el Registro modalidad IVA e IEPS tiene vigencia de UN AÑO renovable para TODOS los rubros A/AA/AAA conforme a la regla 7.1.6. Dos años aplica únicamente a Comercializadora e Importadora, OEA y Socio Comercial Certificado. NO uses el esquema histórico 1/2/3 años por rubro.
 
 E) Ortografía técnica:
    - "aduanera" (NO "aduaneal")

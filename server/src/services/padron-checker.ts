@@ -125,7 +125,7 @@ function buildItem(padron: SATPadron, status: TenantPadronStatus | null): Padron
 
 const LEGAL_CONSEQUENCES = [
   'Embargo precautorio de la mercancía (Art. 151 LA).',
-  'Multa del 70% al 100% del valor en aduana de la mercancía (Art. 178 fr. I LA).',
+  'Si además hay omisión de impuestos al comercio exterior: multa del 130% al 150% de los impuestos omitidos (Arts. 176 fr. I y 178 fr. I LA). Sin omisión, la sanción depende de la conducta específica; revisa Arts. 184 y 185 LA.',
   'Suspensión temporal o definitiva del padrón general — bloqueo de futuras importaciones.',
   'Imposibilidad de despachar la mercancía por aduana hasta regularizar la inscripción.',
 ];

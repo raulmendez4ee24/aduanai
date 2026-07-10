@@ -4,7 +4,12 @@ import { prisma } from '../lib/prisma';
 import { logger } from '../lib/logger';
 import { validateFraction, FRACTION_UNVERIFIED_MESSAGE } from './fraction-validator';
 import type { KnowledgeUsedItem } from './traceability';
-import { lookupPrecedents, hasActiveLitigation, type PrecedentMatch } from './precedent-lookup';
+import {
+  lookupPrecedents,
+  hasActiveLitigation,
+  PRECEDENT_CORPUS_VERIFIED,
+  type PrecedentMatch,
+} from './precedent-lookup';
 
 export interface ClassificationResult {
   fraction: {
@@ -156,7 +161,7 @@ CUANDO LA DUALIDAD APLICA, en tu respuesta DEBES llenar 'useBasedAnalysis':
   "applies": true,
   "byMaterial": { "code": "7318.15.99", "description": "Tornillos de acero", "confidence": 75 },
   "byUse":      { "code": "8708.99.99", "description": "Partes y accesorios para vehículos", "confidence": 60 },
-  "criterion": "Si el tornillo está específicamente diseñado para una pieza vehicular y se importa por la armadora con destino a ensamble, hay precedentes donde el SAT y la OMA reclasifican a cap 87 vía Nota 2 sección XVII.",
+  "criterion": "Si el tornillo está específicamente diseñado para una pieza vehicular y se importa por la armadora con destino a ensamble, revisa las Notas de la Sección XVII y compara únicamente las fracciones candidatas vigentes; no afirmes precedentes sin contexto verificado.",
   "recommendation": "Si NO es importación específica para autopartes → 7318.15.99. Si SÍ → considerar 8708.99 con análisis de criterio.",
   "riskNote": "Reclasificar a 8708 sin sustento puede generar PAMA por incorrecta clasificación. Documentar con plano de pieza, número de parte OEM, contrato de suministro a armadora.",
   "precedents": []
@@ -207,7 +212,7 @@ d) Nuevo vs usado no afecta la clasificación arancelaria
 
 ELECTRÓNICA (Capítulos 84-85):
 a) Computadoras portátiles y tabletas → 8471.30.01
-b) Smartphones → 8517.14.01 (si combinan telefonía celular)
+b) Smartphones → distingue 8517.13 de 8517.14 exclusivamente entre las fracciones candidatas vigentes; NO fijes un código de memoria
 c) Monitores → 8528.52 (sin sintonizador TV) vs 8528.72 (con sintonizador/Smart TV)
 d) Partes y accesorios van en partidas separadas de los equipos completos
 e) Cables con conectores específicos → 8544
@@ -390,6 +395,18 @@ async function findRelevantKnowledge(description: string, probableChapters: stri
   });
 
   return scored
+    .filter(({ k }) => {
+      // El corpus de precedentes está apagado: tampoco se permite reintroducir
+      // precedentes/criterios mediante ClassificationKnowledge.
+      if (!PRECEDENT_CORPUS_VERIFIED && (k.type === 'PRECEDENTE' || k.type === 'CRITERIO_SAT')) return false;
+
+      // DEFERRED #18: 8517.13.01 y 8517.14.01 conviven activas con conocimiento
+      // contradictorio. Hasta cotejar SNICE, se excluyen casos de smartphone del
+      // prompt y el modelo debe decidir solo entre candidatos vigentes.
+      const knowledgeText = `${k.title} ${k.content} ${k.fractionCode ?? ''}`;
+      if (/smartphone|tel[eé]fono inteligente/i.test(knowledgeText) && /8517[.\s]?1[34]/.test(knowledgeText)) return false;
+      return true;
+    })
     .sort((a, b) => b.score - a.score)
     .slice(0, 5)
     .map(s => s.k);
@@ -401,7 +418,7 @@ function formatKnowledgeForPrompt(kn: Awaited<ReturnType<typeof findRelevantKnow
     const header = `[${k.type}${k.fractionCode ? ` — ${k.fractionCode}` : ''}] ${k.title}`;
     return `— Caso ${i + 1}: ${header}\n${k.content}\n(Fuente: ${k.source})`;
   });
-  return `\n\nCONOCIMIENTO ESPECÍFICO DISPONIBLE PARA ESTA CLASIFICACIÓN:\n\n${lines.join('\n\n')}\n\nUSA ESTE CONOCIMIENTO como referencia prioritaria para tu clasificación. Si el producto coincide con un caso documentado, sigue ese precedente. Si hay un ERROR_COMUN relevante, evítalo explícitamente.\n`;
+  return `\n\nCONOCIMIENTO ESPECÍFICO DISPONIBLE PARA ESTA CLASIFICACIÓN:\n\n${lines.join('\n\n')}\n\nUSA ESTE CONOCIMIENTO como contexto auxiliar, limitado por las fracciones candidatas vigentes. No lo describas como precedente legal salvo que el contexto incluya una fuente oficial verificable. Si hay un ERROR_COMUN relevante, evítalo explícitamente.\n`;
 }
 
 // ============================================
@@ -733,7 +750,6 @@ export async function classifyProduct(
         if (f.tariffNMF !== null) extras.push(`IGI: ${f.tariffNMF}%`);
         if (f.noms.length > 0) extras.push(`NOMs: ${f.noms.join(', ')}`);
         if (f.requiresPermit) extras.push(`Permiso: ${f.permitType}`);
-        if (f.sectoralRegistry) extras.push('Padrón sectorial');
         return `- ${f.codeFormatted}: ${f.description}${extras.length ? ` [${extras.join(' | ')}]` : ''}`;
       }).join('\n')}`
     : '';
@@ -853,6 +869,9 @@ Responde en JSON válido.`;
   // Default useBasedAnalysis a null si el LLM lo omite o devuelve {applies:false}
   if (!result.useBasedAnalysis || result.useBasedAnalysis.applies === false) {
     result.useBasedAnalysis = null;
+  } else if (!PRECEDENT_CORPUS_VERIFIED) {
+    // El LLM no puede rodear el switch inventando strings en este subcampo.
+    result.useBasedAnalysis.precedents = [];
   }
 
   // Precedentes finales: lookup específico con la fracción ya elegida

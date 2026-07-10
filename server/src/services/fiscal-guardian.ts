@@ -361,13 +361,14 @@ export async function simulateCertificationLoss(tenantId: string) {
   });
   const totalImportValue = activeImports.reduce((s, i) => s + i.customsValue, 0);
 
-  // Current deferred taxes
-  const pendingIVA = account.totalPending;
+  // Saldo registrado de créditos fiscales IVA + IEPS pendiente de descargo.
+  // No es "IVA diferido": el beneficio opera como crédito fiscal.
+  const pendingCredits = account.totalPending;
   const monthlyImportValue = totalImportValue / Math.max(1, activeImports.length) * 4; // estimate monthly
 
   // Simulation
   const ivaRate = 0.16;
-  const immediateImpact = pendingIVA; // Must pay all deferred IVA immediately
+  const immediateImpact = pendingCredits; // Escenario conservador; requiere revisión fiscal antes de usarlo.
   const monthlyExtraCost = monthlyImportValue * ivaRate; // Pay IVA upfront on every import
   const annualExtraCost = monthlyExtraCost * 12;
   const cashFlowImpact = immediateImpact + (monthlyExtraCost * 3); // 3 month cash impact
@@ -382,18 +383,19 @@ export async function simulateCertificationLoss(tenantId: string) {
       system: `Eres un asesor fiscal de comercio exterior mexicano. El usuario quiere entender que pasaria si pierde su certificacion IVA/IEPS.
 Con base en los numeros proporcionados, explica el impacto financiero en terminos claros.
 Incluye: impacto inmediato, costo mensual adicional, efecto en competitividad, y recomendaciones para evitarlo.
+El saldo pendiente es un CREDITO FISCAL IVA/IEPS registrado, no "IVA diferido". No afirmes que todo se vuelve exigible automaticamente: presenta el resultado como escenario conservador sujeto a validacion fiscal. Los costos mensuales/anuales vienen en USD y no deben presentarse como MXN sin un tipo de cambio verificable.
 Responde en espanol, maximo 4 parrafos. Se directo y usa los numeros reales.`,
       messages: [{
         role: 'user',
         content: `Datos de la empresa:
 - Modalidad certificacion: ${cert?.modality || 'No configurada'}
-- IVA diferido pendiente: $${pendingIVA.toLocaleString()} MXN
+- Credito fiscal IVA/IEPS pendiente de descargo: $${pendingCredits.toLocaleString()} MXN
 - Valor de importaciones activas: $${totalImportValue.toLocaleString()} USD
 - Importaciones activas: ${activeImports.length}
 - Estimado mensual de importaciones: $${monthlyImportValue.toLocaleString()} USD
-- Impacto inmediato (pago IVA diferido): $${immediateImpact.toLocaleString()} MXN
-- Costo adicional mensual sin certificacion: $${monthlyExtraCost.toLocaleString()} MXN
-- Costo adicional anual: $${annualExtraCost.toLocaleString()} MXN`,
+- Impacto inmediato conservador sobre el saldo registrado: $${immediateImpact.toLocaleString()} MXN
+- Costo adicional mensual preliminar sin conversion: $${monthlyExtraCost.toLocaleString()} USD
+- Costo adicional anual preliminar sin conversion: $${annualExtraCost.toLocaleString()} USD`,
       }],
     });
     aiAnalysis = response.content[0].type === 'text' ? response.content[0].text : null;
@@ -408,7 +410,7 @@ Responde en espanol, maximo 4 parrafos. Se directo y usa los numeros reales.`,
     monthlyExtraCost,
     annualExtraCost,
     cashFlowImpact,
-    pendingIVA,
+    pendingIVA: pendingCredits,
     totalImportValue,
     activeImportsCount: activeImports.length,
     aiAnalysis,
