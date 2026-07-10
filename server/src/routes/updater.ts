@@ -1,9 +1,10 @@
 import { Router } from 'express';
-import { authenticate, AuthRequest } from '../middlewares/auth';
+import { authenticate, AuthRequest, requireRole } from '../middlewares/auth';
 import { prisma } from '../lib/prisma';
 import {
   analyzeDecree,
   applyChanges,
+  isTigieApplyEnabled,
   detectAffectedUsers,
   sendNotifications,
   generateWeeklyDigest,
@@ -52,8 +53,15 @@ updaterRouter.post('/analyze-decree', authenticate, async (req: AuthRequest, res
 // APLICAR CAMBIOS
 // ============================================
 
-updaterRouter.post('/apply/:id', authenticate, async (req: AuthRequest, res, next) => {
+updaterRouter.post('/apply/:id', authenticate, requireRole('SUPERADMIN'), async (req: AuthRequest, res, next) => {
   try {
+    if (!isTigieApplyEnabled()) {
+      return res.status(503).json({
+        status: 'error',
+        code: 'TIGIE_APPLY_DISABLED',
+        message: 'Aplicación de cambios TIGIE deshabilitada hasta contar con fuente oficial verificable y doble aprobación.',
+      });
+    }
     const result = await applyChanges(String(req.params.id), req.userId!);
     res.json({ status: 'ok', data: result });
   } catch (err) {

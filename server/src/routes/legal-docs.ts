@@ -22,9 +22,9 @@ const adminOnly = [authenticate, requireRole('SUPERADMIN')];
 
 // Reseed manual de documentos legales — spawn child process con tsx para
 // correr el seed standalone (prisma/seed/legal-only.ts). Devuelve stdout.
-// Idempotente (el seed hace upsert por contentHash). Auth-only (no SUPERADMIN)
-// para facilitar bootstrap en environments donde el seed inicial no corrió.
-legalDocsRouter.post('/reseed', authenticate, async (_req: AuthRequest, res: Response) => {
+// Idempotente (el seed hace upsert por contentHash). Es una escritura global:
+// solo SUPERADMIN puede ejecutarla.
+legalDocsRouter.post('/reseed', ...adminOnly, async (_req: AuthRequest, res: Response) => {
   const seedScript = path.resolve(__dirname, '..', '..', 'prisma', 'seed', 'legal-only.ts');
   const cwd = path.resolve(__dirname, '..', '..');
   const child = spawn('npx', ['tsx', seedScript], { cwd, env: process.env });

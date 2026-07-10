@@ -86,7 +86,21 @@ Responde UNICAMENTE con JSON valido:
 // Aplicar cambios a la base de datos
 // ============================================
 
+/**
+ * Kill switch temporal para mutaciones del catálogo TIGIE.
+ * Permanece apagado por defecto hasta que exista ingestión desde fuente oficial
+ * verificable y doble aprobación. Se valida también dentro del servicio para
+ * que un caller futuro no pueda rodear el guard de la ruta HTTP.
+ */
+export function isTigieApplyEnabled(): boolean {
+  return process.env.TIGIE_APPLY_ENABLED === 'true';
+}
+
 export async function applyChanges(updateId: string, userId: string) {
+  if (!isTigieApplyEnabled()) {
+    throw new Error('TIGIE_APPLY_DISABLED: aplicación de cambios TIGIE deshabilitada');
+  }
+
   const update = await prisma.tIGIEUpdate.findUnique({ where: { id: updateId } });
   if (!update) throw new Error('Update no encontrado');
   if (update.status === 'APPLIED') throw new Error('Ya fue aplicado');
