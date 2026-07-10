@@ -8,6 +8,7 @@
 import { Response, NextFunction } from 'express';
 import { AuthRequest } from './auth';
 import { recordAudit } from '../services/audit-service';
+import { buildAuditMetadata } from '../lib/audit-sanitizer';
 
 const SKIP_PATHS = [
   '/auth/login',
@@ -133,7 +134,7 @@ export function auditMiddleware() {
 
       const { action, entity } = inferEntityAndAction(capturedMethod, capturedPath);
       const entityId = extractEntityId(capturedPath, responseBody);
-      const safeBody = sanitizeBody(req.body);
+      const metadata = buildAuditMetadata(res.statusCode, req.body);
 
       void recordAudit({
         tenantId: req.tenantId,
@@ -145,23 +146,10 @@ export function auditMiddleware() {
         userAgent: req.headers['user-agent'] ?? null,
         endpoint: capturedPath,
         method: capturedMethod,
-        metadata: {
-          statusCode: res.statusCode,
-          requestBody: safeBody,
-        },
+        metadata,
       });
     });
 
     next();
   };
-}
-
-function sanitizeBody(body: unknown): unknown {
-  if (!body || typeof body !== 'object') return body;
-  const SENSITIVE = ['password', 'newPassword', 'token', 'refreshToken', 'apiKey', 'secret'];
-  const clone = JSON.parse(JSON.stringify(body));
-  for (const k of Object.keys(clone)) {
-    if (SENSITIVE.includes(k)) clone[k] = '[REDACTED]';
-  }
-  return clone;
 }

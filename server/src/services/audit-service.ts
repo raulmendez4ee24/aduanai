@@ -9,6 +9,7 @@
 import crypto from 'crypto';
 import { prisma } from '../lib/prisma';
 import { Prisma } from '@prisma/client';
+import { sanitizeAuditMetadata } from '../lib/audit-sanitizer';
 
 export interface RecordAuditInput {
   tenantId: string;
@@ -76,6 +77,7 @@ export function shallowDiff(before: unknown, after: unknown): Record<string, { f
 export async function recordAudit(input: RecordAuditInput): Promise<{ id: string; hash: string } | null> {
   try {
     if (!input.tenantId) return null;
+    const safeMetadata = sanitizeAuditMetadata(input.metadata ?? null);
 
     // Hash del último registro de este tenant — ignorar logs legacy sin hash
     const prev = await prisma.auditLog.findFirst({
@@ -109,7 +111,7 @@ export async function recordAudit(input: RecordAuditInput): Promise<{ id: string
       userAgent: input.userAgent ?? null,
       endpoint: input.endpoint ?? null,
       method: input.method ?? null,
-      metadata: input.metadata ?? null,
+      metadata: safeMetadata,
       timestamp: ts.toISOString(),
     };
 
@@ -129,7 +131,7 @@ export async function recordAudit(input: RecordAuditInput): Promise<{ id: string
         userAgent: input.userAgent ?? null,
         endpoint: input.endpoint ?? null,
         method: input.method ?? null,
-        metadata: (input.metadata as Prisma.InputJsonValue | null) ?? Prisma.JsonNull,
+        metadata: (safeMetadata as Prisma.InputJsonValue | null) ?? Prisma.JsonNull,
         hash,
         prevHash,
         createdAt: ts, // forzamos explícitamente para que coincida con el hash
