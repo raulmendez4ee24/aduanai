@@ -215,6 +215,11 @@ inventoryRouter.post('/discharges', authenticate, requirePermission('inventory',
       });
     }
 
+    const dischargeQuantity = Number(quantity);
+    if (!Number.isFinite(dischargeQuantity) || dischargeQuantity <= 0) {
+      return res.status(400).json({ status: 'error', message: 'La cantidad del descargo debe ser mayor a cero' });
+    }
+
     // Verificar que la importación existe y pertenece al tenant
     const imp = await prisma.temporaryImport.findFirst({
       where: { id: temporaryImportId, tenantId: req.tenantId! },
@@ -225,7 +230,7 @@ inventoryRouter.post('/discharges', authenticate, requirePermission('inventory',
 
     // Validar que no exceda la cantidad disponible
     const available = imp.quantity - imp.quantityDischarged;
-    if (Number(quantity) > available) {
+    if (dischargeQuantity > available) {
       return res.status(400).json({
         status: 'error',
         message: `Cantidad excede disponible. Disponible: ${available} ${imp.unit}`,
@@ -236,7 +241,7 @@ inventoryRouter.post('/discharges', authenticate, requirePermission('inventory',
       data: {
         type,
         pedimento,
-        quantity: Number(quantity),
+        quantity: dischargeQuantity,
         unit,
         customsValue: customsValue ? Number(customsValue) : null,
         dischargeDate: new Date(dischargeDate),
@@ -251,7 +256,7 @@ inventoryRouter.post('/discharges', authenticate, requirePermission('inventory',
     });
 
     // Actualizar cantidad descargada y status de la importación
-    const newDischarged = imp.quantityDischarged + Number(quantity);
+    const newDischarged = imp.quantityDischarged + dischargeQuantity;
     const newStatus = newDischarged >= imp.quantity ? 'FULLY_DISCHARGED' : 'PARTIALLY_DISCHARGED';
 
     await prisma.temporaryImport.update({

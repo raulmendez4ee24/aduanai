@@ -115,6 +115,16 @@ fiscalRouter.post('/credits/:id/use', authenticate, async (req: AuthRequest, res
       });
     }
 
+    const ivaAppliedAmount = Number(ivaApplied);
+    const iepsAppliedAmount = iepsApplied == null ? 0 : Number(iepsApplied);
+    if (!Number.isFinite(ivaAppliedAmount) || !Number.isFinite(iepsAppliedAmount) || ivaAppliedAmount < 0 || iepsAppliedAmount < 0) {
+      return res.status(400).json({ status: 'error', message: 'Los montos aplicados no pueden ser negativos' });
+    }
+    const applyAmount = ivaAppliedAmount + iepsAppliedAmount;
+    if (applyAmount <= 0) {
+      return res.status(400).json({ status: 'error', message: 'El monto total aplicado debe ser mayor a cero' });
+    }
+
     const credit = await prisma.taxCredit.findFirst({
       where: { id: creditId, tenantId: req.tenantId! },
     });
@@ -122,7 +132,6 @@ fiscalRouter.post('/credits/:id/use', authenticate, async (req: AuthRequest, res
       return res.status(404).json({ status: 'error', message: 'Credito no encontrado' });
     }
 
-    const applyAmount = Number(ivaApplied) + (Number(iepsApplied) || 0);
     if (applyAmount > credit.remaining) {
       return res.status(400).json({
         status: 'error',
@@ -133,8 +142,8 @@ fiscalRouter.post('/credits/:id/use', authenticate, async (req: AuthRequest, res
     const usage = await prisma.creditUsage.create({
       data: {
         pedimentoDescargo,
-        ivaApplied: Number(ivaApplied),
-        iepsApplied: Number(iepsApplied) || 0,
+        ivaApplied: ivaAppliedAmount,
+        iepsApplied: iepsAppliedAmount,
         usageDate: new Date(usageDate),
         creditId,
         tenantId: req.tenantId!,
