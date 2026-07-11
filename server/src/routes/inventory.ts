@@ -12,6 +12,7 @@ import {
 } from '../services/inventory';
 import { recordAssembly, traceImport } from '../services/bom-service';
 import { validateFraction, FRACTION_UNVERIFIED_MESSAGE } from '../services/fraction-validator';
+import { createDischargeAtomic, deleteDischargeAtomic } from '../services/inventory-ledger';
 
 export const inventoryRouter = Router();
 
@@ -220,51 +221,20 @@ inventoryRouter.post('/discharges', authenticate, requirePermission('inventory',
       return res.status(400).json({ status: 'error', message: 'La cantidad del descargo debe ser mayor a cero' });
     }
 
-    // Verificar que la importación existe y pertenece al tenant
-    const imp = await prisma.temporaryImport.findFirst({
-      where: { id: temporaryImportId, tenantId: req.tenantId! },
-    });
-    if (!imp) {
-      return res.status(404).json({ status: 'error', message: 'Importación temporal no encontrada' });
-    }
-
-    // Validar que no exceda la cantidad disponible
-    const available = imp.quantity - imp.quantityDischarged;
-    if (dischargeQuantity > available) {
-      return res.status(400).json({
-        status: 'error',
-        message: `Cantidad excede disponible. Disponible: ${available} ${imp.unit}`,
-      });
-    }
-
-    const discharge = await prisma.discharge.create({
-      data: {
-        type,
-        pedimento,
-        quantity: dischargeQuantity,
-        unit,
-        customsValue: customsValue ? Number(customsValue) : null,
-        dischargeDate: new Date(dischargeDate),
-        destinationCountry,
-        buyerName,
-        taxesPaid: taxesPaid ? Number(taxesPaid) : null,
-        notes,
-        temporaryImportId,
-        tenantId: req.tenantId!,
-        userId: req.userId!,
-      },
-    });
-
-    // Actualizar cantidad descargada y status de la importación
-    const newDischarged = imp.quantityDischarged + dischargeQuantity;
-    const newStatus = newDischarged >= imp.quantity ? 'FULLY_DISCHARGED' : 'PARTIALLY_DISCHARGED';
-
-    await prisma.temporaryImport.update({
-      where: { id: temporaryImportId },
-      data: {
-        quantityDischarged: newDischarged,
-        status: newStatus,
-      },
+    const discharge = await createDischargeAtomic({
+      temporaryImportId,
+      tenantId: req.tenantId!,
+      userId: req.userId!,
+      type,
+      pedimento,
+      quantity: dischargeQuantity,
+      unit,
+      customsValue: customsValue ? Number(customsValue) : null,
+      dischargeDate: new Date(dischargeDate),
+      destinationCountry,
+      buyerName,
+      taxesPaid: taxesPaid ? Number(taxesPaid) : null,
+      notes,
     });
 
     res.status(201).json({ status: 'ok', data: discharge });
@@ -309,29 +279,7 @@ inventoryRouter.get('/discharges', authenticate, async (req: AuthRequest, res, n
 // Eliminar descargo
 inventoryRouter.delete('/discharges/:id', authenticate, requirePermission('inventory', 'discharge'), async (req: AuthRequest, res, next) => {
   try {
-    const discharge = await prisma.discharge.findFirst({
-      where: { id: String(req.params.id), tenantId: req.tenantId! },
-    });
-    if (!discharge) {
-      return res.status(404).json({ status: 'error', message: 'Descargo no encontrado' });
-    }
-
-    // Revertir la cantidad descargada en la importación
-    const imp = await prisma.temporaryImport.findUnique({
-      where: { id: discharge.temporaryImportId },
-    });
-    if (imp) {
-      const newDischarged = Math.max(0, imp.quantityDischarged - discharge.quantity);
-      await prisma.temporaryImport.update({
-        where: { id: imp.id },
-        data: {
-          quantityDischarged: newDischarged,
-          status: newDischarged === 0 ? 'ACTIVE' : 'PARTIALLY_DISCHARGED',
-        },
-      });
-    }
-
-    await prisma.discharge.delete({ where: { id: String(req.params.id) } });
+    await deleteDischargeAtomic(String(req.params.id), req.tenantId!);
     res.json({ status: 'ok' });
   } catch (err) {
     next(err);

@@ -4,6 +4,7 @@
  */
 
 import { prisma } from '../lib/prisma';
+import { lockTemporaryImport } from './inventory-ledger';
 
 export interface RecordAssemblyInput {
   tenantId: string;
@@ -50,6 +51,30 @@ export async function recordAssembly(input: RecordAssemblyInput): Promise<Record
   const assemblyDate = input.assemblyDate ?? new Date();
 
   return prisma.$transaction(async (tx) => {
+    // Lock every candidate balance in one global order before consuming FIFO.
+    // This shares the same protocol as manual discharge create/delete and avoids
+    // deadlocks between assemblies whose BOMs overlap in different orders.
+    const componentFractions = [...new Set(
+      product.components
+        .map(line => line.component.fractionCode)
+        .filter((code): code is string => !!code),
+    )];
+    const candidates = componentFractions.length > 0
+      ? await tx.temporaryImport.findMany({
+          where: {
+            tenantId: input.tenantId,
+            fractionCode: { in: componentFractions },
+            status: { in: ['ACTIVE', 'PARTIALLY_DISCHARGED'] },
+          },
+          select: { id: true },
+          orderBy: { id: 'asc' },
+        })
+      : [];
+    for (const candidate of candidates) {
+      await lockTemporaryImport(tx, candidate.id, input.tenantId);
+    }
+    const lockedImportIds = candidates.map(candidate => candidate.id);
+
     const assembly = await tx.assembly.create({
       data: {
         tenantId: input.tenantId,
@@ -77,11 +102,12 @@ export async function recordAssembly(input: RecordAssemblyInput): Promise<Record
       if (componentFraction) {
         const liveImports = await tx.temporaryImport.findMany({
           where: {
+            id: { in: lockedImportIds },
             tenantId: input.tenantId,
             fractionCode: componentFraction,
             status: { in: ['ACTIVE', 'PARTIALLY_DISCHARGED'] },
           },
-          orderBy: { entryDate: 'asc' },
+          orderBy: [{ entryDate: 'asc' }, { id: 'asc' }],
         });
 
         for (const imp of liveImports) {

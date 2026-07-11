@@ -8,6 +8,7 @@ import {
   simulateCertificationLoss,
   getGuaranteeAlerts,
 } from '../services/fiscal-guardian';
+import { applyTaxCreditAtomic } from '../services/fiscal-ledger';
 
 export const fiscalRouter = Router();
 
@@ -125,43 +126,13 @@ fiscalRouter.post('/credits/:id/use', authenticate, async (req: AuthRequest, res
       return res.status(400).json({ status: 'error', message: 'El monto total aplicado debe ser mayor a cero' });
     }
 
-    const credit = await prisma.taxCredit.findFirst({
-      where: { id: creditId, tenantId: req.tenantId! },
-    });
-    if (!credit) {
-      return res.status(404).json({ status: 'error', message: 'Credito no encontrado' });
-    }
-
-    if (applyAmount > credit.remaining) {
-      return res.status(400).json({
-        status: 'error',
-        message: `Monto excede saldo disponible. Disponible: $${credit.remaining.toLocaleString()} MXN`,
-      });
-    }
-
-    const usage = await prisma.creditUsage.create({
-      data: {
-        pedimentoDescargo,
-        ivaApplied: ivaAppliedAmount,
-        iepsApplied: iepsAppliedAmount,
-        usageDate: new Date(usageDate),
-        creditId,
-        tenantId: req.tenantId!,
-      },
-    });
-
-    const newDischarged = credit.discharged + applyAmount;
-    const newRemaining = credit.remaining - applyAmount;
-    const totalCredit = credit.ivaAmount + credit.iepsAmount;
-    const newStatus = newRemaining <= 0 ? 'FULLY_USED' : newDischarged > 0 ? 'PARTIALLY_USED' : 'ACTIVE';
-
-    await prisma.taxCredit.update({
-      where: { id: creditId },
-      data: {
-        discharged: newDischarged,
-        remaining: Math.max(0, newRemaining),
-        status: newStatus,
-      },
+    const usage = await applyTaxCreditAtomic({
+      creditId,
+      tenantId: req.tenantId!,
+      pedimentoDescargo,
+      ivaApplied: ivaAppliedAmount,
+      iepsApplied: iepsAppliedAmount,
+      usageDate: new Date(usageDate),
     });
 
     res.status(201).json({ status: 'ok', data: usage });
