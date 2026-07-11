@@ -2,15 +2,11 @@ import { useEffect, useState } from 'react'
 import { Shield, CheckCircle2, AlertTriangle, Anchor, Search, ExternalLink, ChevronDown, ChevronUp } from 'lucide-react'
 import { api } from '../lib/api'
 import type { AuditLogRecord } from '../lib/api'
+import { ANCHORED_ACTIONS } from '../lib/anchored-audit-actions'
 
 const GLASS = 'bg-white/70 backdrop-blur-xl border border-white/50 shadow-[0_8px_30px_rgb(0,0,0,0.04)]'
 
 interface TimestampInfo { status: string; bitcoinBlock: number | null; contentHash: string }
-
-const ANCHORED_ACTIONS = new Set([
-  'CLASSIFICATION_CREATE', 'QUOTE_CREATE', 'PEDIMENTO_VALIDATE',
-  'CERTIFICATE_ISSUE', 'EXPORT_DICTAMEN', 'VERIFY_PROFESSIONAL', 'REJECT_PROFESSIONAL',
-])
 
 export function AuditTrailPage() {
   const [logs, setLogs] = useState<AuditLogRecord[]>([])
@@ -109,9 +105,17 @@ export function AuditTrailPage() {
                             <span title="Esperando confirmación Bitcoin" className="ml-1 inline-flex items-center gap-0.5 text-[9px] font-bold px-1 py-0.5 rounded bg-sky-50 text-sky-700 border border-sky-200">
                               <Anchor className="w-2.5 h-2.5"/>BTC…
                             </span>
+                          ) : ts?.status === 'failed' ? (
+                            <span title="Falló el envío del proof a OpenTimestamps" className="ml-1 inline-flex items-center gap-0.5 text-[9px] font-bold px-1 py-0.5 rounded bg-rose-50 text-rose-700 border border-rose-200">
+                              <Anchor className="w-2.5 h-2.5"/>OTS falló
+                            </span>
+                          ) : ts ? (
+                            <span title={`Proof OpenTimestamps: ${ts.status}`} className="ml-1 inline-flex items-center gap-0.5 text-[9px] font-bold px-1 py-0.5 rounded bg-amber-50 text-amber-700 border border-amber-200">
+                              <Anchor className="w-2.5 h-2.5"/>OTS pend.
+                            </span>
                           ) : (
-                            <span className="ml-1 inline-flex items-center gap-0.5 text-[9px] font-bold px-1 py-0.5 rounded bg-amber-50 text-amber-700 border border-amber-200">
-                              <Anchor className="w-2.5 h-2.5"/>pend.
+                            <span title="Sin proof OpenTimestamps registrado" className="ml-1 inline-flex items-center gap-0.5 text-[9px] font-bold px-1 py-0.5 rounded bg-slate-100 text-slate-600 border border-slate-200">
+                              <Anchor className="w-2.5 h-2.5"/>sin proof
                             </span>
                           )
                         )}

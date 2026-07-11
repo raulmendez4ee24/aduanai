@@ -3,6 +3,13 @@ import { Shield, Search, ChevronDown, ChevronUp, CheckCircle2, AlertTriangle, Fi
 import { api } from '../../lib/api'
 import type { AuditLogRecord, AuditReportData } from '../../lib/api'
 import { Disclaimer } from '../../components/Disclaimer'
+import { ANCHORED_ACTIONS } from '../../lib/anchored-audit-actions'
+
+interface TimestampInfo {
+  status: string
+  bitcoinBlock: number | null
+  contentHash: string
+}
 
 const ACTION_PALETTE: Record<string, string> = {
   LOGIN: 'bg-emerald-50 text-emerald-700',
@@ -20,19 +27,59 @@ const ACTION_PALETTE: Record<string, string> = {
   PEDIMENTO_VALIDATION: 'bg-amber-50 text-amber-700',
 }
 
-// Acciones que se anclan automáticamente al blockchain Bitcoin (debe coincidir con
-// CRITICAL_AUDIT_ACTIONS del backend en services/timestamp.ts)
-const ANCHORED_ACTIONS = new Set([
-  'CLASSIFICATION_CREATE', 'QUOTE_CREATE', 'PEDIMENTO_VALIDATE',
-  'CERTIFICATE_ISSUE', 'EXPORT_DICTAMEN', 'VERIFY_PROFESSIONAL', 'REJECT_PROFESSIONAL',
-])
-
 function fmtDate(iso: string): string {
   return new Date(iso).toLocaleString('es-MX', { dateStyle: 'short', timeStyle: 'medium' })
 }
 
+function AnchorStatusBadge({ timestamp }: { timestamp: TimestampInfo | undefined }) {
+  if (!timestamp) {
+    return (
+      <span title="Sin proof OpenTimestamps registrado" className="ml-1 inline-flex items-center gap-0.5 text-[9px] font-bold px-1.5 py-0.5 rounded-full bg-slate-100 text-slate-600 border border-slate-200">
+        <Anchor className="w-2.5 h-2.5"/>sin proof
+      </span>
+    )
+  }
+
+  if (timestamp.status === 'confirmed' || timestamp.status === 'verified') {
+    return (
+      <a
+        href={`/verify/timestamp/${timestamp.contentHash}`}
+        target="_blank"
+        rel="noreferrer"
+        title={timestamp.bitcoinBlock ? `Confirmado en bloque Bitcoin #${timestamp.bitcoinBlock}` : 'Proof OpenTimestamps confirmado'}
+        className="ml-1 inline-flex items-center gap-0.5 text-[9px] font-bold px-1.5 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200 hover:bg-emerald-100"
+      >
+        <Anchor className="w-2.5 h-2.5"/>BTC ✓
+      </a>
+    )
+  }
+
+  if (timestamp.status === 'submitted') {
+    return (
+      <a href="/admin/timestamps" title="Proof enviado; esperando confirmación Bitcoin" className="ml-1 inline-flex items-center gap-0.5 text-[9px] font-bold px-1.5 py-0.5 rounded-full bg-sky-50 text-sky-700 border border-sky-200 hover:bg-sky-100">
+        <Anchor className="w-2.5 h-2.5"/>BTC…
+      </a>
+    )
+  }
+
+  if (timestamp.status === 'failed') {
+    return (
+      <a href="/admin/timestamps" title="Falló el envío del proof a OpenTimestamps" className="ml-1 inline-flex items-center gap-0.5 text-[9px] font-bold px-1.5 py-0.5 rounded-full bg-rose-50 text-rose-700 border border-rose-200 hover:bg-rose-100">
+        <Anchor className="w-2.5 h-2.5"/>OTS falló
+      </a>
+    )
+  }
+
+  return (
+    <a href="/admin/timestamps" title={`Proof OpenTimestamps: ${timestamp.status}`} className="ml-1 inline-flex items-center gap-0.5 text-[9px] font-bold px-1.5 py-0.5 rounded-full bg-amber-50 text-amber-700 border border-amber-200 hover:bg-amber-100">
+      <Anchor className="w-2.5 h-2.5"/>OTS pend.
+    </a>
+  )
+}
+
 export function AdminAuditPage() {
   const [logs, setLogs] = useState<AuditLogRecord[]>([])
+  const [tsByLog, setTsByLog] = useState<Map<string, TimestampInfo>>(new Map())
   const [loading, setLoading] = useState(true)
   const [filters, setFilters] = useState({ entity: '', action: '', q: '', dateFrom: '', dateTo: '' })
   const [expanded, setExpanded] = useState<Set<string>>(new Set())
@@ -49,7 +96,18 @@ export function AdminAuditPage() {
     setLoading(false)
   }
 
-  useEffect(() => { load() }, []) // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => {
+    load()
+    api.myAuditTimestamps().then(r => {
+      const next = new Map<string, TimestampInfo>()
+      r.data.forEach(timestamp => next.set(timestamp.resourceId, {
+        status: timestamp.status,
+        bitcoinBlock: timestamp.bitcoinBlock,
+        contentHash: timestamp.contentHash,
+      }))
+      setTsByLog(next)
+    }).catch(() => setTsByLog(new Map()))
+  }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
   async function handleVerifyChain() {
     setChainCheck(null)
@@ -214,22 +272,15 @@ export function AdminAuditPage() {
               <th className="w-8"></th>
             </tr></thead>
             <tbody>
-              {logs.map(l => (
-                <>
+              {logs.map(l => {
+                const timestamp = tsByLog.get(l.id)
+                return <>
                   <tr key={l.id} className="border-b border-slate-100 hover:bg-slate-50/50">
                     <td className="px-3 py-2 font-mono text-slate-700">{fmtDate(l.createdAt)}</td>
                     <td className="px-3 py-2"><span className="text-[11px]">{l.user?.email ?? '—'}</span></td>
                     <td className="px-3 py-2">
                       <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${ACTION_PALETTE[l.action] ?? 'bg-slate-100 text-slate-600'}`}>{l.action}</span>
-                      {ANCHORED_ACTIONS.has(l.action) && (
-                        <a
-                          href="/admin/timestamps"
-                          title="Anclado al blockchain Bitcoin via OpenTimestamps"
-                          className="ml-1 inline-flex items-center gap-0.5 text-[9px] font-bold px-1.5 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200 hover:bg-emerald-100"
-                        >
-                          <Anchor className="w-2.5 h-2.5"/>BTC
-                        </a>
-                      )}
+                      {ANCHORED_ACTIONS.has(l.action) && <AnchorStatusBadge timestamp={timestamp} />}
                     </td>
                     <td className="px-3 py-2 font-mono text-slate-700">{l.entity}{l.entityId && <span className="text-slate-400 ml-1">:{l.entityId.slice(-8)}</span>}</td>
                     <td className="px-3 py-2 font-mono text-[11px] text-slate-500">{l.method} {l.endpoint}</td>
@@ -266,7 +317,7 @@ export function AdminAuditPage() {
                     </tr>
                   )}
                 </>
-              ))}
+              })}
               {logs.length === 0 && (
                 <tr><td colSpan={7} className="text-center py-6 text-slate-400">Sin registros</td></tr>
               )}
