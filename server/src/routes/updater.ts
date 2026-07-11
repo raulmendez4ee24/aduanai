@@ -17,7 +17,7 @@ export const updaterRouter = Router();
 // ANÁLISIS DE DECRETO
 // ============================================
 
-updaterRouter.post('/analyze-decree', authenticate, async (req: AuthRequest, res, next) => {
+updaterRouter.post('/analyze-decree', authenticate, requireRole('SUPERADMIN'), async (req: AuthRequest, res, next) => {
   try {
     const { decreeText } = req.body;
     if (!decreeText || decreeText.trim().length < 50) {
@@ -102,7 +102,7 @@ updaterRouter.get('/updates/:id', authenticate, async (req: AuthRequest, res, ne
 // NOTIFICACIONES
 // ============================================
 
-updaterRouter.post('/notify/:id', authenticate, async (req: AuthRequest, res, next) => {
+updaterRouter.post('/notify/:id', authenticate, requireRole('SUPERADMIN'), async (req: AuthRequest, res, next) => {
   try {
     const result = await sendNotifications(String(req.params.id));
     res.json({ status: 'ok', data: result });

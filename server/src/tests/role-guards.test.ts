@@ -42,6 +42,12 @@ test('Risk Scorer protege pesos globales con SUPERADMIN', () => {
   assert.doesNotMatch(source, /requireRole\('admin'\)/);
 });
 
+test('updater protege análisis global y notificaciones masivas con SUPERADMIN', () => {
+  const source = fs.readFileSync(path.resolve(process.cwd(), 'src/routes/updater.ts'), 'utf8');
+  assert.match(source, /updaterRouter\.post\('\/analyze-decree', authenticate, requireRole\('SUPERADMIN'\)/);
+  assert.match(source, /updaterRouter\.post\('\/notify\/:id', authenticate, requireRole\('SUPERADMIN'\)/);
+});
+
 test('middleware rechaza ADMIN cuando la frontera exige SUPERADMIN', () => {
   const guard = requireRole('SUPERADMIN');
   let error: unknown;
