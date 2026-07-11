@@ -209,27 +209,55 @@ app.use((req, res, next) => {
 app.use(errorLogger);
 app.use(errorHandler);
 
+/**
+ * Arma un timer in-process con nombre identificable: loguea el armado una vez
+ * y garantiza que ninguna excepción (síncrona o asíncrona) del tick escape y
+ * tumbe el proceso. Los ticks conservan sus try/catch internos; esto es el
+ * backstop de última línea.
+ */
+function armTimer(name: string, intervalMs: number, tick: () => Promise<void> | void): void {
+  logger.info(`[timer] ${name} armado — cada ${Math.round(intervalMs / 60000)} min`, {
+    action: 'timer_armed',
+    metadata: { name, intervalMs },
+  });
+  setInterval(() => {
+    void (async () => {
+      try {
+        await tick();
+      } catch (err) {
+        logger.error(`[timer] ${name} falló`, {
+          action: 'timer_failed',
+          metadata: { name },
+          errorMessage: err instanceof Error ? err.message : String(err),
+        });
+      }
+    })();
+  }, intervalMs);
+}
+
 // ── Cleanup expired blacklisted tokens every hour ──
-setInterval(async () => {
-  try {
-    await prisma.tokenBlacklist.deleteMany({ where: { expiresAt: { lt: new Date() } } });
-  } catch { /* silent */ }
-}, 3600000);
+armTimer('token_blacklist_cleanup', 3600000, async () => {
+  await prisma.tokenBlacklist.deleteMany({ where: { expiresAt: { lt: new Date() } } });
+});
 
 // ── Process pilot lifecycle (15/25 day emails + 30-day suspend) every 6h ──
-setInterval(async () => {
+armTimer('pilot_lifecycle', 6 * 3600000, async () => {
   try {
     const result = await processPilotLifecycle();
     if (result.reminded15 || result.reminded25 || result.suspended) {
       console.log(`[pilot-lifecycle] reminded15=${result.reminded15} reminded25=${result.reminded25} suspended=${result.suspended}`);
     }
   } catch (err) {
-    console.error('[pilot-lifecycle] error:', err);
+    logger.error('[timer] pilot_lifecycle falló', {
+      action: 'timer_failed',
+      metadata: { name: 'pilot_lifecycle' },
+      errorMessage: err instanceof Error ? err.message : String(err),
+    });
   }
-}, 6 * 3600000);
+});
 
 // ── Retención de logs: purga DEBUG/INFO >30d, WARN/ERROR >90d, CRITICAL >365d ──
-setInterval(async () => {
+armTimer('log_retention_purge', 24 * 3600000, async () => {
   try {
     const r = await runRetentionPurge();
     if (r.debugInfo + r.warnError > 0) {
@@ -241,21 +269,21 @@ setInterval(async () => {
   } catch (err) {
     logger.error('Retention purge failed', { errorMessage: err instanceof Error ? err.message : String(err) });
   }
-}, 24 * 3600000);
+});
 
 // ── Threshold-based alerts: error rate / latencia / costo IA / CRITICAL logs ──
-setInterval(async () => {
+armTimer('threshold_alerts', 5 * 60000, async () => {
   try {
     const { evaluateThresholds } = await import('./services/threshold-alerts');
     await evaluateThresholds();
   } catch (err) {
     logger.error('Threshold evaluation failed', { errorMessage: err instanceof Error ? err.message : String(err) });
   }
-}, 5 * 60000); // cada 5 minutos
+}); // cada 5 minutos
 
 // ── Backups: daily 03:00 UTC, weekly domingo 04:00, monthly día 1 a 05:00, cleanup 06:00 ──
 let _lastBackupRun = '';
-setInterval(async () => {
+armTimer('backup_cron', 30 * 60000, async () => {
   if (process.env.BACKUP_ENABLED !== 'true') return;
   const now = new Date();
   const hourUTC = now.getUTCHours();
@@ -272,10 +300,10 @@ setInterval(async () => {
   } catch (err) {
     logger.critical('Backup cron failed', { errorMessage: err instanceof Error ? err.message : String(err) });
   }
-}, 30 * 60000); // chequea cada 30 min
+}); // chequea cada 30 min
 
 // ── OpenTimestamps: cron horario para upgradear proofs pendientes ──
-setInterval(async () => {
+armTimer('ots_pending_proofs', 60 * 60000, async () => {
   try {
     const { checkPendingTimestamps } = await import('./services/timestamp');
     const r = await checkPendingTimestamps();
@@ -287,10 +315,10 @@ setInterval(async () => {
   } catch (err) {
     logger.error('OTS cron failed', { errorMessage: err instanceof Error ? err.message : String(err) });
   }
-}, 60 * 60000); // cada hora
+}); // cada hora
 
 // ── Verificaciones expiradas (diario) + notificación 30 días antes (semanal) ──
-setInterval(async () => {
+armTimer('verification_expiry', 24 * 3600000, async () => {
   try {
     const { markExpiredVerifications, notifyExpiringPatentes } = await import('./services/verification');
     await markExpiredVerifications();
@@ -298,11 +326,11 @@ setInterval(async () => {
   } catch (err) {
     logger.error('Verification cron failed', { errorMessage: err instanceof Error ? err.message : String(err) });
   }
-}, 24 * 3600000);
+});
 
 // ── Alertas inteligentes (diario) — regenera por tenant con datos reales ──
 let _lastAlertRun = '';
-setInterval(async () => {
+armTimer('alert_regen', 30 * 60000, async () => {
   const today = new Date().toISOString().slice(0, 10);
   if (_lastAlertRun === today) return;
   const hourUTC = new Date().getUTCHours();
@@ -323,11 +351,11 @@ setInterval(async () => {
   } catch (err) {
     logger.error('Alert regen cron failed', { errorMessage: err instanceof Error ? err.message : String(err) });
   }
-}, 30 * 60000); // chequea cada 30 min; corre una vez al día a las 7 UTC
+}); // chequea cada 30 min; corre una vez al día a las 7 UTC
 
 // ── TC oficial Banxico FIX (diario) — fuente de verdad para todos los módulos ──
 let _lastFxRefresh = '';
-setInterval(async () => {
+armTimer('fx_refresh', 60 * 60000, async () => {
   const today = new Date().toISOString().slice(0, 10);
   if (_lastFxRefresh === today) return;
   try {
@@ -342,7 +370,7 @@ setInterval(async () => {
   } catch (err) {
     logger.error('Exchange rate refresh failed', { errorMessage: err instanceof Error ? err.message : String(err) });
   }
-}, 60 * 60000); // chequea cada hora; sólo refresca una vez por día
+}); // chequea cada hora; sólo refresca una vez por día
 
 app.listen(PORT, () => {
   console.log(`🚀 ADUANAI server running on port ${PORT}`);
