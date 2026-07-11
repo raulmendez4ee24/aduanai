@@ -13,8 +13,6 @@ test-results/
 *.xlsb
 *.xlsx
 
-# Prisma
-server/prisma/migrations/
 
 # Frontend
 client/node_modules/
