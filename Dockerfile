@@ -1,5 +1,9 @@
 FROM node:20-alpine
 
+# pg_dump/psql para el pipeline de backup/restore (backup.ts). La versión del
+# cliente debe ser >= a la del servidor: prod corre PostgreSQL 18.x.
+RUN apk add --no-cache postgresql18-client
+
 WORKDIR /app
 
 # Copy everything

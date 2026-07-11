@@ -139,15 +139,86 @@ class LocalStorage implements StorageAdapter {
   }
 }
 
+/**
+ * Adapter S3-compatible (AWS S3 o Cloudflare R2 vía endpoint custom).
+ * Config por variables de entorno — ver docs/BACKUPS.md. Sin credenciales
+ * válidas el constructor lanza: nunca degrada en silencio a storage local.
+ */
+class S3Storage implements StorageAdapter {
+  private client: import('@aws-sdk/client-s3').S3Client;
+  private bucket: string;
+
+  constructor(kind: 'r2' | 's3') {
+    const bucket = process.env.BACKUP_S3_BUCKET;
+    const accessKeyId = process.env.BACKUP_S3_ACCESS_KEY_ID;
+    const secretAccessKey = process.env.BACKUP_S3_SECRET_ACCESS_KEY;
+    const endpoint = process.env.BACKUP_S3_ENDPOINT; // requerido para R2
+    const region = process.env.BACKUP_S3_REGION || (kind === 'r2' ? 'auto' : undefined);
+    const missing = [
+      !bucket && 'BACKUP_S3_BUCKET',
+      !accessKeyId && 'BACKUP_S3_ACCESS_KEY_ID',
+      !secretAccessKey && 'BACKUP_S3_SECRET_ACCESS_KEY',
+      kind === 'r2' && !endpoint && 'BACKUP_S3_ENDPOINT',
+      kind === 's3' && !region && 'BACKUP_S3_REGION',
+    ].filter(Boolean);
+    if (missing.length > 0) {
+      throw new Error(`BACKUP_STORAGE=${kind} sin credenciales: faltan ${missing.join(', ')}`);
+    }
+    // Import perezoso: el SDK solo se carga si el storage remoto está configurado.
+    const { S3Client } = require('@aws-sdk/client-s3') as typeof import('@aws-sdk/client-s3');
+    this.bucket = bucket!;
+    this.client = new S3Client({
+      region,
+      ...(endpoint ? { endpoint, forcePathStyle: true } : {}),
+      credentials: { accessKeyId: accessKeyId!, secretAccessKey: secretAccessKey! },
+    });
+  }
+
+  async put(localPath: string, key: string): Promise<{ url: string; key: string }> {
+    const { PutObjectCommand } = require('@aws-sdk/client-s3') as typeof import('@aws-sdk/client-s3');
+    await this.client.send(new PutObjectCommand({
+      Bucket: this.bucket, Key: key, Body: fs.createReadStream(localPath),
+      ContentLength: fs.statSync(localPath).size,
+    }));
+    return { url: `s3://${this.bucket}/${key}`, key };
+  }
+  async signedUrl(key: string, expiresInSec: number): Promise<string> {
+    const { GetObjectCommand } = require('@aws-sdk/client-s3') as typeof import('@aws-sdk/client-s3');
+    const { getSignedUrl } = require('@aws-sdk/s3-request-presigner') as typeof import('@aws-sdk/s3-request-presigner');
+    return getSignedUrl(this.client, new GetObjectCommand({ Bucket: this.bucket, Key: key }), { expiresIn: expiresInSec });
+  }
+  async delete(key: string): Promise<void> {
+    const { DeleteObjectCommand } = require('@aws-sdk/client-s3') as typeof import('@aws-sdk/client-s3');
+    await this.client.send(new DeleteObjectCommand({ Bucket: this.bucket, Key: key }));
+  }
+  async exists(key: string): Promise<boolean> {
+    const { HeadObjectCommand } = require('@aws-sdk/client-s3') as typeof import('@aws-sdk/client-s3');
+    try {
+      await this.client.send(new HeadObjectCommand({ Bucket: this.bucket, Key: key }));
+      return true;
+    } catch { return false; }
+  }
+  async fetch(key: string, destPath: string): Promise<void> {
+    const { GetObjectCommand } = require('@aws-sdk/client-s3') as typeof import('@aws-sdk/client-s3');
+    const res = await this.client.send(new GetObjectCommand({ Bucket: this.bucket, Key: key }));
+    const bytes = await res.Body!.transformToByteArray();
+    fs.writeFileSync(destPath, Buffer.from(bytes));
+  }
+}
+
 let _adapter: StorageAdapter | null = null;
 function getStorage(): StorageAdapter {
   if (_adapter) return _adapter;
-  if (BACKUP_STORAGE === 'local') {
+  if (BACKUP_STORAGE === 'r2' || BACKUP_STORAGE === 's3') {
+    _adapter = new S3Storage(BACKUP_STORAGE);
+  } else if (BACKUP_STORAGE === 'local') {
+    if (process.env.NODE_ENV === 'production') {
+      logger.warn(`BACKUP_STORAGE=local en producción — el destino ${BACKUP_DIR} es efímero`, { action: 'backup_storage_local_prod' });
+    }
     _adapter = new LocalStorage(BACKUP_DIR);
   } else {
-    // Stubs para R2/S3 — en producción se reemplaza con @aws-sdk/client-s3
-    logger.warn(`BACKUP_STORAGE=${BACKUP_STORAGE} no implementado; usando local fallback`, { action: 'backup_storage_fallback' });
-    _adapter = new LocalStorage(BACKUP_DIR);
+    // Fail-closed: un valor desconocido no debe degradar en silencio a local.
+    throw new Error(`BACKUP_STORAGE inválido: '${BACKUP_STORAGE}' (usa local|r2|s3)`);
   }
   return _adapter;
 }
@@ -169,7 +240,18 @@ export async function performBackup(type: BackupType, triggeredBy: string): Prom
   ensureDir('/tmp');
 
   if (KEY_IS_EPHEMERAL) {
-    logger.warn('BACKUP_ENCRYPTION_KEY no configurada — usando llave efímera (NO recuperable)', {
+    if (process.env.NODE_ENV === 'production') {
+      // Fail-closed: un backup cifrado con llave efímera es irrecuperable tras
+      // el siguiente restart — peor que no tener backup, porque aparenta existir.
+      const msg = 'BACKUP_ENCRYPTION_KEY no configurada — backup abortado (la llave efímera sería irrecuperable)';
+      await prisma.backupRecord.update({
+        where: { id: record.id },
+        data: { status: 'failed', completedAt: new Date(), errorMessage: msg },
+      });
+      logger.critical(msg, { action: 'backup_ephemeral_key_refused', metadata: { backupId: record.id } });
+      return { success: false, backupId: record.id, error: msg };
+    }
+    logger.warn('BACKUP_ENCRYPTION_KEY no configurada — usando llave efímera (NO recuperable, solo dev)', {
       action: 'backup_ephemeral_key',
       metadata: { backupId: record.id },
     });
