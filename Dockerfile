@@ -32,10 +32,10 @@ WORKDIR /app/server
 
 ENV NODE_ENV=production
 
-# Fase 4.6 (hotfix): Prisma 7 eliminó `--url` — el comando anterior FALLABA en
-# cada arranque y el error se tragaba con `2>&1;` (el esquema dejaba de migrarse
-# en deploy sin que nadie lo viera). Ahora la URL se lee de prisma.config.ts
-# (env DATABASE_URL). Se quita --accept-data-loss: los cambios ADITIVOS se
-# aplican solos; un cambio destructivo hace fallar el push (ruidoso) y requiere
-# intervención manual deliberada. El boot continúa para no tumbar el servicio.
-CMD ["sh", "-c", "npx prisma db push || echo '⚠️⚠️ prisma db push FALLÓ — el esquema NO se migró; revisa el log ⚠️⚠️'; node dist/index.js"]
+# Tanda 3 (punto 3): migraciones versionadas. `migrate deploy` aplica solo
+# migraciones de prisma/migrations (historial en git; baseline 0_init resuelto
+# en prod con `migrate resolve --applied`). El `&&` es deliberado: si una
+# migración falla, el contenedor sale ≠0, Railway marca el deploy FAILED y el
+# deployment anterior sigue sirviendo — fallo ruidoso sin downtime, nunca un
+# arranque con esquema a medias. Runbook: docs/MIGRATIONS.md.
+CMD ["sh", "-c", "npx prisma migrate deploy && node dist/index.js"]
