@@ -351,17 +351,32 @@ app.listen(PORT, () => {
 // Idempotent: garantiza que cada tenant tenga los 6 roles del sistema sembrados
 // y que cada uno tenga al menos un TENANT_ADMIN explícito (migración una-sola-vez).
 void (async () => {
+  // Trys separados: un fallo en un paso de arranque no debe abortar los demás.
   try {
     const r = await seedAllTenantsRoles();
     logger.info(`[permissions] Seeded roles for ${r.tenants} tenants — ${r.created} created, ${r.updated} updated`, {
       action: 'seed_tenant_roles', metadata: r,
     });
+  } catch (err) {
+    logger.error('[permissions] seedAllTenantsRoles failed', {
+      action: 'seed_tenant_roles_failed',
+      errorMessage: err instanceof Error ? err.message : String(err),
+    });
+  }
+  try {
     const m = await migrateTenantsWithoutAdmin();
     if (m.migrated > 0 || m.skippedExisting === 0) {
       logger.info(`[permissions] TENANT_ADMIN migration: ${m.migrated} migrated, ${m.skippedExisting} already had, ${m.skippedNoUser} skipped (no eligible user)`, {
         action: 'migrate_tenant_admin', metadata: m,
       });
     }
+  } catch (err) {
+    logger.error('[permissions] migrateTenantsWithoutAdmin failed', {
+      action: 'migrate_tenant_admin_failed',
+      errorMessage: err instanceof Error ? err.message : String(err),
+    });
+  }
+  try {
     const bf = await backfillAntidumpingDates();
     if (bf.updated > 0) {
       logger.info(`[antidumping] Backfill UPCI dates: ${bf.updated}/${bf.total} registros actualizados`, {
@@ -369,7 +384,10 @@ void (async () => {
       });
     }
   } catch (err) {
-    logger.error('[permissions] startup seed/migration failed', { errorMessage: err instanceof Error ? err.message : String(err) });
+    logger.error('[antidumping] backfillAntidumpingDates failed', {
+      action: 'backfill_antidumping_dates_failed',
+      errorMessage: err instanceof Error ? err.message : String(err),
+    });
   }
 })();
 

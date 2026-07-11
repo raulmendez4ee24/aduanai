@@ -11,6 +11,7 @@
  */
 
 import { prisma } from '../lib/prisma';
+import { Prisma } from '@prisma/client';
 
 // ──────────────────────────────────────────────────────────────────
 // Tipos
@@ -269,14 +270,24 @@ export async function migrateTenantsWithoutAdmin(): Promise<{ tenants: number; m
       select: { id: true },
     });
     if (!initialAdmin) { skippedNoUser++; continue; }
-    await prisma.userTenantRole.create({
-      data: {
-        userId: initialAdmin.id, tenantId: t.id, roleId: adminRole.id,
-        assignedBy: initialAdmin.id,
-        reason: 'migration:initial_tenant_admin',
-        active: true,
-      },
-    });
+    try {
+      await prisma.userTenantRole.create({
+        data: {
+          userId: initialAdmin.id, tenantId: t.id, roleId: adminRole.id,
+          assignedBy: initialAdmin.id,
+          reason: 'migration:initial_tenant_admin',
+          active: true,
+        },
+      });
+    } catch (err) {
+      // Carrera entre réplicas en el arranque: otra instancia ganó el create.
+      // El unique (userId,tenantId,roleId) garantiza una sola asignación.
+      if (err instanceof Prisma.PrismaClientKnownRequestError && err.code === 'P2002') {
+        skippedExisting++;
+        continue;
+      }
+      throw err;
+    }
     await prisma.permissionAuditLog.create({
       data: {
         tenantId: t.id, userId: initialAdmin.id,
