@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import { handleWhatsAppMessage, sendWhatsAppMessage } from '../services/whatsapp';
 import { prisma } from '../lib/prisma';
+import { recordAudit } from '../services/audit-service';
 
 export const whatsappRouter = Router();
 
@@ -51,13 +52,11 @@ whatsappRouter.post('/webhook', async (req, res) => {
     // para que el mensaje generado quede auditable y reproducible en QA.
     const tenant = await prisma.tenant.findFirst({ where: { id: 'demo-tenant' } });
     if (tenant) {
-      await prisma.auditLog.create({
-        data: {
-          tenantId: tenant.id,
-          action: 'whatsapp_message',
-          entity: 'whatsapp',
-          details: JSON.stringify({ from, body, reply: reply.substring(0, 4000) }),
-        },
+      await recordAudit({
+        tenantId: tenant.id,
+        action: 'whatsapp_message',
+        entity: 'whatsapp',
+        metadata: { from, body, reply: reply.substring(0, 4000) },
       });
     }
 

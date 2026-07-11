@@ -15,6 +15,7 @@
 import { prisma } from '../lib/prisma';
 import { logger } from '../lib/logger';
 import { sendEmail } from '../lib/email';
+import { recordAudit } from './audit-service';
 
 export type VerificationStatus = 'pending' | 'submitted' | 'verified' | 'rejected' | 'expired';
 export type ProfessionalType = 'agent_customs' | 'broker' | 'importer' | 'consultant' | 'other';
@@ -126,16 +127,13 @@ export async function approveVerification(id: string, verifiedBy: string): Promi
     },
   });
 
-  await prisma.auditLog.create({
-    data: {
-      tenantId: v.user.tenantId,
-      userId: verifiedBy,
-      action: 'VERIFY_PROFESSIONAL',
-      entity: 'UserVerification',
-      entityId: id,
-      after: { status: 'verified' } as never,
-      hash: '',
-    },
+  await recordAudit({
+    tenantId: v.user.tenantId,
+    userId: verifiedBy,
+    action: 'VERIFY_PROFESSIONAL',
+    entity: 'UserVerification',
+    entityId: id,
+    after: { status: 'verified' },
   });
 
   try {
@@ -164,16 +162,13 @@ export async function rejectVerification(id: string, verifiedBy: string, reason:
     },
   });
 
-  await prisma.auditLog.create({
-    data: {
-      tenantId: v.user.tenantId,
-      userId: verifiedBy,
-      action: 'REJECT_PROFESSIONAL',
-      entity: 'UserVerification',
-      entityId: id,
-      after: { status: 'rejected', reason } as never,
-      hash: '',
-    },
+  await recordAudit({
+    tenantId: v.user.tenantId,
+    userId: verifiedBy,
+    action: 'REJECT_PROFESSIONAL',
+    entity: 'UserVerification',
+    entityId: id,
+    after: { status: 'rejected', reason },
   });
 
   try {
