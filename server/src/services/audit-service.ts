@@ -79,14 +79,6 @@ export async function recordAudit(input: RecordAuditInput): Promise<{ id: string
     if (!input.tenantId) return null;
     const safeMetadata = sanitizeAuditMetadata(input.metadata ?? null);
 
-    // Hash del último registro de este tenant — ignorar logs legacy sin hash
-    const prev = await prisma.auditLog.findFirst({
-      where: { tenantId: input.tenantId, hash: { not: '' } },
-      orderBy: { createdAt: 'desc' },
-      select: { hash: true },
-    });
-    const prevHash = prev?.hash || null;
-
     // Diff
     let diff: Record<string, { from: unknown; to: unknown }> | null = null;
     if (input.before && input.after) {
@@ -94,63 +86,98 @@ export async function recordAudit(input: RecordAuditInput): Promise<{ id: string
       if (Object.keys(d).length > 0) diff = d;
     }
 
-    // Timestamp explícito (millis) — la precisión debe ser idéntica al releer
-    // desde DB para que verifyChain pueda recomputar el hash.
-    const ts = new Date(Math.floor(Date.now()));
+    const lockKey = `aduanai:audit:${input.tenantId}`;
+    const { created, canonicalContent } = await prisma.$transaction(async (tx) => {
+      // Transaction-scoped advisory lock: serializa appenders del mismo tenant
+      // incluso cuando corren en procesos/replicas Railway diferentes. El prefijo
+      // evita compartir namespace accidentalmente con otros advisory locks.
+      await tx.$queryRaw`
+        SELECT pg_advisory_xact_lock(
+          hashtextextended(${lockKey}::text, 0::bigint)
+        )
+      `;
 
-    const content = {
-      action: input.action,
-      entity: input.entity,
-      entityId: input.entityId ?? null,
-      before: input.before ?? null,
-      after: input.after ?? null,
-      diff,
-      tenantId: input.tenantId,
-      userId: input.userId ?? null,
-      ipAddress: input.ipAddress ?? null,
-      userAgent: input.userAgent ?? null,
-      endpoint: input.endpoint ?? null,
-      method: input.method ?? null,
-      metadata: safeMetadata,
-      timestamp: ts.toISOString(),
-    };
+      // El tail se lee DESPUÉS de adquirir el lock y desde la misma transacción.
+      // `id` hace determinista el orden de cualquier empate legacy.
+      const prev = await tx.auditLog.findFirst({
+        where: { tenantId: input.tenantId, hash: { not: '' } },
+        orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
+        select: { hash: true, createdAt: true },
+      });
+      const prevHash = prev?.hash || null;
 
-    const hash = sha256((prevHash ?? '') + stableStringify(content));
+      // Debe ser clock_timestamp(), no now()/CURRENT_TIMESTAMP: estos últimos
+      // reflejan el inicio de la transacción, que puede preceder la espera del lock.
+      const clocks = await tx.$queryRaw<Array<{ now: Date }>>`
+        SELECT clock_timestamp() AS now
+      `;
+      const dbNow = clocks[0]?.now;
+      if (!(dbNow instanceof Date) || Number.isNaN(dbNow.getTime())) {
+        throw new Error('No se pudo obtener clock_timestamp() para AuditLog');
+      }
 
-    const created = await prisma.auditLog.create({
-      data: {
-        tenantId: input.tenantId,
-        userId: input.userId ?? null,
+      // Prisma/JS trabajan a precisión de milisegundos. Forzar > tail evita que
+      // dos inserts del mismo tenant empaten o retrocedan por clock skew.
+      const minNextMs = prev ? prev.createdAt.getTime() + 1 : dbNow.getTime();
+      const ts = new Date(Math.max(dbNow.getTime(), minNextMs));
+
+      const nextContent = {
         action: input.action,
         entity: input.entity,
         entityId: input.entityId ?? null,
-        before: (input.before as Prisma.InputJsonValue | undefined) ?? Prisma.JsonNull,
-        after: (input.after as Prisma.InputJsonValue | undefined) ?? Prisma.JsonNull,
-        diff: (diff as Prisma.InputJsonValue | null) ?? Prisma.JsonNull,
+        before: input.before ?? null,
+        after: input.after ?? null,
+        diff,
+        tenantId: input.tenantId,
+        userId: input.userId ?? null,
         ipAddress: input.ipAddress ?? null,
         userAgent: input.userAgent ?? null,
         endpoint: input.endpoint ?? null,
         method: input.method ?? null,
-        metadata: (safeMetadata as Prisma.InputJsonValue | null) ?? Prisma.JsonNull,
-        hash,
-        prevHash,
-        createdAt: ts, // forzamos explícitamente para que coincida con el hash
-      },
-    });
+        metadata: safeMetadata,
+        timestamp: ts.toISOString(),
+      };
+      const nextCanonicalContent = stableStringify(nextContent);
+      const hash = sha256((prevHash ?? '') + nextCanonicalContent);
 
-    // Anclaje a OpenTimestamps para acciones críticas (fire-and-forget, no bloquea)
+      const next = await tx.auditLog.create({
+        data: {
+          tenantId: input.tenantId,
+          userId: input.userId ?? null,
+          action: input.action,
+          entity: input.entity,
+          entityId: input.entityId ?? null,
+          before: (input.before as Prisma.InputJsonValue | undefined) ?? Prisma.JsonNull,
+          after: (input.after as Prisma.InputJsonValue | undefined) ?? Prisma.JsonNull,
+          diff: (diff as Prisma.InputJsonValue | null) ?? Prisma.JsonNull,
+          ipAddress: input.ipAddress ?? null,
+          userAgent: input.userAgent ?? null,
+          endpoint: input.endpoint ?? null,
+          method: input.method ?? null,
+          metadata: (safeMetadata as Prisma.InputJsonValue | null) ?? Prisma.JsonNull,
+          hash,
+          prevHash,
+          createdAt: ts, // idéntico al timestamp incluido en el hash
+        },
+      });
+
+      return { created: next, canonicalContent: nextCanonicalContent };
+    }, { maxWait: 5_000, timeout: 15_000 });
+
+    // Anclaje a OpenTimestamps DESPUÉS del commit (fire-and-forget, no bloquea
+    // ni prolonga el advisory lock).
     void (async () => {
       try {
         const { shouldAnchor, anchorContent } = await import('./timestamp');
         if (shouldAnchor(input.action)) {
-          await anchorContent('audit_log', created.id, stableStringify(content));
+          await anchorContent('audit_log', created.id, canonicalContent);
         }
       } catch (err) {
         console.error('[audit] anchor failed:', err instanceof Error ? err.message : err);
       }
     })();
 
-    return { id: created.id, hash };
+    return { id: created.id, hash: created.hash };
   } catch (err) {
     // Logging audit no debe tirar el request original
     console.error('[audit] recordAudit error:', err);
@@ -166,7 +193,7 @@ export async function verifyChain(tenantId: string): Promise<{ valid: boolean; b
   // Solo verificamos logs con hash (los legacy sin hash se ignoran)
   const logs = await prisma.auditLog.findMany({
     where: { tenantId, hash: { not: '' } },
-    orderBy: { createdAt: 'asc' },
+    orderBy: [{ createdAt: 'asc' }, { id: 'asc' }],
   });
 
   let prevHash: string | null = null;
@@ -192,7 +219,7 @@ export async function verifyChain(tenantId: string): Promise<{ valid: boolean; b
     // Normalizar prevHash null/'' en ambos lados
     const logPrev = log.prevHash || null;
     if (expected !== log.hash || logPrev !== prevHash) {
-      return { valid: false, brokenAt: log.id, checkedCount: logs.length };
+      return { valid: false, brokenAt: log.id, checkedCount: checked };
     }
     prevHash = log.hash;
     checked++;
