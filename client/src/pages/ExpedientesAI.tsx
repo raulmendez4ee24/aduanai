@@ -82,8 +82,7 @@ export function ExpedientesAIPage() {
 
     try {
       const payload: { name: string; mimeType: string; base64: string }[] = []
-      for (let i = 0; i < files.length; i++) {
-        const f = files[i]
+      for (const [i, f] of files.entries()) {
         const b64 = await fileToBase64(f)
         payload.push({ name: f.name, mimeType: f.type || 'application/octet-stream', base64: b64 })
         setProgress({ current: i + 1, total: files.length })
@@ -212,7 +211,9 @@ export function ExpedientesAIPage() {
                 <div className="rounded-xl bg-white/60 border border-slate-200 p-4 sticky top-2">
                   <div className="flex items-center justify-between mb-2">
                     <p className="text-[13px] font-semibold text-slate-800 truncate">{selected.fileName}</p>
-                    <Edit3 className="w-3.5 h-3.5 text-slate-400 cursor-pointer" title="Editar (próximamente)"/>
+                    <span title="Editar (próximamente)">
+                      <Edit3 className="w-3.5 h-3.5 text-slate-400 cursor-pointer" />
+                    </span>
                   </div>
                   <div className="text-[11px] space-y-1.5">
                     <div><span className="text-slate-500">Tipo IA:</span> <span className="font-semibold">{selected.docType ?? '—'}</span> ({selected.confidence}%)</div>

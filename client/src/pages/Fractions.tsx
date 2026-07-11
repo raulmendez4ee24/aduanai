@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { api } from '../lib/api'
 import type { FractionSearchResult } from '../lib/api'
-import { Search, Package, Eye, Bell } from 'lucide-react'
+import { Search, Package, Bell } from 'lucide-react'
 import { useTotalFractions } from '../hooks/useTotalFractions'
 
 const GLASS = 'bg-white/70 backdrop-blur-xl border border-white/50 shadow-[0_8px_30px_rgb(0,0,0,0.04)]'

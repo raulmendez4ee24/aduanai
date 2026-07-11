@@ -2,7 +2,7 @@ import { DemoTag } from '../components/DemoBanner'
 import { useState, useEffect } from 'react'
 import { api } from '../lib/api'
 import type { ContainerSpec, LoadPlanRecord, CubicageResult, LoadOptimization, CostAnalysis } from '../lib/api'
-import { Truck, Plus, Calculator, Sparkles, DollarSign, X, Trash2 } from 'lucide-react'
+import { Truck, Plus, Calculator, Sparkles, DollarSign, Trash2 } from 'lucide-react'
 
 const GLASS = 'bg-white/70 backdrop-blur-xl border border-white/50 shadow-[0_8px_30px_rgb(0,0,0,0.04)]'
 

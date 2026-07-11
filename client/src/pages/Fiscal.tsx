@@ -12,7 +12,7 @@ type Tab = 'dashboard' | 'credits' | 'guarantees' | 'cert' | 'risks'
 export function FiscalPage() {
   const [tab, setTab] = useState<Tab>('dashboard')
   const [dash, setDash] = useState<FiscalDashboard | null>(null)
-  const [account, setAccount] = useState<FiscalAccount | null>(null)
+  const [, setAccount] = useState<FiscalAccount | null>(null)
   const [credits, setCredits] = useState<TaxCreditRecord[]>([])
   const [guarantees, setGuarantees] = useState<GuaranteeRecord[]>([])
   const [cert, setCert] = useState<CertificationProfileRecord | null>(null)

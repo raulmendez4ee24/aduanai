@@ -15,6 +15,7 @@ RUN npm run build
 # Build client
 WORKDIR /app/client
 RUN npm ci
+RUN npm run typecheck
 RUN npm run build
 
 # Copy client build to server public
