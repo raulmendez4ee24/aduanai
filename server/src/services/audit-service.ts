@@ -91,10 +91,12 @@ export async function recordAudit(input: RecordAuditInput): Promise<{ id: string
       // Transaction-scoped advisory lock: serializa appenders del mismo tenant
       // incluso cuando corren en procesos/replicas Railway diferentes. El prefijo
       // evita compartir namespace accidentalmente con otros advisory locks.
-      await tx.$queryRaw`
+      // Prisma 7 / adapter-pg no puede deserializar el tipo PostgreSQL `void`;
+      // el cast conserva el lock bloqueante y expone un tipo soportado.
+      await tx.$queryRaw<Array<{ lockAcquired: string }>>`
         SELECT pg_advisory_xact_lock(
           hashtextextended(${lockKey}::text, 0::bigint)
-        )
+        )::text AS "lockAcquired"
       `;
 
       // El tail se lee DESPUÉS de adquirir el lock y desde la misma transacción.
