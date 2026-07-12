@@ -316,18 +316,19 @@ catálogo: 8517.13.01 "Teléfonos inteligentes." SÍ existe activa (subpartida
 creada por HS 2022). Su desactivación es SOLO por referencia no cotejable.
 El hallazgo real derivado es del CATÁLOGO → ver #18.
 
-## 18) Catálogo: smartphones duplicados en dos subpartidas activas
+## 18) Catálogo: smartphones duplicados en dos subpartidas activas — RESUELTO 2026-07-11; queda cotejo primario
 
-Verificado 2026-07-05: el catálogo tiene 8517.13.01 "Teléfonos inteligentes."
-(ACTIVA — subpartida HS 2022 específica de smartphones) Y 8517.14.01
-"Teléfonos inteligentes (smartphones)" (ACTIVA) conviviendo. En HS 2022,
-8517.13 ES la subpartida de smartphones y 8517.14 es "los demás teléfonos…";
-que la .14.01 describa también smartphones huele a residuo de seed o a texto
-raro de la Base Única. Pendiente: cotejar ambas contra la Base Única
-SNICE/TIGIE vigente y decidir cuál es la canónica. Implicaciones mientras
-tanto: el accuracy set (caso #12) espera 85171401 — si la canónica resulta
-ser la .13, el caso necesita corrección o aceptación dual (patrón
-fracción-espejo ya usado en 6109.10.01/.03).
+RESUELTO (Clasificador v2, Etapa 0, commit 25156e3): la descripción de
+8517.14.01 era residuo del seed curado legacy. Canónica de smartphones =
+8517.13.01 (subpartida SA 2022 exclusiva). 85171401 corregida a "Teléfonos
+celulares (no smartphones)." en seed + DB local + DB prod; keyword
+'smartphone' movida a 85171301; caso #12 del set → 85171301 sin dual (no son
+espejos); 2 entradas de knowledge-base-v2 reescritas.
+
+PENDIENTE (nuevo alcance de este item): re-verificar el texto de 8517.14.01
+contra la Base Única SNICE / fuente primaria cuando esté accesible — el
+cotejo del 2026-07-11 fue vía fuente secundaria honesta (ficha Camtom,
+vigente 2026) + estructura SA 2022; snice.gob.mx no respondió ese día.
 
 ## 17) Cuota activa sobre fracción INEXISTENTE en catálogo (73181505)
 

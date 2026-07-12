@@ -1,6 +1,7 @@
 import { llmGenerate, llmGenerateWithMeta } from '../lib/llm';
 import { jsonrepair } from 'jsonrepair';
 import { prisma } from '../lib/prisma';
+import { computeNumericFacts } from '../lib/numeric-precheck';
 import { logger } from '../lib/logger';
 import { validateFraction, FRACTION_UNVERIFIED_MESSAGE } from './fraction-validator';
 import type { KnowledgeUsedItem } from './traceability';
@@ -743,6 +744,17 @@ export async function classifyProduct(
   // vienen ordenados por relevancia desde findRelatedFractions.
   const topRelated = relatedFractions;
 
+  // Etapa 1 (Clasificador v2): pre-check determinista de atributos numéricos.
+  // Compara magnitudes declaradas del producto contra umbrales parseables de
+  // TODAS las candidatas que verá el modelo (top-30 + heading/capítulo) y, si
+  // resuelve algo, inyecta los veredictos como HECHOS. Falla cerrado: sin
+  // magnitudes o sin umbrales parseables el prompt queda idéntico.
+  const precheckPool = new Map<string, { code: string; codeFormatted?: string; description: string }>();
+  for (const f of topRelated) precheckPool.set(f.code, f);
+  for (const f of chapterFractions.slice(0, 150)) if (!precheckPool.has(f.code)) precheckPool.set(f.code, f);
+  const numericFacts = computeNumericFacts(description, [...precheckPool.values()]);
+  const numericContext = numericFacts.block ? `\n\n${numericFacts.block}` : '';
+
   // Format related fractions
   const relatedContext = topRelated.length > 0
     ? `\n\nFRACCIONES TIGIE MÁS RELEVANTES POR BÚSQUEDA:\n${topRelated.map(f => {
@@ -771,7 +783,7 @@ export async function classifyProduct(
   const userMessage = `Clasifica el siguiente producto para importación a México:
 
 PRODUCTO: ${description}
-${context ? `CONTEXTO ADICIONAL: ${context}` : ''}${opsContext}
+${context ? `CONTEXTO ADICIONAL: ${context}` : ''}${opsContext}${numericContext}
 ${knowledgeContext}${precedentContext}
 ${relatedContext}
 ${chapterContext}
