@@ -5,7 +5,10 @@ dist/
 *.log
 .DS_Store
 .omc/
-.claude/
+# .claude: ignorado salvo los skills del proyecto (conocimiento compartido);
+# settings.local.json y locks siguen siendo locales.
+.claude/*
+!.claude/skills/
 client-backup/
 test-results/
 
