@@ -155,7 +155,7 @@ async function main() {
   console.log('\n=== MUESTRA DE VERIFICACIÓN ===');
   const samples = [
     { code: '84713001', name: 'Laptops' },
-    { code: '85171401', name: 'Smartphones' },
+    { code: '85171401', name: 'Celulares (no smartphones)' },
     { code: '61012003', name: 'Textil punto' },
     { code: '87032399', name: 'Autos' },
     { code: '72082501', name: 'Acero laminado' },

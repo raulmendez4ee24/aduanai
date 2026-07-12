@@ -406,8 +406,10 @@ export const LEGAL_DOCUMENTS: LegalDocSeed[] = [
   // que AGA 7/2024 y 4/2024). NOTA de corrección: la observación previa de que su
   // contenido "contradecía el catálogo" era FALSA — 8517.13.01 "Teléfonos
   // inteligentes." SÍ existe activa en el catálogo (subpartida HS 2022). El
-  // hallazgo real es del CATÁLOGO: 85171301 y 85171401 conviven activas ambas
-  // describiendo smartphones (pendiente de cotejo vs Base Única SNICE).
+  // hallazgo real era del CATÁLOGO: 85171301 y 85171401 convivían describiendo
+  // ambas smartphones. RESUELTO 2026-07-11 (Clasificador v2, Etapa 0): la
+  // descripción de 85171401 era residuo del seed legacy; corregida a
+  // "Teléfonos celulares (no smartphones)." — smartphones = 8517.13.01.
   {
     // Fase 3.1 — TEXTO VERBATIM de la LFD consolidada (Cámara de Diputados,
     // última reforma DOF 07-11-2025; cantidades 2026 actualizadas por RMF

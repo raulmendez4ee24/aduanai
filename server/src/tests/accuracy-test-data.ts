@@ -36,7 +36,11 @@ export const TEST_PRODUCTS: TestProduct[] = [
   // ELECTRÓNICA (Cap. 84-85) — 15 productos
   // ============================================
   { id: 11, description: "Laptop con pantalla de 15 pulgadas, procesador Intel Core i7, 16GB RAM", expectedFraction: "84713001", chapter: "84", category: "Electrónica" },
-  { id: 12, description: "Smartphone con pantalla OLED de 6.5 pulgadas, 128GB almacenamiento", expectedFraction: "85171401", chapter: "85", category: "Electrónica" },
+  // #12 corregido 2026-07-11 (Etapa 0): la expectativa 85171401 era errónea —
+  // en SA 2022 los smartphones son subpartida 8517.13 (85171301); la 8517.14.01
+  // es "Teléfonos celulares (no smartphones)". No es espejo: productos
+  // distintos, sin aceptación dual.
+  { id: 12, description: "Smartphone con pantalla OLED de 6.5 pulgadas, 128GB almacenamiento", expectedFraction: "85171301", chapter: "85", category: "Electrónica" },
   { id: 13, description: "Televisor LED de 55 pulgadas, resolución 4K UHD, Smart TV", expectedFraction: "85287206", chapter: "85", category: "Electrónica" },
   { id: 14, description: "Impresora láser monocromática para oficina", expectedFraction: "84433291", chapter: "84", category: "Electrónica" },
   { id: 15, description: "Disco duro externo de 2TB, USB 3.0, portátil", expectedFraction: "84717001", chapter: "84", category: "Electrónica" },

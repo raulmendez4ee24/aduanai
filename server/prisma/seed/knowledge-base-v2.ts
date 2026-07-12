@@ -361,41 +361,44 @@ NO confundir con 6404 (suela caucho).`,
   // ============================================================
   // CAP 85 — Eléctricos TIGIE 2026 actualizado
   // ============================================================
+  // Corregido 2026-07-11 (Clasificador v2, Etapa 0): las dos entradas anteriores
+  // afirmaban smartphones → 8517.14.01 e incluían la instrucción "si el test
+  // dice 8517.14.01, úsalo" (overfitting al set con expectativa errónea). En
+  // SA 2022 la subpartida 8517.13 es EXCLUSIVA de teléfonos inteligentes.
   {
-    type: 'CASO_CLASIFICACION', fractionCode: '8517.14.01', chapterCode: '85',
-    title: 'Teléfono inteligente (smartphone) — TIGIE 2022+',
-    content: `Producto: Smartphone / teléfono inteligente (iPhone, Galaxy, Pixel, Xiaomi, etc.) con sistema operativo para apps (iOS, Android).
+    type: 'CASO_CLASIFICACION', fractionCode: '8517.13.01', chapterCode: '85',
+    title: 'Teléfono inteligente (smartphone) — SA 2022 / TIGIE 2026',
+    content: `Producto: Smartphone / teléfono inteligente con sistema operativo para apps (iOS, Android).
 
-Clasificación correcta: 8517.14.01 (TIGIE 2022+ / 2026)
+Clasificación correcta: 8517.13.01 "Teléfonos inteligentes." (TIGIE 2026, SA 2022)
 
-IMPORTANTE — cambio del SA2022:
-- Antes (SA2017): 8517.12 era el código para celulares
-- Ahora (SA2022, vigente en México): 8517.13 = smartphones | 8517.14 = "Otros teléfonos de redes celulares o inalámbricas"
+Estructura SA 2022 (vigente en México):
+- 8517.13 = teléfonos inteligentes (smartphones) — subpartida EXCLUSIVA
+- 8517.14 = los demás teléfonos para redes celulares u otras redes inalámbricas (NO smartphones)
+  · 8517.14.01 "Teléfonos celulares (no smartphones)."
+  · 8517.14.91 "Los demás teléfonos móviles (celulares) y los de otras redes inalámbricas."
 
-PERO en TIGIE México los smartphones se clasifican en 8517.14.01 (revisar fracción vigente — México usa estructura SA2022 pero el desglose NICO varía).
+Un teléfono con sistema operativo para aplicaciones NUNCA va en 8517.14 — la exclusión es estructural del SA, no una preferencia nacional.
 
-Regla práctica: si el test/TIGIE local dice 8517.14.01 para smartphone, úsalo. Si aparece 8517.13 (estándar OMA puro), también es aceptable.
-
-Señal clave: "smartphone", "iPhone", "Android", "sistema operativo", "apps".`,
-    source: 'TIGIE MX 2022+ — SA2022',
-    keywords: ['smartphone', 'celular', 'iPhone', 'Samsung', 'Android', 'Galaxy', 'Pixel', 'teléfono inteligente'],
-    products: ['smartphone', 'iPhone', 'Galaxy', 'Pixel'],
+Señal clave: "smartphone", "sistema operativo", "apps", "pantalla táctil".`,
+    source: 'SA 2022 subpartida 8517.13 + texto de fracciones TIGIE vigente 2026 (cotejo secundario Camtom 2026-07-11; Base Única SNICE no accesible ese día)',
+    keywords: ['smartphone', 'celular', 'teléfono inteligente', 'sistema operativo', 'pantalla táctil'],
+    products: ['smartphone', 'teléfono inteligente'],
     priority: 10,
   },
   {
-    type: 'CASO_CLASIFICACION', fractionCode: '8517.14.99', chapterCode: '85',
-    title: 'Otros teléfonos celulares no smartphone',
-    content: `Producto: Teléfonos celulares básicos (sin sistema operativo para apps), feature phones, teléfonos Nokia/Alcatel clásicos.
+    type: 'CASO_CLASIFICACION', fractionCode: '8517.14.01', chapterCode: '85',
+    title: 'Teléfonos celulares básicos (no smartphones)',
+    content: `Producto: Teléfonos celulares básicos SIN sistema operativo para apps (feature phones).
 
-Clasificación correcta: 8517.14.99 (si existe) o 8517.14.01
+Clasificación correcta: 8517.14.01 "Teléfonos celulares (no smartphones)." (TIGIE 2026)
 
-8517.13 vs 8517.14:
-- SA distingue entre "smartphones" (8517.13) y "otros teléfonos de redes celulares" (8517.14).
-- En TIGIE MX ambos pueden caer en 8517.14.xx según la variante local.
+- Si es celular básico de red celular → 8517.14.01.
+- Teléfonos de OTRAS redes inalámbricas o los demás casos → 8517.14.91 (residual de la subpartida).
+- Si tiene sistema operativo para apps es smartphone → 8517.13.01, nunca 8517.14.
 
-Para smartphone moderno → 8517.14.01 (TIGIE MX).
-Para celular básico sin apps → 8517.14.99 u otra fracción residual.`,
-    source: 'TIGIE MX',
+Señal clave: "feature phone", "celular básico", "sin apps", "teclado físico".`,
+    source: 'SA 2022 subpartida 8517.14 + texto de fracciones TIGIE vigente 2026 (cotejo secundario Camtom 2026-07-11)',
     keywords: ['celular básico', 'feature phone', 'teléfono móvil'],
     products: ['celular básico'],
     priority: 7,

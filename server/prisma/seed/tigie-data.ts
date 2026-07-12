@@ -152,7 +152,12 @@ export const FRACTIONS = [
 
   // ===== Cap 85 - Material Eléctrico (crítico para maquilas) =====
   { code: '85044099', formatted: '8504.40.99', description: 'Los demás convertidores estáticos', chapter: '85', heading: '8504', subheading: '850440', unit: 'Pza', tariffNMF: 5, tariffTMEC: 0, keywords: ['convertidor', 'fuente de poder', 'transformador', 'eléctrico'] },
-  { code: '85171401', formatted: '8517.14.01', description: 'Teléfonos inteligentes (smartphones)', chapter: '85', heading: '8517', subheading: '851714', unit: 'Pza', tariffNMF: 0, tariffTMEC: 0, keywords: ['teléfono', 'smartphone', 'celular', 'móvil'] },
+  // Corregido 2026-07-11 (Clasificador v2, Etapa 0): la descripción anterior
+  // ("Teléfonos inteligentes (smartphones)") era falsa — en SA 2022 los
+  // smartphones son subpartida 8517.13 (fracción 8517.13.01); la 8517.14.01
+  // cubre celulares NO smartphones. Cotejo: estructura SA 2022 + texto de
+  // fracción vigente 2026 (fuente secundaria Camtom; Base Única SNICE caída).
+  { code: '85171401', formatted: '8517.14.01', description: 'Teléfonos celulares (no smartphones).', chapter: '85', heading: '8517', subheading: '851714', unit: 'Pza', tariffNMF: 0, tariffTMEC: 0, keywords: ['teléfono', 'celular', 'móvil'] },
   { code: '85176201', formatted: '8517.62.01', description: 'Aparatos para la recepción, conversión y transmisión o regeneración de voz, imagen u otros datos (routers, switches)', chapter: '85', heading: '8517', subheading: '851762', unit: 'Pza', tariffNMF: 0, tariffTMEC: 0, keywords: ['router', 'switch', 'red', 'telecomunicaciones', 'networking'] },
   { code: '85234901', formatted: '8523.49.01', description: 'Soportes ópticos grabados para reproducir imagen o imagen y sonido', chapter: '85', heading: '8523', subheading: '852349', unit: 'Pza', tariffNMF: 0, tariffTMEC: 0, keywords: ['DVD', 'Blu-ray', 'disco óptico', 'medio'] },
   { code: '85258001', formatted: '8525.80.01', description: 'Cámaras de televisión, cámaras fotográficas digitales y videocámaras', chapter: '85', heading: '8525', subheading: '852580', unit: 'Pza', tariffNMF: 5, tariffTMEC: 0, keywords: ['cámara', 'digital', 'video', 'fotografía'] },
