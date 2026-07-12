@@ -3,6 +3,7 @@ import { jsonrepair } from 'jsonrepair';
 import { prisma } from '../lib/prisma';
 import { computeNumericFacts } from '../lib/numeric-precheck';
 import { expandVocabTerms } from '../lib/vocab-bridge';
+import { computeStructuralFacts } from '../lib/structural-precheck';
 import { logger } from '../lib/logger';
 import { validateFraction, FRACTION_UNVERIFIED_MESSAGE } from './fraction-validator';
 import type { KnowledgeUsedItem } from './traceability';
@@ -758,8 +759,14 @@ export async function classifyProduct(
   const precheckPool = new Map<string, { code: string; codeFormatted?: string; description: string }>();
   for (const f of topRelated) precheckPool.set(f.code, f);
   for (const f of chapterFractions.slice(0, 150)) if (!precheckPool.has(f.code)) precheckPool.set(f.code, f);
-  const numericFacts = computeNumericFacts(description, [...precheckPool.values()]);
-  const numericContext = numericFacts.block ? `\n\n${numericFacts.block}` : '';
+  const precheckCandidates = [...precheckPool.values()];
+  const numericFacts = computeNumericFacts(description, precheckCandidates);
+  // Etapa 3: criterios estructurales material/tipo — mismo patrón de HECHOS.
+  const structuralFacts = computeStructuralFacts(description, precheckCandidates);
+  const numericContext = [numericFacts.block, structuralFacts.block]
+    .filter(Boolean)
+    .map(b => `\n\n${b}`)
+    .join('');
 
   // Format related fractions
   const relatedContext = topRelated.length > 0
