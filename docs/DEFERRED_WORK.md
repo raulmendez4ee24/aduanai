@@ -369,3 +369,21 @@ tokens en el prompt, y medición propia. FRENO ACORDADO: diseño presentado y
 aprobado ANTES de implementar. Este es el techo principal del set actual
 (~10+ de los 34 fallos restantes son residual-vs-específica con residual
 opaca o retrieval que no alcanza la residual).
+
+## 20) Cierre de la ola Clasificador v2 (2026-07-12) — residuales sin explicar
+
+La ola cerró SIN mejorar el número (línea base oficial sigue: 61.6%,
+baseline-v2.2). Estado final: E0 (catálogo smartphones) + E1 numérico en modo
+solo-exclusiones ACTIVOS; E2 (vocab-bridge) y E3 (estructural) APAGADOS
+(código presente, sin conectar). Mediciones: medicion-etapas0-3-2026-07-11
+(61.6% plano, +4/−4) y medicion-a1a2-2026-07-12 (56.6% con 6 timeouts de API;
+techo teórico 62.6% < meta 63.6%). Regla acordada: no iterar más contra este
+set.
+
+Residuales SIN causa confirmada (para la siguiente ola):
+- #20 cámara réflex → 90.06 (3 corridas idénticas post-E0/E1: regresión real
+  pequeña, mecanismo no identificado; no revirtió con solo-exclusiones).
+- #84 tubo soldado → 7304: no era (solo) el CUMPLE numérico; persiste con A1.
+  Probable retrieval/orden de candidatas.
+- #93 sandalia y #97 reloj: perdidos solo en la última corrida (posible
+  inestabilidad; 1 sola observación).

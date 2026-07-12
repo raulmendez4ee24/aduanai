@@ -2,8 +2,6 @@ import { llmGenerate, llmGenerateWithMeta } from '../lib/llm';
 import { jsonrepair } from 'jsonrepair';
 import { prisma } from '../lib/prisma';
 import { computeNumericFacts } from '../lib/numeric-precheck';
-import { expandVocabTerms } from '../lib/vocab-bridge';
-import { computeStructuralFacts } from '../lib/structural-precheck';
 import { logger } from '../lib/logger';
 import { validateFraction, FRACTION_UNVERIFIED_MESSAGE } from './fraction-validator';
 import type { KnowledgeUsedItem } from './traceability';
@@ -461,18 +459,14 @@ interface RankedFraction {
 }
 
 async function findRelatedFractions(description: string) {
-  // Etapa 2 (Clasificador v2): puente de vocabulario comercial→catálogo.
-  // Expansiones curadas y verificadas contra el texto del catálogo se AÑADEN
-  // (nunca reemplazan) a los términos extraídos; determinista, ver vocab-bridge.ts.
-  // A2 (2026-07-12): cada expansión viene ANCLADA a los headings de su
-  // evidencia — solo aporta filas de esas partidas (sin ancla, 'perfiles'
-  // arrastraba 7604 aluminio para un IPR de acero).
-  const baseTerms = extractSearchTerms(description).slice(0, 8);
-  const bridged = expandVocabTerms(description).filter(b => !baseTerms.includes(b.term)).slice(0, 6);
-  const searchItems: { term: string; headings: string[] | null }[] = [
-    ...baseTerms.map(term => ({ term, headings: null })),
-    ...bridged.map(b => ({ term: b.term, headings: b.headings.filter(h => /^\d{4}$/.test(h)) })),
-  ];
+  // Etapa 2 (puente de vocabulario) APAGADA al cierre de la ola v2
+  // (2026-07-12): la re-medición única con diccionario anclado (A2) no cumplió
+  // los criterios de cierre (56.6%, techo 62.6% aun regalando timeouts, meta
+  // 63.6% — artefacto tests/medicion-a1a2-2026-07-12.json). El diccionario
+  // lib/vocab-bridge.ts y su verificador quedan en código, sin conectar, para
+  // la siguiente ola (DEFERRED #19 es la palanca principal).
+  const searchItems: { term: string; headings: string[] | null }[] =
+    extractSearchTerms(description).slice(0, 8).map(term => ({ term, headings: null }));
   const searchWords = searchItems.map(i => i.term); // mismo nombre aguas abajo
 
   // 2ª Ola Etapa 2 (F2) — fase 1 RANKEADA: una consulta por término (match por
@@ -775,12 +769,13 @@ export async function classifyProduct(
   for (const f of chapterFractions.slice(0, 150)) if (!precheckPool.has(f.code)) precheckPool.set(f.code, f);
   const precheckCandidates = [...precheckPool.values()];
   const numericFacts = computeNumericFacts(description, precheckCandidates);
-  // Etapa 3: criterios estructurales material/tipo — mismo patrón de HECHOS.
-  const structuralFacts = computeStructuralFacts(description, precheckCandidates);
-  const numericContext = [numericFacts.block, structuralFacts.block]
-    .filter(Boolean)
-    .map(b => `\n\n${b}`)
-    .join('');
+  // Etapa 3 (criterios estructurales) APAGADA al cierre de la ola v2
+  // (2026-07-12): su integración no cumplió los criterios de cierre en la
+  // re-medición única (ver tests/medicion-a1a2-2026-07-12.json). El módulo
+  // lib/structural-precheck.ts y sus tests quedan en código, sin conectar.
+  // El pre-check NUMÉRICO (Etapa 1) permanece ACTIVO en modo solo-exclusiones
+  // (A1): recuperó #11/#21 y nunca mostró firma de regresión.
+  const numericContext = numericFacts.block ? `\n\n${numericFacts.block}` : '';
 
   // Format related fractions
   const relatedContext = topRelated.length > 0
