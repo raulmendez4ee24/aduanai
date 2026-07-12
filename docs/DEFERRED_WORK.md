@@ -351,3 +351,21 @@ scoring (falla silenciosa del dato, no del producto).
   de banner + tests de regresión SÍ se cerraron en esa sesión.
 - Antes de tocar cualquier item de este documento, leer los commits
   asociados al incidente (`git log --grep="antidumping\|cuotas"`).
+
+## 19) [PALANCA GRANDE — SIGUIENTE OLA] Residuales "Los demás." opacos: inyectar el texto de la partida/subpartida padre
+
+Identificado en la medición del Clasificador v2 (2026-07-11, artefacto
+tests/medicion-etapas0-3-2026-07-11.json): las fracciones residuales se
+describen solo como "Los demás." y el modelo no sabe "los demás QUÉ" — p. ej.
+8704.21.99 no dice que es un vehículo de carga, ni 7219.33.01 que es laminado
+plano inoxidable. Ni el diccionario de vocabulario ni los pre-checks pueden
+compensarlo (verificado: el término del heading no existe a nivel fracción).
+Diseño propuesto para la siguiente ola: inyectar junto a cada candidata el
+texto de su partida (4 díg.) y subpartida (6 díg.) — "8704.21.99: Los demás.
+[partida 87.04: Vehículos automóviles para transporte de mercancías]" — como
+dato del catálogo, no como regla. Requiere: fuente para textos de
+partida/subpartida (la tabla Fraction hoy no los almacena), presupuesto de
+tokens en el prompt, y medición propia. FRENO ACORDADO: diseño presentado y
+aprobado ANTES de implementar. Este es el techo principal del set actual
+(~10+ de los 34 fallos restantes son residual-vs-específica con residual
+opaca o retrieval que no alcanza la residual).

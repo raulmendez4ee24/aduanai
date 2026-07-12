@@ -89,6 +89,13 @@ test('%-en-peso sin sujeto pareado → sin veredicto', () => {
   assert.equal(r.verdicts.length, 0);
 });
 
+// A1 (2026-07-12): al prompt solo llegan exclusiones (NO_CUMPLE).
+test('A1: caso solo-CUMPLE → verdicts computados pero bloque null', () => {
+  const r = computeNumericFacts('Bobina de peso 8,000 kg', [cand('X', 'De peso superior a 7,000 kg.')]);
+  assert.equal(r.verdicts[0]!.verdict, 'CUMPLE');
+  assert.equal(r.block, null);
+});
+
 test('producto sin magnitudes → bloque null (prompt idéntico)', () => {
   const r = computeNumericFacts('Camiseta de algodón para hombre', [cand('61091001', 'De algodón.')]);
   assert.equal(r.block, null);

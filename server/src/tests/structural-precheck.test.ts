@@ -83,8 +83,21 @@ test('candidata sin criterio textual en el eje → sin veredicto para ella', () 
   assert.equal(r.verdicts.length, 0);
 });
 
-test('bloque refuerza la regla simétrica', () => {
+// A1 (2026-07-12): al prompt solo llegan exclusiones. Los CUMPLE se computan
+// (verdicts) pero un caso CUMPLE-solo produce bloque null.
+test('A1: caso solo-CUMPLE → verdicts computados pero bloque null', () => {
   const r = computeStructuralFacts('Tornillo de acero inoxidable', [cand('A', 'De acero inoxidable.')]);
+  assert.equal(r.verdicts[0]?.verdict, 'CUMPLE');
+  assert.equal(r.block, null);
+});
+
+test('A1: el bloque solo contiene exclusiones y menciona la regla simétrica', () => {
+  const r = computeStructuralFacts('Tornillo de acero inoxidable', [
+    cand('A', 'De acero inoxidable.'),
+    cand('B', 'De acero sin alear.'),
+  ]);
+  assert.ok(r.block!.includes('NO CUMPLE'));
+  assert.ok(!r.block!.includes('CUMPLE el criterio declarado')); // sin líneas CUMPLE
   assert.ok(r.block!.includes('Regla simétrica'));
 });
 

@@ -464,10 +464,16 @@ async function findRelatedFractions(description: string) {
   // Etapa 2 (Clasificador v2): puente de vocabulario comercial→catálogo.
   // Expansiones curadas y verificadas contra el texto del catálogo se AÑADEN
   // (nunca reemplazan) a los términos extraídos; determinista, ver vocab-bridge.ts.
+  // A2 (2026-07-12): cada expansión viene ANCLADA a los headings de su
+  // evidencia — solo aporta filas de esas partidas (sin ancla, 'perfiles'
+  // arrastraba 7604 aluminio para un IPR de acero).
   const baseTerms = extractSearchTerms(description).slice(0, 8);
-  const bridged = expandVocabTerms(description).filter(t => !baseTerms.includes(t)).slice(0, 6);
-  const terms = [...baseTerms, ...bridged];
-  const searchWords = terms; // mismo nombre aguas abajo
+  const bridged = expandVocabTerms(description).filter(b => !baseTerms.includes(b.term)).slice(0, 6);
+  const searchItems: { term: string; headings: string[] | null }[] = [
+    ...baseTerms.map(term => ({ term, headings: null })),
+    ...bridged.map(b => ({ term: b.term, headings: b.headings.filter(h => /^\d{4}$/.test(h)) })),
+  ];
+  const searchWords = searchItems.map(i => i.term); // mismo nombre aguas abajo
 
   // 2ª Ola Etapa 2 (F2) — fase 1 RANKEADA: una consulta por término (match por
   // FRONTERA DE PALABRA en descripción, no substring; y elemento exacto en
@@ -480,30 +486,38 @@ async function findRelatedFractions(description: string) {
     if (cur) cur.score += weight;
     else scored2.set(frac.code, { frac, score: weight });
   };
-  await Promise.all(terms.map(async (term) => {
+  await Promise.all(searchItems.map(async ({ term, headings }) => {
     // Raíz por prefijo para flexiones del español ("motocicleta" debe matchear
     // "motociclos"; "calcetines" ↔ "calcetín"): palabras ≥6 chars se recortan
     // 3 (mínimo 5) y el regex ancla en frontera de palabra (\m + prefijo).
     const stem = term.length >= 6 ? term.slice(0, Math.max(5, term.length - 3)) : term;
     // Variantes naive singular/plural para el match exacto del array keywords.
     const kwVariants = [...new Set([term, `${term}s`, `${term}es`, term.replace(/e?s$/, '')])].filter(Boolean);
+    // Filtro de ancla (solo términos puente): headings ya validados \d{4}.
+    const headingSql = headings && headings.length > 0
+      ? ` AND (${headings.map(h => `code LIKE '${h}%'`).join(' OR ')})`
+      : '';
     const [kwRows, descRows, dfRaw] = await Promise.all([
       // LIMIT 200 + orden determinista: con 40, términos de df>40 ("ácido",
       // 137 filas) devolvían una muestra arbitraria y la fracción correcta
       // podía perder su crédito (re-introducía el bug del take-30 ciego).
       prisma.fraction.findMany({
-        where: { active: true, keywords: { hasSome: kwVariants } },
+        where: {
+          active: true,
+          keywords: { hasSome: kwVariants },
+          ...(headings && headings.length > 0 ? { OR: headings.map(h => ({ code: { startsWith: h } })) } : {}),
+        },
         select: { code: true, codeFormatted: true, description: true, tariffNMF: true, noms: true, requiresPermit: true, permitType: true, sectoralRegistry: true },
         orderBy: { code: 'asc' },
         take: 200,
       }),
       prisma.$queryRawUnsafe<RankedFraction[]>(
-        `SELECT ${SELECT} FROM fractions WHERE active = true AND description ~* $1 ORDER BY code LIMIT 200`,
+        `SELECT ${SELECT} FROM fractions WHERE active = true AND description ~* $1${headingSql} ORDER BY code LIMIT 200`,
         `\\m${stem}`,
       ),
-      // Frecuencia documental del término en el catálogo (para IDF).
+      // Frecuencia documental del término (para IDF) — dentro del ancla si la hay.
       prisma.$queryRawUnsafe<{ n: bigint }[]>(
-        `SELECT count(*) AS n FROM fractions WHERE active = true AND description ~* $1`,
+        `SELECT count(*) AS n FROM fractions WHERE active = true AND description ~* $1${headingSql}`,
         `\\m${stem}`,
       ),
     ]);

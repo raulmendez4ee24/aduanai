@@ -421,13 +421,18 @@ export function computeNumericFacts(productDescription: string, candidates: Cand
 
   if (verdicts.length === 0) return { magnitudes, verdicts, block: null };
 
-  // Violaciones primero (excluyen candidatas); tope de 14 líneas.
-  const ordered = [...verdicts.filter(v => v.verdict === 'NO_CUMPLE'), ...verdicts.filter(v => v.verdict === 'CUMPLE')];
-  const shown = ordered.slice(0, 14);
+  // A1 (medición 2026-07-11, ajuste aprobado): al prompt SOLO llegan
+  // exclusiones (NO_CUMPLE). Un CUMPLE inyectado actuaba como atractor
+  // cross-capítulo (la laptop de 15" "cumplía" el umbral de pantalla de los
+  // monitores 8528 y el modelo saltaba de capítulo). Excluir es lógicamente
+  // sólido; afirmar atrae. Los CUMPLE se siguen computando (verdicts) para
+  // logging y usos futuros, pero NO tocan el prompt.
+  const exclusions = verdicts.filter(v => v.verdict === 'NO_CUMPLE').slice(0, 14);
+  if (exclusions.length === 0) return { magnitudes, verdicts, block: null };
   const block = [
-    'HECHOS NUMÉRICOS RESUELTOS (pre-check determinista en código — trátalos como verificados, NO los re-evalúes):',
-    ...shown.map(v => `- ${v.fact}`),
-    'Un NO CUMPLE excluye esa fracción por criterio numérico objetivo. Un CUMPLE valida SOLO el criterio numérico (el resto de criterios se evalúa normal).',
+    'EXCLUSIONES NUMÉRICAS RESUELTAS (pre-check determinista en código — hechos verificados, NO los re-evalúes):',
+    ...exclusions.map(v => `- ${v.fact}`),
+    'Cada NO CUMPLE excluye esa fracción: su criterio numérico está objetivamente violado por el producto declarado.',
   ].join('\n');
 
   return { magnitudes, verdicts, block };

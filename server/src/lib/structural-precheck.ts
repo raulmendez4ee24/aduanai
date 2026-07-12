@@ -179,12 +179,15 @@ export function computeStructuralFacts(
 
   if (verdicts.length === 0) return { verdicts, block: null };
 
-  const ordered = [...verdicts.filter(v => v.verdict === 'NO_CUMPLE'), ...verdicts.filter(v => v.verdict === 'CUMPLE')];
-  const shown = ordered.slice(0, 14);
+  // A1 (medición 2026-07-11, ajuste aprobado): solo exclusiones al prompt —
+  // misma razón que el pre-check numérico (un CUMPLE inyectado atrae hacia
+  // candidatas equivocadas). Los CUMPLE quedan en verdicts para logging.
+  const exclusions = verdicts.filter(v => v.verdict === 'NO_CUMPLE').slice(0, 14);
+  if (exclusions.length === 0) return { verdicts, block: null };
   const block = [
-    'HECHOS DE CRITERIO MATERIAL/TIPO RESUELTOS (matching textual determinista — trátalos como verificados, NO los re-evalúes):',
-    ...shown.map(v => `- ${v.fact}`),
-    'Regla simétrica reforzada: una fracción específica SOLO corresponde si su criterio está declarado Y CUMPLIDO; si el producto no declara el criterio de ninguna específica, la residual es la correcta.',
+    'EXCLUSIONES DE MATERIAL/TIPO RESUELTAS (matching textual determinista — hechos verificados, NO los re-evalúes):',
+    ...exclusions.map(v => `- ${v.fact}`),
+    'Cada NO CUMPLE excluye esa fracción: exige un criterio que el producto declara distinto. Regla simétrica intacta: específica solo con criterio declarado cumplido; sin criterio declarado, la residual es la correcta.',
   ].join('\n');
 
   return { verdicts, block };

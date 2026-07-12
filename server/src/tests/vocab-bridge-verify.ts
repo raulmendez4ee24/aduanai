@@ -18,18 +18,27 @@ async function main(): Promise<void> {
   let ok = 0;
   let bad = 0;
   for (const e of VOCAB_BRIDGE) {
+    // A2: el término debe tener sustento DENTRO de sus headings ancla — si
+    // solo matchea fuera del ancla, la entrada es inútil (no aporta filas).
+    const heads = e.headings.filter(h => /^\d{4}$/.test(h));
+    if (heads.length !== e.headings.length || heads.length === 0) {
+      bad++;
+      console.error(`  ✗ entrada ${e.match} con headings inválidos o vacíos: [${e.headings.join(', ')}]`);
+      continue;
+    }
+    const headingSql = ` AND (${heads.map(h => `code LIKE '${h}%'`).join(' OR ')})`;
     for (const term of e.expand) {
       const stem = stemLikeRetrieval(term);
       const rows = await prisma.$queryRawUnsafe<{ code: string }[]>(
-        `SELECT code FROM fractions WHERE active = true AND description ~* $1 LIMIT 3`,
+        `SELECT code FROM fractions WHERE active = true AND description ~* $1${headingSql} LIMIT 3`,
         `\\m${stem}`,
       );
       if (rows.length > 0) {
         ok++;
-        console.log(`  ✓ ${term} (\\m${stem}) → ${rows.map(r => r.code).join(', ')}`);
+        console.log(`  ✓ ${term} (\\m${stem} en ${heads.join('/')}) → ${rows.map(r => r.code).join(', ')}`);
       } else {
         bad++;
-        console.error(`  ✗ ${term} (\\m${stem}) → SIN MATCH EN CATÁLOGO — entrada sin sustento: ${e.match}`);
+        console.error(`  ✗ ${term} (\\m${stem}) → SIN MATCH dentro del ancla [${heads.join(', ')}] — entrada sin sustento: ${e.match}`);
       }
     }
   }
