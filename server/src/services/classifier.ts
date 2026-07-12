@@ -2,6 +2,7 @@ import { llmGenerate, llmGenerateWithMeta } from '../lib/llm';
 import { jsonrepair } from 'jsonrepair';
 import { prisma } from '../lib/prisma';
 import { computeNumericFacts } from '../lib/numeric-precheck';
+import { expandVocabTerms } from '../lib/vocab-bridge';
 import { logger } from '../lib/logger';
 import { validateFraction, FRACTION_UNVERIFIED_MESSAGE } from './fraction-validator';
 import type { KnowledgeUsedItem } from './traceability';
@@ -459,7 +460,12 @@ interface RankedFraction {
 }
 
 async function findRelatedFractions(description: string) {
-  const terms = extractSearchTerms(description).slice(0, 8);
+  // Etapa 2 (Clasificador v2): puente de vocabulario comercial→catálogo.
+  // Expansiones curadas y verificadas contra el texto del catálogo se AÑADEN
+  // (nunca reemplazan) a los términos extraídos; determinista, ver vocab-bridge.ts.
+  const baseTerms = extractSearchTerms(description).slice(0, 8);
+  const bridged = expandVocabTerms(description).filter(t => !baseTerms.includes(t)).slice(0, 6);
+  const terms = [...baseTerms, ...bridged];
   const searchWords = terms; // mismo nombre aguas abajo
 
   // 2ª Ola Etapa 2 (F2) — fase 1 RANKEADA: una consulta por término (match por
