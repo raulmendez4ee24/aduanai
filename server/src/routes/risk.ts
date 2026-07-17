@@ -16,6 +16,24 @@ const router = Router();
 router.use(authenticate);
 
 const boolish = z.boolean().nullish();
+/** Checklist declarativo — compartido con el lector de pedimentos (lote). */
+export const declaradoSchema = z.object({
+  mveTransmitida: boolish, expedienteKyc: boolish, expediente162VII: boolish,
+  controlInterno81A: boolish, encargoConferido: boolish,
+  padronImportadoresVigente: boolish,
+  padronesActivos: z.array(z.string().max(4)).max(20).optional(),
+  evidenciaNoms: boolish, documentoRrnaAmparaMercancia: boolish,
+  certOrigen9Elementos: boolish, incrementablesConSoporte: boolish,
+  pagoConSoporteBancario: boolish, proveedorLocalizable: boolish,
+  causalSuspensionPadron: boolish, vinculacionConCliente: boolish,
+  rutaTercerPaisEnsamblador: boolish, pruebaOrigenDistinto: boolish,
+  transferenciaDeTemporales: boolish,
+  expediente59V: z.object({
+    a: boolish, b: boolish, c: boolish, d: boolish,
+    e: boolish, f: boolish, g: boolish, h: boolish,
+  }).optional(),
+  constancia32D: boolish, mveEspejoAgencia: boolish,
+});
 const assessSchema = z.object({
   tipoSujeto: z.enum(['agente', 'agencia']).default('agente'),
   operacion: z.object({
@@ -32,23 +50,7 @@ const assessSchema = z.object({
     importadorRfc: z.string().max(14).optional(),
     preferenciaArancelaria: z.boolean().optional(),
   }).default({}),
-  declarado: z.object({
-    mveTransmitida: boolish, expedienteKyc: boolish, expediente162VII: boolish,
-    controlInterno81A: boolish, encargoConferido: boolish,
-    padronImportadoresVigente: boolish,
-    padronesActivos: z.array(z.string().max(4)).max(20).optional(),
-    evidenciaNoms: boolish, documentoRrnaAmparaMercancia: boolish,
-    certOrigen9Elementos: boolish, incrementablesConSoporte: boolish,
-    pagoConSoporteBancario: boolish, proveedorLocalizable: boolish,
-    causalSuspensionPadron: boolish, vinculacionConCliente: boolish,
-    rutaTercerPaisEnsamblador: boolish, pruebaOrigenDistinto: boolish,
-    transferenciaDeTemporales: boolish,
-    expediente59V: z.object({
-      a: boolish, b: boolish, c: boolish, d: boolish,
-      e: boolish, f: boolish, g: boolish, h: boolish,
-    }).optional(),
-    constancia32D: boolish, mveEspejoAgencia: boolish,
-  }).default({}),
+  declarado: declaradoSchema.default({}),
 });
 
 async function getWeights(): Promise<Record<string, number>> {
