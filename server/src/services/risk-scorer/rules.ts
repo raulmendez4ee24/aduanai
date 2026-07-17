@@ -8,7 +8,7 @@
  */
 import type { RiskRule, Signals } from './types';
 
-export const RULES_VERSION = 'v1.0.0-2026-07-04';
+export const RULES_VERSION = 'v1.0.1-2026-07-16';
 
 const LA = {
   fuente: 'Ley Aduanera consolidada (Última Reforma DOF 19-11-2025)',
@@ -63,9 +63,9 @@ export const RISK_RULES: RiskRule[] = [
   },
   {
     id: 'F1-VAL-02', factor: 'VALOR', maxPuntos: 8, origenSenal: 'declarado',
-    descripcion: 'Manifestación de valor (formato E2) no transmitida por Ventanilla Digital',
+    descripcion: 'Manifestación de valor (formato E2) no transmitida por Ventanilla Digital — hasta el 31-jul-2026 rige esquema transitorio (Transitorio Décimo Primero RGCE 2026 reformado por la 2a RM RGCE 2026, 1a versión anticipada Portal SAT 02-jun-2026; pendiente de publicación en DOF al 2026-07-16)',
     evaluar: s => (noConfirmado(s.declarado.mveTransmitida) ? 8 : 0),
-    fundamento: { articulo: 'LA 59-III + RGCE 1.5.1', citaCorta: '"Transmitir a través de la Ventanilla Digital, el formato E2 \'Manifestación de Valor\'… por cada operación de comercio exterior."', ...RGCE },
+    fundamento: { articulo: 'LA 59-III + RGCE 1.5.1 + Transitorio Décimo Primero RGCE 2026 (reformado)', citaCorta: '"Transmitir a través de la Ventanilla Digital, el formato E2 \'Manifestación de Valor\'… por cada operación de comercio exterior." Transitorio reformado: "…hasta el 31 de julio de 2026, quienes introduzcan mercancías a territorio nacional podrán cumplir con las referidas disposiciones, en términos de lo establecido en el Transitorio Quinto, segundo párrafo de las RGCE para 2025…"', ...RGCE },
   },
   {
     id: 'F1-VAL-03', factor: 'VALOR', maxPuntos: 4, origenSenal: 'declarado',
