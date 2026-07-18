@@ -4,6 +4,7 @@
 
 import { prisma } from './prisma';
 import { logger } from './logger';
+import { createIPBlockChecker } from './ipBlockCache';
 
 export type SecuritySeverity = 'low' | 'medium' | 'high' | 'critical';
 
@@ -44,13 +45,16 @@ export async function recordSecurityEvent(ev: SecurityEventInput): Promise<void>
   }
 }
 
-export async function isIPBlocked(ip: string): Promise<boolean> {
-  const now = new Date();
+const ipBlockChecker = createIPBlockChecker(async (ip) => {
   const block = await prisma.blockedIP.findFirst({
-    where: { ip, active: true, expiresAt: { gt: now } },
+    where: { ip, active: true, expiresAt: { gt: new Date() } },
     select: { id: true },
   });
   return block !== null;
+});
+
+export function isIPBlocked(ip: string): Promise<boolean> {
+  return ipBlockChecker.isBlocked(ip);
 }
 
 export async function blockIP(ip: string, reason: string, durationMs: number): Promise<void> {
@@ -60,6 +64,7 @@ export async function blockIP(ip: string, reason: string, durationMs: number): P
     update: { reason, expiresAt, active: true, unblockedAt: null, unblockedBy: null },
     create: { ip, reason, expiresAt, active: true },
   });
+  ipBlockChecker.invalidate(ip);
   await recordSecurityEvent({
     type: 'ip_blocked',
     severity: 'high',
@@ -73,6 +78,7 @@ export async function unblockIP(ip: string, by: string): Promise<void> {
     where: { ip },
     data: { active: false, unblockedAt: new Date(), unblockedBy: by },
   });
+  ipBlockChecker.invalidate(ip);
 }
 
 export function getClientIP(req: { headers: Record<string, unknown>; socket?: { remoteAddress?: string }; ip?: string }): string {
