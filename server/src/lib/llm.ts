@@ -61,7 +61,7 @@ export async function llmGenerate(opts: {
       const result = await m.generateContent({
         contents: [{ role: 'user', parts: [{ text: opts.user }] }],
         generationConfig: { maxOutputTokens: maxTokens, responseMimeType: 'application/json', ...(opts.temperature !== undefined && { temperature: opts.temperature }) },
-      });
+      }, { timeout: Number(process.env.LLM_TIMEOUT_MS) || 60000 });
       text = result.response.text();
       // Gemini devuelve usageMetadata
       const meta = result.response.usageMetadata;
@@ -74,7 +74,7 @@ export async function llmGenerate(opts: {
         system: opts.system,
         messages: [{ role: 'user', content: opts.user }],
         ...(opts.temperature !== undefined && { temperature: opts.temperature }),
-      });
+      }, { timeout: Number(process.env.LLM_TIMEOUT_MS) || 60000 });
       text = response.content[0].type === 'text' ? response.content[0].text : '';
       inputTokens = response.usage.input_tokens;
       outputTokens = response.usage.output_tokens;

@@ -16,7 +16,8 @@
     "db:seed-ligie": "tsx prisma/seed/seed-ligie-2026.ts",
     "test:quoter": "tsx src/tests/quoter.test.ts",
     "test:pool": "tsx src/tests/pool-timeout.test.ts",
-    "test:embeddings": "tsx src/tests/embeddings-timeout.test.ts"
+    "test:embeddings": "tsx src/tests/embeddings-timeout.test.ts",
+    "test:anthropic": "tsx src/tests/anthropic-timeout.test.ts"
   },
   "license": "UNLICENSED",
   "private": true,
