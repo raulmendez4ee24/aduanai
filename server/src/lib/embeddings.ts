@@ -61,8 +61,84 @@ function fallbackEmbedding(text: string): number[] {
 const VOYAGE_MODEL = process.env.EMBEDDING_MODEL || 'voyage-4';
 const VOYAGE_DIM = 1024;
 const OPENAI_DIM = 1536;
+const DEFAULT_VOYAGE_TIMEOUT_MS = 10000;
+const DEFAULT_VOYAGE_TOTAL_TIMEOUT_MS = 30000;
 
 const sleep = (ms: number) => new Promise<void>((r) => setTimeout(r, ms));
+
+export interface EmbeddingTimeoutConfig {
+  perAttemptTimeoutMs: number;
+  totalTimeoutMs: number;
+}
+
+function positiveTimeout(value: string | undefined, fallback: number): number {
+  const parsed = Number(value);
+  const milliseconds = Math.floor(parsed);
+  return Number.isFinite(parsed) && milliseconds > 0 ? milliseconds : fallback;
+}
+
+/** Timeouts de embeddings, leídos por llamada para permitir cambios de env en tests. */
+export function getEmbeddingTimeoutConfig(
+  env: NodeJS.ProcessEnv = process.env,
+): EmbeddingTimeoutConfig {
+  return {
+    perAttemptTimeoutMs: positiveTimeout(env.VOYAGE_TIMEOUT_MS, DEFAULT_VOYAGE_TIMEOUT_MS),
+    totalTimeoutMs: positiveTimeout(env.VOYAGE_TOTAL_TIMEOUT_MS, DEFAULT_VOYAGE_TOTAL_TIMEOUT_MS),
+  };
+}
+
+class EmbeddingTimeoutError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = 'EmbeddingTimeoutError';
+  }
+}
+
+function remainingBudgetMs(deadline: number): number {
+  return Math.max(0, deadline - Date.now());
+}
+
+function totalTimeoutError(totalTimeoutMs: number): EmbeddingTimeoutError {
+  return new EmbeddingTimeoutError(`Presupuesto global de embeddings agotado (${totalTimeoutMs}ms)`);
+}
+
+async function withEmbeddingFetchTimeout<T>(
+  deadline: number,
+  perAttemptTimeoutMs: number,
+  totalTimeoutMs: number,
+  operation: (signal: AbortSignal) => Promise<T>,
+): Promise<T> {
+  const remaining = remainingBudgetMs(deadline);
+  if (remaining <= 0) throw totalTimeoutError(totalTimeoutMs);
+
+  const timeoutMs = Math.min(perAttemptTimeoutMs, remaining);
+  const limitedByTotalBudget = remaining <= perAttemptTimeoutMs;
+  const controller = new AbortController();
+  let timedOut = false;
+  const timer = setTimeout(() => {
+    timedOut = true;
+    controller.abort();
+  }, timeoutMs);
+
+  try {
+    return await operation(controller.signal);
+  } catch (err) {
+    if (timedOut || (err instanceof Error && err.name === 'AbortError')) {
+      const scope = limitedByTotalBudget ? 'presupuesto global' : 'intento';
+      throw new EmbeddingTimeoutError(`Timeout de embedding por ${scope} (${timeoutMs}ms)`);
+    }
+    throw err;
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+function embeddingErrorReason(err: unknown): 'timeout' | 'error de red' | 'error' {
+  if (err instanceof EmbeddingTimeoutError || (err instanceof Error && err.name === 'AbortError')) {
+    return 'timeout';
+  }
+  return err instanceof TypeError ? 'error de red' : 'error';
+}
 
 /**
  * Dimensión esperada del embedding según el proveedor configurado. El corpus
@@ -109,48 +185,74 @@ export function assertCorpusEmbedding(embedding: number[], ctx = 'corpus'): void
 async function voyageEmbedWithRetry(
   text: string,
   inputType: 'query' | 'document' | null,
+  deadline: number,
+  timeoutConfig: EmbeddingTimeoutConfig,
   attempts = 6,
 ): Promise<number[]> {
   let lastErr: unknown;
   for (let a = 0; a < attempts; a++) {
+    if (remainingBudgetMs(deadline) <= 0) {
+      lastErr = totalTimeoutError(timeoutConfig.totalTimeoutMs);
+      break;
+    }
+
     try {
-      const res = await fetch('https://api.voyageai.com/v1/embeddings', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${process.env.VOYAGE_API_KEY}`,
+      const attemptResult = await withEmbeddingFetchTimeout(
+        deadline,
+        timeoutConfig.perAttemptTimeoutMs,
+        timeoutConfig.totalTimeoutMs,
+        async (signal) => {
+          const res = await fetch('https://api.voyageai.com/v1/embeddings', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${process.env.VOYAGE_API_KEY}`,
+            },
+            body: JSON.stringify({
+              model: VOYAGE_MODEL,
+              input: [text.slice(0, 30000)],
+              input_type: inputType,
+              output_dimension: VOYAGE_DIM,
+            }),
+            signal,
+          });
+          if (res.status === 429 || res.status >= 500) {
+            return { retryStatus: res.status } as const;
+          }
+          // 4xx no-429 → no reintentable
+          if (!res.ok) throw new Error(`Voyage ${res.status}: ${await res.text().catch(() => '')}`);
+          const data = await res.json() as { data: { embedding: number[] }[] };
+          const embedding = data.data[0]!.embedding;
+          if (embedding.length !== VOYAGE_DIM) {
+            throw new Error(`Voyage devolvió dim ${embedding.length} ≠ ${VOYAGE_DIM}`);
+          }
+          return { embedding } as const;
         },
-        body: JSON.stringify({
-          model: VOYAGE_MODEL,
-          input: [text.slice(0, 30000)],
-          input_type: inputType,
-          output_dimension: VOYAGE_DIM,
-        }),
-      });
+      );
       // 429 / 5xx → reintentable con backoff
-      if (res.status === 429 || res.status >= 500) {
-        lastErr = new Error(`Voyage ${res.status}`);
-        const wait = Math.min(60000, 1000 * 2 ** a);
-        logger.warn(`Embedding Voyage ${res.status} — backoff ${wait}ms (intento ${a + 1}/${attempts})`, {
-          action: 'embedding_retry', metadata: { status: res.status, attempt: a + 1 },
+      if ('retryStatus' in attemptResult) {
+        lastErr = new Error(`Voyage ${attemptResult.retryStatus}`);
+        const wait = Math.min(60000, 1000 * 2 ** a, remainingBudgetMs(deadline));
+        logger.warn(`Embedding Voyage ${attemptResult.retryStatus} — backoff ${wait}ms (intento ${a + 1}/${attempts})`, {
+          action: 'embedding_retry',
+          metadata: { status: attemptResult.retryStatus, attempt: a + 1, reason: 'error HTTP' },
         });
-        await sleep(wait);
+        const sleepMs = Math.min(wait, remainingBudgetMs(deadline));
+        if (sleepMs > 0) await sleep(sleepMs);
         continue;
       }
-      // 4xx no-429 → no reintentable
-      if (!res.ok) throw new Error(`Voyage ${res.status}: ${await res.text().catch(() => '')}`);
-      const data = await res.json() as { data: { embedding: number[] }[] };
-      const emb = data.data[0]!.embedding;
-      if (emb.length !== VOYAGE_DIM) throw new Error(`Voyage devolvió dim ${emb.length} ≠ ${VOYAGE_DIM}`);
-      return emb;
+      return attemptResult.embedding;
     } catch (err) {
       // error de red / parse → reintentable con backoff
       lastErr = err;
-      const wait = Math.min(60000, 1000 * 2 ** a);
-      logger.warn(`Embedding Voyage error de red — backoff ${wait}ms (intento ${a + 1}/${attempts})`, {
+      const reason = embeddingErrorReason(err);
+      const wait = Math.min(60000, 1000 * 2 ** a, remainingBudgetMs(deadline));
+      logger.warn(`Embedding Voyage ${reason} — backoff ${wait}ms (intento ${a + 1}/${attempts})`, {
         action: 'embedding_retry', errorMessage: err instanceof Error ? err.message : String(err),
+        metadata: { attempt: a + 1, reason },
       });
-      await sleep(wait);
+      const sleepMs = Math.min(wait, remainingBudgetMs(deadline));
+      if (sleepMs > 0) await sleep(sleepMs);
     }
   }
   throw lastErr instanceof Error ? lastErr : new Error('Voyage: agotados los reintentos');
@@ -160,12 +262,15 @@ export async function generateEmbedding(
   text: string,
   inputType: 'query' | 'document' | null = null,
 ): Promise<number[]> {
+  const timeoutConfig = getEmbeddingTimeoutConfig();
+  const deadline = Date.now() + timeoutConfig.totalTimeoutMs;
+
   // 1) Voyage AI (preferido) — con reintentos/backoff en 429. Solo cae al hashed
   // tras agotar los reintentos (resiliencia del path de lectura). Los ESCRITORES
   // del corpus deben validar con assertCorpusEmbedding para no persistir un fallback.
   if (process.env.VOYAGE_API_KEY) {
     try {
-      return await voyageEmbedWithRetry(text, inputType);
+      return await voyageEmbedWithRetry(text, inputType, deadline, timeoutConfig);
     } catch (err) {
       logger.warn('Embedding Voyage fallback to hashed (tras agotar reintentos)', {
         action: 'embedding_fallback', errorMessage: err instanceof Error ? err.message : String(err),
@@ -177,22 +282,32 @@ export async function generateEmbedding(
   // 2) OpenAI (compatibilidad)
   if (process.env.OPENAI_API_KEY) {
     try {
-      const res = await fetch('https://api.openai.com/v1/embeddings', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${process.env.OPENAI_API_KEY}`,
+      return await withEmbeddingFetchTimeout(
+        deadline,
+        timeoutConfig.perAttemptTimeoutMs,
+        timeoutConfig.totalTimeoutMs,
+        async (signal) => {
+          const res = await fetch('https://api.openai.com/v1/embeddings', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${process.env.OPENAI_API_KEY}`,
+            },
+            body: JSON.stringify({ model: 'text-embedding-3-small', input: text.slice(0, 8000) }),
+            signal,
+          });
+          if (!res.ok) {
+            throw new Error(`OpenAI ${res.status}: ${await res.text().catch(() => '')}`);
+          }
+          const data = await res.json() as { data: { embedding: number[] }[] };
+          return data.data[0]!.embedding;
         },
-        body: JSON.stringify({ model: 'text-embedding-3-small', input: text.slice(0, 8000) }),
-      });
-      if (!res.ok) {
-        throw new Error(`OpenAI ${res.status}: ${await res.text().catch(() => '')}`);
-      }
-      const data = await res.json() as { data: { embedding: number[] }[] };
-      return data.data[0]!.embedding;
+      );
     } catch (err) {
-      logger.warn('Embedding OpenAI fallback to hashed', {
+      const reason = embeddingErrorReason(err);
+      logger.warn(`Embedding OpenAI fallback to hashed (${reason}, intento 1/1)`, {
         action: 'embedding_fallback', errorMessage: err instanceof Error ? err.message : String(err),
+        metadata: { attempt: 1, reason },
       });
       return fallbackEmbedding(text);
     }
