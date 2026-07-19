@@ -6,6 +6,12 @@ import { logger } from '../lib/logger';
 import { validateFraction, FRACTION_UNVERIFIED_MESSAGE } from './fraction-validator';
 import type { KnowledgeUsedItem } from './traceability';
 import {
+  createClassifyInputError,
+  createNoCandidateError,
+  isNoCandidateCode,
+  validateClassifyInput,
+} from './classify-input';
+import {
   lookupPrecedents,
   hasActiveLitigation,
   PRECEDENT_CORPUS_VERIFIED,
@@ -701,6 +707,10 @@ export async function enforceCatalogFraction(
   result: ClassificationResult,
   preVerificationCode: string,
 ): Promise<ClassificationResult> {
+  if (isNoCandidateCode(result.fraction.code)) {
+    throw createNoCandidateError();
+  }
+
   const finalCheck = await validateFraction(result.fraction.code);
   if (finalCheck.valid) return result;
 
@@ -732,6 +742,11 @@ export async function classifyProduct(
   context?: string,
   options?: ClassifyOptions,
 ): Promise<ClassificationResult> {
+  const inputValidation = validateClassifyInput(description);
+  if (!inputValidation.ok) {
+    throw createClassifyInputError(inputValidation.reason);
+  }
+
   // Mejora #2: Better DB search with full chapter context
   const { relatedFractions, chapterFractions, topChapters } = await findRelatedFractions(description);
 
@@ -864,11 +879,8 @@ Responde en JSON válido.`;
   // 2ª Ola Etapa 2 (F3): el modelo declaró honestamente que NINGÚN candidato
   // del catálogo aplica — falla cerrada ANTES de verificación (misma familia
   // que el candado final, que queda intacto como última línea).
-  if (/SIN_CANDIDATO/i.test(result.fraction.code)) {
-    throw new Error(
-      'El clasificador no encontró en el catálogo un candidato aplicable a esta descripción. ' +
-      'Reformula con más detalle (material, uso, características) o consulta el catálogo/DOF oficial.',
-    );
+  if (isNoCandidateCode(result.fraction.code)) {
+    throw createNoCandidateError();
   }
   if (!result.explanation || typeof result.explanation.simple !== 'string') {
     result.explanation = {
@@ -934,6 +946,10 @@ Responde en JSON válido.`;
     chapterFractions,
   );
 
+  if (isNoCandidateCode(verification.verifiedCode)) {
+    throw createNoCandidateError();
+  }
+
   if (verification.changed) {
     // Update the fraction code with verified one
     const cleanCode = verification.verifiedCode.replace(/[.\-\s]/g, '');
@@ -964,6 +980,7 @@ ${chapterFractions.slice(0, 100).map(f => `- ${f.codeFormatted}: ${f.description
 
 ¿Hay una fracción más apropiada? Responde con el mismo formato JSON.`;
 
+    let retryResult: ClassificationResult | undefined;
     try {
       const retryText = await llmGenerate({
         model: 'strong',
@@ -975,18 +992,23 @@ ${chapterFractions.slice(0, 100).map(f => `- ${f.codeFormatted}: ${f.description
 
       const retryMatch = retryText.match(/\{[\s\S]*\}/);
       if (retryMatch) {
-        let retryResult: ClassificationResult;
         try {
           retryResult = JSON.parse(retryMatch[0]) as ClassificationResult;
         } catch {
           retryResult = JSON.parse(jsonrepair(retryMatch[0])) as ClassificationResult;
         }
-        if (retryResult.confidence > result.confidence) {
-          result = retryResult;
-        }
       }
     } catch {
       // Keep original result
+    }
+
+    if (retryResult) {
+      if (isNoCandidateCode(retryResult.fraction?.code)) {
+        throw createNoCandidateError();
+      }
+      if (retryResult.confidence > result.confidence) {
+        result = retryResult;
+      }
     }
   }
 

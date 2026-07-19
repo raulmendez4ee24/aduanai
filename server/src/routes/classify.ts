@@ -69,14 +69,8 @@ const demoClassifyLimit = rateLimit({
 
 classifyRouter.post('/demo', demoClassifyLimit, async (req, res, next) => {
   try {
-    const { description } = req.body;
-
-    if (!description || description.trim().length < 3) {
-      return res.status(400).json({
-        status: 'error',
-        message: 'Descripción del producto requerida (mínimo 3 caracteres)',
-      });
-    }
+    const { description: rawDescription } = req.body ?? {};
+    const description = typeof rawDescription === 'string' ? rawDescription : '';
 
     if (description.length > 200) {
       return res.status(400).json({
@@ -96,7 +90,7 @@ classifyRouter.post('/demo', demoClassifyLimit, async (req, res, next) => {
 // POST /api/classify — con auth + alertas defensivas + verificabilidad
 classifyRouter.post('/', authenticate, requirePermission('classifier', 'create'), async (req: AuthRequest, res, next) => {
   try {
-    const { description, context, countryOfOrigin, declaredValueUSD, declaredQuantity, useCase, sector, importerType } = req.body as {
+    const { description: rawDescription, context, countryOfOrigin, declaredValueUSD, declaredQuantity, useCase, sector, importerType } = (req.body ?? {}) as {
       description?: string;
       context?: string;
       countryOfOrigin?: string;
@@ -106,13 +100,7 @@ classifyRouter.post('/', authenticate, requirePermission('classifier', 'create')
       sector?: IndustrialSector;
       importerType?: ImporterType;
     };
-
-    if (!description || description.trim().length < 3) {
-      return res.status(400).json({
-        status: 'error',
-        message: 'Descripción del producto requerida (mínimo 3 caracteres)',
-      });
-    }
+    const description = typeof rawDescription === 'string' ? rawDescription : '';
 
     const result = await classifyProduct(description, context, { useCase, sector, importerType });
 
