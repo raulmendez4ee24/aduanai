@@ -1,5 +1,5 @@
 /**
- * RISK SCORER — PARIDAD de cierre (4 operaciones, bandas DECLARADAS ANTES de correr).
+ * RISK SCORER — PARIDAD de cierre (5 operaciones, bandas DECLARADAS ANTES de correr).
  *
  * Ejecutar:  npx tsx src/tests/risk-parity.ts
  *
@@ -20,6 +20,7 @@ const RFC_69B_DEFINITIVO = 'AAA120730823'; // real, presente en el CSV del SAT (
 interface Caso {
   nombre: string;
   tipoSujeto: TipoSujeto;
+  fechaEvaluacion: string;
   operacion: OperacionInput;
   declarado: DeclaradoInput;
   esperado: { exposicion: number | ((n: number) => boolean); escudoPct: number; banda: string; banderas: string[] };
@@ -32,6 +33,7 @@ const CASOS: Caso[] = [
   {
     nombre: 'CASO 1 — LIMPIA (agente)',
     tipoSujeto: 'agente',
+    fechaEvaluacion: '2026-07-15',
     operacion: { fraccion: '73181501', paisOrigen: 'US', valorUnitario: 100, numeroPedimento: '25 47 3461 4000284', importadorRfc: RFC_LIMPIO },
     declarado: {
       mveTransmitida: true, expedienteKyc: true, expediente162VII: true, controlInterno81A: true,
@@ -45,6 +47,7 @@ const CASOS: Caso[] = [
   {
     nombre: 'CASO 2 — MEDIA (agente)',
     tipoSujeto: 'agente',
+    fechaEvaluacion: '2026-07-15',
     operacion: { fraccion: '73181501', paisOrigen: 'US', numeroPedimento: '25 47 3461 4000284', importadorRfc: RFC_LIMPIO },
     declarado: {
       mveTransmitida: false, incrementablesConSoporte: false, proveedorLocalizable: false,
@@ -53,27 +56,31 @@ const CASOS: Caso[] = [
       padronesActivos: ['15'],
       expediente59V: { a: true, b: true, c: true, d: true, e: true, f: true, g: false, h: false },
     },
-    // F1: 4 (sin valor) + 8 (MVE) + 4 (incrementables) + 6 (proveedor) = 22 (peso 24)
-    // F2: 8 (KYC) · F8: 2 (encargo) → exposición 32. Escudo 8/13 = 62%. 30-59 × 50-79 → NARANJA.
-    esperado: { exposicion: 32, escudoPct: 62, banda: 'NARANJA', banderas: [] },
+    // F1: 4 (sin valor) + 0 (E2 durante prórroga) + 4 (incrementables) + 6 (proveedor) = 14.
+    // El Transitorio Décimo Primero reformado permite el esquema previo hasta el 31-jul-2026 inclusive.
+    // F2: 8 (KYC) · F8: 2 (encargo) → exposición 24. Escudo 8/13 = 62%. <30 × ≥50 → VERDE.
+    esperado: { exposicion: 24, escudoPct: 62, banda: 'VERDE', banderas: [] },
   },
   {
     nombre: 'CASO 3 — CRÍTICA (agente, RFC 69-B DEFINITIVO REAL de la tabla ingestada)',
     tipoSujeto: 'agente',
+    fechaEvaluacion: '2026-07-15',
     operacion: {
       fraccion: '64041901', paisOrigen: 'CN', numeroPedimento: '99 99 0000 123',
       importadorRfc: RFC_69B_DEFINITIVO, preferenciaArancelaria: true,
     },
     declarado: { proveedorLocalizable: false, rutaTercerPaisEnsamblador: true, padronesActivos: [] },
-    // F1: 4+8+4+6+4 = 26 → 24 · F2: 22 (69-B DEFINITIVO, bandera) · F3: 8+4+4 = 16 → 12
+    // F1: 4+0 (E2 durante prórroga)+4+6+4 = 18; el Transitorio Décimo Primero aplica hasta el 31-jul-2026.
+    // F2: 22 (69-B DEFINITIVO, bandera) · F3: 8+4+4 = 16 → 12
     // F4: 8 (sector 10 faltante) · F7: 8 (NOM-020 sin evidencia, bandera EMBARGO)
     // F8: 3 (pedimento inválido) + 3 (preferencia sin 9 elementos) + 2 (encargo) = 8 → 6
-    // Total 80. Escudo 0/14 (ORIGEN aplica por cuota) = 0%. Fila alta + <50 → ROJO_CRITICO.
-    esperado: { exposicion: 80, escudoPct: 0, banda: 'ROJO_CRITICO', banderas: ['LISTADO_69B', 'EMBARGO'] },
+    // Total 74. Escudo 0/14 (ORIGEN aplica por cuota) = 0%. Fila alta + <50 → ROJO_CRITICO.
+    esperado: { exposicion: 74, escudoPct: 0, banda: 'ROJO_CRITICO', banderas: ['LISTADO_69B', 'EMBARGO'] },
   },
   {
     nombre: 'CASO 4 — AGENCIA (checklist 235-F/235-J)',
     tipoSujeto: 'agencia',
+    fechaEvaluacion: '2026-07-15',
     operacion: { fraccion: '73181501', paisOrigen: 'US', valorUnitario: 100, numeroPedimento: '25 47 3461 4000284', importadorRfc: RFC_LIMPIO },
     declarado: {
       mveTransmitida: true, expedienteKyc: true, expediente162VII: true, controlInterno81A: true,
@@ -84,6 +91,20 @@ const CASOS: Caso[] = [
     },
     // Exposición 0. Escudo 14/15 = 93% (solo falta 235-F). VERDE.
     esperado: { exposicion: 0, escudoPct: 93, banda: 'VERDE', banderas: [] },
+  },
+  {
+    nombre: 'CASO 5 — E2 POST-PRÓRROGA',
+    tipoSujeto: 'agente',
+    fechaEvaluacion: '2026-08-01',
+    operacion: { fraccion: '73181501', paisOrigen: 'US', valorUnitario: 100, numeroPedimento: '25 47 3461 4000284', importadorRfc: RFC_LIMPIO },
+    declarado: {
+      mveTransmitida: false, expedienteKyc: true, expediente162VII: true, controlInterno81A: true,
+      encargoConferido: true, padronImportadoresVigente: true, padronesActivos: ['15'],
+      evidenciaNoms: true, incrementablesConSoporte: true, pagoConSoporteBancario: true,
+      proveedorLocalizable: true, expediente59V: todo59V,
+    },
+    // Desde el 01-ago-2026 F1-VAL-02 vuelve a sumar 8. Escudo 12/13 = 92%. <30 × ≥50 → VERDE.
+    esperado: { exposicion: 8, escudoPct: 92, banda: 'VERDE', banderas: [] },
   },
 ];
 
@@ -105,7 +126,13 @@ async function main() {
   for (const c of CASOS) {
     const op = normalizarOperacion(c.operacion);
     const verificado = await buildVerifiedSignals(TENANT, op);
-    const signals: Signals = { tipoSujeto: c.tipoSujeto, operacion: op, declarado: c.declarado, verificado };
+    const signals: Signals = {
+      tipoSujeto: c.tipoSujeto,
+      fechaEvaluacion: c.fechaEvaluacion,
+      operacion: op,
+      declarado: c.declarado,
+      verificado,
+    };
     const r = evaluate(signals, DEFAULT_WEIGHTS);
     console.log(`\n${c.nombre}`);
     console.log(`  → exposición ${r.exposicion} | escudo ${r.escudoPct}% | banda ${r.banda} | banderas [${r.banderas}]`);

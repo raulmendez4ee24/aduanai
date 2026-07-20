@@ -82,6 +82,7 @@ export interface VerificadoSignals {
 
 export interface Signals {
   tipoSujeto: TipoSujeto;
+  fechaEvaluacion?: string; // ISO YYYY-MM-DD; dato inyectado para mantener puro el motor
   operacion: OperacionInput;
   declarado: DeclaradoInput;
   verificado: VerificadoSignals;

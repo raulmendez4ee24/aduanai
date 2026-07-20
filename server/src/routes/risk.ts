@@ -75,7 +75,13 @@ router.post('/assess', async (req: AuthRequest, res: Response) => {
   }
   const op = normalizarOperacion(operacion);
   const verificado = await buildVerifiedSignals(req.tenantId!, op);
-  const signals: Signals = { tipoSujeto, operacion: op, declarado, verificado };
+  const signals: Signals = {
+    tipoSujeto,
+    fechaEvaluacion: new Date().toISOString().slice(0, 10),
+    operacion: op,
+    declarado,
+    verificado,
+  };
   const weights = await getWeights();
   const resultado = evaluate(signals, weights);
 
