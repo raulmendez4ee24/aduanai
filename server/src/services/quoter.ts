@@ -1,4 +1,5 @@
 import { prisma } from '../lib/prisma';
+import { preferenciaAplicable, TLCUEM_COUNTRIES, TLCUEM_VIGENCIA } from '../lib/treaties';
 import { getOfficialRate } from './exchange-rate';
 import { lookupCompliance, type AntidumpingMatch, type RegulationMatch } from './compliance-lookup';
 import { AppError } from '../middlewares/error';
@@ -388,7 +389,7 @@ export function getPreferentialRates(
 ) {
   const treaties = [
     { treaty: 'TMEC', countries: ['US', 'USA', 'ESTADOS UNIDOS', 'CA', 'CAN', 'CANADA', 'CANADÁ'], rate: fraction.tariffTMEC },
-    { treaty: 'TLCUEM', countries: ['DE', 'FR', 'IT', 'ES', 'ALEMANIA', 'FRANCIA', 'ITALIA', 'ESPAÑA'], rate: fraction.tariffTLCUE },
+    { treaty: 'TLCUEM', countries: TLCUEM_COUNTRIES, rate: fraction.tariffTLCUE },
     { treaty: 'CPTPP', countries: ['JP', 'JAPÓN', 'JAPON', 'AU', 'AUSTRALIA', 'VN', 'VIETNAM'], rate: fraction.tariffCPTPP },
   ];
 
@@ -397,15 +398,19 @@ export function getPreferentialRates(
 
   for (const { treaty, countries, rate } of treaties) {
     if (countries.includes(originUpper)) {
-      const available = rate != null;
+      const instrumentApplicable = treaty !== 'TLCUEM'
+        || preferenciaAplicable(TLCUEM_VIGENCIA[TLCUEM_VIGENCIA.instrumentoParaCalculo]);
+      const available = instrumentApplicable && rate != null;
       results.push({
         treaty,
-        igi: rate,
-        savings: available ? (baseRate - rate) / 100 : 0,
+        igi: instrumentApplicable ? rate : null,
+        savings: available ? (baseRate - rate!) / 100 : 0,
         available,
         note: available
           ? null
-          : `Tasa preferencial ${treaty} no disponible, se cotiza NMF ${baseRate}%.`,
+          : !instrumentApplicable
+            ? `Preferencia ${treaty} no aplicable: el instrumento seleccionado no está vigente ni en aplicación provisional. Se cotiza NMF ${baseRate}%.`
+            : `Tasa preferencial ${treaty} no disponible, se cotiza NMF ${baseRate}%.`,
       });
     }
   }

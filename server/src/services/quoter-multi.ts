@@ -9,6 +9,12 @@
  */
 
 import { prisma } from '../lib/prisma';
+import {
+  preferenciaAplicable,
+  TLCUEM_COUNTRIES,
+  TLCUEM_VIGENCIA,
+  tlcuemNota,
+} from '../lib/treaties';
 import { getOfficialRate, getHistoricalRateInfo, getMonthlyAverageRateInfo } from './exchange-rate';
 import { computeQuoteAmounts, requireQuotableFraction, resolveCuotaCompensatoria } from './quoter';
 import { lookupCompliance } from './compliance-lookup';
@@ -131,6 +137,8 @@ export interface ItemBreakdown {
     savingsMXN: number;                // ahorro vs NMF (0 si no se aplicó preferencia)
     note: string | null;
   };
+  /** Nota de vigencia jurídica, presente únicamente cuando se aplica TLCUEM. */
+  treatyNote?: string;
   /** Programas y regímenes adicionales (PROSEC, Regla 8va, IEPS, ISAN) */
   programs: {
     prosec: { eligible: boolean; applied: boolean; sector: string | null; prosecRate: number | null; savingsMXN: number };
@@ -261,7 +269,7 @@ export async function calculateMultiQuote(input: MultiQuoteInput): Promise<Multi
     const country = it.countryOfOrigin.toUpperCase();
     const TREATY_COUNTRIES: Record<string, string[]> = {
       TMEC:   ['US','USA','ESTADOS UNIDOS','EE.UU.','CA','CAN','CANADA','CANADÁ','MX','MEX','MÉXICO','MEXICO'],
-      TLCUEM: ['DE','FR','IT','ES','NL','BE','PT','PL','AT','SE','DK','FI','IE','GR','CZ','HU','RO','BG','HR','SI','SK','LT','LV','EE','LU','CY','MT','UE','EU','ALEMANIA','FRANCIA','ITALIA','ESPAÑA','HOLANDA','BELGICA','BÉLGICA','PORTUGAL'],
+      TLCUEM: TLCUEM_COUNTRIES,
       CPTPP:  ['JP','JAPÓN','JAPON','AU','AUSTRALIA','VN','VIETNAM','CL','CHILE','PE','PERU','PERÚ','SG','SINGAPUR','MY','MALASIA','NZ','NUEVA ZELANDA','BN','BRUNEI','CA','CAN'],
     };
     const treatyPreferential: Record<string, number | null> = {
@@ -284,6 +292,11 @@ export async function calculateMultiQuote(input: MultiQuoteInput): Promise<Multi
         treatyNote = `${treatyRequested} no aplica: el origen "${it.countryOfOrigin}" no es país miembro. Se aplica arancel NMF ${nmfRate}%.`;
       } else if (preferentialRate == null) {
         treatyNote = `Tasa preferencial ${treatyRequested} no disponible, se cotiza NMF ${nmfRate}%.`;
+      } else if (
+        treatyRequested === 'TLCUEM'
+        && !preferenciaAplicable(TLCUEM_VIGENCIA[TLCUEM_VIGENCIA.instrumentoParaCalculo])
+      ) {
+        treatyNote = `TLCUEM no aplica: el instrumento seleccionado no está vigente ni en aplicación provisional. Se aplica arancel NMF ${nmfRate}%.`;
       } else if (!hasCert) {
         treatyNote = `Sin certificado de origen ${treatyRequested} vigente, aplica arancel general ${nmfRate}%, no preferencia ${preferentialRate}%. Solicita el certificado al exportador antes del despacho.`;
       } else {
@@ -423,6 +436,7 @@ export async function calculateMultiQuote(input: MultiQuoteInput): Promise<Multi
           : 0,
         note: treatyNote,
       },
+      ...(appliedTreaty === 'TLCUEM' ? { treatyNote: tlcuemNota() } : {}),
       programs: await (async () => {
         // IEPS dinámico
         const iepsCheck = await checkIEPS({
