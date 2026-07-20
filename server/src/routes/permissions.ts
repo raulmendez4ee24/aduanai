@@ -21,7 +21,7 @@ import { authenticate, AuthRequest } from '../middlewares/auth';
 import { prisma } from '../lib/prisma';
 import {
   getUserPermissions, checkConflicts, assignRole, removeRole,
-  detectSODConflictsForTenant, mergePermissions, type RolePermissions,
+  detectSODConflictsForTenant, mergePermissions, rolePermissionsSchema,
 } from '../services/permissions';
 import { requirePermission } from '../middlewares/requirePermission';
 import { sendInvitationEmail } from '../lib/email';
@@ -262,7 +262,7 @@ const customRoleSchema = z.object({
   code: z.string().regex(/^[A-Z][A-Z0-9_]{2,30}$/),
   name: z.string().min(2).max(100),
   description: z.string().max(500).optional(),
-  permissions: z.record(z.string(), z.unknown()),
+  permissions: rolePermissionsSchema,
   conflictsWith: z.array(z.string()).optional(),
 });
 
@@ -303,7 +303,7 @@ permissionsRouter.patch('/roles/:id', requirePermission('classifier', 'settings'
     const body = z.object({
       name: z.string().min(2).max(100).optional(),
       description: z.string().max(500).optional(),
-      permissions: z.record(z.string(), z.unknown()).optional(),
+      permissions: rolePermissionsSchema.optional(),
       conflictsWith: z.array(z.string()).optional(),
       active: z.boolean().optional(),
     }).parse(req.body);

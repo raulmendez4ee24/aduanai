@@ -12,14 +12,18 @@
 
 import { prisma } from '../lib/prisma';
 import { Prisma } from '@prisma/client';
+import { z } from 'zod';
 
 // ──────────────────────────────────────────────────────────────────
 // Tipos
 // ──────────────────────────────────────────────────────────────────
 
-export type ModuleName =
-  | 'classifier' | 'quoter' | 'autoMVE' | 'inventory' | 'expedientes'
-  | 'fiscalGuardian' | 'payment';
+const MODULE_NAMES = [
+  'classifier', 'quoter', 'autoMVE', 'inventory', 'expedientes',
+  'fiscalGuardian', 'payment',
+] as const;
+
+export type ModuleName = (typeof MODULE_NAMES)[number];
 
 export interface ModulePermissions {
   view?: boolean;
@@ -43,6 +47,23 @@ export interface FeaturePermissions {
   settings?: boolean;
 }
 
+export const MODULE_ACTION_KEYS = [
+  'view', 'create', 'approve', 'delete', 'sign', 'adjust', 'discharge',
+  'archive', 'authorize', 'generateReport', 'acknowledgeAlert',
+] as const satisfies readonly (keyof ModulePermissions)[];
+
+export const FEATURE_KEYS = [
+  'exportData', 'bulkOperations', 'apiAccess', 'auditTrail', 'settings',
+] as const satisfies readonly (keyof FeaturePermissions)[];
+
+type AssertNoMissingKeys<T extends never> = T;
+type _AllModuleActionKeysCovered = AssertNoMissingKeys<
+  Exclude<keyof ModulePermissions, (typeof MODULE_ACTION_KEYS)[number]>
+>;
+type _AllFeatureKeysCovered = AssertNoMissingKeys<
+  Exclude<keyof FeaturePermissions, (typeof FEATURE_KEYS)[number]>
+>;
+
 export interface RolePermissions {
   modules: Partial<Record<ModuleName, ModulePermissions>>;
   features: FeaturePermissions;
@@ -51,6 +72,34 @@ export interface RolePermissions {
     quotesPerDay?: number | null;
     valueMaxMXN?: number | null;
   };
+}
+
+const modulePermissionShape = Object.fromEntries(
+  MODULE_ACTION_KEYS.map(action => [action, z.boolean().optional()]),
+) as Record<(typeof MODULE_ACTION_KEYS)[number], z.ZodOptional<z.ZodBoolean>>;
+
+const modulePermissionsSchema = z.object(modulePermissionShape).strict();
+
+const modulesShape = Object.fromEntries(
+  MODULE_NAMES.map(module => [module, modulePermissionsSchema.optional()]),
+) as Record<ModuleName, z.ZodOptional<typeof modulePermissionsSchema>>;
+
+const featureShape = Object.fromEntries(
+  FEATURE_KEYS.map(feature => [feature, z.boolean().optional()]),
+) as Record<(typeof FEATURE_KEYS)[number], z.ZodOptional<z.ZodBoolean>>;
+
+export const rolePermissionsSchema = z.object({
+  modules: z.object(modulesShape).strict(),
+  features: z.object(featureShape).strict(),
+  limits: z.object({
+    classificationsPerDay: z.number().nullable().optional(),
+    quotesPerDay: z.number().nullable().optional(),
+    valueMaxMXN: z.number().nullable().optional(),
+  }).strict().optional(),
+}).strict();
+
+export function validateRolePermissions(input: unknown): RolePermissions {
+  return rolePermissionsSchema.parse(input);
 }
 
 interface RoleSeed {
@@ -379,14 +428,11 @@ export async function getUserPermissions(userId: string, tenantId: string, legac
 }
 
 export function hasPermission(permissions: RolePermissions, module: ModuleName, action: keyof ModulePermissions | keyof FeaturePermissions): boolean {
-  // Features
-  if (action in permissions.features && (action as keyof FeaturePermissions) !== undefined) {
-    const v = permissions.features[action as keyof FeaturePermissions];
-    if (v === true) return true;
+  if ((FEATURE_KEYS as readonly string[]).includes(action)) {
+    return permissions.features[action as keyof FeaturePermissions] === true;
   }
-  const mp = permissions.modules[module];
-  if (!mp) return false;
-  return mp[action as keyof ModulePermissions] === true;
+  if (!(MODULE_ACTION_KEYS as readonly string[]).includes(action)) return false;
+  return permissions.modules[module]?.[action as keyof ModulePermissions] === true;
 }
 
 // ──────────────────────────────────────────────────────────────────
