@@ -25,6 +25,7 @@ export interface RetrievedDoc {
   officialUrl: string | null;
   effectiveDate: string | null;
   topics: string[];
+  keywords: string[];
   fractionRefs: string[];
   similarity: number;
   keywordScore: number;
@@ -66,7 +67,7 @@ const TOPIC_KEYWORDS: Record<string, string[]> = {
     'clasificacion', 'clasificación', 'fraccion', 'fracción', 'partida', 'subpartida',
     'gri', 'arancelaria', 'nico', 'capitulo', 'capítulo', 'reclasificacion', 'reclasificación',
   ],
-  padrones: ['padron', 'padrón', 'anexo 10', 'sectorial', 'sector', 'art. 59', 'articulo 59', 'inscripcion', 'inscripción'],
+  padrones: ['padron', 'padrón', 'anexo 10', 'sectorial', 'sector', 'art. 59', 'articulo 59', 'inscripcion', 'inscripción', 'permiso', 'permisos'],
   pama: ['pama', 'art. 152', 'art. 155', 'art. 144', 'articulo 152', 'articulo 155', 'embargo', 'embargo precautorio', 'reconocimiento aduanero', 'acta circunstanciada', 'procedimiento administrativo'],
   sanciones: ['multa', 'multas', 'sancion', 'sanción', 'infraccion', 'infracción', 'art. 184', 'art. 185', 'art. 178'],
   inventarios: ['inventario', 'inventarios', 'descargo', 'descargos', 'anexo 24', 'anexo 30'],
@@ -85,6 +86,7 @@ const TOPIC_KEYWORDS: Record<string, string[]> = {
   isan: ['isan', 'automovil nuevo', 'automóvil nuevo', 'vehiculo nuevo', 'vehículo nuevo', 'art. 1 lisan', 'art. 2 lisan', 'lisan'],
   ieps: ['ieps', 'art. 1 lieps', 'lieps', 'alcohol', 'tabaco', 'refresco', 'combustible', 'plaguicida'],
   noms: ['nom', 'noms', 'anexo 2.4.1', 'etiquetado'],
+  rrnas: ['rrna', 'rrnas', 'permiso', 'permisos', 'regulacion no arancelaria', 'regulación no arancelaria', 'autorizacion', 'autorización', 'permiso previo'],
   garantias: ['garantia', 'garantía', 'fianza', 'cuenta aduanera', 'anexo 31', 'carta de credito', 'carta de crédito'],
   dta: [
     'dta', 'derecho de tramite', 'derecho de trámite', 'tramite aduanero', 'trámite aduanero',
@@ -97,6 +99,8 @@ const TOPIC_KEYWORDS: Record<string, string[]> = {
 // los docs. Cubre typos históricos del seed (inmex/immex) y solapamientos
 // semánticos (iva_ieps ↔ iva, garantias ↔ fiscal).
 const TOPIC_ALIASES: Record<string, string[]> = {
+  textil: ['textil', 'textiles'],
+  textiles: ['textiles', 'textil'],
   immex: ['immex', 'inmex'],
   inmex: ['inmex', 'immex'],
   iva: ['iva', 'iva_ieps', 'fiscal'],
@@ -161,13 +165,27 @@ export function detectCountryTreaty(query: string): string | null {
 }
 
 function extractTokens(text: string): string[] {
-  return text
+  const tokens = text
     .toLowerCase()
     .normalize('NFD')
     .replace(/[̀-ͯ]/g, '')
     .replace(/[^a-z0-9áéíóúñ\s]/gi, ' ')
     .split(/\s+/)
     .filter(w => w.length > 2 && !STOPWORDS.has(w));
+
+  // Alias bidireccional mínimo: el corpus usa RGI y los usuarios también GRI.
+  const aliases: Record<string, string> = { gri: 'rgi', rgi: 'gri' };
+  const expanded = new Set(tokens);
+  for (const token of tokens) {
+    const alias = aliases[token];
+    if (alias) expanded.add(alias);
+
+    // Despluralización ligera: conserva el token y agrega variantes singulares.
+    if (token.length > 3 && token.endsWith('s')) expanded.add(token.slice(0, -1));
+    const withoutEs = token.slice(0, -2);
+    if (token.endsWith('es') && withoutEs.length > 3) expanded.add(withoutEs);
+  }
+  return [...expanded];
 }
 
 function makeExcerpt(content: string, query: string, maxLen = 280): string {
@@ -262,6 +280,7 @@ export async function searchLegalDocuments(query: string, opts: { topK?: number;
       officialUrl: d.officialUrl,
       effectiveDate: d.effectiveDate?.toISOString() ?? null,
       topics: d.topics,
+      keywords: d.keywords,
       fractionRefs: d.fractionRefs,
       similarity,
       keywordScore,
@@ -309,11 +328,11 @@ export async function rerankWithLLM(
   const scoreThreshold = opts.scoreThreshold ?? 55;
   if (candidates.length === 0) return [];
 
-  // Recorta excerpts para que el prompt no explote (Haiku acepta mucho pero
-  // el costo crece con tokens). 300 chars cubre la idea central de cada doc.
+  // Usa una ventana centrada en los términos de la query para que el reranker
+  // vea el pasaje relevante sin inflar innecesariamente el prompt.
   const docList = candidates.map((c, i) => {
-    const snippet = c.content.length > 300 ? c.content.slice(0, 300) + '…' : c.content;
-    return `[${i + 1}] ${c.reference} — ${c.title}\nTopics: ${c.topics.join(', ')}\nExcerpt: ${snippet}`;
+    const snippet = makeExcerpt(c.content, query, 500);
+    return `[${i + 1}] ${c.reference} — ${c.title}\nTopics: ${c.topics.join(', ')}\nKeywords: ${(c.keywords ?? []).join(', ')}\nExcerpt: ${snippet}`;
   }).join('\n\n');
 
   const userPrompt = `Pregunta del usuario:
@@ -332,6 +351,7 @@ Ejemplo: [{"index":1,"relevant":true,"score":85,"reason":"responde directamente"
     raw = await llmGenerate({
       model: 'fast',
       maxTokens: 1500,
+      temperature: 0,
       system: RERANK_SYSTEM,
       user: userPrompt,
       log: { operation: 'rag_rerank', tenantId: opts.tenantId, userId: opts.userId },

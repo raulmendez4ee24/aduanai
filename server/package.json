@@ -23,7 +23,8 @@
     "test:e2": "tsx src/tests/e2-vigencia.test.ts",
     "test:risk-labeling": "tsx src/tests/risk-labeling.test.ts",
     "test:temporales": "tsx src/tests/temporales-atribuibles.test.ts",
-    "test:classify-input": "tsx src/tests/classify-input.test.ts"
+    "test:classify-input": "tsx src/tests/classify-input.test.ts",
+    "test:copilot-sugeridas": "tsx src/tests/copilot-sugeridas.test.ts"
   },
   "license": "UNLICENSED",
   "private": true,
