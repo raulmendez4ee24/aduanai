@@ -88,6 +88,7 @@ export interface Signals {
 }
 
 export type OrigenSenal = 'verificado' | 'declarado';
+export type OrigenEfectivo = 'verificado' | 'declarado' | 'mixto' | 'no_evaluado';
 
 export interface RiskRule {
   id: string;
@@ -96,6 +97,7 @@ export interface RiskRule {
   maxPuntos: number;
   bandera?: 'EMBARGO' | 'BLOQUEANTE' | 'LISTADO_69B';
   origenSenal: OrigenSenal | 'mixto';
+  senalDisponible?: (s: Signals) => boolean;
   evaluar: (s: Signals) => number; // determinista; 0..maxPuntos
   fundamento: Fundamento;
 }
@@ -122,6 +124,7 @@ export interface ReglaResultado {
   maxPuntos: number;
   bandera?: string;
   origenSenal: string;
+  origenEfectivo: OrigenEfectivo;
   fundamento: Fundamento;
 }
 
@@ -151,6 +154,12 @@ export interface AssessmentResultado {
   factores: FactorResultado[];
   checklist: ChecklistResultado[];
   faltantes: string[];  // acciones top que más mejoran la posición
+  cobertura: {
+    verificadas: number;
+    declaradas: number;
+    noEvaluadas: number;
+    identificadoresFaltantes: string[];
+  };
   rulesVersion: string;
   disclaimer: string;
 }

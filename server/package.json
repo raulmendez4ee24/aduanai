@@ -20,6 +20,7 @@
     "test:anthropic": "tsx src/tests/anthropic-timeout.test.ts",
     "test:health": "tsx src/tests/health-timeout.test.ts",
     "test:ipblock": "tsx src/tests/ipblock-cache.test.ts",
+    "test:risk-labeling": "tsx src/tests/risk-labeling.test.ts",
     "test:classify-input": "tsx src/tests/classify-input.test.ts"
   },
   "license": "UNLICENSED",

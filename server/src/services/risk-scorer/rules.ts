@@ -8,7 +8,7 @@
  */
 import type { RiskRule, Signals } from './types';
 
-export const RULES_VERSION = 'v1.0.1-2026-07-16';
+export const RULES_VERSION = 'v1.1.0-2026-07-19';
 
 const LA = {
   fuente: 'Ley Aduanera consolidada (Última Reforma DOF 19-11-2025)',
@@ -90,12 +90,14 @@ export const RISK_RULES: RiskRule[] = [
   {
     id: 'F2-PER-01', factor: 'PERFIL', maxPuntos: 22, bandera: 'LISTADO_69B', origenSenal: 'verificado',
     descripcion: 'Importador en el listado DEFINITIVO del Art. 69-B CFF (operaciones inexistentes)',
+    senalDisponible: s => s.verificado.en69B !== undefined && s.verificado.lista69BDisponible === true,
     evaluar: s => (s.verificado.en69B?.situacion === 'DEFINITIVO' ? 22 : 0),
     fundamento: { articulo: 'CFF 69-B, párrafo 4', citaCorta: '"…se publicará un listado… de los contribuyentes que no hayan desvirtuado los hechos… y, por tanto, se encuentran definitivamente en la situación a que se refiere el primer párrafo…"', ...CFF },
   },
   {
     id: 'F2-PER-02', factor: 'PERFIL', maxPuntos: 10, origenSenal: 'verificado',
     descripcion: 'Importador en el listado de PRESUNTOS del Art. 69-B CFF',
+    senalDisponible: s => s.verificado.en69B !== undefined && s.verificado.lista69BDisponible === true,
     evaluar: s => (s.verificado.en69B?.situacion === 'PRESUNTO' ? 10 : 0),
     fundamento: { articulo: 'CFF 69-B, párrafos 1-2', citaCorta: '"…se presumirá la inexistencia de las operaciones amparadas en tales comprobantes… procederá a notificar… mediante publicación en el Diario Oficial de la Federación…"', ...CFF },
   },
@@ -122,6 +124,7 @@ export const RISK_RULES: RiskRule[] = [
   {
     id: 'F3-CUO-01', factor: 'CUOTAS', maxPuntos: 8, origenSenal: 'verificado',
     descripcion: 'Fracción con cuota compensatoria activa para el país de origen declarado',
+    senalDisponible: s => s.verificado.cuotaActiva !== undefined,
     evaluar: s => (s.verificado.cuotaActiva ? 8 : 0),
     fundamento: { articulo: 'LCE 62 + LA 176-I/178-I', citaCorta: 'LA 178-I: "Multa del 130% al 150% de los impuestos al comercio exterior omitidos"; LA 151-II: embargo cuando "se omita el pago de cuotas compensatorias".', ...LCE },
   },
@@ -142,6 +145,7 @@ export const RISK_RULES: RiskRule[] = [
   {
     id: 'F4-PAD-01', factor: 'PADRONES', maxPuntos: 8, origenSenal: 'mixto',
     descripcion: 'La fracción exige sector del Anexo 10 que el importador no tiene activo',
+    senalDisponible: s => s.verificado.sectoresRequeridos !== undefined,
     evaluar: s => {
       const req = s.verificado.sectoresRequeridos ?? [];
       if (req.length === 0) return 0;
@@ -161,12 +165,15 @@ export const RISK_RULES: RiskRule[] = [
   {
     id: 'F5-TMP-01', factor: 'TEMPORALES', maxPuntos: 6, origenSenal: 'verificado',
     descripcion: 'Importaciones temporales fuera del domicilio registrado/declarado',
+    // La señal del supuesto 151-VIII no es derivable en v1.
+    senalDisponible: () => false,
     evaluar: s => ((s.verificado.temporalesFueraDomicilio ?? 0) > 0 ? 6 : 0),
     fundamento: { articulo: 'LA 151-VIII (adicionada DOF 19-11-2025)', citaCorta: '"Cuando se trate de mercancías importadas temporalmente y éstas no se dirijan a los domicilios registrados, o a los declarados en los pedimentos, o bien, no se localicen en dichos domicilios." (embargo precautorio)', ...LA },
   },
   {
     id: 'F5-TMP-02', factor: 'TEMPORALES', maxPuntos: 4, origenSenal: 'verificado',
     descripcion: 'Temporales próximas a vencer (≤30 días) o vencidas sin descargo',
+    senalDisponible: s => s.verificado.temporalesPorVencer !== undefined,
     evaluar: s => ((s.verificado.temporalesPorVencer ?? 0) > 0 ? 4 : 0),
     fundamento: { articulo: 'LA 177-III', citaCorta: 'Presunción de infracción cuando la IMMEX "no acredite que las mercancías fueron retornadas al extranjero, se destinaron a otro régimen… o que se encuentran en el domicilio…"', ...LA },
   },
@@ -181,6 +188,7 @@ export const RISK_RULES: RiskRule[] = [
   {
     id: 'F6-CLA-01', factor: 'CLASIFICACION', maxPuntos: 5, origenSenal: 'verificado',
     descripcion: 'Fracción inexistente/inactiva en el catálogo, o discrepante del Clasificador validado',
+    senalDisponible: s => s.verificado.fraccionValida !== undefined,
     evaluar: s => {
       if (s.verificado.fraccionValida === false) return 5;
       if (s.verificado.fraccionClasificadorCoincide === false) return 3;
@@ -191,12 +199,14 @@ export const RISK_RULES: RiskRule[] = [
   {
     id: 'F6-CLA-02', factor: 'CLASIFICACION', maxPuntos: 3, origenSenal: 'verificado',
     descripcion: 'Fracción reformada por el decreto de tasas DOF 29-12-2025 (agravante: omisión potencial mayor)',
+    senalDisponible: s => s.verificado.fraccionEnDecretoTasas !== null && s.verificado.fraccionEnDecretoTasas !== undefined,
     evaluar: s => (s.verificado.fraccionEnDecretoTasas === true ? 3 : 0),
     fundamento: { articulo: 'Decreto DOF 29-12-2025 + LA 178-I', citaCorta: 'Decreto que "modifica los aranceles de diversas fracciones… en sectores estratégicos" (vigor 01-01-2026); la multa del 178-I (130%-150%) se calcula sobre lo omitido.', ...DECRETO_TASAS },
   },
   {
     id: 'F6-CLA-03', factor: 'CLASIFICACION', maxPuntos: 2, origenSenal: 'verificado',
     descripcion: 'NICO ausente o inexistente para la fracción',
+    senalDisponible: s => typeof s.verificado.nicoExiste === 'boolean',
     evaluar: s => (s.verificado.nicoExiste === false ? 2 : 0),
     fundamento: { articulo: 'LA 54', citaCorta: '"…y de la exacta determinación del número de identificación comercial…"', ...LA },
   },
@@ -205,6 +215,7 @@ export const RISK_RULES: RiskRule[] = [
   {
     id: 'F7-NOM-01', factor: 'NOMS', maxPuntos: 8, bandera: 'EMBARGO', origenSenal: 'mixto',
     descripcion: 'Fracción con NOMs aplicables sin evidencia de cumplimiento (las de información comercial EMBARGAN desde la reforma)',
+    senalDisponible: s => s.verificado.nomsRequeridas !== undefined,
     evaluar: s => {
       const noms = s.verificado.nomsRequeridas ?? [];
       if (noms.length === 0) return 0;
@@ -223,6 +234,7 @@ export const RISK_RULES: RiskRule[] = [
   {
     id: 'F8-DOC-01', factor: 'DOCUMENTACION', maxPuntos: 3, origenSenal: 'verificado',
     descripcion: 'Número de pedimento con formato inválido (año/aduana/patente/consecutivo)',
+    senalDisponible: s => typeof s.verificado.pedimentoFormatoValido === 'boolean',
     evaluar: s => (s.verificado.pedimentoFormatoValido === false ? 3 : 0),
     fundamento: { articulo: 'Anexo 22 RGCE 2026 (instructivo)', citaCorta: 'Número de pedimento: AÑO (2) + ADUANA (2, Apéndice 1) + PATENTE (4) + CONSECUTIVO (7).', fuente: 'Anexos 21-30 RGCE 2026 (DOF 15-01-2026)', url: 'https://www.dof.gob.mx/nota_detalle.php?codigo=5778300&fecha=15/01/2026', fechaCotejo: '2026-07-02' },
   },

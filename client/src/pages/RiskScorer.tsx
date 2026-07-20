@@ -76,6 +76,9 @@ const DECL_AGENCIA: DeclItem[] = [
 ]
 
 function OrigenBadge({ origen }: { origen: string }) {
+  if (origen === 'no_evaluado') {
+    return <span className="inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-full bg-slate-100 text-slate-600 border border-slate-200">No evaluado</span>
+  }
   if (origen === 'verificado') {
     return <span className="inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-700 border border-emerald-200"><ShieldCheck className="w-3 h-3" />VERIFICADO POR EL SISTEMA</span>
   }
@@ -281,6 +284,11 @@ export function RiskScorerPage() {
             {result.banda.startsWith('ROJO') ? <ShieldAlert className="w-6 h-6" /> : <ShieldCheck className="w-6 h-6" />}
             <div>
               <p className="text-[15px] font-bold">{banda.label}</p>
+              {result.cobertura && (
+                <p className="text-[11px] opacity-90 mt-0.5">
+                  {result.cobertura.verificadas} verificadas · {result.cobertura.declaradas} declaradas · {result.cobertura.noEvaluadas} no evaluadas
+                </p>
+              )}
               {result.banderas.length > 0 && (
                 <p className="text-[11px] opacity-90 flex items-center gap-1"><AlertTriangle className="w-3.5 h-3.5" />
                   Banderas: {result.banderas.map(b => b === 'LISTADO_69B' ? 'Importador en listado 69-B' : b === 'EMBARGO' ? 'Causal de embargo (151 LA)' : b).join(' · ')}
@@ -348,7 +356,7 @@ export function RiskScorerPage() {
                     <div className="min-w-0">
                       <p className="text-[13px] text-slate-800">{r.descripcion}{r.bandera && <span className="ml-2 text-[10px] font-bold text-rose-600">⚑ {r.bandera}</span>}</p>
                       <div className="flex items-center gap-3 mt-1 flex-wrap">
-                        <OrigenBadge origen={r.origenSenal} />
+                        <OrigenBadge origen={r.origenEfectivo ?? r.origenSenal} />
                         <FundamentoLink regla={r} />
                       </div>
                     </div>

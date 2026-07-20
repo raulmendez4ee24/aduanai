@@ -65,6 +65,14 @@ router.post('/assess', async (req: AuthRequest, res: Response) => {
     return res.status(400).json({ status: 'error', message: 'Entrada inválida', issues: parsed.error.issues.slice(0, 5) });
   }
   const { tipoSujeto, operacion, declarado } = parsed.data;
+  const tieneIdentificador = [operacion.fraccion, operacion.importadorRfc, operacion.numeroPedimento]
+    .some(valor => typeof valor === 'string' && valor.trim().length > 0);
+  if (!tieneIdentificador) {
+    return res.status(422).json({
+      status: 'error',
+      message: 'La evaluación requiere al menos un identificador de la operación (fracción arancelaria, RFC del importador o número de pedimento)',
+    });
+  }
   const op = normalizarOperacion(operacion);
   const verificado = await buildVerifiedSignals(req.tenantId!, op);
   const signals: Signals = { tipoSujeto, operacion: op, declarado, verificado };

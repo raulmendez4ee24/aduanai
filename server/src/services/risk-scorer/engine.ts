@@ -8,7 +8,7 @@
  */
 import type {
   AssessmentResultado, Banda, ChecklistResultado, FactorId,
-  FactorResultado, ReglaResultado, Signals,
+  FactorResultado, OrigenEfectivo, ReglaResultado, Signals,
 } from './types';
 import { RISK_RULES, RULES_VERSION } from './rules';
 import { SHIELD_ITEMS } from './shield';
@@ -16,6 +16,7 @@ import { SHIELD_ITEMS } from './shield';
 export const DISCLAIMER =
   'Evaluación determinista de exposición con fundamentos citables (fuente y fecha de cotejo por regla). ' +
   'Las señales marcadas "declarado" provienen del usuario y NO fueron verificadas por el sistema. ' +
+  'Las reglas marcadas "no_evaluado" no fueron verificadas por falta de dato o dataset y no implican cumplimiento. ' +
   'No constituye asesoría legal; valida con tu área legal/agente aduanal.';
 
 export function evaluate(signals: Signals, weights: Record<string, number>): AssessmentResultado {
@@ -25,10 +26,15 @@ export function evaluate(signals: Signals, weights: Record<string, number>): Ass
 
   for (const rule of RISK_RULES) {
     const puntos = Math.max(0, Math.min(rule.maxPuntos, rule.evaluar(signals)));
+    const origenEfectivo: OrigenEfectivo = rule.origenSenal === 'declarado'
+      ? 'declarado'
+      : rule.senalDisponible
+        ? rule.senalDisponible(signals) ? rule.origenSenal : 'no_evaluado'
+        : rule.origenSenal;
     const res: ReglaResultado = {
       id: rule.id, factor: rule.factor, descripcion: rule.descripcion,
       puntos, maxPuntos: rule.maxPuntos, bandera: rule.bandera,
-      origenSenal: rule.origenSenal, fundamento: rule.fundamento,
+      origenSenal: rule.origenSenal, origenEfectivo, fundamento: rule.fundamento,
     };
     if (puntos > 0 && rule.bandera) banderas.push(rule.bandera);
     const list = porFactor.get(rule.factor) ?? [];
@@ -60,19 +66,47 @@ export function evaluate(signals: Signals, weights: Record<string, number>): Ass
   // ── Banda (matriz §4 del diseño) ──
   const banda = calcularBanda(exposicion, escudoPct, banderas);
 
+  const reglasEvaluadas = factores.flatMap(f => f.reglas);
+  const identificadoresFaltantes = [
+    ['fraccion', 'fracción arancelaria'],
+    ['importadorRfc', 'RFC del importador'],
+    ['numeroPedimento', 'número de pedimento'],
+  ]
+    .filter(([campo]) => {
+      const valor = signals.operacion[campo as keyof typeof signals.operacion];
+      return typeof valor !== 'string' || valor.trim().length === 0;
+    })
+    .map(([, etiqueta]) => etiqueta);
+  const cobertura = {
+    // Una regla mixta disponible cuenta como verificada porque el catálogo server-side sí fue consultado.
+    verificadas: reglasEvaluadas.filter(r => r.origenEfectivo === 'verificado' || r.origenEfectivo === 'mixto').length,
+    declaradas: reglasEvaluadas.filter(r => r.origenEfectivo === 'declarado').length,
+    noEvaluadas: reglasEvaluadas.filter(r => r.origenEfectivo === 'no_evaluado').length,
+    identificadoresFaltantes,
+  };
+
   // ── Faltantes accionables: primero escudo incompleto (ordenado por grupo crítico), luego reglas activas declaradas ──
-  const faltantes: string[] = [
+  const faltantesBase: string[] = [
     ...aplicables.filter(c => !c.completo).slice(0, 5).map(c => `${c.accionSugerida} [${c.fundamento.articulo}]`),
     ...factores.flatMap(f => f.reglas)
       .filter(r => r.puntos > 0 && r.origenSenal !== 'verificado')
       .sort((a, b) => b.puntos - a.puntos)
       .slice(0, 3)
       .map(r => `Atiende: ${r.descripcion} [${r.fundamento.articulo}]`),
-  ].slice(0, 6);
+  ];
+  const limiteBase = identificadoresFaltantes.length > 0 ? 5 : 6;
+  const faltantes = faltantesBase.slice(0, limiteBase);
+  if (identificadoresFaltantes.length > 0) {
+    const ultima = identificadoresFaltantes[identificadoresFaltantes.length - 1];
+    const lista = identificadoresFaltantes.length === 1
+      ? ultima
+      : `${identificadoresFaltantes.slice(0, -1).join(', ')} y ${ultima}`;
+    faltantes.push(`Proporciona ${lista} para verificación completa`);
+  }
 
   return {
     exposicion, escudoPct, banda, banderas: [...new Set(banderas)],
-    factores, checklist, faltantes,
+    factores, checklist, faltantes, cobertura,
     rulesVersion: RULES_VERSION, disclaimer: DISCLAIMER,
   };
 }
