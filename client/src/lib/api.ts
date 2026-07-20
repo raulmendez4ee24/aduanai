@@ -4,37 +4,49 @@ const API_BASE = '/api';
 // paralelas (Dashboard carga 7 a la vez) reciben 401 al mismo tiempo.
 let redirectingToLogin = false;
 
-async function request<T>(path: string, options?: RequestInit): Promise<T> {
+async function request<T>(path: string, options?: RequestInit, timeoutMs?: number): Promise<T> {
   const token = localStorage.getItem('aduanai_token');
+  const controller = timeoutMs !== undefined ? new AbortController() : undefined;
+  const timeout = controller ? setTimeout(() => controller.abort(), timeoutMs) : undefined;
 
-  const res = await fetch(`${API_BASE}${path}`, {
-    ...options,
-    headers: {
-      'Content-Type': 'application/json',
-      ...(token ? { Authorization: `Bearer ${token}` } : {}),
-      ...options?.headers,
-    },
-  });
+  try {
+    const res = await fetch(`${API_BASE}${path}`, {
+      ...options,
+      ...(controller ? { signal: controller.signal } : {}),
+      headers: {
+        'Content-Type': 'application/json',
+        ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        ...options?.headers,
+      },
+    });
 
-  if (!res.ok) {
-    // Fase 4.5: sesión expirada — antes cada módulo se tragaba el 401 y
-    // pintaba "Sin clasificaciones"/"Sin inventario" como si no hubiera datos.
-    // Un 401 con token presente = token vencido/revocado → limpiar y mandar a
-    // login con mensaje. Los endpoints /auth/* se excluyen (ahí un 401 es
-    // credencial inválida y lo maneja su propia pantalla).
-    if (res.status === 401 && token && !path.startsWith('/auth/')) {
-      if (!redirectingToLogin) {
-        redirectingToLogin = true;
-        localStorage.removeItem('aduanai_token');
-        window.location.href = '/login?expired=1';
+    if (!res.ok) {
+      // Fase 4.5: sesión expirada — antes cada módulo se tragaba el 401 y
+      // pintaba "Sin clasificaciones"/"Sin inventario" como si no hubiera datos.
+      // Un 401 con token presente = token vencido/revocado → limpiar y mandar a
+      // login con mensaje. Los endpoints /auth/* se excluyen (ahí un 401 es
+      // credencial inválida y lo maneja su propia pantalla).
+      if (res.status === 401 && token && !path.startsWith('/auth/')) {
+        if (!redirectingToLogin) {
+          redirectingToLogin = true;
+          localStorage.removeItem('aduanai_token');
+          window.location.href = '/login?expired=1';
+        }
+        throw new Error('Tu sesión expiró. Inicia sesión de nuevo.');
       }
-      throw new Error('Tu sesión expiró. Inicia sesión de nuevo.');
+      const error = await res.json().catch(() => ({ message: 'Error de conexión' }));
+      throw new Error(error.message || `Error ${res.status}`);
     }
-    const error = await res.json().catch(() => ({ message: 'Error de conexión' }));
-    throw new Error(error.message || `Error ${res.status}`);
-  }
 
-  return res.json();
+    return res.json();
+  } catch (error) {
+    if (controller?.signal.aborted) {
+      throw new Error('La consulta tardó demasiado. Intenta de nuevo.');
+    }
+    throw error;
+  } finally {
+    if (timeout !== undefined) clearTimeout(timeout);
+  }
 }
 
 export const api = {
@@ -548,7 +560,7 @@ export const api = {
     request<{ status: string; data: CopilotChatResponse }>('/copilot', {
       method: 'POST',
       body: JSON.stringify({ message, conversationId }),
-    }),
+    }, 120000),
 
   copilotFeedback: (consultHash: string, helpful: boolean, note?: string) =>
     request<{ status: string }>(`/copilot/feedback/${consultHash}`, {

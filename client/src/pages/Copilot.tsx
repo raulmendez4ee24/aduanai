@@ -8,6 +8,8 @@ const GLASS = 'bg-white/70 backdrop-blur-xl border border-white/50 shadow-[0_8px
 interface Message {
   role: 'user' | 'assistant';
   content: string;
+  error?: boolean;
+  retryOf?: string;
   citations?: CopilotCitation[];
   confidence?: number;
   consultHash?: string;
@@ -24,14 +26,16 @@ export function CopilotPage() {
 
   useEffect(() => { bottomRef.current?.scrollIntoView({ behavior: 'smooth' }) }, [messages])
 
-  async function handleSend() {
-    if (!input.trim() || loading) return
-    const msg = input.trim()
-    setInput('')
-    setMessages(prev => [...prev, { role: 'user', content: msg }])
+  async function sendPrompt(prompt: string, retryIndex?: number) {
+    if (loading) return
+    if (retryIndex !== undefined) {
+      setMessages(prev => prev.filter((_, i) => i !== retryIndex))
+    } else {
+      setMessages(prev => [...prev, { role: 'user', content: prompt }])
+    }
     setLoading(true)
     try {
-      const res = await api.chat(msg, conversationId)
+      const res = await api.chat(prompt, conversationId)
       setConversationId(res.data.conversationId)
       setMessages(prev => [...prev, {
         role: 'assistant',
@@ -42,9 +46,21 @@ export function CopilotPage() {
         hallucinationWarning: res.data.hallucinationWarning,
       }])
     } catch (e) {
-      setMessages(prev => [...prev, { role: 'assistant', content: `Error: ${e instanceof Error ? e.message : 'No se pudo conectar'}` }])
+      setMessages(prev => [...prev, {
+        role: 'assistant',
+        content: e instanceof Error ? e.message : 'No se pudo conectar',
+        error: true,
+        retryOf: prompt,
+      }])
     }
     setLoading(false)
+  }
+
+  async function handleSend() {
+    if (!input.trim() || loading) return
+    const msg = input.trim()
+    setInput('')
+    await sendPrompt(msg)
   }
 
   async function sendFeedback(idx: number, helpful: boolean) {
@@ -77,7 +93,7 @@ export function CopilotPage() {
         </div>
 
         {/* Messages */}
-        <div className="flex-1 overflow-y-auto px-6 py-4 space-y-4">
+        <div className="flex-1 overflow-y-auto px-6 py-4 space-y-4" role="log" aria-live="polite" aria-label="Conversación">
           {messages.length === 0 && (
             <div className="text-center py-16">
               <Bot className="w-12 h-12 text-slate-300 mx-auto mb-4" />
@@ -103,9 +119,29 @@ export function CopilotPage() {
               <div className={`max-w-[80%] rounded-2xl px-4 py-3 ${
                 msg.role === 'user'
                   ? 'bg-emerald-500 text-white'
+                  : msg.error
+                    ? 'bg-rose-50 border border-rose-200 text-rose-800'
                   : 'bg-white/60 text-slate-800'
               }`}>
-                <p className="text-[13px] leading-relaxed whitespace-pre-wrap">{msg.content}</p>
+                {msg.error ? (
+                  <div>
+                    <div className="flex items-start gap-2">
+                      <AlertTriangle className="w-4 h-4 text-rose-600 shrink-0 mt-0.5" />
+                      <p className="text-[13px] leading-relaxed whitespace-pre-wrap">{msg.content}</p>
+                    </div>
+                    {msg.retryOf && (
+                      <button
+                        onClick={() => sendPrompt(msg.retryOf!, i)}
+                        disabled={loading}
+                        className="mt-3 text-[11px] font-semibold text-rose-700 bg-white/70 border border-rose-200 px-3 py-1.5 rounded-lg hover:bg-rose-100 disabled:opacity-50 transition-colors"
+                      >
+                        Reintentar
+                      </button>
+                    )}
+                  </div>
+                ) : (
+                  <p className="text-[13px] leading-relaxed whitespace-pre-wrap">{msg.content}</p>
+                )}
 
                 {/* Citas y feedback en respuestas del asistente */}
                 {msg.role === 'assistant' && msg.citations && msg.citations.length > 0 && (
@@ -177,7 +213,7 @@ export function CopilotPage() {
               <div className="w-7 h-7 rounded-lg bg-emerald-100 flex items-center justify-center shrink-0">
                 <Bot className="w-3.5 h-3.5 text-emerald-600" />
               </div>
-              <div className="bg-white/60 rounded-2xl px-4 py-3">
+              <div className="bg-white/60 rounded-2xl px-4 py-3" role="status" aria-label="Generando respuesta">
                 <div className="flex gap-1.5">
                   <div className="w-2 h-2 rounded-full bg-slate-300 animate-bounce" style={{ animationDelay: '0ms' }} />
                   <div className="w-2 h-2 rounded-full bg-slate-300 animate-bounce" style={{ animationDelay: '150ms' }} />
@@ -193,6 +229,7 @@ export function CopilotPage() {
         <div className="px-4 py-3 border-t border-slate-200/50">
           <div className="flex items-end gap-2 bg-white/60 rounded-xl px-4 py-2 border border-slate-200/50 focus-within:ring-2 focus-within:ring-emerald-500/30 transition-all">
             <textarea
+              aria-label="Escribe tu pregunta"
               value={input} onChange={e => setInput(e.target.value)}
               onKeyDown={e => {
                 if (e.key === 'Enter' && !e.shiftKey) {
@@ -204,7 +241,7 @@ export function CopilotPage() {
               placeholder="Escribe tu pregunta... (Shift+Enter para salto de línea)"
               className="flex-1 bg-transparent text-[13px] text-slate-900 placeholder:text-slate-400 outline-none resize-none py-1 max-h-32 overflow-y-auto"
             />
-            <button onClick={handleSend} disabled={loading || !input.trim()}
+            <button onClick={handleSend} disabled={loading || !input.trim()} aria-label="Enviar pregunta"
               className="w-8 h-8 shrink-0 rounded-lg bg-emerald-500 hover:bg-emerald-600 disabled:opacity-50 flex items-center justify-center transition-colors">
               <Send className="w-3.5 h-3.5 text-white" />
             </button>
