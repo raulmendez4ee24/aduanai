@@ -13,6 +13,7 @@
  * correspondientes no disparan por esa vía (el checklist declarativo cubre).
  */
 import { prisma } from '../../lib/prisma';
+import type { Prisma } from '@prisma/client';
 import { validateFraction, normalizeFractionCode } from '../fraction-validator';
 import { resolveSectorsForFraction } from '../padron-checker';
 import { validatePedimentoNumero } from '../../lib/anexo22';
@@ -20,6 +21,35 @@ import type { OperacionInput, VerificadoSignals } from './types';
 
 /** Antigüedad máxima de la lista 69-B para considerarla verificación plena. */
 export const LISTA_69B_MAX_DIAS = 30;
+
+/** Construye el filtro atribuible a la operación para temporales próximos a vencer. */
+export function buildTemporalesWhere(
+  tenantId: string,
+  op: OperacionInput,
+  ahora: Date,
+): Prisma.TemporaryImportWhereInput | null {
+  if (!op.fraccion && !op.numeroPedimento) return null;
+
+  const or: Prisma.TemporaryImportWhereInput[] = [];
+  if (op.fraccion) {
+    or.push({ fractionCode: normalizeFractionCode(op.fraccion) });
+  }
+  if (op.numeroPedimento) {
+    const digitos = op.numeroPedimento.replace(/\D/g, '');
+    const variantes = digitos.length === 15
+      ? [digitos, `${digitos.slice(0, 2)} ${digitos.slice(2, 4)} ${digitos.slice(4, 8)} ${digitos.slice(8)}`]
+      : [op.numeroPedimento];
+    or.push({ pedimento: { in: variantes } });
+  }
+
+  return {
+    tenantId,
+    isDemoData: false,
+    expirationDate: { lte: new Date(ahora.getTime() + 30 * 86_400_000) },
+    status: { in: ['ACTIVE', 'PARTIALLY_DISCHARGED', 'EXPIRED'] },
+    OR: or,
+  };
+}
 
 export async function buildVerifiedSignals(tenantId: string, op: OperacionInput): Promise<VerificadoSignals> {
   const out: VerificadoSignals = {};
@@ -70,14 +100,10 @@ export async function buildVerifiedSignals(tenantId: string, op: OperacionInput)
   }
 
   // ── F5: temporales del tenant (Inventario) ──
-  const en30dias = new Date(Date.now() + 30 * 86_400_000);
-  out.temporalesPorVencer = await prisma.temporaryImport.count({
-    where: {
-      tenantId,
-      expirationDate: { lte: en30dias },
-      status: { in: ['ACTIVE', 'PARTIALLY_DISCHARGED', 'EXPIRED'] },
-    },
-  });
+  const temporalesWhere = buildTemporalesWhere(tenantId, op, new Date());
+  out.temporalesPorVencer = temporalesWhere
+    ? await prisma.temporaryImport.count({ where: temporalesWhere })
+    : undefined;
   // El modelo TemporaryImport no registra domicilio de destino vs registrado:
   // la señal 151-VIII no es derivable en v1 (queda 0 — la regla F5-TMP-01 no dispara por sistema).
   out.temporalesFueraDomicilio = 0;
