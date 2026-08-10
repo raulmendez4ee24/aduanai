@@ -26,7 +26,8 @@
     "test:temporales": "tsx src/tests/temporales-atribuibles.test.ts",
     "test:classify-input": "tsx src/tests/classify-input.test.ts",
     "test:rbac": "tsx src/tests/rbac-hardening.test.ts",
-    "test:copilot-sugeridas": "tsx src/tests/copilot-sugeridas.test.ts"
+    "test:copilot-sugeridas": "tsx src/tests/copilot-sugeridas.test.ts",
+    "test:jwt-config": "tsx src/tests/jwt-secret-config.test.ts"
   },
   "license": "UNLICENSED",
   "private": true,

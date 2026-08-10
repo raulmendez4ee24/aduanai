@@ -7,12 +7,12 @@ import { sendVerificationEmail, sendPasswordResetEmail, sendWelcomeEmail } from 
 import { validateEmail, validatePhone, validateRFC, hasMXRecords } from '../lib/validators';
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
+import { getJwtSecret } from '../lib/config';
 import { recordAudit } from '../services/audit-service';
 import { seedTenantRoles, autoAssignTenantAdmin } from '../services/permissions';
 
 export const authRouter = Router();
 
-const JWT_SECRET = process.env.JWT_SECRET || 'dev-secret';
 const JWT_EXPIRES = '8h';
 const REFRESH_EXPIRES = '7d';
 const REFRESH_LONG_EXPIRES = '30d';
@@ -119,8 +119,8 @@ authRouter.post('/register', authRegisterLimiter, async (req, res, next) => {
       },
     });
 
-    const token = jwt.sign({ userId: user.id, tenantId: tenant.id }, JWT_SECRET, { expiresIn: JWT_EXPIRES });
-    const refreshToken = jwt.sign({ userId: user.id, tenantId: tenant.id, type: 'refresh' }, JWT_SECRET, { expiresIn: REFRESH_EXPIRES });
+    const token = jwt.sign({ userId: user.id, tenantId: tenant.id }, getJwtSecret(), { expiresIn: JWT_EXPIRES });
+    const refreshToken = jwt.sign({ userId: user.id, tenantId: tenant.id, type: 'refresh' }, getJwtSecret(), { expiresIn: REFRESH_EXPIRES });
 
     await logAttempt(email, ip, req.headers['user-agent'], true);
 
@@ -353,7 +353,7 @@ authRouter.post('/verify-reset-code', async (req, res, next) => {
     // Issue short-lived reset token (15 min)
     const resetToken = jwt.sign(
       { userId: user.id, type: 'reset' },
-      JWT_SECRET,
+      getJwtSecret(),
       { expiresIn: '15m' }
     );
 
@@ -371,7 +371,7 @@ authRouter.post('/reset-password', async (req, res, next) => {
 
     let decoded: { userId: string; type: string };
     try {
-      decoded = jwt.verify(resetToken, JWT_SECRET) as { userId: string; type: string };
+      decoded = jwt.verify(resetToken, getJwtSecret()) as { userId: string; type: string };
     } catch {
       throw new AppError('Token inválido o expirado', 400);
     }
@@ -493,10 +493,10 @@ authRouter.post('/login', authLoginLimiter, async (req, res, next) => {
     });
 
     const refreshExpiry = rememberMe ? REFRESH_LONG_EXPIRES : REFRESH_EXPIRES;
-    const token = jwt.sign({ userId: user.id, tenantId: user.tenantId }, JWT_SECRET, { expiresIn: JWT_EXPIRES });
+    const token = jwt.sign({ userId: user.id, tenantId: user.tenantId }, getJwtSecret(), { expiresIn: JWT_EXPIRES });
     const refreshToken = jwt.sign(
       { userId: user.id, tenantId: user.tenantId, type: 'refresh' },
-      JWT_SECRET,
+      getJwtSecret(),
       { expiresIn: refreshExpiry }
     );
 
@@ -542,13 +542,13 @@ authRouter.post('/refresh', async (req, res, next) => {
     const blacklisted = await prisma.tokenBlacklist.findUnique({ where: { token: refreshToken } });
     if (blacklisted) throw new AppError('Token inválido', 401);
 
-    const decoded = jwt.verify(refreshToken, JWT_SECRET) as { userId: string; tenantId: string; type?: string };
+    const decoded = jwt.verify(refreshToken, getJwtSecret()) as { userId: string; tenantId: string; type?: string };
     if (decoded.type !== 'refresh') throw new AppError('Token inválido', 401);
 
     const user = await prisma.user.findUnique({ where: { id: decoded.userId } });
     if (!user || !user.active) throw new AppError('Usuario no encontrado', 401);
 
-    const newToken = jwt.sign({ userId: user.id, tenantId: decoded.tenantId }, JWT_SECRET, { expiresIn: JWT_EXPIRES });
+    const newToken = jwt.sign({ userId: user.id, tenantId: decoded.tenantId }, getJwtSecret(), { expiresIn: JWT_EXPIRES });
 
     res.json({ token: newToken, expiresIn: 8 * 60 * 60 });
   } catch (err) {
@@ -779,8 +779,8 @@ authRouter.post('/accept-invitation', async (req, res, next) => {
       data: { status: 'ACCEPTED', acceptedAt: new Date(), acceptedUserId: user.id },
     });
 
-    const jwtToken = jwt.sign({ userId: user.id, tenantId: inv.tenantId }, JWT_SECRET, { expiresIn: JWT_EXPIRES });
-    const refreshToken = jwt.sign({ userId: user.id, tenantId: inv.tenantId, type: 'refresh' }, JWT_SECRET, { expiresIn: REFRESH_EXPIRES });
+    const jwtToken = jwt.sign({ userId: user.id, tenantId: inv.tenantId }, getJwtSecret(), { expiresIn: JWT_EXPIRES });
+    const refreshToken = jwt.sign({ userId: user.id, tenantId: inv.tenantId, type: 'refresh' }, getJwtSecret(), { expiresIn: REFRESH_EXPIRES });
 
     res.status(201).json({
       token: jwtToken, refreshToken, expiresIn: 8 * 60 * 60,

@@ -1,6 +1,17 @@
 import dotenv from 'dotenv';
 dotenv.config();
 
+// Fail-fast: valida la configuración de entorno (incl. JWT_SECRET obligatorio,
+// sin fallback) antes de servir. Si falta o es inválida, el proceso termina con
+// un mensaje claro y NO sensible en vez de arrancar con un secreto por defecto.
+import { assertConfig } from './lib/config';
+try {
+  assertConfig();
+} catch (err) {
+  console.error(`[arranque abortado] ${err instanceof Error ? err.message : String(err)}`);
+  process.exit(1);
+}
+
 import express from 'express';
 import cors from 'cors';
 import helmet from 'helmet';

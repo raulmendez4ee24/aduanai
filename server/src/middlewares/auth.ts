@@ -1,6 +1,7 @@
 import { Request, Response, NextFunction } from 'express';
 import jwt from 'jsonwebtoken';
 import { AppError } from './error';
+import { getJwtSecret } from '../lib/config';
 import { prisma } from '../lib/prisma';
 import type { UserRole } from '@prisma/client';
 
@@ -26,7 +27,7 @@ export async function authenticate(req: AuthRequest, _res: Response, next: NextF
       return next(new AppError('Sesión expirada. Inicia sesión de nuevo.', 401));
     }
 
-    const decoded = jwt.verify(token, process.env.JWT_SECRET || 'dev-secret') as {
+    const decoded = jwt.verify(token, getJwtSecret()) as {
       userId: string;
       tenantId: string;
     };
