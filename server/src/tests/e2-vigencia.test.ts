@@ -20,15 +20,15 @@ function construirSignals(fechaEvaluacion?: string): Signals {
 }
 
 async function main(): Promise<void> {
-  assert.equal(e2Exigible('2026-07-19'), false);
-  assert.equal(e2Exigible('2026-07-31'), false);
-  assert.equal(e2Exigible('2026-08-01'), true);
-  console.log('  ✓ La prórroga E2 cubre hasta 2026-07-31 inclusive');
+  assert.equal(e2Exigible('2026-08-12'), false);
+  assert.equal(e2Exigible('2026-09-30'), false);
+  assert.equal(e2Exigible('2026-10-01'), true);
+  console.log('  ✓ La prórroga E2 cubre hasta 2026-09-30 inclusive (2a RM RGCE 2026, 3a VA)');
 
   const regla = RISK_RULES.find(r => r.id === 'F1-VAL-02');
   assert.ok(regla, 'No se encontró la regla F1-VAL-02');
-  assert.equal(regla.evaluar(construirSignals('2026-07-19')), 0);
-  assert.equal(regla.evaluar(construirSignals('2026-08-01')), 8);
+  assert.equal(regla.evaluar(construirSignals('2026-08-12')), 0);
+  assert.equal(regla.evaluar(construirSignals('2026-10-01')), 8);
   assert.equal(regla.evaluar(construirSignals()), 8);
   console.log('  ✓ F1-VAL-02 da 0 durante la prórroga, 8 después y 8 sin fecha (fail-safe)');
 

@@ -57,7 +57,7 @@ const CASOS: Caso[] = [
       expediente59V: { a: true, b: true, c: true, d: true, e: true, f: true, g: false, h: false },
     },
     // F1: 4 (sin valor) + 0 (E2 durante prórroga) + 4 (incrementables) + 6 (proveedor) = 14.
-    // El Transitorio Décimo Primero reformado permite el esquema previo hasta el 31-jul-2026 inclusive.
+    // El Transitorio Décimo Primero reformado permite el esquema previo hasta el 30-sep-2026 inclusive.
     // F2: 8 (KYC) · F8: 2 (encargo) → exposición 24. Escudo 8/13 = 62%. <30 × ≥50 → VERDE.
     esperado: { exposicion: 24, escudoPct: 62, banda: 'VERDE', banderas: [] },
   },
@@ -70,7 +70,7 @@ const CASOS: Caso[] = [
       importadorRfc: RFC_69B_DEFINITIVO, preferenciaArancelaria: true,
     },
     declarado: { proveedorLocalizable: false, rutaTercerPaisEnsamblador: true, padronesActivos: [] },
-    // F1: 4+0 (E2 durante prórroga)+4+6+4 = 18; el Transitorio Décimo Primero aplica hasta el 31-jul-2026.
+    // F1: 4+0 (E2 durante prórroga)+4+6+4 = 18; el Transitorio Décimo Primero aplica hasta el 30-sep-2026.
     // F2: 22 (69-B DEFINITIVO, bandera) · F3: 8+4+4 = 16 → 12
     // F4: 8 (sector 10 faltante) · F7: 8 (NOM-020 sin evidencia, bandera EMBARGO)
     // F8: 3 (pedimento inválido) + 3 (preferencia sin 9 elementos) + 2 (encargo) = 8 → 6
@@ -95,7 +95,7 @@ const CASOS: Caso[] = [
   {
     nombre: 'CASO 5 — E2 POST-PRÓRROGA',
     tipoSujeto: 'agente',
-    fechaEvaluacion: '2026-08-01',
+    fechaEvaluacion: '2026-10-01',
     operacion: { fraccion: '73181501', paisOrigen: 'US', valorUnitario: 100, numeroPedimento: '25 47 3461 4000284', importadorRfc: RFC_LIMPIO },
     declarado: {
       mveTransmitida: false, expedienteKyc: true, expediente162VII: true, controlInterno81A: true,
@@ -103,7 +103,7 @@ const CASOS: Caso[] = [
       evidenciaNoms: true, incrementablesConSoporte: true, pagoConSoporteBancario: true,
       proveedorLocalizable: true, expediente59V: todo59V,
     },
-    // Desde el 01-ago-2026 F1-VAL-02 vuelve a sumar 8. Escudo 12/13 = 92%. <30 × ≥50 → VERDE.
+    // Vencida la prórroga (30-sep-2026 inclusive), F1-VAL-02 vuelve a sumar 8. Escudo 12/13 = 92%. <30 × ≥50 → VERDE.
     esperado: { exposicion: 8, escudoPct: 92, banda: 'VERDE', banderas: [] },
   },
 ];
