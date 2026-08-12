@@ -1,7 +1,7 @@
 # Radar de pedimentos — UI v1 (Fase 1.5)
 
-**Estado: APROBADO 2026-08-12** (brainstorming con el usuario; decisiones registradas abajo).
-Backend ya existente y estable: `POST /api/pedimentos/radar` (Fase 1.3, commit d6ca0ba), flag beta `PEDIMENTO_READER_ENABLED` apagado en prod. Esta fase es **solo cliente**: cero cambios de servidor.
+**Estado: APROBADO 2026-08-12** (brainstorming con el usuario; decisiones registradas abajo; adición "criterios actualizados" solicitada por el usuario el mismo día).
+Backend ya existente y estable: `POST /api/pedimentos/radar` (Fase 1.3, commit d6ca0ba), flag beta `PEDIMENTO_READER_ENABLED` apagado en prod. Cambios de servidor: **solo un endpoint de lectura** para "criterios actualizados" (abajo); el parser y el motor no se tocan.
 
 ## Decisiones de alcance (del brainstorming)
 
@@ -50,6 +50,14 @@ Siguiendo el patrón existente (cero fetch crudo en componentes):
 
 - **Sistema Sello** (tokens/componentes de `client/src/components/ui/`, spec `docs/DESIGN_SYSTEM.md`): papel+tinta, sin sombras/glass.
 - `RiskScorer.tsx` usa el estilo glass anterior — **no se toca en esta fase**; el radar nace en Sello. La paleta semántica de bandas se mantiene consistente con la existente.
+
+## Criterios actualizados — "regulación en vivo" (adición aprobada 2026-08-12)
+
+Requisito del usuario: que el agente aduanal **vea** que el radar sigue la regulación al día — es argumento de venta, no nota de commit.
+
+- **Server**: `GET /api/risk/criterios` (autenticado, junto a `/api/risk/weights`): devuelve `RULES_VERSION` + las vigencias estructuradas de `vigencias.ts` (hoy solo `PRORROGA_E2`: instrumento, versión, estado VERSION_ANTICIPADA/PUBLICADA_DOF, fechas, `prorrogaHasta`, `fechaCotejo`, `urlOficial`). **Fuente única = `vigencias.ts`** — el panel jamás puede divergir de lo que el motor aplica, porque lee el mismo objeto.
+- **Cliente**: tarjeta/panel "Criterios actualizados" visible en `/radar` (junto al banner beta), con lenguaje humano: "Prórroga MVE vigente hasta 30-sep-2026 — 2a RM RGCE 2026, 3a versión anticipada (Portal SAT 31-jul-2026) · cotejado 12-ago-2026" + link a la fuente oficial. Si `estado = VERSION_ANTICIPADA` se dice tal cual (pendiente de DOF) — honestidad ante todo.
+- El shape es una **lista** de criterios para crecer (TLCUEM, decretos, etc.) sin rediseño.
 
 ## Fuera de alcance v1 (anotado para v1.1)
 

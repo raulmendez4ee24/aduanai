@@ -387,3 +387,27 @@ Residuales SIN causa confirmada (para la siguiente ola):
   Probable retrieval/orden de candidatas.
 - #93 sandalia y #97 reloj: perdidos solo en la última corrida (posible
   inestabilidad; 1 sola observación).
+
+---
+
+## 21) Verificación DOF de la 2a RM RGCE 2026 (prórroga MVE 30-sep-2026)
+
+**Creado 2026-08-12.** `vigencias.ts` codifica la prórroga MVE E2 hasta el
+**30-sep-2026** con base en la **3a versión anticipada** (Portal SAT,
+31-jul-2026; commit `ff92109`). La 2a RM **sigue sin publicarse en DOF**
+(lo último en DOF es la 1a RM, 14-may-2026).
+
+**Cuando se publique la versión definitiva en el DOF:**
+
+1. Cotejar el Transitorio Décimo Primero publicado contra el verbatim
+   guardado en `vigencias.ts` — confirmar que el 30-sep-2026 se sostiene.
+2. Si se sostiene: actualizar `estado: 'PUBLICADA_DOF'`, `dofFecha`,
+   `urlOficial` (nota DOF) y `fechaCotejo`; ajustar el test que hoy
+   asegura `VERSION_ANTICIPADA`/`dofFecha null` en `e2-vigencia.test.ts`.
+3. Si cambia la fecha: actualizar `prorrogaHasta` + fronteras de tests
+   (`e2-vigencia.test.ts`, CASO 5 de `risk-parity.ts`) + addendum en
+   `RISK_SCORER_LEGAL.md`.
+4. El panel "Criterios actualizados" del producto lee `vigencias.ts`
+   directo — se actualiza solo con este cambio, verificar que lo refleje.
+5. Vigilar de paso si aparece una 4a versión anticipada o la 3a RM que
+   vuelva a mover la fecha (patrón: la han prorrogado ya 2 veces).
