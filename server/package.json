@@ -40,7 +40,8 @@
     "test:no-aduana-shopping": "tsx src/tests/no-aduana-shopping.test.ts",
     "test:campo-numerico": "tsx src/tests/campo-numerico-clase.test.ts",
     "test:afirmaciones": "tsx src/tests/afirmaciones-comerciales.test.ts",
-    "test:risk-69b": "tsx src/tests/risk-69b-disponibilidad.test.ts"
+    "test:risk-69b": "tsx src/tests/risk-69b-disponibilidad.test.ts",
+    "test:criterios": "tsx src/tests/criterios.test.ts"
   },
   "license": "UNLICENSED",
   "private": true,
