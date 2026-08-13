@@ -10,6 +10,7 @@ import { prisma } from '../lib/prisma';
 import { evaluate } from '../services/risk-scorer/engine';
 import { buildVerifiedSignals, normalizarOperacion } from '../services/risk-scorer/signals';
 import { DEFAULT_WEIGHTS, RULES_VERSION } from '../services/risk-scorer/rules';
+import { listaCriterios } from '../services/risk-scorer/criterios';
 import type { Signals } from '../services/risk-scorer/types';
 
 const router = Router();
@@ -129,6 +130,11 @@ router.get('/assessments/:id', async (req: AuthRequest, res: Response) => {
 
 router.get('/weights', async (_req: AuthRequest, res: Response) => {
   res.json({ status: 'ok', data: await getWeights(), rulesVersion: RULES_VERSION });
+});
+
+// Criterios normativos visibles en producto (panel "regulación en vivo").
+router.get('/criterios', async (_req: AuthRequest, res: Response) => {
+  res.json({ status: 'ok', data: listaCriterios() });
 });
 
 router.put('/weights', requireRole('SUPERADMIN'), async (req: AuthRequest, res: Response) => {
