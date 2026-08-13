@@ -31,3 +31,4 @@ server/dist/
 # Bytecode de skills vendored
 __pycache__/
 *.pyc
+.superpowers/
