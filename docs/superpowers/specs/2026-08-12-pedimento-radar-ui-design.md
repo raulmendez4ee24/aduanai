@@ -1,6 +1,6 @@
 # Radar de pedimentos — UI v1 (Fase 1.5)
 
-**Estado: APROBADO 2026-08-12** (brainstorming con el usuario; decisiones registradas abajo; adición "criterios actualizados" solicitada por el usuario el mismo día).
+**Estado: IMPLEMENTADO 2026-08-13** (brainstorming con el usuario; decisiones registradas abajo; adición "criterios actualizados" solicitada por el usuario el mismo día).
 Backend ya existente y estable: `POST /api/pedimentos/radar` (Fase 1.3, commit d6ca0ba), flag beta `PEDIMENTO_READER_ENABLED` apagado en prod. Cambios de servidor: **solo un endpoint de lectura** para "criterios actualizados" (abajo); el parser y el motor no se tocan.
 
 ## Decisiones de alcance (del brainstorming)
