@@ -1275,40 +1275,50 @@ export const api = {
     tipoSujeto: 'agente' | 'agencia',
   ): Promise<RadarResultado> => {
     const token = localStorage.getItem('aduanai_token');
-    const res = await fetch(`${API_BASE}/pedimentos/radar`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        ...(token ? { Authorization: `Bearer ${token}` } : {}),
-      },
-      body: JSON.stringify({ nombreArchivo, contenido, tipoSujeto, declarado: {} }),
-    });
-    const body = await res.json().catch(() => ({}) as Record<string, never>);
-    if (!res.ok) {
-      // Misma política de sesión expirada que request() (Fase 4.5).
-      if (res.status === 401 && token) {
-        if (!redirectingToLogin) {
-          redirectingToLogin = true;
-          localStorage.removeItem('aduanai_token');
-          window.location.href = '/login?expired=1';
+    try {
+      const res = await fetch(`${API_BASE}/pedimentos/radar`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
+        body: JSON.stringify({ nombreArchivo, contenido, tipoSujeto, declarado: {} }),
+      });
+      const body = await res.json().catch(() => ({}) as Record<string, never>);
+      if (!res.ok) {
+        // Misma política de sesión expirada que request() (Fase 4.5).
+        if (res.status === 401 && token) {
+          if (!redirectingToLogin) {
+            redirectingToLogin = true;
+            localStorage.removeItem('aduanai_token');
+            window.location.href = '/login?expired=1';
+          }
+          return { ok: false, status: 401, message: 'Tu sesión expiró. Inicia sesión de nuevo.' };
         }
-        return { ok: false, status: 401, message: 'Tu sesión expiró. Inicia sesión de nuevo.' };
+        return {
+          ok: false,
+          status: res.status,
+          message: body.message ?? `Error ${res.status}`,
+          detalles: body.detalles,
+          layoutVersion: body.layoutVersion,
+        };
       }
       return {
-        ok: false,
-        status: res.status,
-        message: body.message ?? `Error ${res.status}`,
-        detalles: body.detalles,
+        ok: true,
+        avisoValidacion: body.avisoValidacion,
         layoutVersion: body.layoutVersion,
+        resumen: body.data.resumen,
+        radar: body.data.radar,
+      };
+    } catch {
+      // Fallo de red/DNS/CORS/abort: el fetch rechaza antes de llegar a una respuesta HTTP.
+      // Sin este catch, la excepción se propaga y la UI queda en "Evaluando…" para siempre.
+      return {
+        ok: false,
+        status: 0,
+        message: 'No se pudo conectar con el servidor. Revisa tu conexión e intenta de nuevo.',
       };
     }
-    return {
-      ok: true,
-      avisoValidacion: body.avisoValidacion,
-      layoutVersion: body.layoutVersion,
-      resumen: body.data.resumen,
-      radar: body.data.radar,
-    };
   },
 
   riskCriterios: () =>
