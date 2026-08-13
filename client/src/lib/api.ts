@@ -1384,13 +1384,20 @@ export interface RadarFila {
   assessmentId: string;
 }
 
+export interface PedimentoExcluido {
+  numeroPedimento7: string;
+  patente: string;
+  lineaInicio: number;
+  motivo: string;
+}
+
 export interface RadarResumen {
   pedimentosProcesados: number;
   operaciones: number;
   porBanda: Record<string, number>;
   banderas: string[];
   hallazgosDestacados: ({ pedimento: string; partida: number } & RadarHallazgo)[];
-  excluidos: unknown[];
+  excluidos: PedimentoExcluido[];
   registrosIgnorados: Record<string, number>;
   advertenciasIntegridad: string[];
 }
