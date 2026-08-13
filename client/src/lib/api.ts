@@ -1296,9 +1296,137 @@ export const api = {
 
   operationDelete: (id: string) =>
     request<{ status: string }>(`/operations/${id}`, { method: 'DELETE' }),
+
+  // ——— Radar de pedimentos (BETA) ———
+  pedimentosRadar: async (
+    nombreArchivo: string,
+    contenido: string,
+    tipoSujeto: 'agente' | 'agencia',
+  ): Promise<RadarResultado> => {
+    const token = localStorage.getItem('aduanai_token');
+    const res = await fetch(`${API_BASE}/pedimentos/radar`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      },
+      body: JSON.stringify({ nombreArchivo, contenido, tipoSujeto, declarado: {} }),
+    });
+    const body = await res.json().catch(() => ({}) as Record<string, never>);
+    if (!res.ok) {
+      // Misma política de sesión expirada que request() (Fase 4.5).
+      if (res.status === 401 && token) {
+        if (!redirectingToLogin) {
+          redirectingToLogin = true;
+          localStorage.removeItem('aduanai_token');
+          window.location.href = '/login?expired=1';
+        }
+        return { ok: false, status: 401, message: 'Tu sesión expiró. Inicia sesión de nuevo.' };
+      }
+      return {
+        ok: false,
+        status: res.status,
+        message: body.message ?? `Error ${res.status}`,
+        detalles: body.detalles,
+        layoutVersion: body.layoutVersion,
+      };
+    }
+    return {
+      ok: true,
+      avisoValidacion: body.avisoValidacion,
+      layoutVersion: body.layoutVersion,
+      resumen: body.data.resumen,
+      radar: body.data.radar,
+    };
+  },
+
+  riskCriterios: () =>
+    request<{ status: string; data: { rulesVersion: string; criterios: CriterioNormativo[] } }>('/risk/criterios'),
 };
 
 // Types
+
+// ——— Radar de pedimentos (BETA — Fase 1.5) ———
+export interface RadarHallazgo {
+  codigo: string;
+  mensaje: string;
+  destacado: boolean;
+}
+
+export interface ProvenienciaArchivo {
+  nombre: string;
+  sha256: string;
+}
+
+export interface Proveniencia {
+  archivo: ProvenienciaArchivo;
+  layoutVersion: string;
+  metodo: 'determinista';
+  fechaExtraccion: string;
+  campos: Record<string, string>;
+}
+
+export interface RadarFila {
+  pedimento: string;
+  numeroPedimento15: string | null;
+  partida: number;
+  fraccion: string;
+  nico: string;
+  descripcion: string;
+  valorUsd: number | null;
+  banda: 'VERDE' | 'AMARILLO' | 'NARANJA' | 'ROJO' | 'ROJO_CRITICO';
+  exposicion: number;
+  escudoPct: number;
+  banderas: string[];
+  hallazgos: RadarHallazgo[];
+  origenDatos: string;
+  proveniencia: Proveniencia;
+  assessmentId: string;
+}
+
+export interface RadarResumen {
+  pedimentosProcesados: number;
+  operaciones: number;
+  porBanda: Record<string, number>;
+  banderas: string[];
+  hallazgosDestacados: ({ pedimento: string; partida: number } & RadarHallazgo)[];
+  excluidos: unknown[];
+  registrosIgnorados: Record<string, number>;
+  advertenciasIntegridad: string[];
+}
+
+export interface RadarOk {
+  ok: true;
+  avisoValidacion: string;
+  layoutVersion: string;
+  resumen: RadarResumen;
+  radar: RadarFila[];
+}
+
+export interface RadarError {
+  ok: false;
+  status: number;
+  message: string;
+  detalles?: string[];
+  layoutVersion?: string;
+}
+
+export type RadarResultado = RadarOk | RadarError;
+
+export interface CriterioNormativo {
+  id: string;
+  titulo: string;
+  detalle: string;
+  vigenciaHasta: string;
+  instrumento: string;
+  version: string;
+  estado: 'VERSION_ANTICIPADA' | 'PUBLICADA_DOF';
+  dofFecha: string | null;
+  fechaPublicacionPortal: string;
+  fechaCotejo: string;
+  urlOficial: string;
+}
+
 export interface ClassifierAntidumpingMetadata {
   resolutionNumber: string | null;
   expedienteUPCI: string | null;
