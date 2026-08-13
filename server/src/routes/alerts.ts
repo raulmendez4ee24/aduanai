@@ -48,14 +48,16 @@ alertsRouter.get('/', authenticate, async (req: AuthRequest, res, next) => {
   }
 });
 
-// Marcar alerta como leída
+// Marcar alerta como leída — SCOPE por tenant (updateMany + guarda de conteo:
+// una alerta de otro tenant no existe para ti → 404, sin revelar existencia).
 alertsRouter.patch('/:id/read', authenticate, async (req: AuthRequest, res, next) => {
   try {
     const id = String(req.params.id);
-    await prisma.alert.update({
-      where: { id },
+    const { count } = await prisma.alert.updateMany({
+      where: { id, tenantId: req.tenantId! },
       data: { read: true },
     });
+    if (count === 0) return res.status(404).json({ status: 'error', message: 'Alerta no encontrada' });
 
     res.json({ status: 'ok' });
   } catch (err) {
@@ -81,10 +83,11 @@ alertsRouter.post('/read-all', authenticate, async (req: AuthRequest, res, next)
 alertsRouter.patch('/:id/acknowledge', authenticate, async (req: AuthRequest, res, next) => {
   try {
     const id = String(req.params.id);
-    await prisma.alert.update({
-      where: { id },
+    const { count } = await prisma.alert.updateMany({
+      where: { id, tenantId: req.tenantId! },
       data: { acknowledged: true, acknowledgedAt: new Date(), read: true },
     });
+    if (count === 0) return res.status(404).json({ status: 'error', message: 'Alerta no encontrada' });
     res.json({ status: 'ok' });
   } catch (err) { next(err); }
 });
@@ -94,10 +97,11 @@ alertsRouter.patch('/:id/snooze', authenticate, async (req: AuthRequest, res, ne
     const id = String(req.params.id);
     const days = Math.max(1, Math.min(30, Number(req.body?.days) || 7));
     const until = new Date(Date.now() + days * 24 * 60 * 60 * 1000);
-    await prisma.alert.update({
-      where: { id },
+    const { count } = await prisma.alert.updateMany({
+      where: { id, tenantId: req.tenantId! },
       data: { snoozedUntil: until, read: true },
     });
+    if (count === 0) return res.status(404).json({ status: 'error', message: 'Alerta no encontrada' });
     res.json({ status: 'ok', data: { snoozedUntil: until } });
   } catch (err) { next(err); }
 });
@@ -105,10 +109,11 @@ alertsRouter.patch('/:id/snooze', authenticate, async (req: AuthRequest, res, ne
 alertsRouter.patch('/:id/resolve', authenticate, async (req: AuthRequest, res, next) => {
   try {
     const id = String(req.params.id);
-    await prisma.alert.update({
-      where: { id },
+    const { count } = await prisma.alert.updateMany({
+      where: { id, tenantId: req.tenantId! },
       data: { resolvedAt: new Date(), read: true, acknowledged: true, acknowledgedAt: new Date() },
     });
+    if (count === 0) return res.status(404).json({ status: 'error', message: 'Alerta no encontrada' });
     res.json({ status: 'ok' });
   } catch (err) { next(err); }
 });
@@ -116,10 +121,11 @@ alertsRouter.patch('/:id/resolve', authenticate, async (req: AuthRequest, res, n
 alertsRouter.patch('/:id/ignore', authenticate, async (req: AuthRequest, res, next) => {
   try {
     const id = String(req.params.id);
-    await prisma.alert.update({
-      where: { id },
+    const { count } = await prisma.alert.updateMany({
+      where: { id, tenantId: req.tenantId! },
       data: { ignored: true, read: true },
     });
+    if (count === 0) return res.status(404).json({ status: 'error', message: 'Alerta no encontrada' });
     res.json({ status: 'ok' });
   } catch (err) { next(err); }
 });

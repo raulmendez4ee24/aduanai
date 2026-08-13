@@ -27,7 +27,9 @@
     "test:classify-input": "tsx src/tests/classify-input.test.ts",
     "test:rbac": "tsx src/tests/rbac-hardening.test.ts",
     "test:copilot-sugeridas": "tsx src/tests/copilot-sugeridas.test.ts",
-    "test:jwt-config": "tsx src/tests/jwt-secret-config.test.ts"
+    "test:jwt-config": "tsx src/tests/jwt-secret-config.test.ts",
+    "test:tenant-guard": "tsx src/tests/tenant-guard.test.ts",
+    "test:xtenant": "tsx src/tests/cross-tenant-isolation.test.ts"
   },
   "license": "UNLICENSED",
   "private": true,

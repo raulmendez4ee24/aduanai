@@ -158,8 +158,10 @@ leadsRouter.post('/', leadsLimiter, async (req, res, next) => {
   }
 });
 
-// PATCH /api/leads/:id/qualify — auth required, ADMIN
-leadsRouter.patch('/:id/qualify', authenticate, requireRole('ADMIN'), async (req: AuthRequest, res, next) => {
+// PATCH /api/leads/:id/qualify — SOLO staff interno de ADUANAI (SUPERADMIN).
+// Los Lead son la CRM de ventas propia de ADUANAI (sin tenantId); ADMIN es rol
+// por-tenant (cliente), así que jamás debe tocar estos datos.
+leadsRouter.patch('/:id/qualify', authenticate, requireRole('SUPERADMIN'), async (req: AuthRequest, res, next) => {
   try {
     const id = req.params.id as string;
     const { rfc, industry, monthlyOps, hasIMMEX, currentSoftware, problems, referralSource } = req.body;
@@ -203,8 +205,8 @@ leadsRouter.patch('/:id/qualify', authenticate, requireRole('ADMIN'), async (req
   }
 });
 
-// PATCH /api/leads/:id/status — auth required, ADMIN
-leadsRouter.patch('/:id/status', authenticate, requireRole('ADMIN'), async (req: AuthRequest, res, next) => {
+// PATCH /api/leads/:id/status — SOLO staff interno (SUPERADMIN). Ver nota en qualify.
+leadsRouter.patch('/:id/status', authenticate, requireRole('SUPERADMIN'), async (req: AuthRequest, res, next) => {
   try {
     const id = req.params.id as string;
     const { status } = req.body;
@@ -230,8 +232,9 @@ leadsRouter.patch('/:id/status', authenticate, requireRole('ADMIN'), async (req:
   }
 });
 
-// GET /api/leads — auth required
-leadsRouter.get('/', authenticate, async (req: AuthRequest, res, next) => {
+// GET /api/leads — SOLO staff interno (SUPERADMIN): la lista de leads de ventas
+// de ADUANAI jamás debe verla un usuario de un tenant cliente.
+leadsRouter.get('/', authenticate, requireRole('SUPERADMIN'), async (req: AuthRequest, res, next) => {
   try {
     const { status, minScore } = req.query;
 
@@ -260,7 +263,7 @@ leadsRouter.get('/', authenticate, async (req: AuthRequest, res, next) => {
 });
 
 // GET /api/leads/stats — auth required (must be before /:id)
-leadsRouter.get('/stats', authenticate, async (req: AuthRequest, res, next) => {
+leadsRouter.get('/stats', authenticate, requireRole('SUPERADMIN'), async (req: AuthRequest, res, next) => {
   try {
     const [total, byStatus, scoreAgg] = await Promise.all([
       prisma.lead.count(),
@@ -303,7 +306,9 @@ leadsRouter.get('/stats', authenticate, async (req: AuthRequest, res, next) => {
 });
 
 // GET /api/leads/:id — auth required
-leadsRouter.get('/:id', authenticate, async (req: AuthRequest, res, next) => {
+// GET /api/leads/:id — SOLO staff interno (SUPERADMIN). Antes: cualquier usuario
+// autenticado de cualquier tenant leía cualquier lead por id (fuga confirmada).
+leadsRouter.get('/:id', authenticate, requireRole('SUPERADMIN'), async (req: AuthRequest, res, next) => {
   try {
     const id = req.params.id as string;
 

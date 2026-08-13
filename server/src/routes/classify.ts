@@ -283,8 +283,15 @@ classifyRouter.patch('/:id/feedback', authenticate, async (req: AuthRequest, res
       });
     }
 
+    // SCOPE por tenant: sin esto, cualquier usuario dejaba feedback (y leía la
+    // fila completa) de una clasificación de OTRO tenant. Mismo patrón que /approve.
+    const owned = await prisma.classification.findFirst({
+      where: { id, tenantId: req.tenantId! },
+      select: { id: true },
+    });
+    if (!owned) return res.status(404).json({ status: 'error', message: 'Clasificación no encontrada' });
     const classification = await prisma.classification.update({
-      where: { id },
+      where: { id: owned.id },
       data: { feedback, feedbackNote },
     });
 

@@ -127,8 +127,19 @@ operationsRouter.patch('/:opId/documents/:docId', authenticate, requirePermissio
       return res.status(404).json({ status: 'error', message: 'Operación no encontrada' });
     }
 
+    // SCOPE: el doc debe pertenecer a ESTA operación (ya verificada del tenant).
+    // Sin esto, un opId propio + un docId ajeno sobrescribía el documento de otro
+    // tenant (status/fileName/verifiedBy). {id, operationId} no es unique en
+    // Prisma, así que verificamos pertenencia y luego actualizamos por id.
+    const owned = await prisma.document.findFirst({
+      where: { id: docId, operationId: opId },
+      select: { id: true },
+    });
+    if (!owned) {
+      return res.status(404).json({ status: 'error', message: 'Documento no encontrado' });
+    }
     const doc = await prisma.document.update({
-      where: { id: docId },
+      where: { id: owned.id },
       data: {
         status: status || 'UPLOADED',
         fileName,

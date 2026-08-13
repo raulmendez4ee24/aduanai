@@ -2,6 +2,7 @@ import { PrismaClient } from '@prisma/client';
 import { PrismaPg } from '@prisma/adapter-pg';
 import type { PoolConfig } from 'pg';
 import dotenv from 'dotenv';
+import { conGuardaDeTenant } from './tenant-guard';
 
 dotenv.config();
 
@@ -23,7 +24,10 @@ const globalForPrisma = globalThis as unknown as {
   prisma: PrismaClient | undefined;
 };
 
-export const prisma = globalForPrisma.prisma ?? new PrismaClient({ adapter });
+// Defensa de capa contra fugas cross-tenant: la guarda exige tenantId en
+// findUnique/findFirst sobre modelos multi-tenant (ver lib/tenant-guard.ts).
+// Warn por defecto; con TENANT_GUARD_STRICT=1 lanza (dev/CI).
+export const prisma = globalForPrisma.prisma ?? conGuardaDeTenant(new PrismaClient({ adapter }));
 
 if (process.env.NODE_ENV !== 'production') {
   globalForPrisma.prisma = prisma;
