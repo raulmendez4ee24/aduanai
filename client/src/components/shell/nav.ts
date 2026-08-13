@@ -8,7 +8,7 @@ import {
   House, FileSearch, ClipboardCheck, Radar, Library, Settings,
   Calculator, Bot, Clock, FolderOpen, Sparkles, ShieldCheck, LineChart,
   Warehouse, Landmark, FileText, Truck, Boxes, Globe, Scale, BadgeCheck,
-  Megaphone, ListChecks, Building2, Users, Gauge, Database,
+  Megaphone, ListChecks, Building2, Users, Gauge, Database, ScanSearch,
 } from 'lucide-react'
 
 export interface NavItem {
@@ -38,6 +38,7 @@ export const NAV_HERRAMIENTAS: NavItem[] = [
   { label: 'Expedientes', path: '/expediente', icono: FolderOpen },
   { label: 'Expedientes IA', path: '/expediente-ia', icono: Sparkles },
   { label: 'Pre-validador', path: '/prevalidador', icono: ShieldCheck },
+  { label: 'Radar de pedimentos', path: '/radar', icono: ScanSearch },
   { label: 'Risk Scorer', path: '/risk-scorer', icono: Scale },
   { label: 'Analytics', path: '/analytics', icono: LineChart },
   { label: 'Inventario IMMEX', path: '/inventario', icono: Warehouse },

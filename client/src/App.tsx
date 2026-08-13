@@ -42,6 +42,7 @@ import { AdminPadronesPage } from './pages/Admin/AdminPadrones'
 import { PadronesPage } from './pages/Settings/Padrones'
 import { GlosaSimulatorPage } from './pages/GlosaSimulator'
 import { RiskScorerPage } from './pages/RiskScorer'
+import { RadarPedimentosPage } from './pages/RadarPedimentos'
 import { DesignSystemPage } from './pages/DesignSystem'
 import { AdminGlosaPage } from './pages/Admin/AdminGlosa'
 import { AuditTrailPage } from './pages/AuditTrail'
@@ -233,6 +234,7 @@ export function App() {
         <Route path="/settings/padrones" element={<PadronesPage />} />
         <Route path="/simulador-glosa" element={<GlosaSimulatorPage />} />
         <Route path="/risk-scorer" element={<RiskScorerPage />} />
+        <Route path="/radar" element={<RadarPedimentosPage />} />
         <Route path="/audit" element={<AuditTrailPage />} />
         <Route path="/settings" element={<SettingsIndexPage />} />
         <Route path="/settings/empresa" element={<EmpresaPage />} />
