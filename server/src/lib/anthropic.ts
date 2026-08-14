@@ -12,6 +12,18 @@ export function buildAnthropicClientOptions(env: NodeJS.ProcessEnv = process.env
   };
 }
 
+// Clasifica errores de la API de Anthropic que significan "sin capacidad de IA":
+// crédito agotado (400 con "credit balance") o cuota/rate-limit agotada tras los
+// reintentos del SDK (429). Cualquier otro error devuelve null.
+export type TipoErrorAnthropic = 'credito' | 'cuota';
+export function tipoDeErrorAnthropic(err: unknown): TipoErrorAnthropic | null {
+  if (!(err instanceof Anthropic.APIError)) return null;
+  const msg = (err.message ?? '').toLowerCase();
+  if (err.status === 400 && msg.includes('credit balance')) return 'credito';
+  if (err.status === 429) return 'cuota';
+  return null;
+}
+
 export function getAnthropicClient(): Anthropic {
   if (!_client) {
     if (!process.env.ANTHROPIC_API_KEY) {
