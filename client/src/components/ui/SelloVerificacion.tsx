@@ -10,7 +10,7 @@
 import { useEffect, useId, useRef, useState } from 'react'
 import { BadgeCheck, AlertTriangle, ExternalLink, CircleHelp } from 'lucide-react'
 
-export type EstadoSello = 'verificado' | 'sin_verificar' | 'vencido'
+export type EstadoSello = 'verificado' | 'sin_verificar' | 'vencido' | 'no_revisado'
 
 export interface SelloVerificacionProps {
   estado: EstadoSello
@@ -84,6 +84,13 @@ export function SelloVerificacion({
             Requiere revalidación
           </span>
         )
+      case 'no_revisado':
+        return (
+          <span className="inline-flex items-center gap-1 bg-transparent text-carmin text-13 font-medium px-1.5 py-0.5 rounded-sello-sm border border-carmin/50">
+            <AlertTriangle className="w-3.5 h-3.5" aria-hidden />
+            No revisado
+          </span>
+        )
     }
   })()
 
@@ -97,7 +104,7 @@ export function SelloVerificacion({
         onMouseEnter={() => tieneDetalle && setAbierto(true)}
         aria-expanded={abierto}
         aria-controls={abierto ? popId : undefined}
-        aria-label={`Estado de verificación: ${estado === 'verificado' ? 'verificado' : estado === 'sin_verificar' ? 'sin verificar' : 'requiere revalidación'}. ${tieneDetalle ? 'Ver procedencia.' : ''}`}
+        aria-label={`Estado de verificación: ${estado === 'verificado' ? 'verificado' : estado === 'sin_verificar' ? 'sin verificar' : estado === 'no_revisado' ? 'no revisado' : 'requiere revalidación'}. ${tieneDetalle ? 'Ver procedencia.' : ''}`}
         className="inline-flex cursor-pointer rounded-sello-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-petroleo focus-visible:ring-offset-1 disabled:cursor-default"
         disabled={!tieneDetalle}
       >
@@ -158,6 +165,11 @@ export function SelloVerificacion({
           {estado === 'sin_verificar' && (
             <p className="mt-2 pt-2 border-t border-linea text-13 text-ambar">
               Dato no cotejado contra fuente oficial — trátalo como referencia.
+            </p>
+          )}
+          {estado === 'no_revisado' && (
+            <p className="mt-2 pt-2 border-t border-linea text-13 text-carmin">
+              El sistema no pudo consultar la fuente para este dato — el resultado NO lo cubre.
             </p>
           )}
         </div>

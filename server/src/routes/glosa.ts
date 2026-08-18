@@ -21,6 +21,8 @@ import {
   getSimulationStats,
   type GlosaSimulationInput,
 } from '../services/glosa-simulator';
+import { getActiveVersions } from '../services/traceability';
+import { TARIFF_VERSION } from '../lib/tariff-version';
 
 export const glosaRouter = Router();
 export const glosaAdminRouter = Router();
@@ -61,7 +63,25 @@ glosaRouter.post('/simulate', authenticate, async (req: AuthRequest, res: Respon
   try {
     const input = simulateSchema.parse(req.body) as GlosaSimulationInput;
     const result = await simulateGlosa(req.tenantId!, req.userId!, input);
-    res.json({ status: 'ok', data: result });
+    // Frontera Canónica §5.5: la versión normativa se ECO-DEVUELVE por corrida
+    // (cierra el GAP documentado en client/src/lib/corpus-version.ts — el
+    // reporte deja de leer un espejo hardcodeado en el cliente).
+    const versions = await getActiveVersions();
+    res.json({
+      status: 'ok',
+      data: {
+        ...result,
+        versiones: {
+          tigie: versions.tigie,
+          ligie: versions.ligie,
+          rgce: versions.rgce,
+          fuenteNombre: 'Base Única SNICE · DOF',
+          fuenteUrl: 'https://www.snice.gob.mx',
+          fechaPublicacion: TARIFF_VERSION.publishDate,
+          fechaVerificacion: TARIFF_VERSION.snapshotDate,
+        },
+      },
+    });
   } catch (err) { next(err); }
 });
 
@@ -75,6 +95,7 @@ glosaRouter.get('/history', authenticate, async (req: AuthRequest, res: Response
         id: true, fractionCode: true, countryOrigin: true, customsCode: true,
         regimenCode: true, valueUSD: true, riskScore: true, riskLevel: true,
         raProbability: true, actualOutcome: true, createdAt: true, feedbackAt: true,
+        revision: true, // fail-closed: el listado distingue revisiones incompletas
       },
     });
     res.json({ status: 'ok', data: items });

@@ -1657,6 +1657,38 @@ export interface GlosaSimulationInput {
   };
 }
 
+// ── Frontera Canónica (docs/FRONTERA_CANONICA_DESIGN.md §1) ──────────────
+// Todo dato legal de la API declara origen, fuente, fecha de cotejo y estado.
+export type OrigenDato = 'catalogo' | 'tabla' | 'declarado_usuario' | 'llm_no_verificado';
+export type EstadoDato = 'verificado' | 'sin_verificar' | 'no_revisado' | 'vencido' | 'no_disponible';
+
+export interface FuenteLegal {
+  nombre: string;
+  url: string | null;
+  version: string | null;
+  fechaPublicacion: string | null;
+}
+
+export interface DatoLegal<T> {
+  valor: T | null;
+  origen: OrigenDato;
+  fuente: FuenteLegal | null;
+  fechaCotejo: string | null;
+  estado: EstadoDato;
+  metodo?: 'manual' | 'ingesta' | 'scraper';
+  nota?: string;
+}
+
+export type DominioGlosa =
+  | 'precio_estimado' | 'historico_importador' | 'cuotas_compensatorias'
+  | 'padrones' | 'noms' | 'reclasificacion_historica';
+
+export interface RevisionGlosa {
+  dominios: Record<DominioGlosa, 'revisado' | 'no_revisado' | 'no_aplica'>;
+  completa: boolean;
+  noRevisados: { dominio: DominioGlosa; motivo: string }[];
+}
+
 export interface GlosaRiskFlag {
   ruleCode: string;
   severity: 'low' | 'medium' | 'high' | 'critical';
@@ -1665,6 +1697,8 @@ export interface GlosaRiskFlag {
   reason: string;
   recommendation: string;
   legalBasis: string | null;
+  /** Fundamento con procedencia: verde solo si la regla está cotejada en DB. */
+  fundamento: DatoLegal<string> | null;
   weight: number;
 }
 
@@ -1672,6 +1706,9 @@ export interface GlosaSimulationResult {
   simulationId: string;
   riskScore: number;
   riskLevel: 'low' | 'medium' | 'high' | 'critical';
+  /** 'indeterminado' cuando la revisión quedó incompleta — el score parcial
+   *  NO puede presentarse como bajo (fail-closed §5.2). */
+  riskLevelPresentacion: 'low' | 'medium' | 'high' | 'critical' | 'indeterminado';
   raProbability: number;
   cotejoProb: number;
   glosaProb: number;
@@ -1679,7 +1716,20 @@ export interface GlosaSimulationResult {
   recommendations: { priority: 'critical' | 'recommended'; items: string[] }[];
   industryAverage: number | null;
   yourHistory: number | null;
+  revision: RevisionGlosa;
+  tipoCambio: DatoLegal<number> | null;
   disclaimer: string;
+  /** Versión normativa eco-devuelta por ESTA corrida (fuente: backend, ya no
+   *  el espejo hardcodeado corpus-version.ts). */
+  versiones?: {
+    tigie: string;
+    ligie: string;
+    rgce: string | null;
+    fuenteNombre: string;
+    fuenteUrl: string;
+    fechaPublicacion: string;
+    fechaVerificacion: string;
+  };
 }
 
 export interface GlosaSimulationListItem {
@@ -1695,6 +1745,8 @@ export interface GlosaSimulationListItem {
   actualOutcome: string | null;
   createdAt: string;
   feedbackAt: string | null;
+  /** null en simulaciones previas a la revisión por dominios (Fase 2). */
+  revision?: RevisionGlosa | null;
 }
 
 export interface GlosaSimulationFull extends GlosaSimulationListItem {

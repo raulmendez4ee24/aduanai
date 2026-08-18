@@ -5,6 +5,12 @@
  * sobre los datos del pedimento simulado. Cada regla se ejecuta contra
  * datos reales: precio estimado SAT, antidumping, padrones, NOMs, histórico
  * del importador y patrones de fracción/aduana/origen.
+ *
+ * FAIL-CLOSED (Frontera Canónica Fase 2, docs/FRONTERA_CANONICA_DESIGN.md §5):
+ * cada consulta externa es un DOMINIO declarado. Si una consulta falla, el
+ * dominio queda 'no_revisado' con motivo — visible en el resultado, en el
+ * reporte y bloqueando la presentación del score como "bajo". Un fallo de DB
+ * ya NO puede producir un reporte tranquilizador en silencio.
  */
 
 import { prisma } from '../lib/prisma';
@@ -12,6 +18,15 @@ import { ADUANAS, normalizeCustomsCode } from '../lib/anexo22';
 import { lookupEstimatedPrice } from './price-validator';
 import { checkAntidumpingDuty } from './antidumping';
 import { checkRequiredPadrones } from './padron-checker';
+import { validateFraction, FRACTION_UNVERIFIED_MESSAGE } from './fraction-validator';
+import { getOfficialRate, type OfficialRate } from './exchange-rate';
+import { logger } from '../lib/logger';
+import {
+  type DatoLegal,
+  datoVerificado,
+  datoSinVerificar,
+  datoNoRevisado,
+} from '../lib/dato-legal';
 
 export interface GlosaSimulationInput {
   fractionCode: string;
@@ -56,14 +71,38 @@ export interface RiskFlag {
   name: string;
   reason: string;
   recommendation: string;
+  /** Legacy: texto plano del fundamento. Se conserva para compatibilidad. */
   legalBasis: string | null;
+  /** Frontera Canónica: fundamento con procedencia. 'verificado' solo cuando
+   *  la regla tiene fuenteNombre/fuenteUrl/fechaCotejo cotejados en DB. */
+  fundamento: DatoLegal<string> | null;
   weight: number;
+}
+
+// ── Dominios de revisión (fail-closed §5.1) ────────────────────────────────
+export const DOMINIOS_GLOSA = [
+  'precio_estimado',
+  'historico_importador',
+  'cuotas_compensatorias',
+  'padrones',
+  'noms',
+  'reclasificacion_historica',
+] as const;
+export type DominioGlosa = typeof DOMINIOS_GLOSA[number];
+
+export interface RevisionGlosa {
+  dominios: Record<DominioGlosa, 'revisado' | 'no_revisado' | 'no_aplica'>;
+  completa: boolean; // todos 'revisado' | 'no_aplica'
+  noRevisados: { dominio: DominioGlosa; motivo: string }[];
 }
 
 export interface GlosaSimulationResult {
   simulationId: string;
-  riskScore: number;       // 0-100
+  riskScore: number;       // 0-100 — calculado SOLO sobre dominios revisados
   riskLevel: 'low' | 'medium' | 'high' | 'critical';
+  /** Nivel presentable: 'indeterminado' cuando la revisión quedó incompleta.
+   *  La UI NO puede pintar verde un 'low' parcial (§5.2). */
+  riskLevelPresentacion: 'low' | 'medium' | 'high' | 'critical' | 'indeterminado';
   raProbability: number;   // 0-100
   cotejoProb: number;
   glosaProb: number;
@@ -71,7 +110,24 @@ export interface GlosaSimulationResult {
   recommendations: { priority: 'critical' | 'recommended'; items: string[] }[];
   industryAverage: number | null;
   yourHistory: number | null;
+  revision: RevisionGlosa;
+  /** TC usado para derivar valueMXN, con procedencia. null solo si el valor
+   *  MXN vino declarado por el usuario (entonces no se usó TC del sistema). */
+  tipoCambio: DatoLegal<number> | null;
   disclaimer: string;
+}
+
+/** Fuentes de datos inyectables — SOLO para tests (simular fallos de DB).
+ *  En producción siempre se usan las implementaciones reales por default. */
+export interface GlosaFuentes {
+  precioEstimado: typeof lookupEstimatedPrice;
+  cuotas: typeof checkAntidumpingDuty;
+  padrones: typeof checkRequiredPadrones;
+  historicoValores: (tenantId: string, fractionCode: string) => Promise<number[]>;
+  historicoRA: (tenantId: string) => Promise<{ raRate: number; total: number }>;
+  nomsRequeridas: (cleanedFraction: string) => Promise<string[]>;
+  reclasificaciones: (fractionCode: string) => Promise<number>;
+  tipoCambio: () => Promise<OfficialRate>;
 }
 
 // Claves OFICIALES del Apéndice 1 Anexo 22 RGCE 2026 (Fase 4.1, cotejo DOF
@@ -99,12 +155,33 @@ function descriptionIsGeneric(desc: string | undefined): boolean {
   return vague.test(trimmed) && wordCount < 15;
 }
 
-async function loadActiveRules() {
+type ReglaRow = {
+  ruleCode: string; category: string; name: string; severity: string; weight: number;
+  recommendation: string; legalBasis: string | null;
+  fuenteNombre: string | null; fuenteUrl: string | null; fechaCotejo: Date | null;
+};
+
+async function loadActiveRules(): Promise<Map<string, ReglaRow>> {
   const rules = await prisma.glosaRiskRule.findMany({ where: { active: true } });
-  return new Map(rules.map(r => [r.ruleCode, r]));
+  return new Map(rules.map(r => [r.ruleCode, r as ReglaRow]));
 }
 
-function buildFlag(rule: { ruleCode: string; category: string; name: string; severity: string; weight: number; recommendation: string; legalBasis: string | null }, reason: string): RiskFlag {
+/** Fundamento con procedencia: verde solo si la regla tiene cotejo en DB. */
+function fundamentoDeRegla(rule: ReglaRow): DatoLegal<string> | null {
+  if (!rule.legalBasis) return null;
+  if (rule.fuenteNombre && rule.fuenteUrl && rule.fechaCotejo) {
+    return datoVerificado(
+      rule.legalBasis,
+      { nombre: rule.fuenteNombre, url: rule.fuenteUrl, version: null, fechaPublicacion: null },
+      rule.fechaCotejo.toISOString(),
+      'tabla',
+      'manual',
+    );
+  }
+  return datoSinVerificar(rule.legalBasis, 'tabla', 'Cotejo por artículo pendiente para esta regla.');
+}
+
+function buildFlag(rule: ReglaRow, reason: string): RiskFlag {
   return {
     ruleCode: rule.ruleCode,
     severity: rule.severity as RiskFlag['severity'],
@@ -113,11 +190,24 @@ function buildFlag(rule: { ruleCode: string; category: string; name: string; sev
     reason,
     recommendation: rule.recommendation,
     legalBasis: rule.legalBasis,
+    fundamento: fundamentoDeRegla(rule),
     weight: rule.weight,
   };
 }
 
-async function getImporterRAHistory(tenantId: string): Promise<{ raRate: number; total: number }> {
+// ── Implementaciones reales de las fuentes (default de GlosaFuentes) ──────
+
+async function historicoValoresReal(tenantId: string, fractionCode: string): Promise<number[]> {
+  const history = await prisma.classification.findMany({
+    where: { tenantId, fractionCode, inputDeclaredValueUSD: { not: null } },
+    select: { inputDeclaredValueUSD: true },
+    take: 50,
+    orderBy: { createdAt: 'desc' },
+  });
+  return history.map(h => Number(h.inputDeclaredValueUSD ?? 0)).filter(v => v > 0);
+}
+
+async function historicoRAReal(tenantId: string): Promise<{ raRate: number; total: number }> {
   const sims = await prisma.glosaSimulation.findMany({
     where: { tenantId, actualOutcome: { not: null } },
     select: { actualOutcome: true },
@@ -127,6 +217,40 @@ async function getImporterRAHistory(tenantId: string): Promise<{ raRate: number;
   const raCount = sims.filter(s => s.actualOutcome === 'ra_yes').length;
   return { raRate: Math.round((raCount / sims.length) * 100), total: sims.length };
 }
+
+async function nomsRequeridasReal(cleaned: string): Promise<string[]> {
+  const noms = await prisma.fractionRegulation.findMany({
+    where: {
+      active: true,
+      type: 'NOM',
+      OR: [
+        { fractionCode: cleaned, matchType: 'exact' },
+        { matchType: 'prefix' },
+      ],
+    },
+    take: 10,
+  });
+  return noms
+    .filter(n => n.matchType === 'exact' ? cleaned === n.fractionCode : cleaned.startsWith(n.fractionCode))
+    .map(n => n.code);
+}
+
+async function reclasificacionesReal(fractionCode: string): Promise<number> {
+  return prisma.classification.count({
+    where: { fractionCode, useBasedAnalysis: { not: undefined } },
+  });
+}
+
+const FUENTES_REALES: GlosaFuentes = {
+  precioEstimado: lookupEstimatedPrice,
+  cuotas: checkAntidumpingDuty,
+  padrones: checkRequiredPadrones,
+  historicoValores: historicoValoresReal,
+  historicoRA: historicoRAReal,
+  nomsRequeridas: nomsRequeridasReal,
+  reclasificaciones: reclasificacionesReal,
+  tipoCambio: getOfficialRate,
+};
 
 async function getIndustryAverage(fractionCode: string): Promise<number | null> {
   const prefix = fractionCode.replace(/[.\s-]/g, '').slice(0, 4);
@@ -140,8 +264,29 @@ async function getIndustryAverage(fractionCode: string): Promise<number | null> 
   return Math.round((ra / sims.length) * 100);
 }
 
-export async function simulateGlosa(tenantId: string, userId: string, input: GlosaSimulationInput): Promise<GlosaSimulationResult> {
+export async function simulateGlosa(
+  tenantId: string,
+  userId: string,
+  input: GlosaSimulationInput,
+  fuentesOverride: Partial<GlosaFuentes> = {}, // SOLO tests — simular fallos
+): Promise<GlosaSimulationResult> {
+  const fuentes: GlosaFuentes = { ...FUENTES_REALES, ...fuentesOverride };
+
+  // ── Entrada canónica (§5.3): fracción inexistente/inactiva → error explícito.
+  // Un score bajo sobre una fracción inexistente es el reporte tranquilizador
+  // en su forma más pura.
+  const fractionCheck = await validateFraction(input.fractionCode);
+  if (!fractionCheck.valid) {
+    throw Object.assign(
+      new Error(`La fracción "${input.fractionCode}" no existe o no está activa en el catálogo TIGIE vigente (${fractionCheck.reason}). ${FRACTION_UNVERIFIED_MESSAGE}`),
+      { status: 400 },
+    );
+  }
+
+  // Las reglas son el motor completo: sin ellas no hay simulación honesta.
+  // Aquí sí se lanza (falla la request), no se degrada.
   const rules = await loadActiveRules();
+
   const flags: RiskFlag[] = [];
   let riskScore = 0;
   const addFlag = (ruleCode: string, reason: string) => {
@@ -151,40 +296,59 @@ export async function simulateGlosa(tenantId: string, userId: string, input: Glo
     riskScore += r.weight;
   };
 
-  // ── 1. Precio estimado SAT ──
-  try {
-    const est = await lookupEstimatedPrice(input.fractionCode, input.countryOrigin);
-    if (est) {
-      const declared = input.unitValueUSD;
-      const estimated = Number(est.estimatedValue ?? 0);
-      if (estimated > 0 && declared < estimated) {
-        const deltaPct = Math.round(((estimated - declared) / estimated) * 100);
-        if (deltaPct >= 30) {
-          addFlag('VAL_001', `Valor declarado USD ${declared.toFixed(2)} está ${deltaPct}% por debajo del estimado SAT (USD ${estimated.toFixed(2)}).`);
-        }
-      }
+  // ── Registro fail-closed por dominio (§5.1). Cero catch silenciosos. ──
+  const dominios = Object.fromEntries(
+    DOMINIOS_GLOSA.map(d => [d, 'revisado']),
+  ) as RevisionGlosa['dominios'];
+  const noRevisados: RevisionGlosa['noRevisados'] = [];
+  async function revisar<T>(dominio: DominioGlosa, fn: () => Promise<T>): Promise<T | null> {
+    try {
+      const out = await fn();
+      dominios[dominio] = 'revisado';
+      return out;
+    } catch (err) {
+      const motivo = err instanceof Error ? err.message : String(err);
+      dominios[dominio] = 'no_revisado';
+      noRevisados.push({ dominio, motivo });
+      logger.warn(`Pre-Glosa: dominio ${dominio} NO revisado — ${motivo}`, {
+        action: 'glosa_dominio_no_revisado',
+        entity: 'glosa_simulation',
+        tenantId,
+        metadata: { dominio, motivo, fractionCode: input.fractionCode },
+      });
+      return null;
     }
-  } catch { /* silent */ }
+  }
 
-  // ── 2. Histórico del importador (variación valor) ──
-  try {
-    const history = await prisma.classification.findMany({
-      where: { tenantId, fractionCode: input.fractionCode, inputDeclaredValueUSD: { not: null } },
-      select: { inputDeclaredValueUSD: true },
-      take: 50,
-      orderBy: { createdAt: 'desc' },
-    });
-    if (history.length >= 3) {
-      const values = history.map(h => Number(h.inputDeclaredValueUSD ?? 0)).filter(v => v > 0);
-      if (values.length >= 3) {
-        const avg = values.reduce((s, v) => s + v, 0) / values.length;
-        const deviation = Math.abs((input.unitValueUSD - avg) / avg) * 100;
-        if (deviation >= 25) {
-          addFlag('VAL_002', `Variación ${Math.round(deviation)}% vs valor histórico promedio (USD ${avg.toFixed(2)}, n=${values.length}).`);
-        }
+  // ── 1. Precio estimado SAT ── (dominio: precio_estimado)
+  const est = await revisar('precio_estimado', () =>
+    fuentes.precioEstimado(input.fractionCode, input.countryOrigin));
+  if (est) {
+    const declared = input.unitValueUSD;
+    const estimated = Number(est.estimatedValue ?? 0);
+    if (estimated > 0 && declared < estimated) {
+      const deltaPct = Math.round(((estimated - declared) / estimated) * 100);
+      if (deltaPct >= 30) {
+        addFlag('VAL_001', `Valor declarado USD ${declared.toFixed(2)} está ${deltaPct}% por debajo del estimado SAT (USD ${estimated.toFixed(2)}).`);
       }
     }
-  } catch { /* silent */ }
+  }
+
+  // ── 2. Histórico del importador (variación valor + tasa RA propia) ──
+  // (dominio: historico_importador — agrupa las dos consultas que afectan score)
+  const historico = await revisar('historico_importador', async () => {
+    const values = await fuentes.historicoValores(tenantId, input.fractionCode);
+    const ra = await fuentes.historicoRA(tenantId);
+    return { values, ra };
+  });
+  if (historico && historico.values.length >= 3) {
+    const values = historico.values;
+    const avg = values.reduce((s, v) => s + v, 0) / values.length;
+    const deviation = Math.abs((input.unitValueUSD - avg) / avg) * 100;
+    if (deviation >= 25) {
+      addFlag('VAL_002', `Variación ${Math.round(deviation)}% vs valor histórico promedio (USD ${avg.toFixed(2)}, n=${values.length}).`);
+    }
+  }
 
   // ── 3. Vinculación posible no declarada (heurística MVE) ──
   if (input.declaresLink === false) {
@@ -195,7 +359,7 @@ export async function simulateGlosa(tenantId: string, userId: string, input: Glo
     }
   }
 
-  // ── 4. Triangulación ──
+  // ── 4. Triangulación ── (determinista, no consulta)
   if (
     input.countryOrigin !== input.countryProvider &&
     ASIAN_TRIANGULATION_PROVIDERS.has(input.countryProvider) &&
@@ -204,74 +368,58 @@ export async function simulateGlosa(tenantId: string, userId: string, input: Glo
     addFlag('ORI_001', `Origen declarado ${input.countryOrigin} pero embarque desde ${input.countryProvider} para fracción típicamente china.`);
   }
 
-  // ── 5. TMEC sin análisis de regla ──
+  // ── 5. TMEC sin análisis de regla ── (determinista)
   if (input.appliesTMEC && input.hasTMECCertificate && !input.documents?.originCertificate) {
     addFlag('ORI_002', 'Aplica TMEC pero el certificado de origen no está vinculado al pedimento.');
   }
 
-  // ── 6. Cuota compensatoria activa no declarada ──
-  try {
-    const ad = await checkAntidumpingDuty({ fractionCode: input.fractionCode, countryOfOrigin: input.countryOrigin });
-    if (ad.length > 0 && !input.declaresAntidumping) {
-      const d = ad[0]!.duty;
-      addFlag('ORI_003', `Cuota compensatoria activa: ${d.resolutionNumber ?? d.expedienteUPCI ?? '—'} (${d.rate} ${d.rateUnit}).`);
-    }
-  } catch { /* silent */ }
+  // ── 6. Cuota compensatoria activa no declarada ── (dominio: cuotas_compensatorias)
+  const cuotas = await revisar('cuotas_compensatorias', () =>
+    fuentes.cuotas({ fractionCode: input.fractionCode, countryOfOrigin: input.countryOrigin }));
+  if (cuotas && cuotas.length > 0 && !input.declaresAntidumping) {
+    const d = cuotas[0]!.duty;
+    addFlag('ORI_003', `Cuota compensatoria activa: ${d.resolutionNumber ?? d.expedienteUPCI ?? '—'} (${d.rate} ${d.rateUnit}).`);
+  }
 
-  // ── 7. Padrones SAT ──
-  try {
-    const padron = await checkRequiredPadrones(tenantId, input.fractionCode);
-    if (!padron.canOperate) {
-      const missing = padron.blocking.map(b => b.type === 'general' ? 'General' : `Sectorial ${b.sectorialCode}`).join(', ');
-      addFlag('PAD_001', `Padrón requerido no inscrito: ${missing}.`);
-    }
-  } catch { /* silent */ }
+  // ── 7. Padrones SAT ── (dominio: padrones)
+  const padron = await revisar('padrones', () =>
+    fuentes.padrones(tenantId, input.fractionCode));
+  if (padron && !padron.canOperate) {
+    const missing = padron.blocking.map(b => b.type === 'general' ? 'General' : `Sectorial ${b.sectorialCode}`).join(', ');
+    addFlag('PAD_001', `Padrón requerido no inscrito: ${missing}.`);
+  }
 
-  // ── 8. TMEC sin certificado ──
+  // ── 8. TMEC sin certificado ── (determinista)
   if (input.appliesTMEC && !input.hasTMECCertificate) {
     addFlag('DOC_001', 'Se declara preferencia TMEC pero no hay certificado de origen vinculado.');
   }
 
-  // ── 9. NOMs/permisos no declarados ──
-  if (!input.declaresNOMs) {
-    try {
-      const cleaned = input.fractionCode.replace(/[.\s-]/g, '');
-      const noms = await prisma.fractionRegulation.findMany({
-        where: {
-          active: true,
-          type: 'NOM',
-          OR: [
-            { fractionCode: cleaned, matchType: 'exact' },
-            { matchType: 'prefix' },
-          ],
-        },
-        take: 10,
-      });
-      const matches = noms.filter(n => n.matchType === 'exact' ? cleaned === n.fractionCode : cleaned.startsWith(n.fractionCode));
-      if (matches.length > 0) {
-        const list = matches.map(n => n.code).slice(0, 3).join(', ');
-        addFlag('DOC_002', `Fracción requiere NOM(s) ${list} pero no se declaró cumplimiento.`);
-      }
-    } catch { /* silent */ }
+  // ── 9. NOMs requeridas ── (dominio: noms)
+  // FAIL-CLOSED §5.1: la consulta corre SIEMPRE, aunque el usuario declare
+  // cumplimiento. La declaración solo suprime la bandera DOC_002 (queda como
+  // declarado_usuario) — saltarse la consulta por una declaración era un
+  // fail-open disfrazado de optimización.
+  const cleaned = input.fractionCode.replace(/[.\s-]/g, '');
+  const nomsRequeridas = await revisar('noms', () => fuentes.nomsRequeridas(cleaned));
+  if (nomsRequeridas && nomsRequeridas.length > 0 && !input.declaresNOMs) {
+    const list = nomsRequeridas.slice(0, 3).join(', ');
+    addFlag('DOC_002', `Fracción requiere NOM(s) ${list} pero no se declaró cumplimiento.`);
   }
 
-  // ── 10. Reclasificación histórica ──
-  try {
-    const reclassified = await prisma.classification.count({
-      where: { fractionCode: input.fractionCode, useBasedAnalysis: { not: undefined } },
-    });
-    if (reclassified > 5) {
-      addFlag('CLA_001', `${reclassified} clasificaciones revisadas o reclasificadas para esta fracción en plataforma.`);
-    }
-  } catch { /* silent */ }
+  // ── 10. Reclasificación histórica ── (dominio: reclasificacion_historica)
+  const reclassified = await revisar('reclasificacion_historica', () =>
+    fuentes.reclasificaciones(input.fractionCode));
+  if (reclassified !== null && reclassified > 5) {
+    addFlag('CLA_001', `${reclassified} clasificaciones revisadas o reclasificadas para esta fracción en plataforma.`);
+  }
 
-  // ── 11. Descripción genérica ──
+  // ── 11. Descripción genérica ── (determinista)
   if (descriptionIsGeneric(input.productDescription)) {
     addFlag('CLA_002', `Descripción del producto demasiado breve o genérica${input.productDescription ? ` ("${input.productDescription.slice(0, 60)}")` : ''}.`);
   }
 
-  // ── 12. Fracción "los demás" .99.99 ──
-  if (/\.99\.99$/.test(input.fractionCode) || /9999$/.test(input.fractionCode.replace(/[.\s-]/g, ''))) {
+  // ── 12. Fracción "los demás" .99.99 ── (determinista)
+  if (/\.99\.99$/.test(input.fractionCode) || /9999$/.test(cleaned)) {
     addFlag('CLA_003', 'Fracción residual ".99.99" (los demás) — revisada con frecuencia para verificar fracción específica.');
   }
 
@@ -283,16 +431,16 @@ export async function simulateGlosa(tenantId: string, userId: string, input: Glo
     addFlag('REG_001', `Importación temporal IMMEX (clave ${input.regimenCode.toUpperCase()}) sin certificación IVA-IEPS — IVA causado se paga o garantiza en el despacho (Art. 28-A LIVA).`);
   }
 
-  // ── 14. Aduana de alto riesgo ──
+  // ── 14. Aduana de alto riesgo ── (determinista sobre catálogo en código)
   const customsClave = normalizeCustomsCode(input.customsCode);
   if (HIGH_RISK_CUSTOMS.has(customsClave)) {
     const aduana = ADUANAS.find(a => a.clave === customsClave);
     addFlag('ADU_001', `Aduana ${customsClave}${aduana ? ` (${aduana.denominacion})` : ''} con tasa histórica alta de RA.`);
   }
 
-  // ── Score ajustado por histórico propio ──
-  const ownHistory = await getImporterRAHistory(tenantId);
-  if (ownHistory.total >= 5 && ownHistory.raRate > 15) {
+  // ── Score ajustado por histórico propio (parte del dominio historico) ──
+  const ownHistory = historico?.ra ?? null;
+  if (ownHistory && ownHistory.total >= 5 && ownHistory.raRate > 15) {
     riskScore += 10;
   }
 
@@ -302,7 +450,17 @@ export async function simulateGlosa(tenantId: string, userId: string, input: Glo
     riskScore >= 60 ? 'high' :
     riskScore >= 30 ? 'medium' : 'low';
 
-  // Probabilidades derivadas
+  // ── Revisión (§5.2): el gate de presentación se decide en el BACKEND ──
+  const revision: RevisionGlosa = {
+    dominios,
+    completa: noRevisados.length === 0,
+    noRevisados,
+  };
+  const riskLevelPresentacion: GlosaSimulationResult['riskLevelPresentacion'] =
+    revision.completa ? riskLevel : 'indeterminado';
+
+  // Probabilidades derivadas (heurísticas, no calibradas; heredan la marca
+  // parcial vía `revision` — la UI no debe presentarlas sin ese contexto)
   const raProbability = Math.min(95, Math.round(riskScore * 0.85));
   const glosaProb = Math.min(90, Math.round(riskScore * 0.7));
   const cotejoProb = Math.min(98, Math.round(40 + riskScore * 0.4)); // cotejo documental siempre alto
@@ -333,7 +491,52 @@ export async function simulateGlosa(tenantId: string, userId: string, input: Glo
     });
   }
 
-  const industryAverage = await getIndustryAverage(input.fractionCode);
+  // industryAverage es informativo (no afecta score); si falla → null y log,
+  // sin marcar dominio (no forma parte de la revisión de la operación).
+  let industryAverage: number | null = null;
+  try {
+    industryAverage = await getIndustryAverage(input.fractionCode);
+  } catch (err) {
+    logger.warn('Pre-Glosa: industryAverage no disponible', {
+      action: 'glosa_industry_average_fail',
+      errorMessage: err instanceof Error ? err.message : String(err),
+    });
+  }
+
+  // ── Valor MXN (§5.4): TC real con procedencia — JAMÁS una constante ──
+  // Hoy ninguna regla de score depende del MXN (las reglas operan en USD);
+  // por eso un fallo de TC no marca dominio no_revisado: se persiste null y
+  // el DatoLegal 'no_revisado' del TC deja el hueco visible, no rellenado.
+  let valueMXN: number | null = null;
+  let tipoCambio: DatoLegal<number> | null = null;
+  if (input.totalValueMXN != null) {
+    // MXN declarado por el usuario: no se usó TC del sistema → tipoCambio null.
+    // El valor mismo queda registrado como declarado en pedimentoData.
+    valueMXN = input.totalValueMXN;
+    tipoCambio = null;
+  } else {
+    try {
+      const rate = await fuentes.tipoCambio();
+      valueMXN = Math.round(input.totalValueUSD * rate.rate * 100) / 100;
+      const fuenteTC = {
+        nombre: rate.isOfficial ? 'Banxico FIX (SF43718, DOF)' : `Tipo de cambio (${rate.source})`,
+        url: rate.isOfficial ? 'https://www.banxico.org.mx/SieAPIRest/service/v1/series/SF43718' : null,
+        version: null,
+        fechaPublicacion: rate.asOf.toISOString().slice(0, 10),
+      };
+      tipoCambio = rate.isOfficial
+        ? datoVerificado(rate.rate, fuenteTC, rate.asOf.toISOString(), 'tabla', 'ingesta', rate.warning ?? undefined)
+        : datoSinVerificar(rate.rate, 'tabla', rate.warning ?? `Fuente ${rate.source}, no Banxico.`, fuenteTC);
+    } catch (err) {
+      const motivo = err instanceof Error ? err.message : String(err);
+      tipoCambio = datoNoRevisado(`TC del día no disponible: ${motivo}`);
+      valueMXN = null;
+      logger.warn('Pre-Glosa: TC no disponible — valueMXN queda null (nunca constante)', {
+        action: 'glosa_tc_no_disponible',
+        errorMessage: motivo,
+      });
+    }
+  }
 
   // Persistir
   const created = await prisma.glosaSimulation.create({
@@ -346,7 +549,9 @@ export async function simulateGlosa(tenantId: string, userId: string, input: Glo
       customsCode: input.customsCode,
       regimenCode: input.regimenCode,
       valueUSD: input.totalValueUSD,
-      valueMXN: input.totalValueMXN ?? input.totalValueUSD * 17,
+      valueMXN,
+      exchangeRateUsed: tipoCambio as unknown as object,
+      revision: revision as unknown as object,
       weightKg: input.weightKg,
       units: input.units ?? null,
       unitMeasure: input.unitMeasure ?? null,
@@ -358,7 +563,7 @@ export async function simulateGlosa(tenantId: string, userId: string, input: Glo
       riskFlags: flags as unknown as object,
       recommendations: recommendations as unknown as object,
       industryAverage: industryAverage ?? null,
-      yourHistory: ownHistory.total >= 5 ? ownHistory.raRate : null,
+      yourHistory: ownHistory && ownHistory.total >= 5 ? ownHistory.raRate : null,
     },
   });
 
@@ -366,13 +571,16 @@ export async function simulateGlosa(tenantId: string, userId: string, input: Glo
     simulationId: created.id,
     riskScore,
     riskLevel,
+    riskLevelPresentacion,
     raProbability,
     cotejoProb,
     glosaProb,
     flags,
     recommendations,
     industryAverage,
-    yourHistory: ownHistory.total >= 5 ? ownHistory.raRate : null,
+    yourHistory: ownHistory && ownHistory.total >= 5 ? ownHistory.raRate : null,
+    revision,
+    tipoCambio,
     disclaimer: DISCLAIMER,
   };
 }

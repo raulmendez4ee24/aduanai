@@ -28,9 +28,8 @@ import {
   Printer, RotateCcw, CheckCircle2, AlertTriangle, ShieldAlert, ClipboardCheck,
 } from 'lucide-react'
 import { api } from '../lib/api'
-import type { GlosaSimulationInput, GlosaSimulationResult, GlosaRiskFlag, Anexo22Catalogs } from '../lib/api'
+import type { GlosaSimulationInput, GlosaSimulationResult, GlosaRiskFlag, DominioGlosa, Anexo22Catalogs } from '../lib/api'
 import { Button, Card, Badge, Input, Select, SelloVerificacion, type EstadoSello } from '../components/ui'
-import { CORPUS_VERSION } from '../lib/corpus-version'
 
 // ── Mapa flag.category → dato del pedimento (solo lo que mapea de verdad) ──
 // Homenaje honesto a la estructura del pedimento: mostramos el NOMBRE del dato
@@ -71,27 +70,68 @@ const LEYES: { re: RegExp; nombre: string; url: string }[] = [
   { re: /Anexo 22/i, nombre: 'Anexo 22 RGCE 2026', url: 'https://www.dof.gob.mx/nota_detalle.php?codigo=5778300&fecha=15/01/2026' },
 ]
 
-interface FuenteCitada { id: string; texto: string; nombre?: string; url?: string; estado: EstadoSello }
+interface FuenteCitada {
+  id: string; texto: string; nombre?: string; url?: string; estado: EstadoSello
+  fechaPublicacion?: string; fechaVerificacion?: string; metodo?: 'manual' | 'scraper'
+}
 
-function fuenteDeCita(legalBasis: string): FuenteCitada {
-  const m = LEYES.find(l => l.re.test(legalBasis))
+// Frontera Canónica Fase 2: si el flag trae `fundamento` (DatoLegal), el sello
+// sale de su procedencia real — verde SOLO cuando la regla está cotejada en DB.
+// Sin fundamento estructurado, cae al comportamiento previo (ámbar honesto).
+function fuenteDeFlag(flag: GlosaRiskFlag): FuenteCitada | null {
+  const texto = flag.fundamento?.valor ?? flag.legalBasis
+  if (!texto) return null
+  const f = flag.fundamento
+  if (f && f.estado === 'verificado' && f.fuente) {
+    return {
+      id: texto,
+      texto,
+      nombre: f.fuente.nombre,
+      url: f.fuente.url ?? undefined,
+      estado: 'verificado',
+      fechaPublicacion: f.fuente.fechaPublicacion ?? undefined,
+      fechaVerificacion: f.fechaCotejo ?? undefined,
+      metodo: f.metodo === 'ingesta' ? 'scraper' : f.metodo,
+    }
+  }
+  const m = LEYES.find(l => l.re.test(texto))
   return {
-    id: legalBasis,
-    texto: legalBasis,
+    id: texto,
+    texto,
     nombre: m?.nombre,
     url: m?.url,
-    estado: 'sin_verificar', // cotejo por-artículo pendiente (GAP); ámbar honesto
+    estado: 'sin_verificar', // cotejo por-artículo pendiente; ámbar honesto
   }
 }
 
+// ── Dominios de la revisión fail-closed (§5.1) ────────────────────────────
+const DOMINIO_LABEL: Record<DominioGlosa, string> = {
+  precio_estimado: 'Precio estimado SAT',
+  historico_importador: 'Histórico del importador',
+  cuotas_compensatorias: 'Cuotas compensatorias',
+  padrones: 'Padrones SAT',
+  noms: 'NOMs requeridas',
+  reclasificacion_historica: 'Reclasificación histórica',
+}
+
 // ── Semáforo del veredicto ────────────────────────────────────────────────
+// FAIL-CLOSED (§5.2): con revisión incompleta el veredicto NUNCA puede ser el
+// verde "Sin hallazgos" — un dominio sin revisar puede esconder exactamente el
+// hallazgo que falta. El backend ya manda riskLevelPresentacion='indeterminado';
+// aquí se respeta en la presentación.
 function veredicto(result: GlosaSimulationResult) {
   const criticos = result.flags.filter(f => f.severity === 'critical').length
   const observaciones = result.flags.filter(f => f.severity !== 'critical').length
+  const incompleta = result.revision ? !result.revision.completa : false
   if (criticos > 0) return {
     color: 'carmin' as const, icono: ShieldAlert,
-    titulo: `${criticos} ${criticos === 1 ? 'hallazgo crítico' : 'hallazgos críticos'}`,
+    titulo: `${criticos} ${criticos === 1 ? 'hallazgo crítico' : 'hallazgos críticos'}${incompleta ? ' · revisión incompleta' : ''}`,
     frase: 'Hay observaciones que un glosador del SAT muy probablemente marcaría. Atiéndelas antes de transmitir el pedimento.',
+  }
+  if (incompleta) return {
+    color: 'carmin' as const, icono: ShieldAlert,
+    titulo: 'Resultado indeterminado — revisión incompleta',
+    frase: `El sistema no pudo consultar ${result.revision.noRevisados.length === 1 ? 'uno de los dominios' : `${result.revision.noRevisados.length} dominios`} de la revisión. Los hallazgos listados son válidos, pero la ausencia de hallazgos en los dominios no revisados NO significa que estén limpios. No transmitas confiando en este reporte parcial.`,
   }
   if (observaciones > 0) return {
     color: 'ambar' as const, icono: AlertTriangle,
@@ -262,10 +302,11 @@ export function GlosaSimulatorPage() {
   if (!result || !generadoEn) return null
   const v = veredicto(result)
   const folio = folioDe(result.simulationId, generadoEn)
+  const revisionIncompleta = result.revision ? !result.revision.completa : false
   const fuentes = [...new Map(
-    result.flags.filter(f => f.legalBasis).map(f => { const s = fuenteDeCita(f.legalBasis as string); return [s.texto, s] }),
+    result.flags.map(f => fuenteDeFlag(f)).filter((s): s is FuenteCitada => s !== null).map(s => [s.texto, s]),
   ).values()]
-  const pieTexto = `${folio} · ${fechaHoraLarga(generadoEn)} · Generado por ADUANAI — cada cita es verificable en la fuente oficial`
+  const pieTexto = `${folio} · ${fechaHoraLarga(generadoEn)} · Generado por ADUANAI — cada cita indica su estado de verificación${revisionIncompleta ? ' · REVISIÓN INCOMPLETA' : ''}`
 
   return (
     <div>
@@ -295,20 +336,50 @@ export function GlosaSimulatorPage() {
                 <div><dt className="inline text-tinta-suave">Fracción: </dt><dd className="inline font-sello-mono text-tinta">{form.fractionCode}</dd></div>
               </dl>
             </div>
-            {/* Versión del corpus — cotejo REAL (verde) */}
-            <div className="mt-4 pt-4 border-t border-linea flex items-center gap-2 flex-wrap">
-              <span className="text-sm text-tinta-suave">Base normativa usada:</span>
-              <span className="text-sm text-tinta">{CORPUS_VERSION.tigie} · {CORPUS_VERSION.baseUnica}</span>
-              <SelloVerificacion
-                estado="verificado"
-                fuenteNombre={CORPUS_VERSION.fuenteNombre}
-                fuenteUrl={CORPUS_VERSION.fuenteUrl}
-                fechaPublicacion={CORPUS_VERSION.fechaPublicacion}
-                fechaVerificacion={CORPUS_VERSION.fechaVerificacion}
-                metodo="manual"
-              />
-            </div>
+            {/* Versión normativa — ECO-DEVUELTA por el backend en ESTA corrida
+                (Frontera Canónica §5.5: ya no se lee el espejo del cliente) */}
+            {result.versiones && (
+              <div className="mt-4 pt-4 border-t border-linea flex items-center gap-2 flex-wrap">
+                <span className="text-sm text-tinta-suave">Base normativa usada:</span>
+                <span className="text-sm text-tinta">{result.versiones.tigie}</span>
+                <SelloVerificacion
+                  estado="verificado"
+                  fuenteNombre={result.versiones.fuenteNombre}
+                  fuenteUrl={result.versiones.fuenteUrl}
+                  fechaPublicacion={result.versiones.fechaPublicacion}
+                  fechaVerificacion={result.versiones.fechaVerificacion}
+                  metodo="manual"
+                />
+              </div>
+            )}
           </header>
+
+          {/* Revisión incompleta — banner FAIL-CLOSED, también en impresión (§5.2) */}
+          {revisionIncompleta && (
+            <section className="mt-6 doc-evitar-corte">
+              <div className="rounded-sello border border-carmin/40 bg-carmin-suave p-5">
+                <div className="flex items-center gap-3">
+                  <ShieldAlert className="w-6 h-6 shrink-0 text-carmin" strokeWidth={1.5} aria-hidden />
+                  <p className="font-sello-display text-22 text-carmin">
+                    Revisión incompleta — {result.revision.noRevisados.length} {result.revision.noRevisados.length === 1 ? 'dominio sin revisar' : 'dominios sin revisar'}
+                  </p>
+                </div>
+                <ul className="mt-3 space-y-1.5">
+                  {result.revision.noRevisados.map(n => (
+                    <li key={n.dominio} className="flex items-start gap-2 text-sm text-tinta">
+                      <SelloVerificacion estado="no_revisado" className="shrink-0" />
+                      <span><span className="font-medium">{DOMINIO_LABEL[n.dominio]}</span> — {n.motivo}</span>
+                    </li>
+                  ))}
+                </ul>
+                <p className="text-sm text-tinta leading-relaxed mt-3 pt-3 border-t border-carmin/20">
+                  El score y las probabilidades de este reporte se calcularon SOLO sobre los dominios revisados.
+                  Un dominio sin revisar puede esconder exactamente el hallazgo que falta — este resultado no puede
+                  presentarse como riesgo bajo.
+                </p>
+              </div>
+            </section>
+          )}
 
           {/* Resumen ejecutivo */}
           <section className="mt-8 doc-evitar-corte">
@@ -321,12 +392,39 @@ export function GlosaSimulatorPage() {
               </div>
               <p className="text-base text-tinta leading-relaxed mt-2">{v.frase}</p>
               <div className="mt-3 pt-3 border-t border-linea grid grid-cols-3 gap-4 text-13">
-                <div><span className="text-tinta-suave">Prob. de revisión: </span><span className="font-sello-mono text-tinta">{Math.round(result.raProbability)}%</span></div>
-                <div><span className="text-tinta-suave">Prob. de cotejo: </span><span className="font-sello-mono text-tinta">{Math.round(result.cotejoProb)}%</span></div>
-                <div><span className="text-tinta-suave">Prob. de glosa: </span><span className="font-sello-mono text-tinta">{Math.round(result.glosaProb)}%</span></div>
+                <div><span className="text-tinta-suave">Prob. de revisión: </span><span className="font-sello-mono text-tinta">{Math.round(result.raProbability)}%{revisionIncompleta && '*'}</span></div>
+                <div><span className="text-tinta-suave">Prob. de cotejo: </span><span className="font-sello-mono text-tinta">{Math.round(result.cotejoProb)}%{revisionIncompleta && '*'}</span></div>
+                <div><span className="text-tinta-suave">Prob. de glosa: </span><span className="font-sello-mono text-tinta">{Math.round(result.glosaProb)}%{revisionIncompleta && '*'}</span></div>
               </div>
+              {revisionIncompleta && (
+                <p className="text-13 text-carmin mt-2">* Cifras parciales — calculadas solo sobre los dominios revisados.</p>
+              )}
             </div>
           </section>
+
+          {/* Cobertura de la revisión — qué se consultó y qué no (§5.1) */}
+          {result.revision && (
+            <section className="mt-8 doc-evitar-corte">
+              <h2 className="text-13 uppercase tracking-wide text-tinta-suave mb-3">Cobertura de la revisión</h2>
+              <ul className="grid sm:grid-cols-2 gap-x-6 gap-y-1.5">
+                {(Object.entries(result.revision.dominios) as [DominioGlosa, 'revisado' | 'no_revisado' | 'no_aplica'][]).map(([dom, estado]) => (
+                  <li key={dom} className="flex items-center gap-2 text-sm">
+                    {estado === 'revisado'
+                      ? <CheckCircle2 className="w-4 h-4 text-sello shrink-0" strokeWidth={1.5} aria-hidden />
+                      : estado === 'no_revisado'
+                        ? <ShieldAlert className="w-4 h-4 text-carmin shrink-0" strokeWidth={1.5} aria-hidden />
+                        : <span className="w-4 h-4 rounded-full border border-linea shrink-0" aria-hidden />}
+                    <span className={estado === 'no_revisado' ? 'text-carmin font-medium' : 'text-tinta'}>
+                      {DOMINIO_LABEL[dom]}
+                    </span>
+                    <span className="text-13 text-tinta-suave">
+                      {estado === 'revisado' ? '· consultado' : estado === 'no_revisado' ? '· NO revisado' : '· no aplica'}
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            </section>
+          )}
 
           {/* Hallazgos */}
           <section className="mt-8">
@@ -350,13 +448,23 @@ export function GlosaSimulatorPage() {
                       </div>
                       <p className="text-base font-medium text-tinta mt-1.5">{f.name}</p>
                       <p className="text-sm text-tinta leading-relaxed mt-1">{f.reason}</p>
-                      {f.legalBasis && (
-                        <div className="flex items-center gap-2 flex-wrap mt-2">
-                          <span className="text-sm text-tinta-suave">Fundamento:</span>
-                          <span className="text-sm text-tinta">{f.legalBasis}</span>
-                          <SelloVerificacion estado="sin_verificar" fuenteNombre={fuenteDeCita(f.legalBasis).nombre} fuenteUrl={fuenteDeCita(f.legalBasis).url} />
-                        </div>
-                      )}
+                      {(() => {
+                        const s = fuenteDeFlag(f)
+                        return s && (
+                          <div className="flex items-center gap-2 flex-wrap mt-2">
+                            <span className="text-sm text-tinta-suave">Fundamento:</span>
+                            <span className="text-sm text-tinta">{s.texto}</span>
+                            <SelloVerificacion
+                              estado={s.estado}
+                              fuenteNombre={s.nombre}
+                              fuenteUrl={s.url}
+                              fechaPublicacion={s.fechaPublicacion}
+                              fechaVerificacion={s.fechaVerificacion}
+                              metodo={s.metodo}
+                            />
+                          </div>
+                        )
+                      })()}
                       <div className="mt-2 rounded-sello-sm bg-papel-2 border border-linea px-3 py-2">
                         <span className="text-13 uppercase tracking-wide text-tinta-suave">Recomendación · </span>
                         <span className="text-sm text-tinta">{f.recommendation}</span>
@@ -396,7 +504,14 @@ export function GlosaSimulatorPage() {
                   <li key={f.id} className="doc-evitar-corte">
                     <div className="flex items-center gap-2 flex-wrap">
                       <span className="text-base text-tinta">{f.texto}</span>
-                      <SelloVerificacion estado={f.estado} fuenteNombre={f.nombre} fuenteUrl={f.url} />
+                      <SelloVerificacion
+                        estado={f.estado}
+                        fuenteNombre={f.nombre}
+                        fuenteUrl={f.url}
+                        fechaPublicacion={f.fechaPublicacion}
+                        fechaVerificacion={f.fechaVerificacion}
+                        metodo={f.metodo}
+                      />
                     </div>
                     {f.url && <p className="font-sello-mono text-13 text-tinta-suave break-all mt-0.5">{f.nombre}: {f.url}</p>}
                   </li>
@@ -404,8 +519,8 @@ export function GlosaSimulatorPage() {
               </ul>
             )}
             <p className="text-13 text-tinta-suave mt-4 pt-3 border-t border-linea leading-relaxed">
-              El sello ámbar indica que la cita aún no está cotejada artículo por artículo contra la fuente
-              dentro de esta respuesta; la URL apunta a la ley vigente consolidada. {result.disclaimer}
+              El sello verde indica cita cotejada contra la fuente oficial (con fecha de cotejo); el ámbar,
+              cita aún no cotejada artículo por artículo — la URL apunta a la ley vigente consolidada. {result.disclaimer}
             </p>
           </section>
         </div>

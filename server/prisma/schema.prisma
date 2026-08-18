@@ -2581,10 +2581,18 @@ model GlosaSimulation {
   regimenCode     String
 
   valueUSD    Float
-  valueMXN    Float
+  // Nullable (Frontera Canónica Fase 2): si no viene declarado y el TC del día
+  // no está disponible, se persiste null — JAMÁS un TC constante inventado.
+  valueMXN    Float?
   weightKg    Float
   units       Int?
   unitMeasure String?
+
+  // DatoLegal<number> del TC usado para derivar valueMXN (procedencia completa).
+  exchangeRateUsed Json?
+  // RevisionGlosa (Fase 2 fail-closed): estado revisado/no_revisado/no_aplica
+  // por dominio de consulta. Simulaciones previas a la migración no lo tienen.
+  revision         Json?
 
   riskScore Float
   riskLevel String
@@ -2628,6 +2636,13 @@ model GlosaRiskRule {
 
   recommendation String
   legalBasis     String?
+
+  // Frontera Canónica Fase 2 (§5.5): cotejo por regla, mismo patrón que las 26
+  // reglas del Risk Scorer. Mientras estén null, el fundamento sale ámbar
+  // 'sin_verificar'; al cotejarse una regla, sube a verde regla por regla.
+  fuenteNombre String?
+  fuenteUrl    String?
+  fechaCotejo  DateTime?
 
   active    Boolean  @default(true)
   createdAt DateTime @default(now())
