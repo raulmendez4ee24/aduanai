@@ -1349,12 +1349,47 @@ export interface UseBasedAnalysis {
   precedents: string[];
 }
 
+// ── Bloque canónico del Clasificador (Frontera Canónica §3.4) ─────────────
+export interface RegulacionCanonica {
+  code: string;
+  authority: string;
+  description: string;
+  type: string;
+}
+
+export interface DatosCanonicosFraccion {
+  fraccion: DatoLegal<{ code: string; codeFormatted: string; description: string; unit: string | null }>;
+  nico: DatoLegal<string[]>;
+  tarifas: {
+    nmf: DatoLegal<number>;
+    preferenciales: DatoLegal<{ TMEC: number | null; TLCUEM: number | null; CPTPP: number | null }>;
+    ieps: DatoLegal<number>;
+  };
+  regulaciones: {
+    noms: DatoLegal<RegulacionCanonica[]>;
+    rrna: DatoLegal<RegulacionCanonica[]>;
+    padronSectorial: DatoLegal<{ requerido: boolean; sectores: { codigo: string; nombre: string }[] }>;
+  };
+  versiones: { tigie: string; ligie: string; rgce: string | null };
+  integridad: { completo: boolean; camposNoRevisados: string[] };
+}
+
+export interface DiscrepanciaLLM {
+  campo: string;
+  valorLLM: unknown;
+  valorCanonico: unknown;
+  fraccion: string;
+}
+
 export interface ClassificationResult {
   fraction: { code: string; description: string; chapter: string; section: string };
   nico: string;
+  /** Autodeclarada por el modelo, NO calibrada (los errores promedian 87.5).
+   *  Regla de UI: jamás como número prominente — solo detalle técnico. */
   confidence: number;
   griApplied: string[];
-  tariffs: { nmf: number; preferential: Record<string, number> };
+  /** nmf null = el catálogo no tiene el dato ('no_disponible') — no se rellena. */
+  tariffs: { nmf: number | null; preferential: Record<string, number> };
   regulations: { rrna: string[]; noms: string[]; sectoralRegistry: boolean };
   alternatives: { code: string; description: string; confidence: number; reason: string }[];
   explanation: { simple: string; technical: string };
@@ -1370,6 +1405,10 @@ export interface ClassificationResult {
   alerts?: ClassifierAlert[];
   padronCheck?: PadronCheckResultData;
   meta?: ClassificationMeta;
+  /** Frontera Canónica: datos legales con procedencia — la fuente del verde. */
+  datosCanonicos?: DatosCanonicosFraccion;
+  /** Telemetría: qué dijo el LLM distinto del catálogo (no se pinta en UI). */
+  discrepanciasLLM?: DiscrepanciaLLM[];
 }
 
 export type KnowledgeType =

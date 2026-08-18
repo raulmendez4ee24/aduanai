@@ -243,20 +243,19 @@ export function DemoClassifier() {
           transition={{ duration: 0.4, ease: [0.22, 1, 0.36, 1] }}
         >
           <div className="mt-6 bg-gray-50 rounded-xl p-5 space-y-4">
-            {/* Fraction + confidence */}
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-[11px] uppercase tracking-wider text-gray-400 font-medium">Fracción arancelaria</p>
-                <p className="text-2xl font-bold text-[#1a1a1a] font-mono tracking-wider">{formatFraction(result.fraction.code)}</p>
-              </div>
-              <div className="text-right">
-                <p className="text-[11px] uppercase tracking-wider text-gray-400 font-medium">Confianza</p>
-                <p className="text-2xl font-bold text-emerald-600">{result.confidence}%</p>
-              </div>
+            {/* Fracción — la confianza del modelo NO se muestra como número
+                prominente: no está calibrada (Frontera Canónica, precisión de
+                aprobación 18-ago). Queda como detalle técnico abajo. */}
+            <div>
+              <p className="text-[11px] uppercase tracking-wider text-gray-400 font-medium">Fracción arancelaria</p>
+              <p className="text-2xl font-bold text-[#1a1a1a] font-mono tracking-wider">{formatFraction(result.fraction.code)}</p>
             </div>
 
             {/* Description */}
             <p className="text-[14px] text-gray-600">{result.fraction.description}</p>
+            <p className="text-[11px] text-gray-400">
+              Confianza autodeclarada del modelo: {result.confidence}/100 (no calibrada — verifícala con tu agente aduanal)
+            </p>
 
             {/* Tariffs */}
             <div className="grid grid-cols-2 gap-3">

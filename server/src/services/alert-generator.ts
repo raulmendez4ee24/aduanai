@@ -19,6 +19,7 @@
 import crypto from 'crypto';
 import { prisma } from '../lib/prisma';
 import { formatCuota } from '../lib/cuota-format';
+import { tipoCambioMXN } from './frontera-canonica';
 
 export type AlertSeverity = 'critical' | 'high' | 'medium' | 'low';
 export type AlertImpactType = 'savings' | 'cost' | 'risk';
@@ -91,11 +92,16 @@ export async function generateImportExpiringAlerts(tenantId: string, isDemoData 
     take: 30,
   });
 
+  // Frontera Canónica: TC real con procedencia — el `* 18` constante queda
+  // prohibido (test anti-reincidencia). Sin valueMXN capturado y sin TC del
+  // día, el monto NO se estima: la alerta sale sin cifra, no con una inventada.
+  const tc = await tipoCambioMXN();
+
   return imports.map(imp => {
     const days = daysBetween(now, imp.expirationDate);
     const remaining = imp.quantity - imp.quantityDischarged;
-    const valueMXN = imp.valueMXN ?? imp.customsValue * 18;
-    const remainingValueMXN = valueMXN * (remaining / imp.quantity);
+    const valueMXN = imp.valueMXN ?? (tc.valor != null ? imp.customsValue * tc.valor : null);
+    const remainingValueMXN = valueMXN != null ? valueMXN * (remaining / imp.quantity) : null;
     const severity = severityForDays(days);
     return {
       type: 'import_expiring',
@@ -104,10 +110,10 @@ export async function generateImportExpiringAlerts(tenantId: string, isDemoData 
       title: `Importación temporal vence en ${days} día${days === 1 ? '' : 's'} — ${imp.fractionCode}`,
       content: `Pedimento ${imp.pedimento} (fracción ${imp.fractionCode}) tiene saldo no descargado de ${remaining.toFixed(2)} ${imp.unit}. ` +
         `Si no se retorna, vende nacionalmente o regulariza antes del ${imp.expirationDate.toISOString().slice(0, 10)}, ` +
-        `procede cambio de régimen con pago de IGI + IVA + recargos sobre ~$${formatMXN(remainingValueMXN)} MXN de valor pendiente.`,
+        `procede cambio de régimen con pago de IGI + IVA + recargos${remainingValueMXN != null ? ` sobre ~$${formatMXN(remainingValueMXN)} MXN de valor pendiente` : ' (valor pendiente no estimable: TC del día no disponible)'}.`,
       affectedFraction: imp.fractionCode,
       affectedOperations: [imp.id],
-      estimatedImpactMXN: -Math.round(remainingValueMXN * 0.30), // costo aprox: arancel + IVA + recargos
+      estimatedImpactMXN: remainingValueMXN != null ? -Math.round(remainingValueMXN * 0.30) : null, // costo aprox: arancel + IVA + recargos
       impactType: 'cost',
       actionRequired: severity === 'critical' ? 'Acción inmediata: descargar, retornar o cambiar régimen' : 'Plan de descargo o retorno',
       suggestedAction: {
@@ -224,6 +230,12 @@ export async function generateTariffChangeAlerts(tenantId: string, isDemoData = 
   });
   const detailMap = new Map(fracDetails.map(f => [f.code, f]));
 
+  // TC real (Frontera Canónica): sin TC del día no se proyectan ahorros en MXN
+  // — la alerta de oportunidad se omite antes que estimarla con una constante.
+  const tcAhorro = await tipoCambioMXN();
+  if (tcAhorro.valor == null) return [];
+  const tcMXN = tcAhorro.valor;
+
   const out: AlertSpec[] = [];
   const now = new Date();
   for (const grp of recentFractions) {
@@ -236,11 +248,11 @@ export async function generateTariffChangeAlerts(tenantId: string, isDemoData = 
     // Proyección: si tariffTMEC o TLCUE es menor y hay operaciones similares próximas, calcular ahorro
     const candidates: { treaty: string; rate: number; saving: number }[] = [];
     if (f.tariffTMEC != null && f.tariffTMEC < f.tariffNMF) {
-      const annualSavingMXN = avgValueUSD * 18 * ((f.tariffNMF - f.tariffTMEC) / 100) * operations;
+      const annualSavingMXN = avgValueUSD * tcMXN * ((f.tariffNMF - f.tariffTMEC) / 100) * operations;
       if (annualSavingMXN > 5000) candidates.push({ treaty: 'TMEC', rate: f.tariffTMEC, saving: annualSavingMXN });
     }
     if (f.tariffTLCUE != null && f.tariffTLCUE < f.tariffNMF) {
-      const annualSavingMXN = avgValueUSD * 18 * ((f.tariffNMF - f.tariffTLCUE) / 100) * operations;
+      const annualSavingMXN = avgValueUSD * tcMXN * ((f.tariffNMF - f.tariffTLCUE) / 100) * operations;
       if (annualSavingMXN > 5000) candidates.push({ treaty: 'TLCUEM', rate: f.tariffTLCUE, saving: annualSavingMXN });
     }
     if (candidates.length === 0) continue;
@@ -279,13 +291,18 @@ export async function generateAntidumpingAlerts(tenantId: string, isDemoData = f
     select: { fractionCode: true, originCountry: true, customsValue: true, valueMXN: true },
     take: 200,
   });
+  // TC real (Frontera Canónica). Si no hay TC, los imports sin valueMXN
+  // capturado NO suman al agregado (exposición subestimada honesta, no
+  // inflada con una constante inventada).
+  const tcAd = await tipoCambioMXN();
   const fracCountryPairs = new Map<string, { count: number; valueMXN: number }>();
   for (const imp of recentImports) {
     if (!imp.originCountry) continue;
     const k = `${imp.fractionCode}|${imp.originCountry.toUpperCase().slice(0, 2)}`;
     const existing = fracCountryPairs.get(k) ?? { count: 0, valueMXN: 0 };
     existing.count++;
-    existing.valueMXN += imp.valueMXN ?? imp.customsValue * 18;
+    const mxn = imp.valueMXN ?? (tcAd.valor != null ? imp.customsValue * tcAd.valor : null);
+    if (mxn != null) existing.valueMXN += mxn;
     fracCountryPairs.set(k, existing);
   }
   if (fracCountryPairs.size === 0) return [];

@@ -4,12 +4,13 @@
  * Dos paneles: izquierda la CONVERSACIÓN (el medio), derecha el EXPEDIENTE
  * (el producto). Cada dato legal lleva SIEMPRE su SelloVerificacion.
  *
- * HONESTIDAD DEL SELLO (docs/GAP_API_EXPEDIENTE.md): la respuesta actual del
- * backend NO trae metadatos de cotejo por dato (URL + fechas + método), y la
- * tabla de cuotas está pendiente de reconstrucción UPCI — por eso HOY todo
- * sale "sin_verificar" (ámbar) con la fuente DECLARADA en el popover cuando
- * existe. El ámbar es honesto, no un bug: el verde llega cuando el backend
- * exponga los campos del GAP.
+ * HONESTIDAD DEL SELLO: el backend expone `datosCanonicos` (Frontera Canónica
+ * §3.4) — NICO, tarifas, NOMs, RRNA y padrón vienen SUSTITUIDOS por catálogo/
+ * tablas con procedencia (fuente + fechas + estado). Esos se sellan según su
+ * DatoLegal (verde cuando la fuente lo permite). Lo que sigue siendo texto del
+ * LLM (justificación RGI, notas, explicación) permanece ámbar 'sin_verificar'.
+ * La confianza del modelo NO se muestra como número prominente: no está
+ * calibrada (los errores promedian 87.5) — solo aparece como detalle técnico.
  */
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
@@ -18,7 +19,7 @@ import {
   FolderOpen, ThumbsUp, ThumbsDown, ChevronDown,
 } from 'lucide-react'
 import { api } from '../lib/api'
-import type { ClassificationResult, ClassifierAlert, ClassifierAntidumpingMetadata } from '../lib/api'
+import type { ClassificationResult, ClassifierAlert, ClassifierAntidumpingMetadata, DatoLegal } from '../lib/api'
 import { formatFraction } from '../lib/format'
 import { Button, Card, Badge, Textarea, Input, SelloVerificacion, EmptyState, type EstadoSello } from '../components/ui'
 
@@ -67,6 +68,22 @@ function selloDe(d: DatoLegalVerificado) {
   )
 }
 
+// DatoLegal de la API → props del sello. 'no_disponible' no produce sello
+// (es ausencia explícita de dato, no un valor que calificar).
+function deDatoLegal(id: string, texto: string, d: DatoLegal<unknown>, detalle?: string): DatoLegalVerificado {
+  return {
+    id,
+    texto,
+    detalle,
+    estado: (d.estado === 'no_disponible' ? 'sin_verificar' : d.estado) as EstadoSello,
+    fuenteNombre: d.fuente?.nombre,
+    fuenteUrl: d.fuente?.url ?? undefined,
+    fechaPublicacion: d.fuente?.fechaPublicacion ?? undefined,
+    fechaVerificacion: d.fechaCotejo ?? undefined,
+    metodo: d.metodo === 'ingesta' ? 'scraper' : d.metodo,
+  }
+}
+
 // ── Mapeo API actual → expediente (lo no expuesto queda sin_verificar) ────
 function mapExpediente(r: ClassificationResult) {
   const sinVerificar = (extra: Partial<DatoLegalVerificado> = {}): Pick<DatoLegalVerificado, 'estado'> & Partial<DatoLegalVerificado> => ({
@@ -89,11 +106,20 @@ function mapExpediente(r: ClassificationResult) {
     })),
   ]
 
-  const noms: DatoLegalVerificado[] = (r.regulations?.noms ?? []).map((nom, i) => ({
-    id: `nom-${i}`,
-    texto: nom,
-    ...sinVerificar({ fuenteNombre: 'Anexo 2.4.1 (SE)' }),
-  }))
+  // NOMs: con datosCanonicos, cada NOM sale sellada según su DatoLegal
+  // (verde si viene de la tabla curada; ámbar si del campo pendiente de
+  // Anexo 2.4.1; roja si la consulta falló). Sin el bloque, ámbar legacy.
+  const canonNoms = r.datosCanonicos?.regulaciones.noms
+  const noms: DatoLegalVerificado[] = canonNoms
+    ? canonNoms.estado === 'no_revisado'
+      ? [deDatoLegal('nom-nr', 'NOMs no revisadas — la consulta a la tabla falló', canonNoms, canonNoms.nota)]
+      : (canonNoms.valor ?? []).map((n, i) =>
+          deDatoLegal(`nom-${i}`, n.code, canonNoms, n.description || `Autoridad: ${n.authority}`))
+    : (r.regulations?.noms ?? []).map((nom, i) => ({
+        id: `nom-${i}`,
+        texto: nom,
+        ...sinVerificar({ fuenteNombre: 'Anexo 2.4.1 (SE)' }),
+      }))
 
   const cuotaMeta = (r.alerts ?? [])
     .filter(a => a.type === 'antidumping' && a.metadata)
@@ -112,10 +138,16 @@ function mapExpediente(r: ClassificationResult) {
     fechaPublicacion: m.publishDate ?? undefined,
   }))
 
+  const canonRrna = r.datosCanonicos?.regulaciones.rrna
   const rrna: DatoLegalVerificado[] = [
-    ...(r.regulations?.rrna ?? []).map((x, i) => ({
-      id: `rrna-${i}`, texto: x, ...sinVerificar(),
-    })),
+    ...(canonRrna
+      ? canonRrna.estado === 'no_revisado'
+        ? [deDatoLegal('rrna-nr', 'RRNA no revisadas — la consulta a la tabla falló', canonRrna, canonRrna.nota)]
+        : (canonRrna.valor ?? []).map((x, i) =>
+            deDatoLegal(`rrna-${i}`, x.code, canonRrna, x.description || `Autoridad: ${x.authority}`))
+      : (r.regulations?.rrna ?? []).map((x, i) => ({
+          id: `rrna-${i}`, texto: x, ...sinVerificar(),
+        }))),
     ...(r.padronCheck && r.padronCheck.totalRequired > 0
       ? r.padronCheck.required.map((p, i) => ({
           id: `padron-${i}`,
@@ -359,18 +391,33 @@ export function ClassifierPage() {
           <div className="min-w-0">
             <p className="text-13 uppercase tracking-wide text-tinta-suave">Fracción arancelaria propuesta</p>
             <p className="font-sello-mono text-4xl text-tinta mt-1">{formatFraction(resultado.fraction.code)}</p>
-            {resultado.nico && <p className="font-sello-mono text-sm text-tinta-suave mt-1">NICO {resultado.nico}</p>}
+            {resultado.nico ? (
+              <p className="font-sello-mono text-sm text-tinta-suave mt-1">NICO {resultado.nico}</p>
+            ) : (resultado.datosCanonicos?.nico.valor?.length ?? 0) > 0 ? (
+              <p className="font-sello-mono text-sm text-tinta-suave mt-1">
+                NICO por elegir: {resultado.datosCanonicos!.nico.valor!.join(', ')}
+              </p>
+            ) : null}
             <p className="text-base text-tinta leading-relaxed mt-3">{resultado.fraction.description}</p>
           </div>
           <div className="shrink-0">
-            <SelloVerificacion
-              estado="sin_verificar"
-              fuenteNombre={resultado.meta ? `Catálogo ${resultado.meta.tigieVersion}` : 'Catálogo TIGIE'}
-              metodo="manual"
-            />
+            {resultado.datosCanonicos ? (
+              selloDe(deDatoLegal('fraccion', 'Fracción del catálogo', resultado.datosCanonicos.fraccion))
+            ) : (
+              <SelloVerificacion
+                estado="sin_verificar"
+                fuenteNombre={resultado.meta ? `Catálogo ${resultado.meta.tigieVersion}` : 'Catálogo TIGIE'}
+                metodo="manual"
+              />
+            )}
           </div>
         </div>
         <p className="text-13 text-tinta-suave mt-4 pt-3 border-t border-linea leading-relaxed">{resultado.disclaimer}</p>
+        {/* Detalle técnico — NUNCA número prominente: la confianza autodeclarada
+            no está calibrada (los errores promedian 87.5/100). */}
+        <p className="text-13 text-tinta-suave mt-1.5 leading-relaxed">
+          Confianza autodeclarada del modelo: {resultado.confidence}/100 — no calibrada; no es probabilidad de acierto.
+        </p>
       </Card>
 
       {/* Justificación legal */}
@@ -411,10 +458,14 @@ export function ClassifierPage() {
             <tr>
               <td className="py-2 text-sm text-tinta-suave">Arancel NMF (IGI)</td>
               <td className="py-2 text-right font-sello-mono text-base text-tinta">
-                {resultado.tariffs?.nmf != null ? `${resultado.tariffs.nmf}%` : '—'}
+                {resultado.tariffs?.nmf != null ? `${resultado.tariffs.nmf}%` : 'Sin dato en catálogo'}
               </td>
               <td className="py-2 pl-3 w-px whitespace-nowrap">
-                <SelloVerificacion estado="sin_verificar" fuenteNombre="TIGIE (catálogo)" />
+                {resultado.datosCanonicos && resultado.tariffs?.nmf != null
+                  ? selloDe(deDatoLegal('nmf', 'NMF', resultado.datosCanonicos.tarifas.nmf))
+                  : resultado.tariffs?.nmf != null
+                    ? <SelloVerificacion estado="sin_verificar" fuenteNombre="TIGIE (catálogo)" />
+                    : null}
               </td>
             </tr>
             {Object.entries(resultado.tariffs?.preferential ?? {}).map(([tratado, tasa]) => (
@@ -422,7 +473,9 @@ export function ClassifierPage() {
                 <td className="py-2 text-sm text-tinta-suave">Preferencial {tratado}</td>
                 <td className="py-2 text-right font-sello-mono text-base text-tinta">{tasa}%</td>
                 <td className="py-2 pl-3 w-px whitespace-nowrap">
-                  <SelloVerificacion estado="sin_verificar" fuenteNombre={`Tratado ${tratado}`} />
+                  {resultado.datosCanonicos
+                    ? selloDe(deDatoLegal(`pref-${tratado}`, tratado, resultado.datosCanonicos.tarifas.preferenciales))
+                    : <SelloVerificacion estado="sin_verificar" fuenteNombre={`Tratado ${tratado}`} />}
                 </td>
               </tr>
             ))}
@@ -483,9 +536,9 @@ export function ClassifierPage() {
           </ul>
         )}
         <p className="text-13 text-tinta-suave mt-4 pt-3 border-t border-linea leading-relaxed">
-          El sello ámbar significa que la afirmación aún no está cotejada dato por dato contra la fuente oficial
-          dentro de esta respuesta — no que sea falsa. Estamos conectando el cotejo por dato
-          (ver docs/GAP_API_EXPEDIENTE.md).
+          El sello verde indica dato del catálogo/tablas canónicas con fuente y fecha de cotejo. El ámbar,
+          afirmación aún no cotejada dato por dato (típicamente razonamiento del modelo o datasets en
+          consolidación) — no que sea falsa. El rojo indica que una consulta falló y ese dato NO fue revisado.
         </p>
       </SeccionExpediente>
     </div>

@@ -7,7 +7,7 @@ import { classifyProduct, type IndustrialSector, type ImporterType } from '../se
 import { buildClassifierAlerts, computeConsultHash } from '../services/classifier-alerts';
 import { recordConsult, verifyConsult, getActiveVersions } from '../services/traceability';
 import { isDomesticOrigin, DOMESTIC_ORIGIN_NOTE } from '../lib/origin';
-import { resolveSectorsForFraction } from '../services/padron-checker';
+import { reconciliarClasificacion } from '../services/clasificador-reconciliacion';
 import { prisma } from '../lib/prisma';
 
 export const classifyRouter = Router();
@@ -79,9 +79,12 @@ classifyRouter.post('/demo', demoClassifyLimit, async (req, res, next) => {
       });
     }
 
-    const result = await classifyProduct(description);
+    const bruto = await classifyProduct(description);
+    // Frontera Canónica §3: la reconciliación corre EN LA RUTA (también en la
+    // demo) — ningún camino interno del clasificador puede esquivarla.
+    const { resultado: result, datosCanonicos } = await reconciliarClasificacion(bruto);
 
-    res.json({ status: 'ok', data: result });
+    res.json({ status: 'ok', data: { ...result, datosCanonicos } });
   } catch (err) {
     next(err);
   }
@@ -102,24 +105,36 @@ classifyRouter.post('/', authenticate, requirePermission('classifier', 'create')
     };
     const description = typeof rawDescription === 'string' ? rawDescription : '';
 
-    const result = await classifyProduct(description, context, { useCase, sector, importerType });
+    const bruto = await classifyProduct(description, context, { useCase, sector, importerType });
 
-    // Origen nacional (México): la clasificación del LLM lista requisitos de forma
-    // genérica (sin saber el origen). Si la mercancía es mexicana NO se importa, así
-    // que removemos lo que solo aplica a importación: permisos de importación (rrna),
-    // padrón de importadores (sectoralRegistry) y preferencias arancelarias de tratados.
-    // Las NOM se conservan (aplican también al producto en comercio nacional).
+    // FRONTERA CANÓNICA §3: reconciliación EN LA RUTA, después de que el
+    // clasificador terminó (retry + candado incluidos) — ningún camino interno
+    // puede esquivarla. NICO, tarifas, NOMs, RRNA y padrón quedan SUSTITUIDOS
+    // por los canónicos; lo que el LLM dijo distinto queda en `discrepancias`
+    // (telemetría, no UI). Alertas y regulaciones ahora beben de la misma
+    // fuente → no pueden contradecirse.
+    const { resultado: result, datosCanonicos, discrepancias } = await reconciliarClasificacion(bruto);
+
+    // Origen nacional (México): la mercancía NO se importa, así que removemos
+    // lo que solo aplica a importación: permisos (rrna), padrón y preferencias
+    // arancelarias. Las NOM se conservan (aplican también en comercio nacional).
+    // Es una regla de APLICABILIDAD sobre el dato canónico, no un cambio de fuente.
     const domestic = isDomesticOrigin(countryOfOrigin);
-    // sectoralRegistry se DERIVA de la tabla canónica (SATPadron vía el resolver),
-    // NUNCA del LLM (que ya no lo devuelve). Así coincide siempre con padronCheck,
-    // que lee la misma fuente → sin contradicción "NO INSCRITO" vs "no requiere".
-    const sectores = await resolveSectorsForFraction(result.fraction.code);
     if (domestic) {
-      // Origen nacional: no se importa → sin padrón ni preferencias.
       result.regulations = { ...result.regulations, rrna: [], sectoralRegistry: false };
       result.tariffs = { ...result.tariffs, preferential: {} };
-    } else {
-      result.regulations = { ...result.regulations, sectoralRegistry: sectores.length > 0 };
+      const notaDomestica = 'Origen nacional: no aplica a esta operación (no hay importación).';
+      datosCanonicos.regulaciones.rrna = { ...datosCanonicos.regulaciones.rrna, valor: [], nota: notaDomestica };
+      datosCanonicos.regulaciones.padronSectorial = {
+        ...datosCanonicos.regulaciones.padronSectorial,
+        valor: { requerido: false, sectores: [] },
+        nota: notaDomestica,
+      };
+      datosCanonicos.tarifas.preferenciales = {
+        ...datosCanonicos.tarifas.preferenciales,
+        valor: { TMEC: null, TLCUEM: null, CPTPP: null },
+        nota: notaDomestica,
+      };
     }
 
     // Alertas defensivas (cuotas comp + NOMs + padrón + automotive + subvaloración)
@@ -151,7 +166,9 @@ classifyRouter.post('/', authenticate, requirePermission('classifier', 'create')
       tenantId: req.tenantId!,
       userId: req.userId!,
       inputs: { description, context, countryOfOrigin, declaredValueUSD, useCase, sector, importerType },
-      outputs: { ...result, _trace: undefined, alerts },
+      // El expediente de trazabilidad conserva el canon aplicado Y lo que el
+      // LLM dijo distinto (discrepanciasLLM) — auditoría, no UI (§3.3).
+      outputs: { ...result, _trace: undefined, alerts, datosCanonicos, discrepanciasLLM: discrepancias },
       modelUsed: result._trace?.modelUsed ?? 'unknown',
       modelProvider: result._trace?.modelProvider ?? 'unknown',
       knowledgeUsed: result._trace?.knowledgeUsed ?? [],
@@ -181,7 +198,7 @@ classifyRouter.post('/', authenticate, requirePermission('classifier', 'create')
         griApplied: result.griApplied,
         alternatives: JSON.stringify(result.alternatives),
         legalBasis: result.legalBasis ? (result.legalBasis as unknown as object) : undefined,
-        fullResponse: JSON.stringify(result),
+        fullResponse: JSON.stringify({ ...result, datosCanonicos, discrepanciasLLM: discrepancias }),
         tigieVersion: trace.versions.tigie,
         ligieVersion: trace.versions.ligie,
         consultHash: trace.consultHash, // hash combinado de trazabilidad
@@ -210,6 +227,8 @@ classifyRouter.post('/', authenticate, requirePermission('classifier', 'create')
         ...result,
         _trace: undefined,
         alerts,
+        datosCanonicos,
+        discrepanciasLLM: discrepancias,
         padronCheck,
         domesticOrigin: domestic,
         domesticNote: domestic ? DOMESTIC_ORIGIN_NOTE : undefined,
