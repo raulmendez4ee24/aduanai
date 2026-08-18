@@ -52,7 +52,7 @@ function cargarCheckpoint(): Record<number, CasoRow> {
 
 async function runCase(t: (typeof TEST_PRODUCTS)[number]): Promise<CasoRow> {
   const t0 = Date.now();
-  const MAX_REINTENTOS = 3;
+  const MAX_REINTENTOS = 5; // caídas de red reales observadas (18-ago): backoff 15s×intento
   for (let intento = 1; ; intento++) {
     try {
       const bruto = await classifyProduct(t.description);
@@ -68,8 +68,9 @@ async function runCase(t: (typeof TEST_PRODUCTS)[number]): Promise<CasoRow> {
     } catch (e) {
       const msg = e instanceof Error ? e.message : String(e);
       const fallaCerrada =
-        /no produjo una fracción válida del catálogo/.test(msg) ||
-        /no encontró en el catálogo un candidato aplicable/.test(msg);
+        /no produjo una fracción válida del catálogo/.test(msg) ||   // candado final
+        /no encontró en el catálogo un candidato aplicable/.test(msg) || // SIN_CANDIDATO
+        /La descripción es insuficiente/.test(msg);                  // validación de entrada
       if (fallaCerrada) {
         return { id: t.id, category: t.category, fraccionPredicha: null, resultado: 'falla_cerrada', discrepancias: [], ms: Date.now() - t0 };
       }
@@ -78,7 +79,7 @@ async function runCase(t: (typeof TEST_PRODUCTS)[number]): Promise<CasoRow> {
       if (intento >= MAX_REINTENTOS) {
         throw new Error(`Caso ${t.id}: error no-clasificatorio tras ${MAX_REINTENTOS} intentos — corrida inválida. Motivo: ${msg}`);
       }
-      await new Promise(r => setTimeout(r, 5000 * intento));
+      await new Promise(r => setTimeout(r, 15000 * intento));
     }
   }
 }

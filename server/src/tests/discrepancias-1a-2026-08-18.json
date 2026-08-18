@@ -1,0 +1,1543 @@
+{
+  "fecha": "2026-08-18",
+  "proposito": "Censo de discrepancias LLM↔canon (Fase 1a) — decide si 1b vale la pena. NO es medición de accuracy.",
+  "params": {
+    "runner": "in-process classifyProduct + reconciliarClasificacion",
+    "temp": 0,
+    "concurrencia": 2,
+    "dataset": "accuracy-test-data.ts (99)",
+    "prompt": "INTACTO (1a)"
+  },
+  "totalCasos": 100,
+  "clasificados": 86,
+  "fallasCerradas": 14,
+  "casosConAlgunaDiscrepancia": 86,
+  "porCampo": {
+    "tariffs.preferential": {
+      "casosAfectados": 86,
+      "pctDeClasificados": 100,
+      "ejemplos": [
+        {
+          "campo": "tariffs.preferential",
+          "valorLLM": {
+            "TMEC": 0,
+            "TLCUE": 0,
+            "TLC_Chile": 0,
+            "TLC_Colombia": 0,
+            "TLC_Peru": 0
+          },
+          "valorCanonico": {
+            "TMEC": 0
+          },
+          "fraccion": "61051001"
+        },
+        {
+          "campo": "tariffs.preferential",
+          "valorLLM": {
+            "TMEC": 0,
+            "TLCUE": 0,
+            "TLCAN_legacy": 0
+          },
+          "valorCanonico": {
+            "TMEC": 0
+          },
+          "fraccion": "62046201"
+        },
+        {
+          "campo": "tariffs.preferential",
+          "valorLLM": {
+            "TMEC": 0,
+            "TLCUE": 0,
+            "TLC_Chile": 0,
+            "TLC_Colombia": 0,
+            "TLC_Peru": 0
+          },
+          "valorCanonico": {
+            "TMEC": 0
+          },
+          "fraccion": "61101101"
+        }
+      ]
+    },
+    "nico": {
+      "casosAfectados": 84,
+      "pctDeClasificados": 97.7,
+      "ejemplos": [
+        {
+          "campo": "nico",
+          "valorLLM": "01",
+          "valorCanonico": null,
+          "fraccion": "61051001"
+        },
+        {
+          "campo": "nico",
+          "valorLLM": "00",
+          "valorCanonico": null,
+          "fraccion": "62046201"
+        },
+        {
+          "campo": "nico",
+          "valorLLM": "01",
+          "valorCanonico": null,
+          "fraccion": "61101101"
+        }
+      ]
+    },
+    "regulations.noms": {
+      "casosAfectados": 82,
+      "pctDeClasificados": 95.3,
+      "ejemplos": [
+        {
+          "campo": "regulations.noms",
+          "valorLLM": [
+            "NOM-004-SE-2021 (Información comercial — Etiquetado de productos textiles, prendas de vestir, sus accesorios y ropa de casa)"
+          ],
+          "valorCanonico": [
+            "NOM-004-SE-2006"
+          ],
+          "fraccion": "61051001"
+        },
+        {
+          "campo": "regulations.noms",
+          "valorLLM": [
+            "NOM-004-SE-2021 (etiquetado de productos textiles, prendas de vestir, sus accesorios y ropa de casa)"
+          ],
+          "valorCanonico": [
+            "NOM-004-SE-2006"
+          ],
+          "fraccion": "62046201"
+        },
+        {
+          "campo": "regulations.noms",
+          "valorLLM": [
+            "NOM-004-SE-2021 (Información comercial — Etiquetado de productos textiles, prendas de vestir, sus accesorios y ropa de casa)"
+          ],
+          "valorCanonico": [
+            "NOM-004-SE-2006"
+          ],
+          "fraccion": "61101101"
+        }
+      ]
+    },
+    "alternatives[].description": {
+      "casosAfectados": 81,
+      "pctDeClasificados": 94.2,
+      "ejemplos": [
+        {
+          "campo": "alternatives[1].description",
+          "valorLLM": "Camisas de algodón, para hombres o niños (tejido plano)",
+          "valorCanonico": "Camisas de algodón, para hombres o niños",
+          "fraccion": "61051001"
+        },
+        {
+          "campo": "alternatives[0].description",
+          "valorLLM": "Pantalones de algodón para mujeres o niñas — algodón ≥85% SIN elastómero",
+          "valorCanonico": "Pantalones, pantalones con peto, pantalones cortos y shorts, de algodón, para mujeres o niñas",
+          "fraccion": "62046201"
+        },
+        {
+          "campo": "alternatives[1].description",
+          "valorLLM": "Pantalones de punto de algodón para mujeres o niñas",
+          "valorCanonico": "De algodón.",
+          "fraccion": "62046201"
+        }
+      ]
+    },
+    "fraction.description": {
+      "casosAfectados": 33,
+      "pctDeClasificados": 38.4,
+      "ejemplos": [
+        {
+          "campo": "fraction.description",
+          "valorLLM": "Vestidos de fibras sintéticas para mujeres o niñas, de tejido plano",
+          "valorCanonico": "Hechos totalmente a mano.",
+          "fraccion": "62044301"
+        },
+        {
+          "campo": "fraction.description",
+          "valorLLM": "Calcetería de punto, de algodón",
+          "valorCanonico": "De algodón.",
+          "fraccion": "61159501"
+        },
+        {
+          "campo": "fraction.description",
+          "valorLLM": "Calzoncillos y slips (incluidos los boxers), de algodón, de punto, para hombres o niños",
+          "valorCanonico": "De algodón.",
+          "fraccion": "61071103"
+        }
+      ]
+    },
+    "regulations.rrna": {
+      "casosAfectados": 33,
+      "pctDeClasificados": 38.4,
+      "ejemplos": [
+        {
+          "campo": "regulations.rrna",
+          "valorLLM": [
+            "Aviso automático de importación (según origen y valor, verificar con VUCEM)",
+            "Verificar si aplica regulación de la Secretaría de Economía para equipos electrónicos"
+          ],
+          "valorCanonico": [],
+          "fraccion": "90065902"
+        },
+        {
+          "campo": "regulations.rrna",
+          "valorLLM": [
+            "Permiso fitosanitario de importación emitido por SENASICA (SADER) — obligatorio para frutas frescas",
+            "Certificado fitosanitario del país de origen emitido por la autoridad competente del exportador",
+            "Inspección física en punto de entrada por SENASICA"
+          ],
+          "valorCanonico": [],
+          "fraccion": "08044001"
+        },
+        {
+          "campo": "regulations.rrna",
+          "valorLLM": [
+            "Permiso previo de importación COFEPRIS (bebidas alcohólicas con denominación de origen)",
+            "Verificación de denominación de origen 'Tequila' (CRT - Consejo Regulador del Tequila)",
+            "Cumplimiento NOM-006-SCFI-2012 (Bebidas alcohólicas - Tequila)"
+          ],
+          "valorCanonico": [],
+          "fraccion": "22089001"
+        }
+      ]
+    },
+    "regulations.sectoralRegistry": {
+      "casosAfectados": 29,
+      "pctDeClasificados": 33.7,
+      "ejemplos": [
+        {
+          "campo": "regulations.sectoralRegistry",
+          "valorLLM": false,
+          "valorCanonico": true,
+          "fraccion": "61051001"
+        },
+        {
+          "campo": "regulations.sectoralRegistry",
+          "valorLLM": false,
+          "valorCanonico": true,
+          "fraccion": "62046201"
+        },
+        {
+          "campo": "regulations.sectoralRegistry",
+          "valorLLM": false,
+          "valorCanonico": true,
+          "fraccion": "61101101"
+        }
+      ]
+    },
+    "tariffs.nmf": {
+      "casosAfectados": 18,
+      "pctDeClasificados": 20.9,
+      "ejemplos": [
+        {
+          "campo": "tariffs.nmf",
+          "valorLLM": 25,
+          "valorCanonico": 35,
+          "fraccion": "61071103"
+        },
+        {
+          "campo": "tariffs.nmf",
+          "valorLLM": 45,
+          "valorCanonico": 25,
+          "fraccion": "62059001"
+        },
+        {
+          "campo": "tariffs.nmf",
+          "valorLLM": 0,
+          "valorCanonico": 15,
+          "fraccion": "85285903"
+        }
+      ]
+    },
+    "alternatives[].code": {
+      "casosAfectados": 3,
+      "pctDeClasificados": 3.5,
+      "ejemplos": [
+        {
+          "campo": "alternatives[0].code",
+          "valorLLM": "8517.13.XX",
+          "valorCanonico": null,
+          "fraccion": "84713001"
+        },
+        {
+          "campo": "alternatives[0].code",
+          "valorLLM": "SIN_CANDIDATO",
+          "valorCanonico": null,
+          "fraccion": "08044001"
+        },
+        {
+          "campo": "alternatives[1].code",
+          "valorLLM": "SIN_CANDIDATO",
+          "valorCanonico": null,
+          "fraccion": "08044001"
+        }
+      ]
+    }
+  },
+  "porCaso": [
+    {
+      "id": 1,
+      "resultado": "clasificado",
+      "nDiscrepancias": 5,
+      "campos": [
+        "nico",
+        "tariffs.preferential",
+        "regulations.noms",
+        "regulations.sectoralRegistry",
+        "alternatives[].description"
+      ]
+    },
+    {
+      "id": 2,
+      "resultado": "clasificado",
+      "nDiscrepancias": 7,
+      "campos": [
+        "nico",
+        "tariffs.preferential",
+        "regulations.noms",
+        "regulations.sectoralRegistry",
+        "alternatives[].description",
+        "alternatives[].description",
+        "alternatives[].description"
+      ]
+    },
+    {
+      "id": 3,
+      "resultado": "clasificado",
+      "nDiscrepancias": 7,
+      "campos": [
+        "nico",
+        "tariffs.preferential",
+        "regulations.noms",
+        "regulations.sectoralRegistry",
+        "alternatives[].description",
+        "alternatives[].description",
+        "alternatives[].description"
+      ]
+    },
+    {
+      "id": 4,
+      "resultado": "clasificado",
+      "nDiscrepancias": 8,
+      "campos": [
+        "fraction.description",
+        "nico",
+        "tariffs.preferential",
+        "regulations.noms",
+        "regulations.sectoralRegistry",
+        "alternatives[].description",
+        "alternatives[].description",
+        "alternatives[].description"
+      ]
+    },
+    {
+      "id": 5,
+      "resultado": "clasificado",
+      "nDiscrepancias": 8,
+      "campos": [
+        "fraction.description",
+        "nico",
+        "tariffs.preferential",
+        "regulations.noms",
+        "regulations.sectoralRegistry",
+        "alternatives[].description",
+        "alternatives[].description",
+        "alternatives[].description"
+      ]
+    },
+    {
+      "id": 6,
+      "resultado": "clasificado",
+      "nDiscrepancias": 8,
+      "campos": [
+        "fraction.description",
+        "nico",
+        "tariffs.nmf",
+        "tariffs.preferential",
+        "regulations.noms",
+        "regulations.sectoralRegistry",
+        "alternatives[].description",
+        "alternatives[].description"
+      ]
+    },
+    {
+      "id": 7,
+      "resultado": "falla_cerrada",
+      "nDiscrepancias": 0,
+      "campos": []
+    },
+    {
+      "id": 8,
+      "resultado": "clasificado",
+      "nDiscrepancias": 8,
+      "campos": [
+        "fraction.description",
+        "nico",
+        "tariffs.preferential",
+        "regulations.noms",
+        "regulations.sectoralRegistry",
+        "alternatives[].description",
+        "alternatives[].description",
+        "alternatives[].description"
+      ]
+    },
+    {
+      "id": 9,
+      "resultado": "clasificado",
+      "nDiscrepancias": 6,
+      "campos": [
+        "nico",
+        "tariffs.preferential",
+        "regulations.noms",
+        "regulations.sectoralRegistry",
+        "alternatives[].description",
+        "alternatives[].description"
+      ]
+    },
+    {
+      "id": 10,
+      "resultado": "clasificado",
+      "nDiscrepancias": 8,
+      "campos": [
+        "nico",
+        "tariffs.nmf",
+        "tariffs.preferential",
+        "regulations.noms",
+        "regulations.sectoralRegistry",
+        "alternatives[].description",
+        "alternatives[].description",
+        "alternatives[].description"
+      ]
+    },
+    {
+      "id": 11,
+      "resultado": "clasificado",
+      "nDiscrepancias": 4,
+      "campos": [
+        "nico",
+        "tariffs.preferential",
+        "regulations.noms",
+        "alternatives[].description"
+      ]
+    },
+    {
+      "id": 12,
+      "resultado": "clasificado",
+      "nDiscrepancias": 7,
+      "campos": [
+        "nico",
+        "tariffs.nmf",
+        "tariffs.preferential",
+        "regulations.noms",
+        "alternatives[].description",
+        "alternatives[].description",
+        "alternatives[].description"
+      ]
+    },
+    {
+      "id": 13,
+      "resultado": "clasificado",
+      "nDiscrepancias": 7,
+      "campos": [
+        "fraction.description",
+        "nico",
+        "tariffs.preferential",
+        "regulations.noms",
+        "alternatives[].description",
+        "alternatives[].description",
+        "alternatives[].description"
+      ]
+    },
+    {
+      "id": 14,
+      "resultado": "clasificado",
+      "nDiscrepancias": 6,
+      "campos": [
+        "nico",
+        "tariffs.nmf",
+        "tariffs.preferential",
+        "regulations.noms",
+        "alternatives[].description",
+        "alternatives[].description"
+      ]
+    },
+    {
+      "id": 15,
+      "resultado": "falla_cerrada",
+      "nDiscrepancias": 0,
+      "campos": []
+    },
+    {
+      "id": 16,
+      "resultado": "clasificado",
+      "nDiscrepancias": 5,
+      "campos": [
+        "nico",
+        "tariffs.preferential",
+        "regulations.noms",
+        "alternatives[].description",
+        "alternatives[].description"
+      ]
+    },
+    {
+      "id": 17,
+      "resultado": "clasificado",
+      "nDiscrepancias": 5,
+      "campos": [
+        "nico",
+        "tariffs.preferential",
+        "regulations.noms",
+        "alternatives[].description",
+        "alternatives[].description"
+      ]
+    },
+    {
+      "id": 18,
+      "resultado": "clasificado",
+      "nDiscrepancias": 7,
+      "campos": [
+        "nico",
+        "tariffs.nmf",
+        "tariffs.preferential",
+        "regulations.noms",
+        "alternatives[].description",
+        "alternatives[].description",
+        "alternatives[].description"
+      ]
+    },
+    {
+      "id": 19,
+      "resultado": "clasificado",
+      "nDiscrepancias": 6,
+      "campos": [
+        "nico",
+        "tariffs.preferential",
+        "regulations.noms",
+        "alternatives[].description",
+        "alternatives[].description",
+        "alternatives[].description"
+      ]
+    },
+    {
+      "id": 20,
+      "resultado": "clasificado",
+      "nDiscrepancias": 8,
+      "campos": [
+        "nico",
+        "tariffs.nmf",
+        "tariffs.preferential",
+        "regulations.noms",
+        "regulations.rrna",
+        "alternatives[].description",
+        "alternatives[].description",
+        "alternatives[].description"
+      ]
+    },
+    {
+      "id": 21,
+      "resultado": "clasificado",
+      "nDiscrepancias": 6,
+      "campos": [
+        "nico",
+        "tariffs.preferential",
+        "regulations.noms",
+        "alternatives[].code",
+        "alternatives[].description",
+        "alternatives[].description"
+      ]
+    },
+    {
+      "id": 22,
+      "resultado": "clasificado",
+      "nDiscrepancias": 5,
+      "campos": [
+        "nico",
+        "tariffs.preferential",
+        "regulations.noms",
+        "alternatives[].description",
+        "alternatives[].description"
+      ]
+    },
+    {
+      "id": 23,
+      "resultado": "falla_cerrada",
+      "nDiscrepancias": 0,
+      "campos": []
+    },
+    {
+      "id": 24,
+      "resultado": "falla_cerrada",
+      "nDiscrepancias": 0,
+      "campos": []
+    },
+    {
+      "id": 25,
+      "resultado": "clasificado",
+      "nDiscrepancias": 7,
+      "campos": [
+        "fraction.description",
+        "nico",
+        "tariffs.preferential",
+        "regulations.noms",
+        "alternatives[].description",
+        "alternatives[].description",
+        "alternatives[].description"
+      ]
+    },
+    {
+      "id": 26,
+      "resultado": "clasificado",
+      "nDiscrepancias": 7,
+      "campos": [
+        "fraction.description",
+        "nico",
+        "tariffs.preferential",
+        "regulations.noms",
+        "regulations.rrna",
+        "alternatives[].code",
+        "alternatives[].code"
+      ]
+    },
+    {
+      "id": 27,
+      "resultado": "clasificado",
+      "nDiscrepancias": 4,
+      "campos": [
+        "nico",
+        "tariffs.preferential",
+        "regulations.noms",
+        "regulations.rrna"
+      ]
+    },
+    {
+      "id": 28,
+      "resultado": "clasificado",
+      "nDiscrepancias": 6,
+      "campos": [
+        "nico",
+        "tariffs.preferential",
+        "regulations.noms",
+        "regulations.rrna",
+        "alternatives[].description",
+        "alternatives[].description"
+      ]
+    },
+    {
+      "id": 29,
+      "resultado": "clasificado",
+      "nDiscrepancias": 8,
+      "campos": [
+        "fraction.description",
+        "nico",
+        "tariffs.preferential",
+        "regulations.noms",
+        "regulations.rrna",
+        "alternatives[].description",
+        "alternatives[].description",
+        "alternatives[].description"
+      ]
+    },
+    {
+      "id": 30,
+      "resultado": "clasificado",
+      "nDiscrepancias": 8,
+      "campos": [
+        "fraction.description",
+        "nico",
+        "tariffs.preferential",
+        "regulations.noms",
+        "regulations.rrna",
+        "alternatives[].description",
+        "alternatives[].description",
+        "alternatives[].description"
+      ]
+    },
+    {
+      "id": 31,
+      "resultado": "clasificado",
+      "nDiscrepancias": 6,
+      "campos": [
+        "nico",
+        "tariffs.preferential",
+        "regulations.noms",
+        "regulations.rrna",
+        "alternatives[].description",
+        "alternatives[].description"
+      ]
+    },
+    {
+      "id": 32,
+      "resultado": "clasificado",
+      "nDiscrepancias": 8,
+      "campos": [
+        "fraction.description",
+        "nico",
+        "tariffs.preferential",
+        "regulations.noms",
+        "regulations.rrna",
+        "alternatives[].description",
+        "alternatives[].description",
+        "alternatives[].description"
+      ]
+    },
+    {
+      "id": 33,
+      "resultado": "clasificado",
+      "nDiscrepancias": 8,
+      "campos": [
+        "fraction.description",
+        "nico",
+        "tariffs.preferential",
+        "regulations.noms",
+        "regulations.rrna",
+        "alternatives[].description",
+        "alternatives[].description",
+        "alternatives[].description"
+      ]
+    },
+    {
+      "id": 34,
+      "resultado": "clasificado",
+      "nDiscrepancias": 4,
+      "campos": [
+        "nico",
+        "tariffs.preferential",
+        "regulations.noms",
+        "regulations.rrna"
+      ]
+    },
+    {
+      "id": 35,
+      "resultado": "clasificado",
+      "nDiscrepancias": 6,
+      "campos": [
+        "nico",
+        "tariffs.preferential",
+        "regulations.noms",
+        "regulations.rrna",
+        "alternatives[].description",
+        "alternatives[].description"
+      ]
+    },
+    {
+      "id": 36,
+      "resultado": "clasificado",
+      "nDiscrepancias": 7,
+      "campos": [
+        "nico",
+        "tariffs.preferential",
+        "regulations.noms",
+        "regulations.rrna",
+        "alternatives[].description",
+        "alternatives[].description",
+        "alternatives[].description"
+      ]
+    },
+    {
+      "id": 37,
+      "resultado": "clasificado",
+      "nDiscrepancias": 5,
+      "campos": [
+        "nico",
+        "tariffs.preferential",
+        "regulations.noms",
+        "regulations.rrna",
+        "alternatives[].description"
+      ]
+    },
+    {
+      "id": 38,
+      "resultado": "clasificado",
+      "nDiscrepancias": 8,
+      "campos": [
+        "fraction.description",
+        "nico",
+        "tariffs.preferential",
+        "regulations.noms",
+        "regulations.rrna",
+        "alternatives[].description",
+        "alternatives[].description",
+        "alternatives[].description"
+      ]
+    },
+    {
+      "id": 39,
+      "resultado": "clasificado",
+      "nDiscrepancias": 8,
+      "campos": [
+        "fraction.description",
+        "nico",
+        "tariffs.preferential",
+        "regulations.noms",
+        "regulations.rrna",
+        "alternatives[].description",
+        "alternatives[].description",
+        "alternatives[].description"
+      ]
+    },
+    {
+      "id": 40,
+      "resultado": "falla_cerrada",
+      "nDiscrepancias": 0,
+      "campos": []
+    },
+    {
+      "id": 41,
+      "resultado": "clasificado",
+      "nDiscrepancias": 8,
+      "campos": [
+        "nico",
+        "tariffs.nmf",
+        "tariffs.preferential",
+        "regulations.noms",
+        "regulations.rrna",
+        "alternatives[].description",
+        "alternatives[].description",
+        "alternatives[].description"
+      ]
+    },
+    {
+      "id": 42,
+      "resultado": "clasificado",
+      "nDiscrepancias": 8,
+      "campos": [
+        "nico",
+        "tariffs.nmf",
+        "tariffs.preferential",
+        "regulations.noms",
+        "regulations.rrna",
+        "alternatives[].description",
+        "alternatives[].description",
+        "alternatives[].description"
+      ]
+    },
+    {
+      "id": 43,
+      "resultado": "clasificado",
+      "nDiscrepancias": 6,
+      "campos": [
+        "nico",
+        "tariffs.preferential",
+        "regulations.noms",
+        "regulations.rrna",
+        "regulations.sectoralRegistry",
+        "alternatives[].description"
+      ]
+    },
+    {
+      "id": 44,
+      "resultado": "clasificado",
+      "nDiscrepancias": 10,
+      "campos": [
+        "fraction.description",
+        "nico",
+        "tariffs.nmf",
+        "tariffs.preferential",
+        "regulations.noms",
+        "regulations.rrna",
+        "regulations.sectoralRegistry",
+        "alternatives[].description",
+        "alternatives[].description",
+        "alternatives[].description"
+      ]
+    },
+    {
+      "id": 45,
+      "resultado": "clasificado",
+      "nDiscrepancias": 9,
+      "campos": [
+        "fraction.description",
+        "nico",
+        "tariffs.preferential",
+        "regulations.noms",
+        "regulations.rrna",
+        "regulations.sectoralRegistry",
+        "alternatives[].description",
+        "alternatives[].description",
+        "alternatives[].description"
+      ]
+    },
+    {
+      "id": 46,
+      "resultado": "clasificado",
+      "nDiscrepancias": 7,
+      "campos": [
+        "nico",
+        "tariffs.nmf",
+        "tariffs.preferential",
+        "regulations.noms",
+        "regulations.rrna",
+        "alternatives[].description",
+        "alternatives[].description"
+      ]
+    },
+    {
+      "id": 47,
+      "resultado": "clasificado",
+      "nDiscrepancias": 10,
+      "campos": [
+        "fraction.description",
+        "nico",
+        "tariffs.nmf",
+        "tariffs.preferential",
+        "regulations.noms",
+        "regulations.rrna",
+        "regulations.sectoralRegistry",
+        "alternatives[].description",
+        "alternatives[].description",
+        "alternatives[].description"
+      ]
+    },
+    {
+      "id": 48,
+      "resultado": "clasificado",
+      "nDiscrepancias": 8,
+      "campos": [
+        "fraction.description",
+        "nico",
+        "tariffs.preferential",
+        "regulations.noms",
+        "regulations.rrna",
+        "alternatives[].description",
+        "alternatives[].description",
+        "alternatives[].description"
+      ]
+    },
+    {
+      "id": 49,
+      "resultado": "clasificado",
+      "nDiscrepancias": 8,
+      "campos": [
+        "fraction.description",
+        "nico",
+        "tariffs.preferential",
+        "regulations.noms",
+        "regulations.rrna",
+        "regulations.sectoralRegistry",
+        "alternatives[].code",
+        "alternatives[].description"
+      ]
+    },
+    {
+      "id": 50,
+      "resultado": "clasificado",
+      "nDiscrepancias": 9,
+      "campos": [
+        "nico",
+        "tariffs.nmf",
+        "tariffs.preferential",
+        "regulations.noms",
+        "regulations.rrna",
+        "regulations.sectoralRegistry",
+        "alternatives[].description",
+        "alternatives[].description",
+        "alternatives[].description"
+      ]
+    },
+    {
+      "id": 51,
+      "resultado": "clasificado",
+      "nDiscrepancias": 4,
+      "campos": [
+        "nico",
+        "tariffs.preferential",
+        "regulations.noms",
+        "alternatives[].description"
+      ]
+    },
+    {
+      "id": 52,
+      "resultado": "clasificado",
+      "nDiscrepancias": 7,
+      "campos": [
+        "nico",
+        "tariffs.nmf",
+        "tariffs.preferential",
+        "regulations.noms",
+        "alternatives[].description",
+        "alternatives[].description",
+        "alternatives[].description"
+      ]
+    },
+    {
+      "id": 53,
+      "resultado": "clasificado",
+      "nDiscrepancias": 8,
+      "campos": [
+        "nico",
+        "tariffs.nmf",
+        "tariffs.preferential",
+        "regulations.noms",
+        "regulations.rrna",
+        "alternatives[].description",
+        "alternatives[].description",
+        "alternatives[].description"
+      ]
+    },
+    {
+      "id": 54,
+      "resultado": "clasificado",
+      "nDiscrepancias": 6,
+      "campos": [
+        "nico",
+        "tariffs.preferential",
+        "regulations.noms",
+        "alternatives[].description",
+        "alternatives[].description",
+        "alternatives[].description"
+      ]
+    },
+    {
+      "id": 55,
+      "resultado": "clasificado",
+      "nDiscrepancias": 5,
+      "campos": [
+        "nico",
+        "tariffs.preferential",
+        "alternatives[].description",
+        "alternatives[].description",
+        "alternatives[].description"
+      ]
+    },
+    {
+      "id": 56,
+      "resultado": "clasificado",
+      "nDiscrepancias": 8,
+      "campos": [
+        "fraction.description",
+        "nico",
+        "tariffs.preferential",
+        "regulations.noms",
+        "regulations.rrna",
+        "alternatives[].description",
+        "alternatives[].description",
+        "alternatives[].description"
+      ]
+    },
+    {
+      "id": 57,
+      "resultado": "falla_cerrada",
+      "nDiscrepancias": 0,
+      "campos": []
+    },
+    {
+      "id": 58,
+      "resultado": "clasificado",
+      "nDiscrepancias": 4,
+      "campos": [
+        "nico",
+        "tariffs.preferential",
+        "regulations.noms",
+        "alternatives[].description"
+      ]
+    },
+    {
+      "id": 59,
+      "resultado": "clasificado",
+      "nDiscrepancias": 4,
+      "campos": [
+        "fraction.description",
+        "nico",
+        "tariffs.preferential",
+        "regulations.noms"
+      ]
+    },
+    {
+      "id": 60,
+      "resultado": "clasificado",
+      "nDiscrepancias": 5,
+      "campos": [
+        "nico",
+        "tariffs.preferential",
+        "regulations.noms",
+        "alternatives[].description",
+        "alternatives[].description"
+      ]
+    },
+    {
+      "id": 61,
+      "resultado": "clasificado",
+      "nDiscrepancias": 8,
+      "campos": [
+        "nico",
+        "tariffs.preferential",
+        "regulations.noms",
+        "regulations.rrna",
+        "regulations.sectoralRegistry",
+        "alternatives[].description",
+        "alternatives[].description",
+        "alternatives[].description"
+      ]
+    },
+    {
+      "id": 62,
+      "resultado": "falla_cerrada",
+      "nDiscrepancias": 0,
+      "campos": []
+    },
+    {
+      "id": 63,
+      "resultado": "clasificado",
+      "nDiscrepancias": 9,
+      "campos": [
+        "fraction.description",
+        "nico",
+        "tariffs.nmf",
+        "tariffs.preferential",
+        "regulations.noms",
+        "regulations.rrna",
+        "alternatives[].description",
+        "alternatives[].description",
+        "alternatives[].description"
+      ]
+    },
+    {
+      "id": 64,
+      "resultado": "clasificado",
+      "nDiscrepancias": 8,
+      "campos": [
+        "fraction.description",
+        "nico",
+        "tariffs.preferential",
+        "regulations.noms",
+        "regulations.rrna",
+        "alternatives[].description",
+        "alternatives[].description",
+        "alternatives[].description"
+      ]
+    },
+    {
+      "id": 65,
+      "resultado": "clasificado",
+      "nDiscrepancias": 7,
+      "campos": [
+        "nico",
+        "tariffs.preferential",
+        "regulations.noms",
+        "regulations.rrna",
+        "alternatives[].description",
+        "alternatives[].description",
+        "alternatives[].description"
+      ]
+    },
+    {
+      "id": 66,
+      "resultado": "clasificado",
+      "nDiscrepancias": 7,
+      "campos": [
+        "nico",
+        "tariffs.preferential",
+        "regulations.noms",
+        "regulations.sectoralRegistry",
+        "alternatives[].description",
+        "alternatives[].description",
+        "alternatives[].description"
+      ]
+    },
+    {
+      "id": 67,
+      "resultado": "clasificado",
+      "nDiscrepancias": 6,
+      "campos": [
+        "tariffs.preferential",
+        "regulations.noms",
+        "regulations.sectoralRegistry",
+        "alternatives[].description",
+        "alternatives[].description",
+        "alternatives[].description"
+      ]
+    },
+    {
+      "id": 68,
+      "resultado": "clasificado",
+      "nDiscrepancias": 6,
+      "campos": [
+        "nico",
+        "tariffs.preferential",
+        "regulations.noms",
+        "alternatives[].description",
+        "alternatives[].description",
+        "alternatives[].description"
+      ]
+    },
+    {
+      "id": 69,
+      "resultado": "clasificado",
+      "nDiscrepancias": 8,
+      "campos": [
+        "fraction.description",
+        "nico",
+        "tariffs.preferential",
+        "regulations.noms",
+        "regulations.sectoralRegistry",
+        "alternatives[].description",
+        "alternatives[].description",
+        "alternatives[].description"
+      ]
+    },
+    {
+      "id": 70,
+      "resultado": "clasificado",
+      "nDiscrepancias": 6,
+      "campos": [
+        "nico",
+        "tariffs.preferential",
+        "regulations.noms",
+        "regulations.sectoralRegistry",
+        "alternatives[].description",
+        "alternatives[].description"
+      ]
+    },
+    {
+      "id": 71,
+      "resultado": "clasificado",
+      "nDiscrepancias": 5,
+      "campos": [
+        "nico",
+        "tariffs.preferential",
+        "regulations.noms",
+        "alternatives[].description",
+        "alternatives[].description"
+      ]
+    },
+    {
+      "id": 72,
+      "resultado": "clasificado",
+      "nDiscrepancias": 7,
+      "campos": [
+        "fraction.description",
+        "nico",
+        "tariffs.preferential",
+        "regulations.noms",
+        "alternatives[].description",
+        "alternatives[].description",
+        "alternatives[].description"
+      ]
+    },
+    {
+      "id": 73,
+      "resultado": "clasificado",
+      "nDiscrepancias": 7,
+      "campos": [
+        "fraction.description",
+        "nico",
+        "tariffs.preferential",
+        "regulations.noms",
+        "alternatives[].description",
+        "alternatives[].description",
+        "alternatives[].description"
+      ]
+    },
+    {
+      "id": 74,
+      "resultado": "falla_cerrada",
+      "nDiscrepancias": 0,
+      "campos": []
+    },
+    {
+      "id": 75,
+      "resultado": "falla_cerrada",
+      "nDiscrepancias": 0,
+      "campos": []
+    },
+    {
+      "id": 76,
+      "resultado": "clasificado",
+      "nDiscrepancias": 5,
+      "campos": [
+        "nico",
+        "tariffs.preferential",
+        "alternatives[].description",
+        "alternatives[].description",
+        "alternatives[].description"
+      ]
+    },
+    {
+      "id": 77,
+      "resultado": "clasificado",
+      "nDiscrepancias": 7,
+      "campos": [
+        "fraction.description",
+        "nico",
+        "tariffs.preferential",
+        "regulations.noms",
+        "alternatives[].description",
+        "alternatives[].description",
+        "alternatives[].description"
+      ]
+    },
+    {
+      "id": 78,
+      "resultado": "falla_cerrada",
+      "nDiscrepancias": 0,
+      "campos": []
+    },
+    {
+      "id": 79,
+      "resultado": "clasificado",
+      "nDiscrepancias": 7,
+      "campos": [
+        "fraction.description",
+        "nico",
+        "tariffs.preferential",
+        "regulations.noms",
+        "alternatives[].description",
+        "alternatives[].description",
+        "alternatives[].description"
+      ]
+    },
+    {
+      "id": 80,
+      "resultado": "clasificado",
+      "nDiscrepancias": 7,
+      "campos": [
+        "fraction.description",
+        "nico",
+        "tariffs.preferential",
+        "regulations.noms",
+        "alternatives[].description",
+        "alternatives[].description",
+        "alternatives[].description"
+      ]
+    },
+    {
+      "id": 81,
+      "resultado": "clasificado",
+      "nDiscrepancias": 6,
+      "campos": [
+        "nico",
+        "tariffs.preferential",
+        "regulations.noms",
+        "regulations.sectoralRegistry",
+        "alternatives[].description",
+        "alternatives[].description"
+      ]
+    },
+    {
+      "id": 82,
+      "resultado": "falla_cerrada",
+      "nDiscrepancias": 0,
+      "campos": []
+    },
+    {
+      "id": 83,
+      "resultado": "clasificado",
+      "nDiscrepancias": 9,
+      "campos": [
+        "fraction.description",
+        "nico",
+        "tariffs.preferential",
+        "regulations.noms",
+        "regulations.rrna",
+        "regulations.sectoralRegistry",
+        "alternatives[].description",
+        "alternatives[].description",
+        "alternatives[].description"
+      ]
+    },
+    {
+      "id": 84,
+      "resultado": "clasificado",
+      "nDiscrepancias": 8,
+      "campos": [
+        "nico",
+        "tariffs.preferential",
+        "regulations.noms",
+        "regulations.rrna",
+        "regulations.sectoralRegistry",
+        "alternatives[].description",
+        "alternatives[].description",
+        "alternatives[].description"
+      ]
+    },
+    {
+      "id": 85,
+      "resultado": "falla_cerrada",
+      "nDiscrepancias": 0,
+      "campos": []
+    },
+    {
+      "id": 86,
+      "resultado": "falla_cerrada",
+      "nDiscrepancias": 0,
+      "campos": []
+    },
+    {
+      "id": 87,
+      "resultado": "clasificado",
+      "nDiscrepancias": 8,
+      "campos": [
+        "fraction.description",
+        "nico",
+        "tariffs.nmf",
+        "tariffs.preferential",
+        "regulations.sectoralRegistry",
+        "alternatives[].description",
+        "alternatives[].description",
+        "alternatives[].description"
+      ]
+    },
+    {
+      "id": 88,
+      "resultado": "clasificado",
+      "nDiscrepancias": 5,
+      "campos": [
+        "nico",
+        "tariffs.preferential",
+        "regulations.noms",
+        "alternatives[].description",
+        "alternatives[].description"
+      ]
+    },
+    {
+      "id": 89,
+      "resultado": "clasificado",
+      "nDiscrepancias": 6,
+      "campos": [
+        "nico",
+        "tariffs.preferential",
+        "regulations.noms",
+        "alternatives[].description",
+        "alternatives[].description",
+        "alternatives[].description"
+      ]
+    },
+    {
+      "id": 90,
+      "resultado": "falla_cerrada",
+      "nDiscrepancias": 0,
+      "campos": []
+    },
+    {
+      "id": 91,
+      "resultado": "clasificado",
+      "nDiscrepancias": 3,
+      "campos": [
+        "tariffs.preferential",
+        "regulations.noms",
+        "regulations.sectoralRegistry"
+      ]
+    },
+    {
+      "id": 92,
+      "resultado": "clasificado",
+      "nDiscrepancias": 6,
+      "campos": [
+        "nico",
+        "tariffs.preferential",
+        "regulations.noms",
+        "regulations.sectoralRegistry",
+        "alternatives[].description",
+        "alternatives[].description"
+      ]
+    },
+    {
+      "id": 93,
+      "resultado": "clasificado",
+      "nDiscrepancias": 8,
+      "campos": [
+        "fraction.description",
+        "nico",
+        "tariffs.preferential",
+        "regulations.noms",
+        "regulations.sectoralRegistry",
+        "alternatives[].description",
+        "alternatives[].description",
+        "alternatives[].description"
+      ]
+    },
+    {
+      "id": 94,
+      "resultado": "clasificado",
+      "nDiscrepancias": 8,
+      "campos": [
+        "nico",
+        "tariffs.nmf",
+        "tariffs.preferential",
+        "regulations.noms",
+        "regulations.sectoralRegistry",
+        "alternatives[].description",
+        "alternatives[].description",
+        "alternatives[].description"
+      ]
+    },
+    {
+      "id": 95,
+      "resultado": "clasificado",
+      "nDiscrepancias": 8,
+      "campos": [
+        "fraction.description",
+        "nico",
+        "tariffs.preferential",
+        "regulations.noms",
+        "regulations.sectoralRegistry",
+        "alternatives[].description",
+        "alternatives[].description",
+        "alternatives[].description"
+      ]
+    },
+    {
+      "id": 96,
+      "resultado": "clasificado",
+      "nDiscrepancias": 4,
+      "campos": [
+        "nico",
+        "tariffs.preferential",
+        "regulations.noms",
+        "alternatives[].description"
+      ]
+    },
+    {
+      "id": 97,
+      "resultado": "clasificado",
+      "nDiscrepancias": 7,
+      "campos": [
+        "fraction.description",
+        "nico",
+        "tariffs.preferential",
+        "regulations.noms",
+        "alternatives[].description",
+        "alternatives[].description",
+        "alternatives[].description"
+      ]
+    },
+    {
+      "id": 98,
+      "resultado": "clasificado",
+      "nDiscrepancias": 4,
+      "campos": [
+        "nico",
+        "tariffs.preferential",
+        "alternatives[].description",
+        "alternatives[].description"
+      ]
+    },
+    {
+      "id": 99,
+      "resultado": "clasificado",
+      "nDiscrepancias": 6,
+      "campos": [
+        "nico",
+        "tariffs.preferential",
+        "regulations.noms",
+        "alternatives[].description",
+        "alternatives[].description",
+        "alternatives[].description"
+      ]
+    },
+    {
+      "id": 100,
+      "resultado": "clasificado",
+      "nDiscrepancias": 6,
+      "campos": [
+        "nico",
+        "tariffs.nmf",
+        "tariffs.preferential",
+        "regulations.noms",
+        "alternatives[].description",
+        "alternatives[].description"
+      ]
+    }
+  ]
+}

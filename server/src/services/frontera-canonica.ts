@@ -55,6 +55,11 @@ const NOTA_TARIFAS =
   'Verificado contra la versión del catálogo cargado; el sellado por fila (mezcla con seeds legacy) sigue pendiente.';
 const NOTA_NOMS_FRACTION =
   'Cobertura pendiente de cotejo contra el Anexo 2.4.1 consolidado (Acuerdo NOMs).';
+// Evidencia del censo 1a (18-ago): la tabla contiene versiones posiblemente
+// supersedidas (ej. NOM-004-SE-2006 donde rige la 2021). Hasta que la tabla
+// gane fechaCotejo POR FILA contra el Anexo 2.4.1, sus filas salen ámbar.
+const NOTA_REGULACION_TABLA =
+  'Fila curada sin cotejo de vigencia por artículo — la versión de la norma puede estar supersedida (cotejo Anexo 2.4.1 pendiente).';
 const NOTA_PADRON =
   'Cobertura fina por fracción con aproximaciones documentadas (Anexo 10).';
 const NOTA_PREFERENCIALES =
@@ -161,7 +166,7 @@ export async function datosCanonicosFraccion(codeInput: string): Promise<DatosCa
   const noms = await campo<RegulacionCanonica[]>('regulaciones.noms', async () => {
     const filas = await regulacionesPara(code, ['NOM']);
     if (filas.length > 0) {
-      return datoVerificado(filas, fuenteRegulacion(filas), fechaCotejoRegulacion(filas), 'tabla', 'manual');
+      return datoSinVerificar(filas, 'tabla', NOTA_REGULACION_TABLA, fuenteRegulacion(filas));
     }
     if (row.noms.length > 0) {
       return datoSinVerificar(
@@ -176,7 +181,7 @@ export async function datosCanonicosFraccion(codeInput: string): Promise<DatosCa
   const rrna = await campo<RegulacionCanonica[]>('regulaciones.rrna', async () => {
     const filas = await regulacionesPara(code, ['RRNA', 'permiso_previo']);
     if (filas.length > 0) {
-      return datoVerificado(filas, fuenteRegulacion(filas), fechaCotejoRegulacion(filas), 'tabla', 'manual');
+      return datoSinVerificar(filas, 'tabla', NOTA_REGULACION_TABLA, fuenteRegulacion(filas));
     }
     return datoNoDisponible<RegulacionCanonica[]>('tabla', undefined,
       'Sin RRNA/permiso registrado para esta fracción en las tablas cargadas.');
@@ -224,13 +229,6 @@ async function regulacionesPara(code: string, tipos: string[]): Promise<Regulaci
 function fuenteRegulacion(filas: RegulacionCanonica[]): FuenteLegal {
   const autoridades = [...new Set(filas.map(f => f.authority))].join(', ');
   return { nombre: `Regulaciones por fracción (${autoridades})`, url: null, version: null, fechaPublicacion: null };
-}
-
-function fechaCotejoRegulacion(_filas: RegulacionCanonica[]): string {
-  // La tabla es curada manualmente; el cotejo declarado es el del snapshot de
-  // catálogo con el que se sembró. Cuando la tabla gane fechaCotejo por fila,
-  // se usa esa (mismo camino que GlosaRiskRule).
-  return FECHA_COTEJO_CATALOGO;
 }
 
 // ── Tipo de cambio con procedencia (§2.1) ─────────────────────────────────
