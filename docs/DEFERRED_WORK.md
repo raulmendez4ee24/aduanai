@@ -411,3 +411,39 @@ Residuales SIN causa confirmada (para la siguiente ola):
    directo — se actualiza solo con este cambio, verificar que lo refleje.
 5. Vigilar de paso si aparece una 4a versión anticipada o la 3a RM que
    vuelva a mover la fecha (patrón: la han prorrogado ya 2 veces).
+
+---
+
+## 22) Cotejo del Anexo 2.4.1 con `fechaCotejo` por fila en FractionRegulation
+
+**Creado 2026-08-18 (Frontera Canónica, censo 1a).** El censo de discrepancias
+(`docs/REPORTE-DISCREPANCIAS-1A.md`) evidenció filas posiblemente supersedidas
+en `FractionRegulation` (ej. **NOM-004-SE-2006** donde el LLM citaba la
+**NOM-004-SE-2021**). Por eso el registro de autoridad del productor
+(`services/frontera-canonica.ts`) degrada las NOMs/RRNA de esa tabla a
+`sin_verificar` con nota.
+
+**Este cotejo es EL DESBLOQUEADOR para que las NOMs suban a verde:**
+
+1. Agregar columnas `fuenteNombre`, `fuenteUrl`, `fechaCotejo` a
+   `FractionRegulation` (mismo patrón que `GlosaRiskRule` en Fase 2).
+2. Cotejar cada fila contra el Anexo 2.4.1 consolidado vigente (Acuerdo
+   NOMs) — versión de la norma incluida (2006 vs 2021 NO es cosmético).
+3. Al llenar `fechaCotejo`, subir el registro de autoridad del productor:
+   filas cotejadas → `verificado` (una línea en `frontera-canonica.ts`;
+   todos los consumidores suben a la vez).
+
+## 23) Textos padre TIGIE para presentación compuesta (conecta con #19)
+
+**Creado 2026-08-18 (Frontera Canónica, censo 1a).** El 38.4% de las
+descripciones canónicas de fracción son fragmentos sin contexto ("De
+algodón."). La UI ya compone la cadena partida › subpartida › fracción con
+los textos REALES del catálogo (0/1235 partidas genéricas; 13/5632
+subpartidas genéricas) y muestra nota cuando el padre no existe — jamás lo
+inventa.
+
+**El MISMO dato resuelve #19 y esto:** cargar/cotejar los textos oficiales
+de partida y subpartida faltantes o genéricos completa la presentación
+compuesta del expediente Y desbloquea la palanca de residuales "Los demás."
+del #19 (inyectar texto padre al prompt del clasificador). Al cotejarlos,
+evaluar sellar la jerarquía con su propia fuente/fecha.

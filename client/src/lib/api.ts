@@ -1357,8 +1357,13 @@ export interface RegulacionCanonica {
   type: string;
 }
 
+export interface JerarquiaFraccion {
+  partida: { code: string; texto: string } | null;
+  subpartida: { code: string; texto: string } | null;
+}
+
 export interface DatosCanonicosFraccion {
-  fraccion: DatoLegal<{ code: string; codeFormatted: string; description: string; unit: string | null }>;
+  fraccion: DatoLegal<{ code: string; codeFormatted: string; description: string; unit: string | null; jerarquia: JerarquiaFraccion }>;
   nico: DatoLegal<string[]>;
   tarifas: {
     nmf: DatoLegal<number>;

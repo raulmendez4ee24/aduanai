@@ -64,6 +64,12 @@ const NOTA_PADRON =
   'Cobertura fina por fracción con aproximaciones documentadas (Anexo 10).';
 const NOTA_PREFERENCIALES =
   'null = sin dato en el catálogo cargado; no acredita por sí solo ausencia de preferencia en el tratado.';
+// Orden de Raúl (18-ago): mientras la tabla NICO esté en carga (nicos[] vacío,
+// solo el NICO único del extracto), el campo NO puede salir 'verificado' —
+// forzar "00" como dato verificado sería el error que estamos matando, en la
+// dirección contraria. Cuando cargar-nicos puebla nicos[], sube a verde solo.
+const NOTA_NICO_EN_CARGA =
+  'Tabla NICO en carga — el extracto registra un solo NICO por fracción; verifica en la Base Única SNICE.';
 
 // ── Contrato ──────────────────────────────────────────────────────────────
 
@@ -74,8 +80,13 @@ export interface RegulacionCanonica {
   type: string; // 'NOM' | 'RRNA' | 'permiso_previo' | 'padron_sectorial'
 }
 
+export interface JerarquiaFraccion {
+  partida: { code: string; texto: string } | null;    // null = texto genérico/no cargado (NO se inventa)
+  subpartida: { code: string; texto: string } | null; // null también si es idéntico al de la fracción (no aporta)
+}
+
 export interface DatosCanonicosFraccion {
-  fraccion: DatoLegal<{ code: string; codeFormatted: string; description: string; unit: string | null }>;
+  fraccion: DatoLegal<{ code: string; codeFormatted: string; description: string; unit: string | null; jerarquia: JerarquiaFraccion }>;
   nico: DatoLegal<string[]>;
   tarifas: {
     nmf: DatoLegal<number>;
@@ -126,6 +137,12 @@ export async function datosCanonicosFraccion(codeInput: string): Promise<DatosCa
       nico: true, nicos: true,
       tariffNMF: true, tariffTMEC: true, tariffTLCUE: true, tariffCPTPP: true, iepsRate: true,
       noms: true,
+      subheading: {
+        select: {
+          code: true, description: true,
+          heading: { select: { code: true, description: true } },
+        },
+      },
     },
   });
   if (!row) {
@@ -133,15 +150,33 @@ export async function datosCanonicosFraccion(codeInput: string): Promise<DatosCa
     throw new Error(`datosCanonicosFraccion: la fracción ${code} desapareció del catálogo entre validación y lectura.`);
   }
 
+  // Jerarquía real para presentación compuesta (§ descripciones-fragmento).
+  // Los textos genéricos del seed ("Partida X"/"Subpartida X") NO cuentan como
+  // texto padre — se devuelve null y la UI muestra el fragmento con nota. El
+  // texto de subpartida idéntico al de la fracción tampoco aporta.
+  const esGenerico = (t: string) => /^(Partida|Subpartida)\s+\d/.test(t.trim());
+  const h = row.subheading?.heading;
+  const s = row.subheading;
+  const jerarquia: JerarquiaFraccion = {
+    partida: h && !esGenerico(h.description) ? { code: h.code, texto: h.description } : null,
+    subpartida: s && !esGenerico(s.description) && s.description.trim() !== row.description.trim()
+      ? { code: s.code, texto: s.description } : null,
+  };
+
   const fraccion = datoVerificado(
-    { code, codeFormatted: row.codeFormatted, description: row.description, unit: row.unit },
+    { code, codeFormatted: row.codeFormatted, description: row.description, unit: row.unit, jerarquia },
     FUENTE_SNICE, FECHA_COTEJO_CATALOGO, 'catalogo', 'ingesta',
   );
 
-  const nicosCanonicos = row.nicos.length > 0 ? row.nicos : (row.nico ? [row.nico] : []);
-  const nico = nicosCanonicos.length > 0
-    ? datoVerificado(nicosCanonicos, FUENTE_SNICE, FECHA_COTEJO_CATALOGO, 'catalogo', 'ingesta')
-    : datoNoDisponible<string[]>('catalogo', FUENTE_SNICE, 'La Base Única no registra NICO para esta fracción.');
+  // NICO — gating por completitud de la tabla (orden 18-ago):
+  //  nicos[] poblado (cargar-nicos corrió) → verificado;
+  //  solo el NICO único del extracto → sin_verificar con nota (tabla en carga);
+  //  nada → no_disponible.
+  const nico: DatoLegal<string[]> = row.nicos.length > 0
+    ? datoVerificado(row.nicos, FUENTE_SNICE, FECHA_COTEJO_CATALOGO, 'catalogo', 'ingesta')
+    : row.nico
+      ? datoSinVerificar([row.nico], 'catalogo', NOTA_NICO_EN_CARGA, FUENTE_SNICE)
+      : datoNoDisponible<string[]>('catalogo', FUENTE_SNICE, 'La Base Única no registra NICO para esta fracción.');
 
   const nmf = row.tariffNMF != null
     ? datoVerificado(row.tariffNMF, FUENTE_SNICE, FECHA_COTEJO_CATALOGO, 'catalogo', 'ingesta', NOTA_TARIFAS)

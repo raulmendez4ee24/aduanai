@@ -391,14 +391,50 @@ export function ClassifierPage() {
           <div className="min-w-0">
             <p className="text-13 uppercase tracking-wide text-tinta-suave">Fracción arancelaria propuesta</p>
             <p className="font-sello-mono text-4xl text-tinta mt-1">{formatFraction(resultado.fraction.code)}</p>
-            {resultado.nico ? (
-              <p className="font-sello-mono text-sm text-tinta-suave mt-1">NICO {resultado.nico}</p>
-            ) : (resultado.datosCanonicos?.nico.valor?.length ?? 0) > 0 ? (
-              <p className="font-sello-mono text-sm text-tinta-suave mt-1">
-                NICO por elegir: {resultado.datosCanonicos!.nico.valor!.join(', ')}
+            {(resultado.nico || (resultado.datosCanonicos?.nico.valor?.length ?? 0) > 0) && (
+              <p className="font-sello-mono text-sm text-tinta-suave mt-1 flex items-center gap-2 flex-wrap">
+                {resultado.nico
+                  ? <>NICO {resultado.nico}</>
+                  : <>NICO por elegir: {resultado.datosCanonicos!.nico.valor!.join(', ')}</>}
+                {resultado.datosCanonicos && selloDe(deDatoLegal('nico', 'NICO', resultado.datosCanonicos.nico))}
               </p>
-            ) : null}
-            <p className="text-base text-tinta leading-relaxed mt-3">{resultado.fraction.description}</p>
+            )}
+            {/* Presentación compuesta: cadena jerárquica REAL cuando la descripción
+                de la fracción es un fragmento sin contexto. Jamás se inventa el
+                texto padre: si no está en catálogo, fragmento con nota. */}
+            {(() => {
+              const desc = resultado.fraction.description
+              const jer = resultado.datosCanonicos?.fraccion.valor?.jerarquia
+              const esFragmento = desc.length <= 80
+              if (!esFragmento || !jer) {
+                return <p className="text-base text-tinta leading-relaxed mt-3">{desc}</p>
+              }
+              if (!jer.partida && !jer.subpartida) {
+                return (
+                  <div className="mt-3">
+                    <p className="text-base text-tinta leading-relaxed">{desc}</p>
+                    <p className="text-13 text-tinta-suave mt-1">
+                      Texto de partida/subpartida no disponible en el catálogo cargado — el fragmento es el texto oficial de la fracción.
+                    </p>
+                  </div>
+                )
+              }
+              return (
+                <div className="mt-3 space-y-1">
+                  {jer.partida && (
+                    <p className="text-sm text-tinta-suave leading-relaxed">
+                      <span className="font-sello-mono">{jer.partida.code}</span> {jer.partida.texto}
+                    </p>
+                  )}
+                  {jer.subpartida && (
+                    <p className="text-sm text-tinta-suave leading-relaxed pl-3">
+                      › <span className="font-sello-mono">{jer.subpartida.code}</span> {jer.subpartida.texto}
+                    </p>
+                  )}
+                  <p className="text-base text-tinta leading-relaxed pl-6">› {desc}</p>
+                </div>
+              )
+            })()}
           </div>
           <div className="shrink-0">
             {resultado.datosCanonicos ? (
