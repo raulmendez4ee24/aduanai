@@ -695,3 +695,103 @@ El router **Sonnet 5 → Opus 4.8 con umbral 0.75 no existe en runtime**. Sólo 
 En fuentes legales, Risk tiene el patrón correcto. El RAG tiene URLs para los 44 activos, pero sólo cinco fechas de publicación y cuatro sin fecha efectiva; además, el seed declara que muchos textos son resúmenes. Clasificador y Pre‑Glosa todavía no entregan fuente+fecha verificable por cada dato. NOMs, cobertura fina de padrones, UPCI, precedentes y textos padre TIGIE siguen pendientes.
 
 La forma honesta de venderlo hoy es: **plataforma de prevención, organización y preparación documental asistida**, con supervisión de un profesional. No debe venderse todavía como autoridad legal autónoma ni como sustituto del agente aduanal.
+
+---
+
+# ADDENDUM — Qué cambió desde la Frontera Canónica (corte 19-ago-2026)
+
+**Este documento describe el sistema al 12-jul-2026 (`afde88f`). Entre el 18 y
+19-ago-2026 se ejecutaron las Fases 2, 1a, 1b y 3a de la Frontera Canónica de
+Datos Legales (`docs/FRONTERA_CANONICA_DESIGN.md`, aprobada con adenda), que
+CIERRAN los tres hallazgos centrales de esta radiografía. Producción corre
+`main` ≥ `54fc96e`. Lo de abajo SUPERSEDE a las secciones citadas; el resto de
+la radiografía sigue siendo una descripción razonable del sistema.**
+
+## Hallazgo (a) — Clasificador sin reconciliación canónica: CERRADO
+
+Supersede §3(c) "candados", §7.2 fila "NICO/RGI/notas/tarifas/RRNA/NOM" y §9.
+
+- **Productor canónico** (`services/frontera-canonica.ts`): dada una fracción
+  devuelve NICO, tarifas (NMF/preferenciales/IEPS), NOMs, RRNA y padrón como
+  `DatoLegal<T>` (`lib/dato-legal.ts`: valor + origen + fuente + fechaCotejo +
+  estado) desde catálogo/tablas, con registro de autoridad honesto (origen
+  catálogo NO implica verificado). Jamás llama a un LLM; sin dato →
+  `no_disponible`; consulta caída → `no_revisado` (test lo garantiza).
+- **Reconciliación EN LA RUTA** (`routes/classify.ts`, ambos endpoints): esos
+  campos se SUSTITUYEN por los canónicos; lo que el LLM dijera distinto queda
+  como discrepancia en telemetría (`classifier_canon_discrepancy`) y
+  trazabilidad — nunca en la UI. Alternativas inexistentes se eliminan.
+  Alertas y regulaciones ya no pueden contradecirse (misma fuente).
+- **Censo previo (medido, 100/100 casos)**: 100% de los expedientes contenía
+  al menos un dato LLM sin respaldo; el NMF mostrado era ERRÓNEO en 20.9%.
+  Artefacto: `docs/REPORTE-DISCREPANCIAS-1A.md`.
+- **Fase 1b**: el prompt ya NO pide nico/tariffs/regulations. Gate medido con
+  el harness oficial: top-1 61/99 = 61.6%, idéntico a la línea base (pareado
+  +1/−1, ruido). La cifra 61.6% de esta radiografía SIGUE siendo la vigente.
+- **Confianza**: sigue sin estar calibrada — por eso ya NO se muestra como
+  número prominente; solo como detalle técnico etiquetado (regla de
+  aprobación #2). `Classifier.tsx` sella verde desde `datosCanonicos` (el GAP
+  documentado en su encabezado quedó cerrado) y muestra la cadena jerárquica
+  partida › subpartida › fracción con los textos REALES del catálogo
+  (backfill verbatim `20260813193051`, también en prod).
+
+## Hallazgo (b) — Copilot: cita alucinada solo warning + fallback top-3: CERRADO (mínimo 3a)
+
+Supersede §4 "La disciplina cita-o-calla" puntos 3-6 y §9 fila "Gate del RAG".
+
+- **Matcher por clave normalizada** (`services/citas-legales.ts`): una cita
+  respalda ⟺ {tipo, número, cuerpo} coincide EXACTO con un doc recuperado
+  ("Art. 54 LA" ≠ "Art. 54 LFD" ≠ "Art. 54-A LA"). El matcher por tokens
+  (§4: "el matcher usa tokens muy amplios") fue eliminado.
+- **Política `COPILOT_CITA_ESTRICTA`** (hoy en 'sombra' midiendo una semana):
+  en 'estricta', cita no respaldada → UNA regeneración correctiva → si
+  persiste, el usuario ve la abstención canónica y la respuesta se guarda en
+  `CopilotConsult.respuestaDescartada` (jamás se muestra).
+- **El fallback top-3 quedó ELIMINADO en todos los modos**: `citations` puede
+  ser vacío; lo recuperado-no-citado va aparte como `documentosConsultados`.
+- **La confianza es determinista** (el `Math.random()` de §4 murió) y la
+  persistencia es upsert por hash (respuesta idéntica ya no revienta el
+  unique). PENDIENTE (3b, bloqueada por gate): la ley hardcodeada del prompt
+  (secciones A-D) y `injectIMMEXCertificationNote` SIGUEN como los describe
+  esta radiografía — su salida al corpus exige un set de evaluación escrito y
+  corrido en "antes".
+
+## Hallazgo (c) — Pre-Glosa falla abierto: CERRADO
+
+Supersede §5 "Fallos abiertos y datos heurísticos" y §9 filas de Glosa.
+
+- **Fail-closed por dominio**: las 6 consultas (precio estimado, histórico,
+  cuotas, padrones, NOMs, reclasificación) registran `revisado`/`no_revisado`
+  con motivo; revisión incompleta → `riskLevelPresentacion='indeterminado'`
+  (decidido en backend), banner en reporte e impresión — el "reporte
+  tranquilizador" es imposible. Cero `catch` silenciosos (test a nivel fuente).
+- **El TC de respaldo `* 17` murió** (y los tres `* 18` de alert-generator):
+  todo TC sale del servicio Banxico/DOF con procedencia (`tipoCambioMXN()`);
+  sin TC → el monto se omite o queda null, nunca una constante (test
+  anti-reincidencia sobre todo services/ y routes/).
+- `validateFraction` a la entrada; `declaresNOMs` ya no salta el lookup;
+  fundamentos como `DatoLegal` (verde por regla al cotejarse); la versión
+  normativa se eco-devuelve por corrida (el espejo `corpus-version.ts` del
+  cliente dejó de usarse en Glosa).
+
+## Otros cambios relevantes
+
+- `SelloVerificacion` ganó el estado `no_revisado` (rojo).
+- NICOs: prod tiene 8,140 fracciones con `nicos[]` (1,574 con >1);
+  `scripts/cargar-nicos.ts` carga verbatim del .xlsb (excluido de la imagen
+  por `.dockerignore`). Con la tabla poblada el NICO sella verde; si solo hay
+  extracto, `sin_verificar` con nota.
+- `FractionRegulation` degradada a `sin_verificar` (evidencia de supersesión
+  NOM-004-SE-2006 vs 2021) — DEFERRED #22 (cotejo Anexo 2.4.1 por fila) es el
+  desbloqueador del verde; DEFERRED #23 (textos padre) quedó CERRADO en su
+  parte de datos por el backfill.
+- Crédito/cuota Anthropic agotados → 503 con causa clara (antes 500 mudo).
+- Migraciones reales post-baseline aplicadas en prod: `20260813193051`,
+  `20260818000000`, `20260819010000` — la "deuda P2 de migración única" quedó
+  estrenada sin incidente.
+
+**Sigue pendiente (sin cambio vs esta radiografía):** calibración de
+confianzas/probabilidades, motor RGI determinista, pgvector, corpus íntegro
+del RAG (resúmenes), datasets UPCI/Anexo 2.4.1/padrones finos, precedentes,
+hipótesis H del clasificador (rama `feat/clasificador-jerarquico`, holdout
+sellado sin veredicto), Fase 3b y Fase 4 de la frontera.
