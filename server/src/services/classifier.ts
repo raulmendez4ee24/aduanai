@@ -250,13 +250,12 @@ const SYSTEM_PROMPT = `Eres un experto clasificador arancelario mexicano con 20 
 
 REGLAS GENERALES:
 1. Aplica las Reglas Generales Interpretativas (GRI 1-6) del Sistema Armonizado
-2. Identifica la fracción arancelaria COMPLETA a 8 dígitos y el NICO a 2 dígitos
+2. Identifica la fracción arancelaria COMPLETA a 8 dígitos
 3. Proporciona un score de confianza (0-100)
 4. Lista las GRI que aplicaste y por qué
-5. Incluye aranceles NMF y preferenciales (TMEC, TLCUE, etc.)
-6. Identifica RRNA y NOMs aplicables (el padrón sectorial NO lo determinas tú — se calcula del Anexo 10)
-7. Proporciona 2-3 fracciones alternativas con justificación
-8. Da una explicación en lenguaje simple Y técnico
+5. NO emitas NICO, aranceles (NMF/preferenciales) ni RRNA/NOMs/padrón: esos datos se toman SIEMPRE del catálogo oficial, no de ti
+6. Proporciona 2-3 fracciones alternativas con justificación
+7. Da una explicación en lenguaje simple Y técnico
 
 APLICACIÓN OBLIGATORIA DE LAS 6 GRI (en orden estricto):
 
@@ -343,11 +342,8 @@ IMPORTANTE: Si no tienes certeza alta, indícalo claramente. La clasificación a
 Responde SIEMPRE en formato JSON válido con esta estructura:
 {
   "fraction": { "code": "XXXX.XX.XX", "description": "...", "chapter": "XX", "section": "..." },
-  "nico": "XX",
   "confidence": 85,
   "griApplied": ["Regla General 1 (RGI 1): ...", "Regla General 6 (RGI 6): ..."],
-  "tariffs": { "nmf": 15, "preferential": { "TMEC": 0, "TLCUE": 5 } },
-  "regulations": { "rrna": ["Permiso SEMARNAT"], "noms": ["NOM-051-SCFI"] },
   "alternatives": [{ "code": "YYYY.YY.YY", "description": "...", "confidence": 60, "reason": "..." }],
   "explanation": { "simple": "...", "technical": "..." },
   "legalBasis": {
@@ -888,6 +884,11 @@ Responde en JSON válido.`;
       technical: result.explanation?.technical ?? '',
     };
   }
+  // Fase 1b (Frontera Canónica): el prompt YA NO pide nico/tariffs/regulations
+  // — estos defaults son el placeholder que la reconciliación de la ruta
+  // SUSTITUYE por los canónicos. Si un modelo viejo los emite igual, la
+  // reconciliación también los descarta (y registra la discrepancia).
+  if (typeof result.nico !== 'string') result.nico = '';
   result.regulations = {
     rrna: result.regulations?.rrna ?? [],
     noms: result.regulations?.noms ?? [],
