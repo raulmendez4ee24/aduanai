@@ -50,7 +50,16 @@ export async function reconciliarClasificacion(
   const canon = await datosCanonicosFraccion(result.fraction.code);
   const fraccion = canon.fraccion.valor!.code;
   const discrepancias: DiscrepanciaLLM[] = [];
+  // Post-1b el prompt YA NO pide nico/tariffs/regulations: la ausencia del LLM
+  // (default vacío '' / {} / []) es el comportamiento esperado, NO una
+  // contradicción — solo se registra discrepancia cuando el LLM SÍ emitió un
+  // valor y difiere del canon. Así la telemetría mide contradicciones reales.
+  const vacio = (v: unknown) =>
+    v == null || v === '' || v === false ||
+    (Array.isArray(v) && v.length === 0) ||
+    (typeof v === 'object' && !Array.isArray(v) && Object.keys(v as object).length === 0);
   const anota = (campo: string, valorLLM: unknown, valorCanonico: unknown) => {
+    if (vacio(valorLLM)) return;
     if (!iguales(valorLLM, valorCanonico)) discrepancias.push({ campo, valorLLM, valorCanonico, fraccion });
   };
 

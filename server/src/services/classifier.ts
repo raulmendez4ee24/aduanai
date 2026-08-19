@@ -895,7 +895,9 @@ Responde en JSON válido.`;
     sectoralRegistry: result.regulations?.sectoralRegistry ?? false,
   };
   result.tariffs = {
-    nmf: result.tariffs?.nmf ?? 0,
+    // null (no 0): "el LLM no lo emitió" ≠ "arancel 0%". La reconciliación de
+    // la ruta lo sustituye SIEMPRE por el canónico antes de cualquier lector.
+    nmf: result.tariffs?.nmf ?? (null as unknown as number),
     preferential: result.tariffs?.preferential ?? {},
   };
   if (!Array.isArray(result.alternatives)) result.alternatives = [];

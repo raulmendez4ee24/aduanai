@@ -149,6 +149,20 @@ async function main() {
     }
   });
 
+  await test('reconciliación post-1b: campos NO emitidos por el LLM no generan discrepancia', async () => {
+    const bruto = resultadoFalso({
+      nico: '',
+      tariffs: { nmf: null as unknown as number, preferential: {} },
+      regulations: { rrna: [], noms: [], sectoralRegistry: false },
+      alternatives: [],
+    });
+    const { discrepancias } = await reconciliarClasificacion(bruto);
+    const campos = discrepancias.map(d => d.campo);
+    for (const c of ['nico', 'tariffs.nmf', 'tariffs.preferential', 'regulations.noms', 'regulations.rrna', 'regulations.sectoralRegistry']) {
+      assert.ok(!campos.includes(c), `ausencia del LLM no es contradicción — no debe anotar ${c}`);
+    }
+  });
+
   // ── 4. Anti-reincidencia: TC constante prohibido en services/ y routes/ ──
   await test('ningún campo de valor se multiplica por un entero literal ≥10 (TC constante)', () => {
     const dirs = [join(__dirname, '../services'), join(__dirname, '../routes')];
