@@ -1770,6 +1770,15 @@ model CopilotConsult {
   helpful      Boolean?
   feedbackNote String?
 
+  // Fase 3a (Frontera Canónica §4.1): fail-closed de citas.
+  // respuestaDescartada = la respuesta que el usuario NO vio (citas no
+  // respaldadas tras la regeneración) — se conserva para análisis.
+  citaModo            String? // 'off' | 'sombra' | 'estricta'
+  citaRegenerada      Boolean @default(false)
+  citaDegradada       Boolean @default(false)
+  citasNoRespaldadas  Json? // string[] — referencias que no cruzaron
+  respuestaDescartada String? @db.Text
+
   createdAt DateTime @default(now())
 
   @@index([tenantId])

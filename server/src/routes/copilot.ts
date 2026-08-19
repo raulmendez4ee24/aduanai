@@ -37,10 +37,14 @@ copilotRouter.post('/', authenticate, async (req: AuthRequest, res, next) => {
         reply: result.answer,
         conversationId: convId,
         citations: result.citations,
+        documentosConsultados: result.documentosConsultados,
+        citaEstricta: result.citaEstricta,
         confidence: result.confidence,
         consultHash: result.consultHash,
         retrievedDocsCount: result.retrievedDocsCount,
-        hallucinationWarning: result.hallucinatedReferences.length > 0
+        // Con respuesta degradada (modo estricta) ya no hay citas fantasma que
+        // advertir; el warning queda para modo sombra/off.
+        hallucinationWarning: result.hallucinatedReferences.length > 0 && !result.citaEstricta.degradada
           ? { count: result.hallucinatedReferences.length, refs: result.hallucinatedReferences }
           : null,
       },

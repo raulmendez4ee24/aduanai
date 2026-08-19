@@ -2120,7 +2120,17 @@ export interface CopilotCitation {
 export interface CopilotChatResponse {
   reply: string;
   conversationId: string;
+  /** SOLO documentos que respaldan citas del texto (clave exacta). Puede ser []. */
   citations: CopilotCitation[];
+  /** Documentos recuperados que NO respaldan ninguna cita — se muestran
+   *  aparte, nunca como fuentes de la afirmación (Fase 3a §4.2). */
+  documentosConsultados?: { reference: string; source: string; officialUrl: string | null }[];
+  citaEstricta?: {
+    modo: 'off' | 'sombra' | 'estricta';
+    regenerada: boolean;
+    degradada: boolean;
+    noRespaldadas: string[];
+  };
   confidence: number;
   consultHash: string;
   retrievedDocsCount: number;

@@ -11,6 +11,8 @@ interface Message {
   error?: boolean;
   retryOf?: string;
   citations?: CopilotCitation[];
+  documentosConsultados?: { reference: string; source: string; officialUrl: string | null }[];
+  citaEstricta?: { modo: string; regenerada: boolean; degradada: boolean; noRespaldadas: string[] };
   confidence?: number;
   consultHash?: string;
   hallucinationWarning?: { count: number; refs: string[] } | null;
@@ -41,6 +43,8 @@ export function CopilotPage() {
         role: 'assistant',
         content: res.data.reply,
         citations: res.data.citations,
+        documentosConsultados: res.data.documentosConsultados,
+        citaEstricta: res.data.citaEstricta,
         confidence: res.data.confidence,
         consultHash: res.data.consultHash,
         hallucinationWarning: res.data.hallucinationWarning,
@@ -143,37 +147,73 @@ export function CopilotPage() {
                   <p className="text-[13px] leading-relaxed whitespace-pre-wrap">{msg.content}</p>
                 )}
 
-                {/* Citas y feedback en respuestas del asistente */}
-                {msg.role === 'assistant' && msg.citations && msg.citations.length > 0 && (
+                {/* Citas, documentos consultados y feedback (Fase 3a: las citas
+                    son SOLO las que respaldan el texto — puede no haber) */}
+                {msg.role === 'assistant' && !msg.error && (msg.citations || msg.documentosConsultados || msg.consultHash) && (
                   <div className="mt-3 pt-3 border-t border-slate-200/50">
-                    <p className="text-[10px] font-bold uppercase tracking-wider text-slate-500 mb-2 flex items-center gap-1.5">
-                      <Scale className="w-3 h-3"/> Fuentes consultadas
-                      {msg.confidence != null && (
-                        <span className={`ml-auto px-1.5 py-0.5 rounded text-[9px] font-bold ${
-                          msg.confidence >= 70 ? 'bg-emerald-100 text-emerald-800' :
-                          msg.confidence >= 40 ? 'bg-amber-100 text-amber-800' :
-                          'bg-rose-100 text-rose-800'
-                        }`}>{msg.confidence}% confianza</span>
-                      )}
-                    </p>
-                    <ul className="space-y-1.5">
-                      {msg.citations.map((c, k) => (
-                        <li key={k} className="rounded-lg bg-white/50 border border-slate-200/40 p-2">
-                          <div className="flex items-start gap-1">
-                            <span className="text-[9px] font-mono text-slate-400">[{k + 1}]</span>
-                            <div className="flex-1 min-w-0">
-                              <p className="text-[11px] font-semibold text-slate-800">{c.reference}</p>
-                              <p className="text-[10px] text-slate-600 mt-0.5 italic line-clamp-2">"{c.excerpt}"</p>
-                              {c.officialUrl && (
-                                <a href={c.officialUrl} target="_blank" rel="noreferrer" className="text-[10px] text-emerald-600 hover:underline flex items-center gap-1 mt-1">
-                                  <ExternalLink className="w-2.5 h-2.5"/> {c.source}
-                                </a>
+                    {msg.citaEstricta?.degradada && (
+                      <div className="mb-2 rounded-lg bg-rose-50 border border-rose-200 p-2 flex items-start gap-1.5">
+                        <AlertTriangle className="w-3 h-3 text-rose-600 shrink-0 mt-0.5"/>
+                        <p className="text-[10px] text-rose-800">
+                          La respuesta generada citaba referencias que no están en la base documental verificada y fue retirada. Se muestra la abstención estándar en su lugar.
+                        </p>
+                      </div>
+                    )}
+                    {msg.citations && msg.citations.length > 0 && (
+                      <>
+                        <p className="text-[10px] font-bold uppercase tracking-wider text-slate-500 mb-2 flex items-center gap-1.5">
+                          <Scale className="w-3 h-3"/> Fuentes que respaldan esta respuesta
+                          {msg.confidence != null && (
+                            <span className={`ml-auto px-1.5 py-0.5 rounded text-[9px] font-bold ${
+                              msg.confidence >= 70 ? 'bg-emerald-100 text-emerald-800' :
+                              msg.confidence >= 40 ? 'bg-amber-100 text-amber-800' :
+                              'bg-rose-100 text-rose-800'
+                            }`}>{msg.confidence}% confianza (heurística)</span>
+                          )}
+                        </p>
+                        <ul className="space-y-1.5">
+                          {msg.citations.map((c, k) => (
+                            <li key={k} className="rounded-lg bg-white/50 border border-slate-200/40 p-2">
+                              <div className="flex items-start gap-1">
+                                <span className="text-[9px] font-mono text-slate-400">[{k + 1}]</span>
+                                <div className="flex-1 min-w-0">
+                                  <p className="text-[11px] font-semibold text-slate-800">{c.reference}</p>
+                                  <p className="text-[10px] text-slate-600 mt-0.5 italic line-clamp-2">"{c.excerpt}"</p>
+                                  {c.officialUrl && (
+                                    <a href={c.officialUrl} target="_blank" rel="noreferrer" className="text-[10px] text-emerald-600 hover:underline flex items-center gap-1 mt-1">
+                                      <ExternalLink className="w-2.5 h-2.5"/> {c.source}
+                                    </a>
+                                  )}
+                                </div>
+                              </div>
+                            </li>
+                          ))}
+                        </ul>
+                      </>
+                    )}
+                    {(!msg.citations || msg.citations.length === 0) && !msg.citaEstricta?.degradada && (
+                      <p className="text-[10px] text-slate-500 mb-1">
+                        Esta respuesta no cita documentos verificados de la base.
+                      </p>
+                    )}
+
+                    {msg.documentosConsultados && msg.documentosConsultados.length > 0 && (
+                      <details className="mt-2">
+                        <summary className="text-[10px] text-slate-500 cursor-pointer select-none">
+                          Documentos consultados, no citados en la respuesta ({msg.documentosConsultados.length})
+                        </summary>
+                        <ul className="mt-1 space-y-0.5 pl-3">
+                          {msg.documentosConsultados.map((d, k) => (
+                            <li key={k} className="text-[10px] text-slate-600">
+                              {d.reference}
+                              {d.officialUrl && (
+                                <a href={d.officialUrl} target="_blank" rel="noreferrer" className="text-emerald-600 hover:underline ml-1">({d.source})</a>
                               )}
-                            </div>
-                          </div>
-                        </li>
-                      ))}
-                    </ul>
+                            </li>
+                          ))}
+                        </ul>
+                      </details>
+                    )}
 
                     {msg.hallucinationWarning && (
                       <div className="mt-2 rounded-lg bg-amber-50 border border-amber-200 p-2 flex items-start gap-1.5">

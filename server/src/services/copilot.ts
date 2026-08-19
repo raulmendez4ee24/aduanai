@@ -13,8 +13,25 @@ import crypto from 'crypto';
 import { getAnthropicClient } from '../lib/anthropic';
 import { llmGenerateWithMeta } from '../lib/llm';
 import { smartRetrieval, type RetrievedDoc } from './rag-search';
+import { cruzarCitas } from './citas-legales';
 import { prisma } from '../lib/prisma';
 import { logger } from '../lib/logger';
+
+/** Frase canónica de abstención — la respuesta degradada ES esta frase. */
+export const ABSTENCION_CANONICA =
+  'No tengo información verificada al respecto en mi base de documentos legales. Te sugiero consultar el portal del SAT o a un agente aduanal certificado.';
+
+/** Modo del fail-closed de citas (Fase 3a §4.1):
+ *  'sombra' (default): detecta y registra, NO bloquea — para medir la tasa
+ *  real de regeneración/degradación antes del corte (aprobación 18-ago).
+ *  'estricta': cita no respaldada → 1 regeneración correctiva → si persiste,
+ *  la respuesta se DEGRADA a la abstención canónica (el usuario nunca la ve).
+ *  'off': solo el warning legacy (no recomendado). */
+export type ModoCitaEstricta = 'off' | 'sombra' | 'estricta';
+export function modoCitaEstricta(): ModoCitaEstricta {
+  const v = (process.env.COPILOT_CITA_ESTRICTA ?? 'sombra').toLowerCase();
+  return v === 'estricta' || v === 'off' ? v : 'sombra';
+}
 
 const RAG_SYSTEM_PROMPT = `Eres el Copilot legal de ADUANAI, asistente especializado en comercio exterior mexicano.
 
@@ -128,13 +145,29 @@ interface Citation {
   score: number;
 }
 
+/** Documento recuperado que NO respalda ninguna cita — se muestra aparte
+ *  ("documentos consultados"), jamás como fuente de una afirmación (§4.2). */
+export interface DocumentoConsultado {
+  reference: string;
+  source: string;
+  officialUrl: string | null;
+}
+
 export interface CopilotRAGResult {
   answer: string;
+  /** SOLO documentos cuya clave cruza con una cita del texto. Puede ser []. */
   citations: Citation[];
+  documentosConsultados: DocumentoConsultado[];
   confidence: number;
   consultHash: string;
   hallucinatedReferences: string[];
   retrievedDocsCount: number;
+  citaEstricta: {
+    modo: ModoCitaEstricta;
+    regenerada: boolean;
+    degradada: boolean;
+    noRespaldadas: string[];
+  };
 }
 
 function buildContextBlock(docs: RetrievedDoc[]): string {
@@ -149,39 +182,9 @@ function buildContextBlock(docs: RetrievedDoc[]): string {
   return `\n[CONTEXTO LEGAL DISPONIBLE — ${docs.length} documento(s)]\n\n${blocks}\n\n[FIN DEL CONTEXTO]\n`;
 }
 
-/**
- * Detecta referencias citadas en la respuesta y las cruza contra el corpus.
- * Devuelve las que NO se pudieron verificar (probable hallucination).
- */
-function detectHallucinations(answer: string, docs: RetrievedDoc[]): { citedRefs: string[]; hallucinated: string[] } {
-  // Heurística: extraer "Art. X LA", "Regla X.X.X", "Anexo X", "Capítulo X TMEC", etc.
-  const patterns = [
-    /Art(?:ículo|\.)?\s*(\d+(?:-[A-Z])?(?:\s+L[A-Z]{1,4})?)/gi,
-    /Regla\s+(\d+\.\d+(?:\.\d+)?\s+RGCE)/gi,
-    /Anexo\s+(\d+(?:\.\d+)*(?:\s+RGCE)?)/gi,
-    /TMEC\s+(Cap(?:ítulo|\.)?\s*\d+|Anexo\s+\d+(?:-[A-Z])?)/gi,
-  ];
-  const citedRefs = new Set<string>();
-  for (const pat of patterns) {
-    let m: RegExpExecArray | null;
-    while ((m = pat.exec(answer)) !== null) {
-      citedRefs.add(m[0].trim());
-    }
-  }
-  // Contra-revisar contra docs
-  const corpusText = docs.map(d => `${d.reference} ${d.title}`.toLowerCase()).join(' ');
-  const hallucinated: string[] = [];
-  for (const ref of citedRefs) {
-    const lower = ref.toLowerCase();
-    // Match flexible: el corpus debe contener la referencia o sus tokens clave
-    const tokens = lower.match(/\d+|[a-záéíóú]{3,}/gi) ?? [];
-    const hits = tokens.filter(t => corpusText.includes(t)).length;
-    if (tokens.length > 0 && hits / tokens.length < 0.5) {
-      hallucinated.push(ref);
-    }
-  }
-  return { citedRefs: [...citedRefs], hallucinated };
-}
+// El matcher por tokens ("≥50% coinciden") vivía aquí y producía falsos
+// respaldos en ambas direcciones. Sustituido por el matcher de clave
+// normalizada (services/citas-legales.ts) — Fase 3a.
 
 /**
  * Confidence — calibrado por banding sobre #citas verificadas y match de tema.
@@ -206,15 +209,17 @@ function calculateConfidence(
   answer: string,
   question: string,
 ): number {
+  // DETERMINISTA (Fase 3a): mismos insumos → mismo número. El aleatorio que
+  // había aquí hacía irreproducible la "confianza" que cubre el hash.
   // Respuesta "no info verificada" / abandono explícito → banda más baja
   const noInfoAnswer = /no tengo informaci[oó]n verificada|no tengo info verificada|consultar (?:el portal del )?sat|agente aduanal certificado/i.test(answer);
   if (noInfoAnswer && citationsCount === 0) {
-    return Math.round(8 + Math.random() * 7); // 8–15
+    return 10; // banda 8–15, punto fijo
   }
 
   // Sin docs en absoluto → respuesta basada en knowledge interno
   if (docs.length === 0) {
-    return Math.round(20 + Math.random() * 20); // 20–40
+    return 30; // banda 20–40, punto fijo
   }
 
   // ── Topic match: ¿la pregunta comparte tokens con los docs traídos? ──
@@ -276,13 +281,20 @@ export interface AskCopilotInput {
   history?: { role: 'user' | 'assistant'; content: string }[];
 }
 
-export async function askCopilotWithRAG(input: AskCopilotInput): Promise<CopilotRAGResult> {
+export async function askCopilotWithRAG(
+  input: AskCopilotInput,
+  // SOLO tests: inyectar generador/retrieval para simular respuestas con
+  // citas no respaldadas sin gastar LLM real ni depender del corpus vivo.
+  depsOverride: { generar?: typeof llmGenerateWithMeta; recuperar?: typeof smartRetrieval } = {},
+): Promise<CopilotRAGResult> {
+  const generar = depsOverride.generar ?? llmGenerateWithMeta;
+  const recuperar = depsOverride.recuperar ?? smartRetrieval;
   const t0 = Date.now();
 
   // 1. Smart retrieval: topic filter + híbrido + Haiku reranker. Gate
   // shouldRespond cuando hay <2 docs relevantes para que el modelo no
   // alucine respuestas sin soporte legal.
-  const retrieval = await smartRetrieval(input.question, {
+  const retrieval = await recuperar(input.question, {
     topK: 5,
     rerank: true,
     tenantId: input.tenantId,
@@ -313,84 +325,131 @@ export async function askCopilotWithRAG(input: AskCopilotInput): Promise<Copilot
   const userMsg = `${input.question}\n${contextBlock}${noInfoDirective}`;
 
   // 3. Generar respuesta
-  const generation = await llmGenerateWithMeta({
+  const generation = await generar({
     model: 'fast',
     maxTokens: 1500,
     system: RAG_SYSTEM_PROMPT,
     user: userMsg,
     log: { operation: 'copilot', tenantId: input.tenantId, userId: input.userId },
   });
-  const answer = injectIMMEXCertificationNote(stripDuplicateSourcesSection(generation.text));
+  let answer = injectIMMEXCertificationNote(stripDuplicateSourcesSection(generation.text));
+  let modelUsed = generation.model;
 
-  // 4. Detectar hallucinations
-  const { citedRefs, hallucinated } = detectHallucinations(answer, docs);
-  if (hallucinated.length > 0) {
-    logger.warn(`Copilot citó referencias no verificadas: ${hallucinated.join(', ')}`, {
-      action: 'copilot_hallucination',
+  // 4. FAIL-CLOSED de citas (Fase 3a §4.1): matcher por clave normalizada.
+  const modo = modoCitaEstricta();
+  let cruce = cruzarCitas(answer, docs.map(d => d.reference));
+  let regenerada = false;
+  let degradada = false;
+  let respuestaDescartada: string | null = null;
+
+  if (cruce.noRespaldadas.length > 0) {
+    logger.warn(`Copilot citó referencias no respaldadas: ${cruce.noRespaldadas.join(', ')}`, {
+      action: 'copilot_cita_no_respaldada',
       tenantId: input.tenantId,
       userId: input.userId,
-      metadata: { question: input.question.slice(0, 200), hallucinated, citedRefs },
+      metadata: { modo, question: input.question.slice(0, 200), noRespaldadas: cruce.noRespaldadas },
     });
-  }
 
-  // 5. Citas verificadas (subset de citedRefs que sí están en docs)
-  const citations: Citation[] = [];
-  for (const doc of docs) {
-    const refLower = doc.reference.toLowerCase();
-    if (citedRefs.some(r => r.toLowerCase().includes(refLower) || refLower.includes(r.toLowerCase().split(' ')[0]!))) {
-      citations.push({
-        reference: doc.reference,
-        documentId: doc.id,
-        source: doc.source,
-        excerpt: doc.excerpt,
-        officialUrl: doc.officialUrl,
-        score: Math.round(doc.finalScore * 100) / 100,
+    if (modo === 'estricta') {
+      // Intento ÚNICO de regeneración con instrucción correctiva.
+      regenerada = true;
+      const correccion = `\n[CORRECCIÓN OBLIGATORIA] Tu respuesta anterior citó referencias que NO están en el contexto verificado: ${cruce.noRespaldadas.join('; ')}. Reescribe la respuesta ELIMINANDO esas referencias o sustituyéndolas por "no tengo este dato verificado; consúltalo en el DOF". NO agregues citas nuevas que no estén en el contexto.\n`;
+      const reintento = await generar({
+        model: 'fast',
+        maxTokens: 1500,
+        system: RAG_SYSTEM_PROMPT,
+        user: `${userMsg}${correccion}`,
+        log: { operation: 'copilot_regeneracion', tenantId: input.tenantId, userId: input.userId },
       });
+      const answerReintento = injectIMMEXCertificationNote(stripDuplicateSourcesSection(reintento.text));
+      const cruceReintento = cruzarCitas(answerReintento, docs.map(d => d.reference));
+      logger.warn(`Copilot regeneró por citas no respaldadas (quedan ${cruceReintento.noRespaldadas.length})`, {
+        action: 'copilot_cita_regenerada',
+        tenantId: input.tenantId,
+        userId: input.userId,
+        metadata: { noRespaldadasAntes: cruce.noRespaldadas, noRespaldadasDespues: cruceReintento.noRespaldadas },
+      });
+      if (cruceReintento.noRespaldadas.length > 0) {
+        // Persiste — el usuario NUNCA ve una respuesta con citas no respaldadas.
+        degradada = true;
+        respuestaDescartada = answerReintento;
+        answer = `${ABSTENCION_CANONICA}\n\n⚖️ Esta información referencia disposiciones legales pero NO sustituye consulta profesional ni reemplaza el texto oficial. Verifica siempre la redacción exacta en fuente oficial (DOF, SAT). Cualquier acción debe validarse con tu agente aduanal o abogado.`;
+        cruce = cruzarCitas(answer, docs.map(d => d.reference));
+        logger.warn('Copilot DEGRADÓ la respuesta a abstención canónica (citas no respaldadas tras regeneración)', {
+          action: 'copilot_cita_degradada',
+          tenantId: input.tenantId,
+          userId: input.userId,
+          metadata: { question: input.question.slice(0, 200) },
+        });
+      } else {
+        answer = answerReintento;
+        modelUsed = reintento.model;
+        cruce = cruceReintento;
+      }
     }
   }
-  // Si no se detectaron coincidencias, incluye los top 3 docs como referencias usadas
-  if (citations.length === 0) {
-    for (const d of docs.slice(0, 3)) {
-      citations.push({
-        reference: d.reference,
-        documentId: d.id,
-        source: d.source,
-        excerpt: d.excerpt,
-        officialUrl: d.officialUrl,
-        score: Math.round(d.finalScore * 100) / 100,
-      });
-    }
-  }
 
-  const confidence = calculateConfidence(docs, hallucinated.length, citations.length, answer, input.question);
+  // 5. Citas = SOLO documentos cuya clave cruza con una cita del texto.
+  // El fallback "top-3 como referencias usadas" queda ELIMINADO (§4.2): un
+  // documento consultado no es un documento que respalde la afirmación.
+  const indicesRespaldados = [...new Set(cruce.respaldadas.values())];
+  const citations: Citation[] = indicesRespaldados.map(i => {
+    const doc = docs[i]!;
+    return {
+      reference: doc.reference,
+      documentId: doc.id,
+      source: doc.source,
+      excerpt: doc.excerpt,
+      officialUrl: doc.officialUrl,
+      score: Math.round(doc.finalScore * 100) / 100,
+    };
+  });
+  const documentosConsultados: DocumentoConsultado[] = docs
+    .filter((_, i) => !indicesRespaldados.includes(i))
+    .map(d => ({ reference: d.reference, source: d.source, officialUrl: d.officialUrl }));
+
+  const confidence = calculateConfidence(docs, cruce.noRespaldadas.length, citations.length, answer, input.question);
   const consultHash = crypto.createHash('sha256')
-    .update([input.question, answer, docs.map(d => d.id).sort().join(','), generation.model].join('|'))
+    .update([input.question, answer, docs.map(d => d.id).sort().join(','), modelUsed].join('|'))
     .digest('hex');
 
-  // 6. Persistir
+  // 6. Persistir. UPSERT por consultHash: el hash es contenido-determinista
+  // (pregunta|respuesta|docs|modelo) — misma pregunta con misma respuesta
+  // (p.ej. la abstención canónica, que es fija) produce el MISMO hash, y un
+  // create fallaría con unique violation (bug preexistente, más probable
+  // ahora). La fila original se conserva; solo se refresca la latencia.
   const tokensUsed = Math.ceil((input.question.length + answer.length) / 4);
-  await prisma.copilotConsult.create({
-    data: {
+  await prisma.copilotConsult.upsert({
+    where: { consultHash },
+    update: { latencyMs: Date.now() - t0 },
+    create: {
       tenantId: input.tenantId,
       userId: input.userId,
       question: input.question,
       answer,
       citedDocuments: citations as never,
-      modelUsed: generation.model,
+      modelUsed,
       tokensUsed,
       latencyMs: Date.now() - t0,
       confidence,
       consultHash,
+      citaModo: modo,
+      citaRegenerada: regenerada,
+      citaDegradada: degradada,
+      citasNoRespaldadas: cruce.noRespaldadas.length > 0 ? (cruce.noRespaldadas as never) : undefined,
+      respuestaDescartada,
     },
   });
 
   return {
     answer,
     citations,
+    documentosConsultados,
     confidence,
     consultHash,
-    hallucinatedReferences: hallucinated,
+    hallucinatedReferences: cruce.noRespaldadas,
     retrievedDocsCount: docs.length,
+    citaEstricta: { modo, regenerada, degradada, noRespaldadas: cruce.noRespaldadas },
   };
 }
 
