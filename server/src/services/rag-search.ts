@@ -17,6 +17,8 @@ import { logger } from '../lib/logger';
 export interface RetrievedDoc {
   id: string;
   type: string;
+  /** 'texto_integro' (verbatim con cotejo) | 'resumen' (síntesis operativa). */
+  claseTexto: string;
   source: string;
   title: string;
   reference: string;
@@ -231,7 +233,7 @@ export async function searchLegalDocuments(query: string, opts: { topK?: number;
   const docs = await prisma.legalDocument.findMany({
     where,
     select: {
-      id: true, type: true, source: true, title: true, reference: true,
+      id: true, type: true, claseTexto: true, source: true, title: true, reference: true,
       content: true, officialUrl: true, effectiveDate: true,
       topics: true, fractionRefs: true, keywords: true, embedding: true,
     },
@@ -272,6 +274,7 @@ export async function searchLegalDocuments(query: string, opts: { topK?: number;
     return {
       id: d.id,
       type: d.type,
+      claseTexto: d.claseTexto,
       source: d.source,
       title: d.title,
       reference: d.reference,
@@ -288,7 +291,31 @@ export async function searchLegalDocuments(query: string, opts: { topK?: number;
     };
   });
 
-  return scored.sort((a, b) => b.finalScore - a.finalScore).slice(0, topK);
+  return priorizarTextoIntegro(scored).slice(0, topK);
+}
+
+// ─────────────────────────────────────────────────────────────────────────
+// CORPUS ÍNTEGRO (plan §3): el texto verbatim manda sobre el resumen
+// ─────────────────────────────────────────────────────────────────────────
+
+/**
+ * Prioriza texto íntegro para citas (plan aprobado 19-ago §3):
+ *  1. Boost +15% al finalScore de 'texto_integro' (cap 1.0) — el resumen ya
+ *     no puede "ganarle" la cita al texto real por afinidad de keywords.
+ *  2. Dedup por referencia: si el íntegro y el resumen del MISMO reference
+ *     compiten, el resumen se EXCLUYE (el modelo no necesita dos versiones).
+ * Pura y exportada para test directo.
+ */
+export function priorizarTextoIntegro(docs: RetrievedDoc[]): RetrievedDoc[] {
+  const boosted = docs.map(d => d.claseTexto === 'texto_integro'
+    ? { ...d, finalScore: Math.min(1, d.finalScore * 1.15) }
+    : d);
+  const integrosPorRef = new Set(
+    boosted.filter(d => d.claseTexto === 'texto_integro').map(d => d.reference.trim().toLowerCase()),
+  );
+  return boosted
+    .filter(d => d.claseTexto === 'texto_integro' || !integrosPorRef.has(d.reference.trim().toLowerCase()))
+    .sort((a, b) => b.finalScore - a.finalScore);
 }
 
 // ─────────────────────────────────────────────────────────────────────────

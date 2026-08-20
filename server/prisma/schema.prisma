@@ -1729,6 +1729,13 @@ model LegalDocument {
   effectiveDate DateTime?
   expiryDate    DateTime?
 
+  // CORPUS ÍNTEGRO (plan aprobado 19-ago, docs/CORPUS_INTEGRO_PLAN.md §3):
+  // 'texto_integro' = VERBATIM de fuente oficial con fechaCotejo;
+  // 'resumen' = síntesis operativa (los 44 originales) — jamás se presenta
+  // como texto legal. El retrieval prioriza texto_integro para citas.
+  claseTexto  String    @default("resumen") // 'texto_integro' | 'resumen'
+  fechaCotejo DateTime? // cuándo se cotejó el contenido contra la fuente oficial
+
   version      String?
   isActive     Boolean @default(true)
   supersededBy String?

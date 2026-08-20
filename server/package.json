@@ -32,7 +32,8 @@
     "test:xtenant": "tsx src/tests/cross-tenant-isolation.test.ts",
     "test:glosa": "tsx src/tests/glosa-fail-closed.test.ts",
     "test:frontera": "tsx src/tests/frontera-canonica.test.ts",
-    "test:copilot-citas": "tsx src/tests/copilot-cita-estricta.test.ts"
+    "test:copilot-citas": "tsx src/tests/copilot-cita-estricta.test.ts",
+    "test:corpus": "tsx src/tests/corpus-integro.test.ts"
   },
   "license": "UNLICENSED",
   "private": true,

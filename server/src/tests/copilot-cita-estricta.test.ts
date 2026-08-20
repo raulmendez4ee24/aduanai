@@ -40,7 +40,7 @@ async function test(name: string, fn: () => Promise<void> | void): Promise<void>
 
 function doc(reference: string, id: string): RetrievedDoc {
   return {
-    id, type: 'ley', source: 'Diputados', title: reference, reference,
+    id, type: 'ley', claseTexto: 'resumen', source: 'Diputados', title: reference, reference,
     content: `Texto de ${reference}`, excerpt: `Extracto de ${reference}`,
     officialUrl: 'https://www.diputados.gob.mx/LeyesBiblio/pdf/LAdua.pdf',
     effectiveDate: null, topics: ['aduanas'], keywords: [], fractionRefs: [],
