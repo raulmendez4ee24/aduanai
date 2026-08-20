@@ -52,12 +52,33 @@ async function main() {
     return;
   }
 
-  // 2. Embeddings ANTES de cualquier escritura (falla → cero cambios en DB)
+  // 2. Embeddings ANTES de cualquier escritura (falla → cero cambios en DB).
+  // Voyage bajo carga sostenida puede agotar el backoff interno y la lib cae
+  // al fallback hash-256: el guard lo detecta y AQUÍ se reintenta el DOC con
+  // espera larga (no se aborta al primer fallback) + paso entre requests
+  // para respetar el RPM. Persistente tras 5 intentos → aborta sin escribir.
+  const sleep = (ms: number) => new Promise<void>(r => setTimeout(r, ms));
   const embeddings: number[][] = [];
   for (let i = 0; i < docs.length; i++) {
-    const emb = await generateEmbedding(docs[i]!.content, 'document');
-    assertCorpusEmbedding(emb); // guard dims 1024 / proveedor real
+    let emb: number[] | null = null;
+    for (let intento = 1; intento <= 5 && !emb; intento++) {
+      const e = await generateEmbedding(docs[i]!.content, 'document');
+      try {
+        assertCorpusEmbedding(e); // guard dims 1024 / proveedor real
+        emb = e;
+      } catch (err) {
+        const espera = 20000 * intento;
+        console.log(`  doc ${i + 1} (${docs[i]!.reference}): embedding rechazado por el guard — espera ${espera / 1000}s y reintenta (${intento}/5)`);
+        await sleep(espera);
+      }
+    }
+    if (!emb) {
+      console.error(`✗ doc ${i + 1} (${docs[i]!.reference}): Voyage no entregó 1024 dims tras 5 intentos — LOTE ABORTADO sin escrituras.`);
+      await prisma.$disconnect();
+      process.exit(1);
+    }
     embeddings.push(emb);
+    await sleep(350); // paso entre docs (RPM)
     if ((i + 1) % 25 === 0) console.log(`  embeddings ${i + 1}/${docs.length}`);
   }
   console.log(`Embeddings: ${embeddings.length}/${docs.length} OK (guard 1024 activo)`);
