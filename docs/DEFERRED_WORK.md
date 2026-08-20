@@ -447,3 +447,41 @@ de partida y subpartida faltantes o genéricos completa la presentación
 compuesta del expediente Y desbloquea la palanca de residuales "Los demás."
 del #19 (inyectar texto padre al prompt del clasificador). Al cotejarlos,
 evaluar sellar la jerarquía con su propia fuente/fecha.
+
+---
+
+## 24) LECCIÓN: todo dato con snapshotDate envejece en silencio sin vigilancia
+
+**Creado 2026-08-19 (lote 0.5 del Corpus Íntegro, orden de Raúl).** El decreto
+Tarifa 15 (DOF 23-abr-2026) dejó 4 aranceles desactualizados durante ~4 meses
+porque el catálogo era un snapshot (30-mar-2026) SIN mecanismo de vigilancia.
+La regla general: **el catálogo TIGIE tiene fecha de caducidad implícita —
+todo dato con `snapshotDate`/`fechaCotejo` necesita un vigilante o envejece
+en silencio.** El sello 'verificado' declara CUÁNDO se cotejó, pero nada
+avisa cuando la fuente cambia después.
+
+**Aplica a (inventario del hueco, estado al 19-ago-2026):**
+
+1. **Catálogo de fracciones** (`Fraction`): vigilante de decretos de tarifa
+   APROBADO como P1 (diseño en curso — detecta y AVISA, jamás aplica).
+2. **Tasas PROSEC** (`PROSECEligibility`): el peor caso — 76 filas
+   aproximadas por prefijo de capítulo, `decree` nunca poblado, SIN
+   `fechaCotejo` (columna no existe), y el seed confiesa "verifica DOF antes
+   de operar real". El cotizador aplica tasa PROSEC 0% a capítulos enteros
+   sin distinguir las acotaciones del decreto (grados de acero, contenidos
+   de carbono). Cotejo de las 10 fracciones del Segundo (DOF 23-abr-2026)
+   aprobado; el saneamiento completo de la tabla es trabajo mayor.
+3. **Cuotas compensatorias** (`AntidumpingDuty`): reconstrucción UPCI
+   pendiente (ya conocido) + sin vigilancia de resoluciones DOF nuevas.
+4. **Lista 69-B**: tiene detector de antigüedad (`lista69BDisponible` a 30
+   días) pero las reglas LO IGNORAN y no degradan (radiografía §6) — el
+   detector existe y no muerde.
+5. **Padrones** (`SATPadron`): cobertura por fracción aproximada del Anexo
+   10; sin vigilancia de modificaciones al anexo.
+6. **NOMs** (`FractionRegulation`): degradadas a sin_verificar por evidencia
+   de supersesión (DEFERRED #22); sin vigilancia del Anexo 2.4.1.
+
+**Patrón de salida sugerido:** cada fuente con snapshot declara su vigilante
+(qué página/endpoint oficial se revisa, con qué frecuencia, y dónde avisa) o
+declara explícitamente "sin vigilancia — degradar sello a los N días" (el
+patrón que la 69-B tiene a medias). Ningún dato canónico sin una de las dos.
