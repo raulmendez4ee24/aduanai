@@ -48,8 +48,8 @@ const FUENTE_ANEXO10: FuenteLegal = {
   fechaPublicacion: '2026-01-14',
 };
 
-/** Fecha del extracto Base Única cargado — el "contra qué" del cotejo de catálogo. */
-const FECHA_COTEJO_CATALOGO = TARIFF_VERSION.snapshotDate;
+/** Último cotejo del catálogo contra el DOF (extracto 30-mar + decretos posteriores). */
+const FECHA_COTEJO_CATALOGO = TARIFF_VERSION.cotejoDate;
 
 const NOTA_TARIFAS =
   'Verificado contra la versión del catálogo cargado; el sellado por fila (mezcla con seeds legacy) sigue pendiente.';

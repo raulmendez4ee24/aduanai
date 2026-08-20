@@ -78,7 +78,7 @@ glosaRouter.post('/simulate', authenticate, async (req: AuthRequest, res: Respon
           fuenteNombre: 'Base Única SNICE · DOF',
           fuenteUrl: 'https://www.snice.gob.mx',
           fechaPublicacion: TARIFF_VERSION.publishDate,
-          fechaVerificacion: TARIFF_VERSION.snapshotDate,
+          fechaVerificacion: TARIFF_VERSION.cotejoDate,
         },
       },
     });
