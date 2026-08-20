@@ -112,6 +112,15 @@ async function main() {
     assert.ok(out.some(d => d.id === 'r716'), 'resúmenes sin íntegro competidor sobreviven');
   });
 
+  await test('dedup por CLAVE parseada: "Art. 151 Ley Aduanera" (resumen) colapsa ante "Art. 151 LA" (íntegro)', () => {
+    const out = priorizarTextoIntegro([
+      rdoc('Art. 151 Ley Aduanera', 'resumen', 0.95, 'res-viejo'),
+      rdoc('Art. 151 LA', 'texto_integro', 0.60, 'int-nuevo'),
+    ]);
+    assert.ok(!out.some(d => d.id === 'res-viejo'), 'el formato viejo del resumen no lo salva del dedup');
+    assert.ok(out.some(d => d.id === 'int-nuevo'));
+  });
+
   await test('sin íntegros no cambia nada (los 44 actuales siguen funcionando igual)', () => {
     const docs = [rdoc('Art. 54 LA', 'resumen', 0.9), rdoc('Art. 27 LIVA', 'resumen', 0.7)];
     const out = priorizarTextoIntegro(docs);

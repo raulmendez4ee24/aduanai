@@ -10,6 +10,7 @@
  */
 
 import { prisma } from '../lib/prisma';
+import { parseReferencia } from './citas-legales';
 import { generateEmbedding, cosineSimilarity } from '../lib/embeddings';
 import { llmGenerate } from '../lib/llm';
 import { logger } from '../lib/logger';
@@ -310,11 +311,18 @@ export function priorizarTextoIntegro(docs: RetrievedDoc[]): RetrievedDoc[] {
   const boosted = docs.map(d => d.claseTexto === 'texto_integro'
     ? { ...d, finalScore: Math.min(1, d.finalScore * 1.15) }
     : d);
-  const integrosPorRef = new Set(
-    boosted.filter(d => d.claseTexto === 'texto_integro').map(d => d.reference.trim().toLowerCase()),
+  // Dedup por CLAVE PARSEADA (lote 2 paso 0): "Art. 151 Ley Aduanera" (resumen
+  // viejo) y "Art. 151 LA" (íntegro) son el MISMO artículo aunque el string
+  // difiera. Referencia no parseable → fallback al string (rangos, criterios).
+  const claveDe = (ref: string): string => {
+    const p = parseReferencia(ref);
+    return p ? `${p.tipo}|${p.numero}|${p.cuerpo ?? '*'}` : `str|${ref.trim().toLowerCase()}`;
+  };
+  const integrosPorClave = new Set(
+    boosted.filter(d => d.claseTexto === 'texto_integro').map(d => claveDe(d.reference)),
   );
   return boosted
-    .filter(d => d.claseTexto === 'texto_integro' || !integrosPorRef.has(d.reference.trim().toLowerCase()))
+    .filter(d => d.claseTexto === 'texto_integro' || !integrosPorClave.has(claveDe(d.reference)))
     .sort((a, b) => b.finalScore - a.finalScore);
 }
 
