@@ -183,6 +183,58 @@ async function main() {
     assert.deepEqual(violaciones, [], `TC constante detectado:\n${violaciones.join('\n')}`);
   });
 
+  // ── 4.5 PROSEC degradado (orden Raúl 19-ago: prioridad ALTA) ──
+  await test('checkPROSEC: prefijo puro → sin_verificar con nota de aproximación', async () => {
+    const { checkPROSEC } = await import('../services/regimes-programs');
+    // 8536.xx.xx cae al prefijo '8536'/'85' (sin fila exacta ni decree)
+    const r = await checkPROSEC('85369099');
+    if (!r.eligible) return; // catálogo local sin fila 85 → nada que verificar
+    assert.ok(r.verificacion, 'toda tasa elegible lleva verificacion');
+    assert.equal(r.verificacion!.estado, 'sin_verificar');
+    assert.match(r.verificacion!.nota ?? '', /Aproximación por capítulo/);
+  });
+
+  await test('checkPROSEC: fila exacta cotejada (decreto abr-2026) → verificado con fuente DOF', async () => {
+    const { checkPROSEC } = await import('../services/regimes-programs');
+    const r = await checkPROSEC('72085104'); // placas — CON acotación
+    assert.equal(r.eligible, true);
+    assert.equal(r.verificacion!.estado, 'verificado');
+    assert.match(r.verificacion!.fuente!.nombre, /DOF 23-04-2026/);
+    assert.match(r.verificacion!.nota ?? '', /acota/i, 'la acotación del decreto debe advertirse');
+    assert.ok(r.verificacion!.fechaCotejo);
+  });
+
+  // ── 4.6 Vigilante de decretos: parse, detección y regla de solo-avisar ──
+  await test('vigilante: parsea la página de reformas y detecta decretos post-cotejo', async () => {
+    const { parsearReformasLigie } = await import('../services/tarifa-vigilante');
+    const fixture = `
+      <a href="ligie_2022/LIGIE_2022_tarifa15_23abr26.pdf">PDF</a>
+      <a href="ligie_2022/LIGIE_2022_ref02_29dic25.pdf">PDF</a>
+      <a href="ligie_2022/LIGIE_2022_tarifa16_30sep26.pdf">PDF</a>`;
+    const decretos = parsearReformasLigie(fixture);
+    assert.deepEqual(decretos.map(d => d.fechaDOF), ['2025-12-29', '2026-04-23', '2026-09-30']);
+    assert.ok(decretos[2]!.url.includes('diputados.gob.mx'));
+    // Solo el 30-sep-2026 es posterior al cotejoDate (2026-08-19)
+    const { TARIFF_VERSION } = await import('../lib/tariff-version');
+    const nuevos = decretos.filter(d => d.fechaDOF > TARIFF_VERSION.cotejoDate);
+    assert.deepEqual(nuevos.map(d => d.fechaDOF), ['2026-09-30']);
+  });
+
+  await test('vigilante ciego (página caída o parse vacío) → avisa, jamás truena', async () => {
+    const { vigilarDecretosTarifa } = await import('../services/tarifa-vigilante');
+    const caida = (async () => { throw new Error('red caída'); }) as unknown as typeof fetch;
+    assert.deepEqual(await vigilarDecretosTarifa(caida), []);
+    const vacia = (async () => new Response('<html>sin decretos</html>')) as unknown as typeof fetch;
+    assert.deepEqual(await vigilarDecretosTarifa(vacia), []);
+  });
+
+  await test('REGLA DURA: el vigilante solo avisa — cero escrituras a Fraction', () => {
+    const src = readFileSync(join(__dirname, '../services/tarifa-vigilante.ts'), 'utf8');
+    assert.ok(!/fraction\.(update|create|delete|upsert)/i.test(src), 'el vigilante NO toca el catálogo');
+    assert.ok(!/pROSECEligibility|glosaRiskRule|legalDocument\.(update|create)/i.test(src));
+    assert.ok(/tarifa_vigilante_fallo/.test(src), 'el fallo del vigilante se reporta (no calla)');
+  });
+
   // ── 5. alert-generator consume el productor ──
   await test('alert-generator importa tipoCambioMXN (los * 18 no pueden volver)', () => {
     const src = readFileSync(join(__dirname, '../services/alert-generator.ts'), 'utf8');

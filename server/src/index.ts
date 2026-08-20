@@ -385,6 +385,30 @@ armTimer('fx_refresh', 60 * 60000, async () => {
   }
 }); // chequea cada hora; sólo refresca una vez por día
 
+// ── VIGILANTE DE DECRETOS DE TARIFA (P1, aprobado 19-ago-2026) ──
+// Vigila la página de reformas de la LIGIE en Diputados y AVISA (SystemLog +
+// alerta SUPERADMIN) cuando hay un decreto de tarifa posterior al cotejoDate
+// del catálogo. SOLO avisa — jamás aplica cambios (regla dura con test).
+let _lastVigilanteTarifa = '';
+const VIGILANTE_HORAS = Math.max(1, parseInt(process.env.TARIFA_VIGILANTE_HORAS ?? '24', 10) || 24);
+armTimer('tarifa_vigilante', 60 * 60000, async () => {
+  const ahora = Date.now();
+  const ultima = _lastVigilanteTarifa ? Date.parse(_lastVigilanteTarifa) : 0;
+  if (ahora - ultima < VIGILANTE_HORAS * 3600000) return;
+  _lastVigilanteTarifa = new Date().toISOString();
+  try {
+    const { vigilarDecretosTarifa } = await import('./services/tarifa-vigilante');
+    const nuevos = await vigilarDecretosTarifa();
+    if (nuevos.length > 0) {
+      logger.warn(`Vigilante de tarifa: ${nuevos.length} decreto(s) nuevo(s) sin cotejar`, {
+        action: 'tarifa_vigilante_resumen', metadata: { fechas: nuevos.map(n => n.fechaDOF) },
+      });
+    }
+  } catch (err) {
+    logger.error('Vigilante de tarifa falló', { errorMessage: err instanceof Error ? err.message : String(err) });
+  }
+}); // chequea cada hora; corre 1 vez por TARIFA_VIGILANTE_HORAS (default 24h)
+
 app.listen(PORT, () => {
   console.log(`🚀 ADUANAI server running on port ${PORT}`);
 });
