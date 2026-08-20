@@ -32,8 +32,17 @@ export interface DocCorpusIntegro {
   content: string;       // VERBATIM de la fuente oficial
   officialUrl: string;
   publishedDate: string; // ISO — DOF de última reforma del artículo/ley
-  fechaCotejo: string;   // ISO — cuándo se cotejó contra la fuente
+  fechaCotejo: string;   // ISO — cuándo se cotejó contra la fuente ('' SOLO con vigenciaCondicionada)
   claseTexto: 'texto_integro';
+  /** Instrumento de procedencia ("RGCE 2026 DOF 27-12-2025" | "Reformada por
+   *  1a RM DOF 14-05-2026") — obligatorio cuando el corpus se compila de
+   *  varios instrumentos (orden Raúl 20-ago). */
+  version?: string;
+  /** Modificación con vigencia condicionada NO resuelta contra el DOF: el doc
+   *  entra con el texto base, fechaCotejo NULA (sin_verificar a nivel dato) y
+   *  la condición descrita aquí. Se reporta a Raúl — jamás se resuelve por
+   *  criterio propio. */
+  vigenciaCondicionada?: string;
   type: string;          // "ley" | "reglamento" | "rgce" | "tratado"
   topics: string[];
   keywords?: string[];
@@ -97,7 +106,10 @@ export async function validarDocumento(doc: DocCorpusIntegro, urlCheck: UrlCheck
   if (!doc.publishedDate || isNaN(Date.parse(doc.publishedDate))) {
     errores.push(`${etiqueta}: publishedDate ausente o inválida`);
   }
-  if (!doc.fechaCotejo || isNaN(Date.parse(doc.fechaCotejo))) {
+  if (doc.vigenciaCondicionada) {
+    if (doc.fechaCotejo) errores.push(`${etiqueta}: vigenciaCondicionada exige fechaCotejo VACÍA (el dato queda sin_verificar)`);
+    if (!doc.version) errores.push(`${etiqueta}: vigenciaCondicionada exige version con el instrumento`);
+  } else if (!doc.fechaCotejo || isNaN(Date.parse(doc.fechaCotejo))) {
     errores.push(`${etiqueta}: fechaCotejo ausente o inválida`);
   } else if (Date.parse(doc.fechaCotejo) > Date.now()) {
     errores.push(`${etiqueta}: fechaCotejo en el futuro`);
