@@ -43,7 +43,7 @@ const STOPWORDS = new Set(['de', 'la', 'el', 'los', 'las', 'que', 'y', 'a', 'en'
 // IMPORTANTE: el corpus usa 'inmex' (typo histórico) y también 'immex' por
 // inconsistencia entre seeds. El detector emite AMBAS variantes vía
 // TOPIC_ALIASES más abajo para que el filtro funcione.
-const TOPIC_KEYWORDS: Record<string, string[]> = {
+export const TOPIC_KEYWORDS: Record<string, string[]> = {
   automotriz: ['automotriz', 'auto', 'autos', 'vehiculo', 'vehículo', 'vehiculos', 'vehículos', 'coche', 'camion', 'camión', 'autopart', 'autopartes', '8703', '8708'],
   textil: ['textil', 'textiles', 'tela', 'telas', 'prenda', 'prendas', 'ropa', 'algodon', 'algodón', 'confeccion', 'confección', 'hilado', 'hilados', 'yarn'],
   immex: ['immex', 'maquila', 'maquiladora', 'temporal', 'iva-ieps', 'ivaIeps', 'aaa', 'certificacion', 'modalidad a', 'modalidad aa', 'modalidad aaa', 'anexo 24', 'anexo 30', 'anexo 31'],
