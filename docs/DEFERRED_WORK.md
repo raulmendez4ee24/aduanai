@@ -485,3 +485,25 @@ avisa cuando la fuente cambia después.
 (qué página/endpoint oficial se revisa, con qué frecuencia, y dónde avisa) o
 declara explícitamente "sin vigilancia — degradar sello a los N días" (el
 patrón que la 69-B tiene a medias). Ningún dato canónico sin una de las dos.
+
+---
+
+## 25) Cotejo COMPLETO del decreto PROSEC vigente (24 sectores) — proyecto propio
+
+**Creado 2026-08-19 (orden de Raúl, cotejo PROSEC del decreto abr-2026).**
+El módulo PROSEC resultó ser **100% aproximación**: las 76 filas originales
+eran prefijo puro (0 exactas, 0 con `decree`, todas con tasa 0%) — una regla
+fabricada que otorgaba 0% de IGI a capítulos enteros sin las acotaciones del
+decreto. Hoy solo se cerraron las 11 filas del Segundo del decreto DOF
+23-abr-2026 (cotejadas verbatim, con `decree`/`effectiveDate`/`fechaCotejo`)
+y TODA fila sin cotejo se presenta 'sin_verificar' con nota.
+
+**El proyecto pendiente:** cotejar el decreto PROSEC consolidado vigente
+(DOF 02-ago-2002 + sus ~40 modificaciones; 24 sectores del Art. 5) fracción
+por fracción, con acotaciones en `conditions` y metadata completa — y
+RETIRAR los prefijos aproximados al terminar cada sector. Mientras tanto el
+cotizador sigue aplicando el beneficio aproximado, pero etiquetado ámbar
+(la decisión de dejar de aplicarlo automáticamente quedó PROPUESTA a Raúl,
+no tomada). Alcance grande: el texto consolidado del decreto PROSEC no está
+en un solo PDF oficial descargable — hay que compilarlo por modificaciones,
+mismo patrón que RGCE+1a RM del Corpus Íntegro.

@@ -141,7 +141,7 @@ export interface ItemBreakdown {
   treatyNote?: string;
   /** Programas y regímenes adicionales (PROSEC, Regla 8va, IEPS, ISAN) */
   programs: {
-    prosec: { eligible: boolean; applied: boolean; sector: string | null; prosecRate: number | null; savingsMXN: number };
+    prosec: { eligible: boolean; applied: boolean; sector: string | null; prosecRate: number | null; savingsMXN: number; verificacion: import('../lib/dato-legal').DatoLegal<number> | null };
     regla8va: { eligible: boolean; applied: boolean; vehicleFraction: string | null; preferentialRate: number | null };
     ieps: { applies: boolean; category: string | null; rate: number; rateType: string; amountMXN: number; calculation: string };
     isan: { applies: boolean; exempt: boolean; amountMXN: number; calculation: string; tier: { fixedAmount: number; marginalRate: number } | null };
@@ -452,6 +452,9 @@ export async function calculateMultiQuote(input: MultiQuoteInput): Promise<Multi
             sector: prosecCheck.sector,
             prosecRate: prosecCheck.prosecRate,
             savingsMXN: prosecApplied ? round2(prosecSavingsBaseRate / 100 * amounts.valueMXN) : 0,
+            // Frontera: la UI NO puede pintar la tasa como dato verificado si
+            // la fila es aproximación por prefijo (sello + nota lo dicen).
+            verificacion: prosecCheck.verificacion,
           },
           regla8va: {
             eligible: regla8vaCheck.eligible,

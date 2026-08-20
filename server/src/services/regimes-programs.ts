@@ -6,6 +6,34 @@
  */
 
 import { prisma } from '../lib/prisma';
+import { type DatoLegal, datoVerificado, datoSinVerificar } from '../lib/dato-legal';
+
+/** Orden de Raúl (19-ago): una tasa PROSEC sin cotejo contra decreto NO puede
+ *  presentarse como dato verificado. Los prefijos por capítulo son
+ *  aproximaciones fabricadas — el sello lo dice. */
+const NOTA_PROSEC_APROX =
+  'Aproximación por capítulo — sin cotejo contra decreto; verifica en DOF antes de operar.';
+const NOTA_PROSEC_ACOTACION =
+  'El decreto acota esta fracción (grados/contenidos específicos) — verifica que la mercancía cumpla la acotación antes de aplicar PROSEC.';
+
+type FilaPROSEC = {
+  matchType: string; sector: string; prosecRate: number; conditions: unknown;
+  notes: string | null; decree: string | null; fechaCotejo: Date | null;
+};
+
+function verificacionDe(fila: FilaPROSEC): DatoLegal<number> {
+  const acotacion = (fila.conditions as { acotacion?: string | null } | null)?.acotacion;
+  if (fila.matchType === 'exact' && fila.decree && fila.fechaCotejo) {
+    return datoVerificado(
+      fila.prosecRate,
+      { nombre: fila.decree, url: null, version: null, fechaPublicacion: null },
+      fila.fechaCotejo.toISOString(),
+      'tabla', 'manual',
+      acotacion ? NOTA_PROSEC_ACOTACION : undefined,
+    );
+  }
+  return datoSinVerificar(fila.prosecRate, 'tabla', NOTA_PROSEC_APROX);
+}
 
 // ════════════════════════════════════════════════════════════════════
 // PROSEC
@@ -17,18 +45,21 @@ export interface PROSECResult {
   prosecRate: number | null;
   conditions: unknown;
   notes: string | null;
+  /** Procedencia de la tasa (Frontera Canónica): prefijo/sin cotejo →
+   *  'sin_verificar' con nota. null cuando no es elegible. */
+  verificacion: DatoLegal<number> | null;
 }
 
 export async function checkPROSEC(fractionCode: string): Promise<PROSECResult> {
   const clean = fractionCode.replace(/[^0-9]/g, '');
-  if (!clean) return { eligible: false, sector: null, prosecRate: null, conditions: null, notes: null };
+  if (!clean) return { eligible: false, sector: null, prosecRate: null, conditions: null, notes: null, verificacion: null };
 
   // Match exact 8d → prefijos 6/4/2
   if (clean.length >= 8) {
     const exact = await prisma.pROSECEligibility.findFirst({
       where: { fractionCode: clean.slice(0, 8), matchType: 'exact', active: true },
     });
-    if (exact) return { eligible: true, sector: exact.sector, prosecRate: exact.prosecRate, conditions: exact.conditions, notes: exact.notes };
+    if (exact) return { eligible: true, sector: exact.sector, prosecRate: exact.prosecRate, conditions: exact.conditions, notes: exact.notes, verificacion: verificacionDe(exact) };
   }
   for (const len of [6, 4, 2]) {
     if (clean.length >= len) {
@@ -37,10 +68,10 @@ export async function checkPROSEC(fractionCode: string): Promise<PROSECResult> {
         where: { fractionCode: prefix, matchType: 'prefix', active: true },
         orderBy: { fractionCode: 'desc' },
       });
-      if (m) return { eligible: true, sector: m.sector, prosecRate: m.prosecRate, conditions: m.conditions, notes: m.notes };
+      if (m) return { eligible: true, sector: m.sector, prosecRate: m.prosecRate, conditions: m.conditions, notes: m.notes, verificacion: verificacionDe(m) };
     }
   }
-  return { eligible: false, sector: null, prosecRate: null, conditions: null, notes: null };
+  return { eligible: false, sector: null, prosecRate: null, conditions: null, notes: null, verificacion: null };
 }
 
 // ════════════════════════════════════════════════════════════════════

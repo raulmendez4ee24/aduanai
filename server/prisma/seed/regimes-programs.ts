@@ -19,9 +19,30 @@ interface PROSECSeed {
   conditions?: Record<string, unknown>;
   effectiveDate?: string;
   notes?: string;
+  /** Referencia DOF de la fila (Frontera Canónica). Sin decree+fechaCotejo,
+   *  checkPROSEC la presenta 'sin_verificar'. */
+  decree?: string;
+  fechaCotejo?: string;
 }
 
 export const PROSEC_ELIGIBILITY: PROSECSeed[] = [
+  // ── COTEJADAS VERBATIM: Segundo del "DECRETO por el que se modifica la
+  // Tarifa de la LIGIE, y el Decreto PROSEC" (DOF 23-abr-2026, vespertina;
+  // vigente 24-abr-2026). Arancel "Ex." = 0. Las acotaciones son parte del
+  // decreto (incluida la errata «0; 0008%» del propio DOF — verbatim).
+  // Espejo de la migración 20260820010000 (paridad: re-seed no las pierde).
+  { fractionCode: '72083901', matchType: 'exact', sector: 'electric', prosecRate: 0, effectiveDate: '2026-04-24', decree: 'DOF 23-04-2026 (Tarifa 15 · Segundo, Art. 5 fr. I PROSEC)', fechaCotejo: '2026-08-19', notes: 'Industria Eléctrica', conditions: { descripcionDecreto: 'De espesor inferior a 3 mm.', arancelDecreto: 'Ex.', acotacion: null } },
+  { fractionCode: '72085104', matchType: 'exact', sector: 'electric', prosecRate: 0, effectiveDate: '2026-04-24', decree: 'DOF 23-04-2026 (Tarifa 15 · Segundo, Art. 5 fr. I PROSEC)', fechaCotejo: '2026-08-19', notes: 'Industria Eléctrica', conditions: { descripcionDecreto: 'De espesor superior a 10 mm.', arancelDecreto: 'Ex.', acotacion: 'Excepto: Placas de acero de espesor superior a 10 mm, grados SHT-80, SHT-110, AR-400, SMM-400 o A-516, y placas de acero de espesor superior a 70 mm, grado A-36' } },
+  { fractionCode: '72112999', matchType: 'exact', sector: 'electric', prosecRate: 0, effectiveDate: '2026-04-24', decree: 'DOF 23-04-2026 (Tarifa 15 · Segundo, Art. 5 fr. I PROSEC)', fechaCotejo: '2026-08-19', notes: 'Industria Eléctrica', conditions: { descripcionDecreto: 'Los demás.', arancelDecreto: 'Ex.', acotacion: 'Únicamente: Flejes con un contenido de carbono igual o superior a 0.6%' } },
+  { fractionCode: '72251999', matchType: 'exact', sector: 'electronics', prosecRate: 0, effectiveDate: '2026-04-24', decree: 'DOF 23-04-2026 (Tarifa 15 · Segundo, Art. 5 fr. II b) PROSEC)', fechaCotejo: '2026-08-19', notes: 'Industria Electrónica', conditions: { descripcionDecreto: 'Los demás.', arancelDecreto: 'Ex.', acotacion: null } },
+  { fractionCode: '72082601', matchType: 'exact', sector: 'automotive', prosecRate: 0, effectiveDate: '2026-04-24', decree: 'DOF 23-04-2026 (Tarifa 15 · Segundo, Art. 5 fr. XIX PROSEC)', fechaCotejo: '2026-08-19', notes: 'Industria Automotriz y de Autopartes', conditions: { descripcionDecreto: 'De espesor superior o igual a 3 mm pero inferior a 4.75 mm.', arancelDecreto: 'Ex.', acotacion: null } },
+  { fractionCode: '72082701', matchType: 'exact', sector: 'automotive', prosecRate: 0, effectiveDate: '2026-04-24', decree: 'DOF 23-04-2026 (Tarifa 15 · Segundo, Art. 5 fr. XIX PROSEC)', fechaCotejo: '2026-08-19', notes: 'Industria Automotriz y de Autopartes', conditions: { descripcionDecreto: 'De espesor inferior a 3 mm.', arancelDecreto: 'Ex.', acotacion: null } },
+  { fractionCode: '72091601', matchType: 'exact', sector: 'automotive', prosecRate: 0, effectiveDate: '2026-04-24', decree: 'DOF 23-04-2026 (Tarifa 15 · Segundo, Art. 5 fr. XIX PROSEC)', fechaCotejo: '2026-08-19', notes: 'Industria Automotriz y de Autopartes', conditions: { descripcionDecreto: 'De espesor superior a 1 mm pero inferior a 3 mm.', arancelDecreto: 'Ex.', acotacion: null } },
+  { fractionCode: '72091701', matchType: 'exact', sector: 'automotive', prosecRate: 0, effectiveDate: '2026-04-24', decree: 'DOF 23-04-2026 (Tarifa 15 · Segundo, Art. 5 fr. XIX PROSEC)', fechaCotejo: '2026-08-19', notes: 'Industria Automotriz y de Autopartes', conditions: { descripcionDecreto: 'De espesor superior o igual a 0.5 mm pero inferior o igual a 1 mm.', arancelDecreto: 'Ex.', acotacion: null } },
+  { fractionCode: '72112999', matchType: 'exact', sector: 'automotive', prosecRate: 0, effectiveDate: '2026-04-24', decree: 'DOF 23-04-2026 (Tarifa 15 · Segundo, Art. 5 fr. XIX PROSEC)', fechaCotejo: '2026-08-19', notes: 'Industria Automotriz y de Autopartes', conditions: { descripcionDecreto: 'Los demás.', arancelDecreto: 'Ex.', acotacion: 'Únicamente: Flejes con un contenido de carbono igual o superior a 0.6%.' } },
+  { fractionCode: '72253091', matchType: 'exact', sector: 'automotive', prosecRate: 0, effectiveDate: '2026-04-24', decree: 'DOF 23-04-2026 (Tarifa 15 · Segundo, Art. 5 fr. XIX PROSEC)', fechaCotejo: '2026-08-19', notes: 'Industria Automotriz y de Autopartes', conditions: { descripcionDecreto: 'Los demás, simplemente laminados en caliente, enrollados.', arancelDecreto: 'Ex.', acotacion: 'Excepto: Con un contenido de boro superior o igual a 0; 0008%, de espesor superior a 10 mm; con un contenido de boro superior o igual a 0; 0008%, de espesor superior o igual a 4; 75 mm, pero inferior o igual a 10 mm; con un contenido de boro superior o igual a 0; 0008%, de espesor superior o igual a 3 mm, pero inferior a 4; 75 mm; con un contenido de boro superior o igual a 0; 0008%, de espesor inferior a 3 mm; de acero rápido. (Errata tipográfica del propio DOF: «0; 0008%» por 0.0008% — se conserva VERBATIM)' } },
+  { fractionCode: '72254091', matchType: 'exact', sector: 'automotive', prosecRate: 0, effectiveDate: '2026-04-24', decree: 'DOF 23-04-2026 (Tarifa 15 · Segundo, Art. 5 fr. XIX PROSEC)', fechaCotejo: '2026-08-19', notes: 'Industria Automotriz y de Autopartes', conditions: { descripcionDecreto: 'Los demás, simplemente laminados en caliente, sin enrollar.', arancelDecreto: 'Ex.', acotacion: 'Únicamente: Con un contenido de boro superior o igual a 0.0008%, de espesor superior a 10 mm, excepto de grado herramienta.' } },
+
   // Sector ELÉCTRICO
   { fractionCode: '85', matchType: 'prefix', sector: 'electric', notes: 'Productos eléctricos del cap 85' },
   { fractionCode: '8501', matchType: 'prefix', sector: 'electric' },
@@ -331,6 +352,8 @@ export async function seedRegimesPrograms(prisma: PrismaClient): Promise<{ prose
         prosecRate: p.prosecRate ?? 0,
         conditions: p.conditions as never,
         effectiveDate: new Date(p.effectiveDate ?? '2026-01-01'),
+        decree: p.decree ?? null,
+        fechaCotejo: p.fechaCotejo ? new Date(p.fechaCotejo) : null,
         notes: p.notes,
       },
     });

@@ -1576,6 +1576,9 @@ model PROSECEligibility {
   effectiveDate DateTime
   expiryDate    DateTime?
   decree        String? // referencia DOF
+  // Frontera Canónica (19-ago-2026): cuándo se cotejó la fila contra el
+  // decreto PROSEC en DOF. null = aproximación sin cotejo → 'sin_verificar'.
+  fechaCotejo   DateTime?
   notes         String?
   createdAt     DateTime  @default(now())
   updatedAt     DateTime  @updatedAt

@@ -2758,7 +2758,7 @@ export interface MultiQuoteItemInput {
 }
 
 export interface ItemPrograms {
-  prosec: { eligible: boolean; applied: boolean; sector: string | null; prosecRate: number | null; savingsMXN: number };
+  prosec: { eligible: boolean; applied: boolean; sector: string | null; prosecRate: number | null; savingsMXN: number; verificacion?: DatoLegal<number> | null };
   regla8va: { eligible: boolean; applied: boolean; vehicleFraction: string | null; preferentialRate: number | null };
   ieps: { applies: boolean; category: string | null; rate: number; rateType: string; amountMXN: number; calculation: string };
   isan: { applies: boolean; exempt: boolean; amountMXN: number; calculation: string; tier: { fixedAmount: number; marginalRate: number } | null };

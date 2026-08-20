@@ -589,14 +589,21 @@ function QuoteResult({ result }: { result: MultiQuoteResult }) {
               <div key={it.numeroPartida} className="rounded-lg bg-white/70 border border-violet-100 p-3 mb-2">
                 <p className="text-[11px] font-bold text-slate-900 mb-2">Partida {it.numeroPartida} · {formatFraction(it.fractionCode)}</p>
                 <div className="space-y-1.5 text-[11px]">
-                  {p.prosec.eligible && (
-                    <div className={`rounded p-2 ${p.prosec.applied ? 'bg-emerald-50 border border-emerald-200' : 'bg-amber-50 border border-amber-200'}`}>
+                  {p.prosec.eligible && (() => {
+                    const verificada = p.prosec.verificacion?.estado === 'verificado'
+                    const notaProsec = p.prosec.verificacion?.nota
+                    return (
+                    <div className={`rounded p-2 ${p.prosec.applied && verificada ? 'bg-emerald-50 border border-emerald-200' : 'bg-amber-50 border border-amber-200'}`}>
                       <p className="font-semibold">PROSEC sector {p.prosec.sector ?? '—'}</p>
                       {p.prosec.applied
-                        ? <p className="text-emerald-800">✓ Aplicado · Tasa preferencial {p.prosec.prosecRate}% · <strong>Ahorro: ${mxn(p.prosec.savingsMXN)} MXN</strong></p>
+                        ? verificada
+                          ? <p className="text-emerald-800">✓ Aplicado · Tasa preferencial {p.prosec.prosecRate}% (cotejada: {p.prosec.verificacion?.fuente?.nombre}) · <strong>Ahorro: ${mxn(p.prosec.savingsMXN)} MXN</strong></p>
+                          : <p className="text-amber-800">⚠ Aplicado con tasa SIN VERIFICAR ({p.prosec.prosecRate}%) · Ahorro estimado: ${mxn(p.prosec.savingsMXN)} MXN — no operes con esta cifra sin confirmar en DOF.</p>
                         : <p className="text-amber-800">💡 OPORTUNIDAD: con registro PROSEC ahorrarías hasta el {it.treaty.appliedRate - (p.prosec.prosecRate ?? 0)}% del IGI. Trámite ante SE 30-45 días.</p>}
+                      {notaProsec && <p className="text-[11px] text-amber-800 mt-1">{notaProsec}</p>}
                     </div>
-                  )}
+                    )
+                  })()}
                   {p.regla8va.eligible && (
                     <div className={`rounded p-2 ${p.regla8va.applied ? 'bg-emerald-50 border border-emerald-200' : 'bg-sky-50 border border-sky-200'}`}>
                       <p className="font-semibold">Regla 8va — parte para {p.regla8va.vehicleFraction}</p>
