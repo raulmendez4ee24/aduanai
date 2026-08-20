@@ -599,7 +599,9 @@ function QuoteResult({ result }: { result: MultiQuoteResult }) {
                         ? verificada
                           ? <p className="text-emerald-800">✓ Aplicado · Tasa preferencial {p.prosec.prosecRate}% (cotejada: {p.prosec.verificacion?.fuente?.nombre}) · <strong>Ahorro: ${mxn(p.prosec.savingsMXN)} MXN</strong></p>
                           : <p className="text-amber-800">⚠ Aplicado con tasa SIN VERIFICAR ({p.prosec.prosecRate}%) · Ahorro estimado: ${mxn(p.prosec.savingsMXN)} MXN — no operes con esta cifra sin confirmar en DOF.</p>
-                        : <p className="text-amber-800">💡 OPORTUNIDAD: con registro PROSEC ahorrarías hasta el {it.treaty.appliedRate - (p.prosec.prosecRate ?? 0)}% del IGI. Trámite ante SE 30-45 días.</p>}
+                        : verificada
+                          ? <p className="text-amber-800">💡 OPORTUNIDAD: con registro PROSEC ahorrarías hasta el {it.treaty.appliedRate - (p.prosec.prosecRate ?? 0)}% del IGI (tasa cotejada en DOF). Trámite ante SE 30-45 días.</p>
+                          : <p className="text-amber-800">PROSEC posiblemente aplicable — requiere verificación. Ahorro potencial (NO incluido en el total): hasta {it.treaty.appliedRate - (p.prosec.prosecRate ?? 0)}% del IGI, si tu registro ante SE y la acotación del decreto aplican a esta mercancía. Verifica en DOF.</p>}
                       {notaProsec && <p className="text-[11px] text-amber-800 mt-1">{notaProsec}</p>}
                     </div>
                     )
