@@ -58,13 +58,35 @@ async function main() {
   // delta). El hash es del content verbatim: cualquier cambio re-entra.
   const existentes = await prisma.legalDocument.findMany({
     where: { claseTexto: 'texto_integro', reference: { in: docs.map(d => d.reference) } },
-    select: { reference: true, contentHash: true },
+    select: { id: true, reference: true, contentHash: true, version: true, keywords: true, fechaCotejo: true },
   });
-  const hashPorRef = new Map(existentes.map(e => [e.reference, e.contentHash]));
+  const porRef = new Map(existentes.map(e => [e.reference, e]));
+  const versionDe = (d: DocCorpusIntegro) => d.vigenciaCondicionada ? `${d.version ?? ''} · VIGENCIA CONDICIONADA: ${d.vigenciaCondicionada}` : (d.version ?? null);
+  const cotejoDe = (d: DocCorpusIntegro) => d.vigenciaCondicionada ? null : new Date(d.fechaCotejo);
   const pendientes = docs.filter(d =>
-    hashPorRef.get(d.reference) !== crypto.createHash('sha256').update(d.content).digest('hex'));
+    porRef.get(d.reference)?.contentHash !== crypto.createHash('sha256').update(d.content).digest('hex'));
   console.log(`Incremental: ${docs.length - pendientes.length} sin cambios (skip) · ${pendientes.length} a sembrar`);
   const aSembrar = pendientes;
+
+  // 1.6 Refresco de METADATA sin re-embeber: contenido idéntico pero cambió
+  // la etiqueta de instrumento (`version`), las `keywords` o la fecha de
+  // cotejo. No toca `topics` (en prod los gobierna rescan-topics) ni el
+  // texto. Cero llamadas a Voyage.
+  let refrescados = 0;
+  for (const d of docs) {
+    if (pendientes.includes(d)) continue;
+    const ex = porRef.get(d.reference);
+    if (!ex) continue;
+    const v = versionDe(d);
+    const kw = d.keywords ?? [];
+    const fc = cotejoDe(d);
+    const mismaFecha = (fc?.getTime() ?? null) === (ex.fechaCotejo?.getTime() ?? null);
+    if ((ex.version ?? null) === v && JSON.stringify(ex.keywords ?? []) === JSON.stringify(kw) && mismaFecha) continue;
+    await prisma.legalDocument.update({ where: { id: ex.id }, data: { version: v, keywords: kw, fechaCotejo: fc } });
+    refrescados++;
+    console.log(`  metadata refrescada: ${d.reference}`);
+  }
+  if (refrescados) console.log(`Metadata: ${refrescados} doc(s) actualizados sin re-embeber`);
 
   // 2. Embeddings ANTES de cualquier escritura (falla → cero cambios en DB).
   // Voyage bajo carga sostenida puede agotar el backoff interno y la lib cae
@@ -111,8 +133,8 @@ async function main() {
       publishedDate: new Date(d.publishedDate),
       effectiveDate: new Date(d.publishedDate),
       claseTexto: 'texto_integro',
-      fechaCotejo: d.vigenciaCondicionada ? null : new Date(d.fechaCotejo),
-      version: d.vigenciaCondicionada ? `${d.version ?? ''} · VIGENCIA CONDICIONADA: ${d.vigenciaCondicionada}` : (d.version ?? null),
+      fechaCotejo: cotejoDe(d),
+      version: versionDe(d),
       keywords: d.keywords ?? [],
       topics: d.topics,
       fractionRefs: [] as string[],

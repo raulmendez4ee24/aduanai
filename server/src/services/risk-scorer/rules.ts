@@ -64,7 +64,7 @@ export const RISK_RULES: RiskRule[] = [
   },
   {
     id: 'F1-VAL-02', factor: 'VALOR', maxPuntos: 8, origenSenal: 'declarado',
-    descripcion: 'Manifestación de valor (formato E2) no transmitida por Ventanilla Digital (exigible a partir del 01-ago-2026; durante la prórroga del Transitorio Décimo Primero reformado no puntúa)',
+    descripcion: `Manifestación de valor (formato E2) no transmitida por Ventanilla Digital (exigible a partir del día siguiente al ${PRORROGA_E2.prorrogaHasta} — ${PRORROGA_E2.etiqueta}; durante la prórroga del Transitorio Décimo Primero reformado no puntúa. Último plazo en DOF: ${PRORROGA_E2.plazoDOF.prorrogaHasta})`,
     evaluar: s => {
       const exigible = s.fechaEvaluacion ? e2Exigible(s.fechaEvaluacion) : true;
       return exigible && noConfirmado(s.declarado.mveTransmitida) ? 8 : 0;
