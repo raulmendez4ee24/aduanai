@@ -71,3 +71,44 @@ Requisito del usuario: que el agente aduanal **vea** que el radar sigue la regul
 - `tsc` cliente 0 errores; `npm run build` cliente OK (**Node 22** — Node 18 rompe Vite 8).
 - Prueba manual contra server local con `PEDIMENTO_READER_ENABLED=true`: los 3 fixtures sintéticos del server (limpio / medio / crítico) deben renderizar VERDE / AMARILLO+ROJO / ROJO_CRÍTICO con sus hallazgos destacados, y un archivo corrupto debe mostrar el estado 422 con detalles.
 - El aviso beta y la advertencia "validación con archivos reales PENDIENTE" son visibles en todo resultado.
+
+## Adenda — Fase A (aprobada por Raúl 2026-08-21, rama `feat/radar-ui-v1-fase-a`)
+
+Confirmado sin cambios: fila por partida con orden por severidad del server
+(la UI no reordena), agrupación visual por pedimento a v1.1, fila expandible
+sin página por partida, proveniencia `registro.campo@línea` + `origenDatos` en
+mono solo dentro de la fila expandida, 422 sin extracción parcial con
+`detalles` línea por línea + `layoutVersion` + link a Lineamientos VUCEM.
+
+Tres correcciones aplicadas:
+1. **Vocabulario único.** El estado interno `noConfirmado` puntúa (fail-safe,
+   mismo principio que F1-VAL-02 sin fecha). La etiqueta es la que ya emite
+   el Risk Scorer para un factor declarativo: el motor manda
+   `origenEfectivo: 'declarado'` y la UI pinta **"DECLARADO POR USUARIO"** —
+   `components/OrigenBadge.tsx` es compartido por `/risk-scorer` y `/radar`,
+   así la cadena es idéntica por construcción. Sin tercer término. La fila
+   expandida lista "Factores que suman exposición" (`reglasActivas`, solo
+   puntos > 0, con su badge). La UI del radar no contiene la palabra
+   "cumple" como estado (test `test:radar-fase-a`).
+2. **`/radar/:loteId`.** El POST genera un `loteId` y cada `RiskAssessment`
+   lo lleva en `input._lote` junto con el snapshot de su fila y la meta del
+   lote (archivo, excluidos, ignorados, advertencias). `GET
+   /api/pedimentos/radar/:loteId` reconstruye la misma respuesta (banda /
+   exposición / escudo desde las columnas; 404 para lote inexistente o de
+   otro tenant). Tras evaluar, la UI navega a `/radar/:loteId` (replace); un
+   refresh recupera la pantalla ("recuperado de lo persistido"). Sin
+   historial (v1.1).
+3. **413.** Límite = `DEFAULT_MAX_PARTIDAS_LOTE` (200) configurable por
+   `RADAR_MAX_PARTIDAS`; el mensaje declara límite y partidas del archivo
+   (`limite`, `partidas` en el JSON). Toda pantalla de error (422/413/404/red)
+   lleva "Cargar otro archivo" — pantalla completa, nunca callejón sin salida.
+
+Corrección de coherencia encontrada en la verificación: el radar no pasaba
+`fechaEvaluacion` al motor (sí lo hace `/api/risk/assess`), por lo que la MVE
+puntuaba +8 dentro de la prórroga mientras la tarjeta "Criterios actualizados"
+de la misma pantalla decía lo contrario. Ahora evalúa con la fecha del día.
+
+Verificado de verdad (server local + Vite, 21-ago): POST 200 → GET por lote
+idéntico campo por campo → 404 con id ajeno; 422 con el registro 551 mutilado
+("esperados 26 campos, encontrados 25"); 413 con el fixture de 2 partidas y
+`RADAR_MAX_PARTIDAS=1`; refresh en `/radar/:loteId` conserva la pantalla.

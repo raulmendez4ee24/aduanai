@@ -5,9 +5,11 @@
  * Sistema Sello (docs/DESIGN_SYSTEM.md) — nada de glass/sombras.
  */
 import { useCallback, useEffect, useRef, useState } from 'react'
+import { useNavigate, useParams } from 'react-router-dom'
 import { ScanSearch, FileWarning, Upload } from 'lucide-react'
 import { api, type RadarResultado, type RadarOk, type RadarFila, type CriterioNormativo } from '../lib/api'
 import { Badge, Button, Card, Select } from '../components/ui'
+import { OrigenBadge } from '../components/OrigenBadge'
 
 const MAX_BYTES = 2_000_000
 
@@ -21,11 +23,26 @@ const BANDA_LABEL: Record<string, string> = {
 type Vista = { fase: 'idle' } | { fase: 'cargando' } | { fase: 'resultado'; r: RadarResultado }
 
 export function RadarPedimentosPage() {
-  const [vista, setVista] = useState<Vista>({ fase: 'idle' })
+  const { loteId } = useParams<{ loteId: string }>()
+  const navigate = useNavigate()
+  const [vista, setVista] = useState<Vista>(loteId ? { fase: 'cargando' } : { fase: 'idle' })
   const [tipoSujeto, setTipoSujeto] = useState<'agente' | 'agencia'>('agente')
   const [errorLocal, setErrorLocal] = useState<string | null>(null)
   const [arrastrando, setArrastrando] = useState(false)
   const inputRef = useRef<HTMLInputElement>(null)
+
+  // /radar/:loteId → la pantalla sale de lo YA persistido (refresh en demo no
+  // la vacía). Si el resultado en memoria ya es ese lote, no se vuelve a pedir.
+  useEffect(() => {
+    if (!loteId) { setVista(v => (v.fase === 'resultado' && v.r.ok ? { fase: 'idle' } : v)); return }
+    setVista(v => {
+      if (v.fase === 'resultado' && v.r.ok && v.r.loteId === loteId) return v
+      void api.pedimentosRadarLote(loteId).then(r => setVista({ fase: 'resultado', r }))
+      return { fase: 'cargando' }
+    })
+  }, [loteId])
+
+  const irAInicio = useCallback(() => { setVista({ fase: 'idle' }); navigate('/radar') }, [navigate])
 
   const evaluar = useCallback(async (file: File) => {
     setErrorLocal(null)
@@ -38,7 +55,9 @@ export function RadarPedimentosPage() {
     const contenido = await file.text()
     const r = await api.pedimentosRadar(nombre, contenido, tipoSujeto)
     setVista({ fase: 'resultado', r })
-  }, [tipoSujeto])
+    // El lote ya está persistido: la URL lo direcciona (replace: no apilar el upload).
+    if (r.ok) navigate(`/radar/${r.loteId}`, { replace: true })
+  }, [tipoSujeto, navigate])
 
   const onDrop = useCallback((e: React.DragEvent) => {
     e.preventDefault(); setArrastrando(false)
@@ -89,15 +108,15 @@ export function RadarPedimentosPage() {
       )}
 
       {vista.fase === 'cargando' && (
-        <Card><p className="text-tinta-suave py-8 text-center">Evaluando el lote contra el motor de riesgo…</p></Card>
+        <Card><p className="text-tinta-suave py-8 text-center">{loteId ? 'Recuperando el lote…' : 'Evaluando el lote contra el motor de riesgo…'}</p></Card>
       )}
 
       {vista.fase === 'resultado' && !vista.r.ok && (
-        <ErrorRadar error={vista.r} onReset={() => setVista({ fase: 'idle' })} />
+        <ErrorRadar error={vista.r} onReset={irAInicio} />
       )}
 
       {vista.fase === 'resultado' && vista.r.ok && (
-        <ResultadoRadar r={vista.r} onReset={() => setVista({ fase: 'idle' })} />
+        <ResultadoRadar r={vista.r} onReset={irAInicio} />
       )}
     </div>
   )
@@ -105,14 +124,29 @@ export function RadarPedimentosPage() {
 
 function ErrorRadar({ error, onReset }: { error: Extract<RadarResultado, { ok: false }>; onReset: () => void }) {
   const esLayout = error.status === 422
+  const esLimite = error.status === 413
+  const esLoteAusente = error.status === 404
+  const titulo = esLayout
+    ? 'El archivo no coincide con el layout VOCE-SAAI M3 v9.0'
+    : esLimite
+      ? `El archivo excede el límite del lote (${error.partidas ?? '?'} partidas; máximo ${error.limite ?? '?'})`
+      : esLoteAusente
+        ? 'Este lote no existe o no pertenece a tu cuenta'
+        : 'No se pudo evaluar el archivo'
   return (
     <Card header={
       <span className="flex items-center gap-2 text-carmin">
         <FileWarning className="w-4 h-4" />
-        {esLayout ? 'El archivo no coincide con el layout VOCE-SAAI M3 v9.0' : 'No se pudo evaluar el archivo'}
+        {titulo}
       </span>
     }>
       <p className="text-tinta">{error.message}</p>
+      {esLimite && (
+        <p className="mt-2 text-13 text-tinta-suave">
+          El radar evalúa hasta {error.limite} partidas por lote (límite configurable por el administrador).
+          Divide el archivo M en lotes más pequeños y carga cada uno por separado.
+        </p>
+      )}
       {esLayout && (
         <>
           {error.detalles && error.detalles.length > 0 && (
@@ -128,7 +162,8 @@ function ErrorRadar({ error, onReset }: { error: Extract<RadarResultado, { ok: f
           </p>
         </>
       )}
-      <div className="mt-4"><Button variante="secundario" onClick={onReset}>Intentar con otro archivo</Button></div>
+      {/* Pantalla completa, nunca callejón sin salida: siempre hay salida visible. */}
+      <div className="mt-4"><Button variante="primario" onClick={onReset}>Cargar otro archivo</Button></div>
     </Card>
   )
 }
@@ -170,6 +205,13 @@ function ResultadoRadar({ r, onReset }: { r: RadarOk; onReset: () => void }) {
       <div className="border border-ambar/25 bg-ambar-suave rounded-sello-sm px-4 py-2 text-13 text-tinta">
         {r.avisoValidacion} <span className="text-tinta-suave">({r.layoutVersion})</span>
       </div>
+
+      {/* Declaraciones: v1 no las pide. Los factores declarativos puntúan como
+          no confirmados y se etiquetan igual que en /risk-scorer. */}
+      <p className="text-13 text-tinta-suave">
+        Lote <span className="font-mono">{r.loteId}</span>{r.persistido ? ' · recuperado de lo persistido' : ''} ·
+        sin declaraciones aportadas: los factores <OrigenBadge origen="declarado" /> puntúan hasta que se confirmen (no hay "cumple" por omisión).
+      </p>
 
       <CriteriosCard />
 
@@ -286,6 +328,22 @@ function FilaRadar({ fila: f, abierta, onToggle }: { fila: RadarFila; abierta: b
             ) : <p className="text-tinta-suave">Sin hallazgos en esta partida.</p>}
             {f.banderas.length > 0 && (
               <p className="mt-2">{f.banderas.map(b => <Badge key={b} tono="carmin" className="mr-1">{b}</Badge>)}</p>
+            )}
+            {/* Factores que suman exposición, con el ORIGEN EFECTIVO que emite el motor.
+                Un factor declarativo sin respuesta puntúa y se ve como DECLARADO POR USUARIO —
+                nunca como cumplido. */}
+            {(f.reglasActivas?.length ?? 0) > 0 && (
+              <div className="mt-3">
+                <p className="text-13 text-tinta-suave mb-1">Factores que suman exposición</p>
+                <ul className="space-y-1">
+                  {f.reglasActivas.map(rg => (
+                    <li key={rg.id} className="text-13 text-tinta flex items-start gap-2">
+                      <span className="font-mono text-carmin shrink-0">+{rg.puntos}/{rg.maxPuntos}</span>
+                      <span className="min-w-0">{rg.descripcion} <OrigenBadge origen={rg.origenEfectivo} /></span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
             )}
             {/* Proveniencia: qué campo del archivo alimentó cada dato — la prueba de verificabilidad */}
             <details className="mt-2">

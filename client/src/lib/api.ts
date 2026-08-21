@@ -1301,10 +1301,14 @@ export const api = {
           message: body.message ?? `Error ${res.status}`,
           detalles: body.detalles,
           layoutVersion: body.layoutVersion,
+          limite: body.limite,
+          partidas: body.partidas,
         };
       }
       return {
         ok: true,
+        loteId: body.data.loteId,
+        persistido: body.data.persistido === true,
         avisoValidacion: body.avisoValidacion,
         layoutVersion: body.layoutVersion,
         resumen: body.data.resumen,
@@ -1318,6 +1322,40 @@ export const api = {
         status: 0,
         message: 'No se pudo conectar con el servidor. Revisa tu conexión e intenta de nuevo.',
       };
+    }
+  },
+
+  /** Radar de un lote YA persistido (GET /pedimentos/radar/:loteId) — misma
+   *  unión ok/error que pedimentosRadar; 404 = lote inexistente o ajeno. */
+  pedimentosRadarLote: async (loteId: string): Promise<RadarResultado> => {
+    const token = localStorage.getItem('aduanai_token');
+    try {
+      const res = await fetch(`${API_BASE}/pedimentos/radar/${encodeURIComponent(loteId)}`, {
+        headers: { ...(token ? { Authorization: `Bearer ${token}` } : {}) },
+      });
+      const body = await res.json().catch(() => ({}) as Record<string, never>);
+      if (!res.ok) {
+        if (res.status === 401 && token) {
+          if (!redirectingToLogin) {
+            redirectingToLogin = true;
+            localStorage.removeItem('aduanai_token');
+            window.location.href = '/login?expired=1';
+          }
+          return { ok: false, status: 401, message: 'Tu sesión expiró. Inicia sesión de nuevo.' };
+        }
+        return { ok: false, status: res.status, message: body.message ?? `Error ${res.status}` };
+      }
+      return {
+        ok: true,
+        loteId: body.data.loteId,
+        persistido: body.data.persistido === true,
+        avisoValidacion: body.avisoValidacion,
+        layoutVersion: body.layoutVersion,
+        resumen: body.data.resumen,
+        radar: body.data.radar,
+      };
+    } catch {
+      return { ok: false, status: 0, message: 'No se pudo conectar con el servidor. Revisa tu conexión e intenta de nuevo.' };
     }
   },
 
@@ -1360,9 +1398,19 @@ export interface RadarFila {
   escudoPct: number;
   banderas: string[];
   hallazgos: RadarHallazgo[];
+  /** Reglas que sumaron puntos, con el origen efectivo de la señal del motor. */
+  reglasActivas: RadarReglaActiva[];
   origenDatos: string;
   proveniencia: Proveniencia;
   assessmentId: string;
+}
+
+export interface RadarReglaActiva {
+  id: string;
+  descripcion: string;
+  puntos: number;
+  maxPuntos: number;
+  origenEfectivo: 'verificado' | 'declarado' | 'mixto' | 'no_evaluado' | string;
 }
 
 export interface PedimentoExcluido {
@@ -1385,6 +1433,9 @@ export interface RadarResumen {
 
 export interface RadarOk {
   ok: true;
+  loteId: string;
+  /** true cuando la pantalla viene de GET /radar/:loteId (no se re-evaluó). */
+  persistido: boolean;
   avisoValidacion: string;
   layoutVersion: string;
   resumen: RadarResumen;
@@ -1397,6 +1448,9 @@ export interface RadarError {
   message: string;
   detalles?: string[];
   layoutVersion?: string;
+  /** 413: límite vigente del lote y partidas que trae el archivo. */
+  limite?: number;
+  partidas?: number;
 }
 
 export type RadarResultado = RadarOk | RadarError;

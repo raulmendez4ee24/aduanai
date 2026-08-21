@@ -235,6 +235,7 @@ export function App() {
         <Route path="/simulador-glosa" element={<GlosaSimulatorPage />} />
         <Route path="/risk-scorer" element={<RiskScorerPage />} />
         <Route path="/radar" element={<RadarPedimentosPage />} />
+        <Route path="/radar/:loteId" element={<RadarPedimentosPage />} />
         <Route path="/audit" element={<AuditTrailPage />} />
         <Route path="/settings" element={<SettingsIndexPage />} />
         <Route path="/settings/empresa" element={<EmpresaPage />} />

@@ -34,7 +34,8 @@
     "test:frontera": "tsx src/tests/frontera-canonica.test.ts",
     "test:copilot-citas": "tsx src/tests/copilot-cita-estricta.test.ts",
     "test:corpus": "tsx src/tests/corpus-integro.test.ts",
-    "test:criterios": "tsx src/tests/criterios.test.ts"
+    "test:criterios": "tsx src/tests/criterios.test.ts",
+    "test:radar-fase-a": "tsx src/tests/radar-fase-a.test.ts"
   },
   "license": "UNLICENSED",
   "private": true,
