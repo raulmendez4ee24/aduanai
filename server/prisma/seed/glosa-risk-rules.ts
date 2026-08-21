@@ -177,7 +177,14 @@ const RULES: RuleSeed[] = [
     description: 'Aduanas como Manzanillo, Veracruz, Tijuana tienen mayor probabilidad de Reconocimiento Aduanero.',
     detectionLogic: { type: 'high_risk_customs', codes: ['MAN', 'VER', 'TIJ', 'ZLO', 'NLD'] },
     weight: 10, severity: 'low',
-    recommendation: 'Si es operativamente viable, considerar aduana alterna (Lázaro Cárdenas, Altamira, Progreso).',
+    // Auditoría 21-ago-2026 (D7): la versión anterior recomendaba "considerar
+    // aduana alterna (Lázaro Cárdenas, Altamira, Progreso)" — aconsejar
+    // aduana-shopping para bajar la probabilidad de revisión es exactamente
+    // la conducta que el SAT perfila. NUNCA una recomendación de esta regla
+    // (ni de ninguna otra) puede sugerir cambiar de aduana, puerto o patente
+    // para reducir probabilidad de reconocimiento — ver test
+    // no-aduana-shopping.test.ts.
+    recommendation: 'Prepara evidencia documental reforzada antes del despacho (factura, packing list, certificados, transferencias) — esta aduana tiene mayor probabilidad histórica de Reconocimiento Aduanero.',
   },
 ];
 

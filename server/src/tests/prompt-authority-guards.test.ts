@@ -65,4 +65,8 @@ test('Fiscal Guardian no presenta el crédito como IVA diferido ni mezcla USD co
   assert.match(fiscal, /Costo adicional mensual preliminar sin conversion:.*USD/);
 });
 
+// D7 (auditoría 21-ago-2026, aduana-shopping): el barrido de árbol completo
+// vive en src/tests/no-aduana-shopping.test.ts (usa
+// src/lib/aduana-shopping-guard.ts) — no se duplica aquí.
+
 console.log(`\n${passed} passed, 0 failed\n`);

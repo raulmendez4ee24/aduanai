@@ -33,7 +33,8 @@
     "test:glosa": "tsx src/tests/glosa-fail-closed.test.ts",
     "test:frontera": "tsx src/tests/frontera-canonica.test.ts",
     "test:copilot-citas": "tsx src/tests/copilot-cita-estricta.test.ts",
-    "test:corpus": "tsx src/tests/corpus-integro.test.ts"
+    "test:corpus": "tsx src/tests/corpus-integro.test.ts",
+    "test:no-aduana-shopping": "tsx src/tests/no-aduana-shopping.test.ts"
   },
   "license": "UNLICENSED",
   "private": true,
