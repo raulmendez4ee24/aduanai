@@ -552,3 +552,40 @@ de decisión: un segundo vigilante gemelo (misma arquitectura solo-avisa,
 fuente = minisitio SAT RGCE 2026 o búsqueda DOF por título) — si Raúl no lo
 aprueba, queda REINTENTO MANUAL: buscar en dof.gob.mx el título exacto de
 arriba, idealmente cada revisión de sombra/lote.
+
+---
+
+## 27) El embedding de la QUERY cae a hashed bajo 429 de Voyage → el Copilot dice "no tengo información" en silencio
+
+**Creado 2026-08-21 (hallazgo durante el cierre del #21).** `assertCorpusEmbedding`
+protege la SIEMBRA (rechaza el fallback hashed de 256 dims), pero la RUTA DE
+LECTURA no: cuando Voyage devuelve 429 sostenido, `generateEmbedding(query)`
+agota su backoff y cae al hashed de 256 dims; `searchLegalDocuments` pone
+similitud 0 a todo doc cuya dimensión no coincide (1024), el ranking queda en
+manos del keyword score y el reranker solo ve candidatos casuales. El Copilot
+responde entonces "No tengo información verificada al respecto…" aunque el
+corpus SÍ tenga el texto — y nada lo distingue de un hueco real del corpus.
+
+**Medido en prod (pregunta MVE, 12 corridas, 21-ago 17:05–17:18 UTC):**
+cuando el modelo vio el doc anticipado la respuesta fue correcta 7/7; en ~4/12
+corridas el retrieval degradó a 1 doc, y en la que se capturó el log completo
+(corrida 11) aparece `Embedding Voyage fallback to hashed` inmediatamente
+antes. El reranker en aislamiento fue estable 6/6 (VA=90) — no es él.
+
+**Decisión pendiente de Raúl (cambia comportamiento de producto):**
+ a) `smartRetrieval` detecta el fallback (dims ≠ corpus) y devuelve
+    `reason: 'embedding_degradado'`; el Copilot ABSTIENE con mensaje honesto
+    ("el servicio de búsqueda legal está degradado, reintenta en unos
+    minutos") en lugar de "no tengo información" + SystemLog/alerta
+    (`copilot_retrieval_degradado`) para que se vea. Fail-closed, cero
+    latencia extra.
+ b) Además/alternativa: reintento del embedding de la query con escalera
+    corta (p. ej. 3×5s) antes de abstenerse — sube la tasa de acierto a costa
+    de latencia en chat.
+ c) Telemetría mínima aunque no se haga (a)/(b): contar respuestas
+    "no tengo información" que coinciden con fallback hashed en la misma
+    consulta, para dimensionar el problema antes de la revisión sombra del
+    26-ago (puede estar inflando los "no respaldadas"/abstenciones).
+
+Aplica también a: Clasificador (si usa embeddings para ejemplos), glosa,
+cualquier consumidor de `searchLegalDocuments`.
