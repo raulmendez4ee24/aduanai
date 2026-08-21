@@ -37,7 +37,14 @@ function arg(nombre: string, def?: string): string {
   process.exit(1);
 }
 
-const HEADER_RE = /^ART[IÍ]CULO\s+(\d+(?:o\.)?(?:\s*(?:[Bb]is|[Tt]er|[Qq]u[aá]ter)(?:\s+\d+)?)?(?:-[A-Z])?)\s*[.\-–]*\s*(.*)$/;
+// Acepta MAYÚSCULAS (LA: "ARTICULO 54.") y title case (LIVA/LIEPS:
+// "Artículo 1o.-A BIS.-"). El BIS puede ir antes O después de la letra.
+// "Artículo reformado/adicionado DOF..." no matchea (exige dígito).
+const SUFIJO = '(?:[Bb]is|BIS|[Tt]er|TER|[Qq]u[aá]ter|QU[AÁ]TER|[Qq]uintus|QUINTUS)';
+// "-A" solo mayúscula NO seguida de minúscula ("23-Bis" NO es "23-B" + "is").
+const HEADER_RE = new RegExp(
+  `^(?:ART[IÍ]CULO|Art[íi]culo)\\s+(\\d+(?:o\\.)?(?:\\s*${SUFIJO}(?:\\s+\\d+)?)?(?:-(?:[A-ZÑ]{1,2}(?![a-zñ])|${SUFIJO}))?(?:\\s+${SUFIJO}(?:\\s+\\d+)?)?)\\s*[.\\-–]*\\s*(.*)$`,
+);
 // includes() y no regex: la Í del DOC puede venir como combinante (I+U+0301)
 const esFinCuerpo = (l: string) => l.normalize('NFC').includes('TRANSITORIOS DE DECRETOS DE REFORMA');
 const FRACCION_RE = /^([IVXLC]+)\.\s/;

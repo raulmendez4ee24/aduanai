@@ -34,10 +34,11 @@ function normalizarCuerpo(raw: string | null | undefined): string | null {
 }
 
 function normalizarNumero(raw: string): string {
-  // "137 bis 1" → "137-BIS-1"; "88 bis"/"88 ter" → "88-BIS"/"88-TER"
+  // "137 bis 1" → "137-BIS-1"; "88 bis/ter" → "88-BIS/-TER"; "18-H QUÁTER" →
+  // "18-H-QUÁTER"; "23-Bis" → "23-BIS" (≠ "23-B").
   return raw.trim().toUpperCase()
-    .replace(/\s+(BIS|TER|QU[AÁ]TER)\s+(\d)/g, '-$1-$2')
-    .replace(/\s+(BIS|TER|QU[AÁ]TER)\b/g, '-$1')
+    .replace(/\s+(BIS|TER|QU[AÁ]TER|QUINTUS)\s+(\d)/g, '-$1-$2')
+    .replace(/\s+(BIS|TER|QU[AÁ]TER|QUINTUS)\b/g, '-$1')
     .replace(/\s+/g, '');
 }
 
@@ -73,7 +74,7 @@ export function parseReferencia(texto: string): ClaveCita | null {
   if (m) return { tipo: 'transitorio', numero: m[1]!, cuerpo: normalizarCuerpo(m[2]) };
 
   // Artículo: "Art. 54 LA" / "Artículo 28-A de la LIVA" / "Art. 4.5 T-MEC"
-  m = /Art(?:ículo|\.)?\s*(\d+(?:\.\d+)*(?:-[A-Z])?(?:\s+(?:[Bb]is|[Tt]er|[Qq]u[aá]ter)(?:\s+\d+)?)?)\s*(?:,?\s*(?:fracci[oó]n\s+[IVXLC]+\s*)?)?(?:de\s+la\s+|de\s+el\s+|del\s+)?([A-Za-z][A-Za-z\s-]{0,25})?$/.exec(t);
+  m = /Art(?:ículo|\.)?\s*(\d+(?:\.\d+)*(?:-(?:[A-ZÑ]{1,2}(?![a-zñ])|(?:[Bb]is|BIS|[Tt]er|TER|[Qq]u[aá]ter|QU[AÁ]TER|[Qq]uintus|QUINTUS)))?(?:\s+(?:[Bb]is|BIS|[Tt]er|TER|[Qq]u[aá]ter|QU[AÁ]TER|[Qq]uintus|QUINTUS)(?:\s+\d+)?)?)\s*(?:,?\s*(?:fracci[oó]n\s+[IVXLC]+\s*)?)?(?:de\s+la\s+|de\s+el\s+|del\s+)?([A-Za-z][A-Za-z\s-]{0,25})?$/.exec(t);
   if (m) {
     return { tipo: 'articulo', numero: normalizarNumero(m[1]!), cuerpo: normalizarCuerpo(m[2]) };
   }
@@ -85,7 +86,7 @@ export function parseReferencia(texto: string): ClaveCita | null {
  *  pero cada una parseada a clave). */
 export function extraerCitas(answer: string): { texto: string; clave: ClaveCita }[] {
   const patrones = [
-    /Art(?:ículo|\.)?\s*\d+(?:\.\d+)*(?:-[A-Z])?(?:\s+(?:[Bb]is|[Tt]er|[Qq]u[aá]ter)(?:\s+\d+)?)?(?:\s+(?:de\s+la\s+|del\s+)?[A-Z][A-Za-z-]{1,10})?/g,
+    /Art(?:ículo|\.)?\s*\d+(?:\.\d+)*(?:-(?:[A-ZÑ]{1,2}(?![a-zñ])|(?:[Bb]is|BIS|[Tt]er|TER|[Qq]u[aá]ter|QU[AÁ]TER|[Qq]uintus|QUINTUS)))?(?:\s+(?:[Bb]is|BIS|[Tt]er|TER|[Qq]u[aá]ter|QU[AÁ]TER|[Qq]uintus|QUINTUS)(?:\s+\d+)?)?(?:\s+(?:de\s+la\s+|del\s+)?[A-Z][A-Za-z-]{1,10})?/g,
     /Transitorios?\s+(?:del\s+Decreto\s+)?DOF\s+\d{2}-\d{2}-\d{4}(?:\s+[A-Z][A-Za-z-]{1,10})?/g,
     /Glosario(?:\s*,?\s*apartado\s+[IVX]+)?\s+(?:de\s+las?\s+)?RGCE(?:\s+\d{4})?/g,
     /Regla\s+General\s+\d+\s*(?:[a-f]\))?\s*(?:\(RGI\))?/g,
