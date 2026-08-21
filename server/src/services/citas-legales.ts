@@ -8,7 +8,7 @@
  */
 
 export interface ClaveCita {
-  tipo: 'articulo' | 'regla' | 'anexo' | 'rgi' | 'capitulo_tmec' | 'transitorio';
+  tipo: 'articulo' | 'regla' | 'anexo' | 'rgi' | 'capitulo_tmec' | 'transitorio' | 'glosario';
   /** Número normalizado: "54", "28-A", "7.1.6", "3" (RGI). Mayúsculas. */
   numero: string;
   /** Cuerpo normativo normalizado: LA, LIVA, LIEPS, LFD, LCE, CFF, LIGIE,
@@ -63,6 +63,11 @@ export function parseReferencia(texto: string): ClaveCita | null {
   m = /(?:TMEC|T-MEC).*?Cap(?:ítulo|\.)?\s*(\d+)|Cap(?:ítulo|\.)?\s*(\d+)\s+(?:del\s+)?(?:TMEC|T-MEC)/i.exec(t);
   if (m) return { tipo: 'capitulo_tmec', numero: normalizarNumero(m[1] ?? m[2]!), cuerpo: 'TMEC' };
 
+  // Glosario: "Glosario RGCE 2026" / "Glosario apartado III RGCE 2026" /
+  // "Glosario de las RGCE". Sin apartado → numero '*' (cruza con cualquiera).
+  m = /^Glosario(?:\s*,?\s*apartado\s+([IVX]+))?\s+(?:de\s+las?\s+)?([A-Za-z][A-Za-z0-9\s-]{0,25})$/i.exec(t);
+  if (m) return { tipo: 'glosario', numero: m[1] ? m[1].toUpperCase() : '*', cuerpo: normalizarCuerpo(m[2]) };
+
   // Transitorios de un decreto: "Transitorios DOF 19-11-2025 LA"
   m = /^Transitorios?\s+(?:del\s+Decreto\s+)?DOF\s+(\d{2}-\d{2}-\d{4})\s*([A-Za-z][A-Za-z\s-]{0,25})?$/i.exec(t);
   if (m) return { tipo: 'transitorio', numero: m[1]!, cuerpo: normalizarCuerpo(m[2]) };
@@ -82,6 +87,7 @@ export function extraerCitas(answer: string): { texto: string; clave: ClaveCita 
   const patrones = [
     /Art(?:ículo|\.)?\s*\d+(?:\.\d+)*(?:-[A-Z])?(?:\s+(?:[Bb]is|[Tt]er|[Qq]u[aá]ter)(?:\s+\d+)?)?(?:\s+(?:de\s+la\s+|del\s+)?[A-Z][A-Za-z-]{1,10})?/g,
     /Transitorios?\s+(?:del\s+Decreto\s+)?DOF\s+\d{2}-\d{2}-\d{4}(?:\s+[A-Z][A-Za-z-]{1,10})?/g,
+    /Glosario(?:\s*,?\s*apartado\s+[IVX]+)?\s+(?:de\s+las?\s+)?RGCE(?:\s+\d{4})?/g,
     /Regla\s+General\s+\d+\s*(?:[a-f]\))?\s*(?:\(RGI\))?/g,
     /Regla\s+\d+(?:\.\d+)+(?:\s+RGCE(?:\s+\d{4})?)?/g,
     /Anexo\s+\d+(?:\.\d+)*(?:-[A-Z])?(?:\s+RGCE(?:\s+\d{4})?)?/g,
@@ -105,7 +111,12 @@ export function extraerCitas(answer: string): { texto: string; clave: ClaveCita 
 }
 
 export function clavesIguales(a: ClaveCita, b: ClaveCita): boolean {
-  if (a.tipo !== b.tipo || a.numero !== b.numero) return false;
+  if (a.tipo !== b.tipo) return false;
+  // Glosario: la cita genérica ("Glosario de las RGCE", numero '*') respalda
+  // cualquier apartado del glosario del mismo cuerpo, y viceversa.
+  if (a.tipo === 'glosario') {
+    if (a.numero !== b.numero && a.numero !== '*' && b.numero !== '*') return false;
+  } else if (a.numero !== b.numero) return false;
   // Cuerpo: si AMBOS lo declaran, debe coincidir. Si la cita no lo declara,
   // solo respalda un doc cuyo número+tipo sea inequívoco (se resuelve arriba).
   if (a.cuerpo && b.cuerpo) return a.cuerpo === b.cuerpo;

@@ -32,7 +32,7 @@
  */
 
 import * as fs from 'fs';
-import { TOPIC_KEYWORDS } from '../services/rag-search';
+import { topicsDeTexto } from '../services/rag-search';
 import { parseReferencia } from '../services/citas-legales';
 import type { DocCorpusIntegro } from '../lib/corpus-validador';
 
@@ -54,15 +54,7 @@ function abortar(msg: string): never {
   process.exit(1);
 }
 
-const escapeRe = (x: string) => x.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-function topicsDe(texto: string): string[] {
-  const lower = texto.toLowerCase();
-  const out: string[] = [];
-  for (const [topic, kws] of Object.entries(TOPIC_KEYWORDS)) {
-    if (kws.some(k => new RegExp(`(^|[^a-záéíóúñ0-9])${escapeRe(k.toLowerCase())}($|[^a-záéíóúñ0-9])`).test(lower))) out.push(topic);
-  }
-  return out;
-}
+const topicsDe = topicsDeTexto;
 
 /** Fusión anclada: el ancla debe aparecer EXACTAMENTE una vez (normalizada
  *  por espacios) o se aborta. Opera sobre texto con espacios normalizados. */
@@ -85,7 +77,9 @@ function main() {
   const lineasRaw = fs.readFileSync(basePath, 'utf8').split('\n');
   const lineas = lineasRaw.filter(l => !l.includes('DIARIO OFICIAL'));
 
-  const HEADER = /^(\d+\.\d+\.\d+)\.\s+\S/;
+  // Indent 0-8: cinco reglas de la publicación vienen sangradas (1.1.1, 4.6.1,
+// 7.1.11, 7.1.12, 7.2.1) — exigir columna 0 las perdía (bug lote 2 v1).
+const HEADER = /^\s{0,8}(\d+\.\d+\.\d+)\.\s+\S/;
   const headers: { idx: number; num: string }[] = [];
   let iniTransitorios = -1;
   for (let i = 0; i < lineas.length; i++) {
@@ -246,6 +240,38 @@ function main() {
     version: '1a RM RGCE 2026 (DOF 14-05-2026)',
     topics: topicsDe(transRM),
   });
+
+  // ── 3. Glosario por apartado (orden Raúl 20-ago: tipo propio en el matcher) ──
+  const iniGlos = lineas.findIndex(l => /^\s*Glosario\s*$/.test(l) && lineas.indexOf(l) > 40);
+  const finGlos = inicios[0]!; // hasta la primera regla (1.1.1)
+  if (iniGlos < 0 || iniGlos >= finGlos) abortar('Glosario no encontrado antes de la primera regla');
+  const glosLineas = lineas.slice(iniGlos, finGlos);
+  const apartados: { rom: string; idx: number }[] = [];
+  for (let i = 0; i < glosLineas.length; i++) {
+    const m = /^\s{0,8}([IVX]+)\.\s+[A-ZÁÉ]/.exec(glosLineas[i]!);
+    if (m) apartados.push({ rom: m[1]!, idx: i });
+  }
+  if (apartados.length === 0) abortar('Glosario sin apartados romanos');
+  for (let a = 0; a < apartados.length; a++) {
+    const ini = a === 0 ? 0 : apartados[a]!.idx;
+    const fin = a + 1 < apartados.length ? apartados[a + 1]!.idx : glosLineas.length;
+    const contenido = glosLineas.slice(ini, fin).join('\n').replace(/\n{3,}/g, '\n\n').trim();
+    const refG = `Glosario apartado ${apartados[a]!.rom} RGCE 2026`;
+    if (!parseReferencia(refG)) abortar(`referencia de glosario no parseable: "${refG}"`);
+    docs.push({
+      source: 'RGCE_2026', type: 'rgce',
+      reference: refG,
+      title: `Glosario RGCE 2026 — apartado ${apartados[a]!.rom} (${(glosLineas[apartados[a]!.idx] ?? '').trim().replace(/^[IVX]+\.\s*/, '').slice(0, 60) || 'acrónimos y definiciones'})`,
+      content: contenido,
+      officialUrl: URL_BASE,
+      publishedDate: '2025-12-27',
+      fechaCotejo: cotejo,
+      claseTexto: 'texto_integro',
+      version: VER_BASE,
+      topics: topicsDe(contenido),
+    });
+  }
+  console.log(`Glosario: ${apartados.length} apartados (${apartados.map(x => x.rom).join(', ')}).`);
 
   fs.writeFileSync(out, JSON.stringify(docs, null, 1));
   const compiladas = docs.filter(d => d.version === VER_1ARM).length;

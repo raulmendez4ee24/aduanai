@@ -25,7 +25,7 @@
  */
 
 import * as fs from 'fs';
-import { TOPIC_KEYWORDS } from '../services/rag-search';
+import { topicsDeTexto } from '../services/rag-search';
 import { parseReferencia } from '../services/citas-legales';
 import type { DocCorpusIntegro } from '../lib/corpus-validador';
 
@@ -59,19 +59,7 @@ function fechaDeChunk(texto: string, fallback: string): string {
   return max || fallback;
 }
 
-const escapeRe = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-function topicsDe(texto: string): string[] {
-  // Frontera de palabra: 'iva' NO debe matchear "derivadas" (el escaneo es
-  // metadata determinista, pero un topic falso envenena el hard-filter).
-  const lower = texto.toLowerCase();
-  const topics: string[] = [];
-  for (const [topic, kws] of Object.entries(TOPIC_KEYWORDS)) {
-    const hit = kws.some(k =>
-      new RegExp(`(^|[^a-z\u00e1\u00e9\u00ed\u00f3\u00fa\u00f10-9])${escapeRe(k.toLowerCase())}($|[^a-z\u00e1\u00e9\u00ed\u00f3\u00fa\u00f10-9])`).test(lower));
-    if (hit) topics.push(topic);
-  }
-  return topics;
-}
+const topicsDe = topicsDeTexto;
 
 function tituloVerbatim(cuerpoArt: string): string {
   const primera = cuerpoArt.trim().split('\n')[0] ?? '';

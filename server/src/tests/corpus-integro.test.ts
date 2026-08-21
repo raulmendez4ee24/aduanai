@@ -128,6 +128,26 @@ async function main() {
     assert.equal(out[0]!.finalScore, 0.9);
   });
 
+  await test('glosario: tipo propio en el matcher — genérico cruza con apartado', async () => {
+    const { parseReferencia, clavesIguales, cruzarCitas } = await import('../services/citas-legales');
+    assert.deepEqual(parseReferencia('Glosario apartado III RGCE 2026'), { tipo: 'glosario', numero: 'III', cuerpo: 'RGCE' });
+    assert.deepEqual(parseReferencia('Glosario de las RGCE'), { tipo: 'glosario', numero: '*', cuerpo: 'RGCE' });
+    const a = parseReferencia('Glosario de las RGCE')!;
+    const b = parseReferencia('Glosario apartado I RGCE 2026')!;
+    assert.ok(clavesIguales(a, b), 'cita genérica respalda cualquier apartado');
+    const cruce = cruzarCitas('Según el Glosario de las RGCE 2026, la ANAM es…', ['Glosario apartado I RGCE 2026', 'Regla 1.1.2 RGCE 2026']);
+    assert.equal(cruce.noRespaldadas.length, 0);
+    assert.equal(cruce.respaldadas.size, 1);
+  });
+
+  await test('taxonomía extendida: "recinto fiscalizado" ya es detectable', async () => {
+    const { topicsDeTexto, detectQueryTopics } = await import('../services/rag-search');
+    assert.ok(topicsDeTexto('las mercancías destinadas al régimen de recinto fiscalizado estratégico').includes('recinto_fiscalizado'));
+    assert.ok(detectQueryTopics('¿qué mercancías no pueden destinarse al recinto fiscalizado estratégico?').includes('recinto_fiscalizado'));
+    assert.ok(topicsDeTexto('la rectificación del pedimento procede cuando').includes('rectificacion'));
+    assert.ok(topicsDeTexto('el agente aduanal integrará el expediente').includes('agente_aduanal'));
+  });
+
   console.log(`\n${passed} pasaron, ${failed} fallaron\n`);
   process.exit(failed > 0 ? 1 : 0);
 }

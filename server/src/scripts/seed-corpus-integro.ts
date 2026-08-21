@@ -52,6 +52,20 @@ async function main() {
     return;
   }
 
+  // 1.5 Re-seed incremental: los docs cuyo contentHash YA está en DB con el
+  // mismo contenido no se re-embeden ni se re-escriben (los embeddings son
+  // caros bajo el 429 de Voyage; re-sembrar un lote corregido solo paga el
+  // delta). El hash es del content verbatim: cualquier cambio re-entra.
+  const existentes = await prisma.legalDocument.findMany({
+    where: { claseTexto: 'texto_integro', reference: { in: docs.map(d => d.reference) } },
+    select: { reference: true, contentHash: true },
+  });
+  const hashPorRef = new Map(existentes.map(e => [e.reference, e.contentHash]));
+  const pendientes = docs.filter(d =>
+    hashPorRef.get(d.reference) !== crypto.createHash('sha256').update(d.content).digest('hex'));
+  console.log(`Incremental: ${docs.length - pendientes.length} sin cambios (skip) · ${pendientes.length} a sembrar`);
+  const aSembrar = pendientes;
+
   // 2. Embeddings ANTES de cualquier escritura (falla → cero cambios en DB).
   // Voyage bajo carga sostenida puede agotar el backoff interno y la lib cae
   // al fallback hash-256: el guard lo detecta y AQUÍ se reintenta el DOC con
@@ -59,34 +73,34 @@ async function main() {
   // para respetar el RPM. Persistente tras 5 intentos → aborta sin escribir.
   const sleep = (ms: number) => new Promise<void>(r => setTimeout(r, ms));
   const embeddings: number[][] = [];
-  for (let i = 0; i < docs.length; i++) {
+  for (let i = 0; i < aSembrar.length; i++) {
     let emb: number[] | null = null;
     for (let intento = 1; intento <= 5 && !emb; intento++) {
-      const e = await generateEmbedding(docs[i]!.content, 'document');
+      const e = await generateEmbedding(aSembrar[i]!.content, 'document');
       try {
         assertCorpusEmbedding(e); // guard dims 1024 / proveedor real
         emb = e;
       } catch (err) {
         const espera = 20000 * intento;
-        console.log(`  doc ${i + 1} (${docs[i]!.reference}): embedding rechazado por el guard — espera ${espera / 1000}s y reintenta (${intento}/5)`);
+        console.log(`  doc ${i + 1} (${aSembrar[i]!.reference}): embedding rechazado por el guard — espera ${espera / 1000}s y reintenta (${intento}/5)`);
         await sleep(espera);
       }
     }
     if (!emb) {
-      console.error(`✗ doc ${i + 1} (${docs[i]!.reference}): Voyage no entregó 1024 dims tras 5 intentos — LOTE ABORTADO sin escrituras.`);
+      console.error(`✗ doc ${i + 1} (${aSembrar[i]!.reference}): Voyage no entregó 1024 dims tras 5 intentos — LOTE ABORTADO sin escrituras.`);
       await prisma.$disconnect();
       process.exit(1);
     }
     embeddings.push(emb);
     await sleep(350); // paso entre docs (RPM)
-    if ((i + 1) % 25 === 0) console.log(`  embeddings ${i + 1}/${docs.length}`);
+    if ((i + 1) % 25 === 0) console.log(`  embeddings ${i + 1}/${aSembrar.length}`);
   }
-  console.log(`Embeddings: ${embeddings.length}/${docs.length} OK (guard 1024 activo)`);
+  console.log(`Embeddings: ${embeddings.length}/${aSembrar.length} OK (guard 1024 activo)`);
 
   // 3. Upsert por (reference, claseTexto)
   let creados = 0, actualizados = 0;
-  for (let i = 0; i < docs.length; i++) {
-    const d = docs[i]!;
+  for (let i = 0; i < aSembrar.length; i++) {
+    const d = aSembrar[i]!;
     const data = {
       type: d.type,
       source: d.source,

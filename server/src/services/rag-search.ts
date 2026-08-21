@@ -45,6 +45,22 @@ const STOPWORDS = new Set(['de', 'la', 'el', 'los', 'las', 'que', 'y', 'a', 'en'
 // inconsistencia entre seeds. El detector emite AMBAS variantes vía
 // TOPIC_ALIASES más abajo para que el filtro funcione.
 export const TOPIC_KEYWORDS: Record<string, string[]> = {
+  // ── Extensión 20-ago (orden Raúl, pasada de metadata del Corpus Íntegro):
+  // vocabulario de los 892 docs íntegros que la taxonomía no cubría (los
+  // nombres de capítulos de la RGCE son la fuente).
+  recinto_fiscalizado: ['recinto fiscalizado', 'recintos fiscalizados', 'fiscalizado estratégico', 'fiscalizado estrategico', 'recinto fiscal'],
+  deposito_fiscal: ['depósito fiscal', 'deposito fiscal', 'almacén general de depósito', 'almacen general de deposito', 'exposición y venta', 'duty free'],
+  deposito_aduana: ['depósito ante la aduana', 'deposito ante la aduana'],
+  transito: ['tránsito interno', 'transito interno', 'tránsito internacional', 'transito internacional', 'tránsito de mercancías', 'transito de mercancias'],
+  rectificacion: ['rectificación', 'rectificacion', 'rectificar el pedimento', 'pedimento de rectificación', 'pedimento de rectificacion'],
+  despacho: ['despacho aduanero', 'despacho conjunto', 'despacho directo', 'mecanismo de selección automatizado', 'mecanismo de seleccion automatizado', 'reconocimiento aduanero', 'representante legal aduanero'],
+  agente_aduanal: ['agente aduanal', 'agencia aduanal', 'apoderado aduanal', 'patente aduanal', 'dictamen aduanero', 'encargo conferido'],
+  pasajeros: ['pasajeros', 'equipaje', 'franquicia'],
+  franja_fronteriza: ['franja fronteriza', 'región fronteriza', 'region fronteriza', 'reexpedición', 'reexpedicion', 'franja o región', 'franja o region'],
+  regularizacion: ['regularización de mercancías', 'regularizacion de mercancias', 'retorno de mercancías', 'retorno de mercancias', 'retorno al extranjero', 'desistimiento'],
+  mensajeria: ['mensajería', 'mensajeria', 'paquetería', 'paqueteria'],
+  prevalidacion: ['prevalidación', 'prevalidacion', 'prevalidador'],
+  ventanilla_digital: ['ventanilla digital', 'vucem', 'documento electrónico aduanero', 'e-document', 'edocument', 'cove'],
   automotriz: ['automotriz', 'auto', 'autos', 'vehiculo', 'vehículo', 'vehiculos', 'vehículos', 'coche', 'camion', 'camión', 'autopart', 'autopartes', '8703', '8708'],
   textil: ['textil', 'textiles', 'tela', 'telas', 'prenda', 'prendas', 'ropa', 'algodon', 'algodón', 'confeccion', 'confección', 'hilado', 'hilados', 'yarn'],
   immex: ['immex', 'maquila', 'maquiladora', 'temporal', 'iva-ieps', 'ivaIeps', 'aaa', 'certificacion', 'modalidad a', 'modalidad aa', 'modalidad aaa', 'anexo 24', 'anexo 30', 'anexo 31'],
@@ -118,6 +134,13 @@ const TOPIC_ALIASES: Record<string, string[]> = {
   padrones: ['padrones', 'regimen'],
   pedimento: ['pedimento', 'regimen'],
   dta: ['dta', 'pedimento', 'fiscal'],
+  recinto_fiscalizado: ['recinto_fiscalizado', 'immex', 'regimen'],
+  deposito_fiscal: ['deposito_fiscal', 'regimen'],
+  transito: ['transito', 'regimen', 'pedimento'],
+  rectificacion: ['rectificacion', 'pedimento'],
+  despacho: ['despacho', 'pedimento', 'agente_aduanal'],
+  agente_aduanal: ['agente_aduanal', 'despacho'],
+  regularizacion: ['regularizacion', 'regimen'],
 };
 
 /** Expande topics con sus aliases. */
@@ -143,6 +166,19 @@ const COUNTRY_TO_TREATY: Record<string, string> = {
   'jp': 'CPTPP', 'au': 'CPTPP', 'nz': 'CPTPP', 'vn': 'CPTPP', 'sg': 'CPTPP',
   'japon': 'CPTPP', 'japón': 'CPTPP', 'vietnam': 'CPTPP',
 };
+
+/** Escaneo determinista de topics por FRONTERA DE PALABRA — compartido por
+ *  los extractores del corpus y el rescan de metadata ('iva' NO matchea
+ *  "derivadas"). Para queries se usa detectQueryTopics (substring laxo). */
+const escapeReTop = (x: string) => x.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+export function topicsDeTexto(texto: string): string[] {
+  const lower = texto.toLowerCase();
+  const out: string[] = [];
+  for (const [topic, kws] of Object.entries(TOPIC_KEYWORDS)) {
+    if (kws.some(k => new RegExp(`(^|[^a-záéíóúñ0-9])${escapeReTop(k.toLowerCase())}($|[^a-záéíóúñ0-9])`).test(lower))) out.push(topic);
+  }
+  return out;
+}
 
 export function detectQueryTopics(query: string): string[] {
   const q = query.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '');

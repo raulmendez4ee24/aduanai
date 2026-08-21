@@ -2,6 +2,22 @@
  {
   "source": "RGCE_2026",
   "type": "rgce",
+  "reference": "Regla 1.1.1 RGCE 2026",
+  "title": "como los demás ordenamientos jurídicos aplicables en materia aduanera y de comercio exterior. El objeto, alcance y aplicación de las RGCE y …",
+  "content": "como los demás ordenamientos jurídicos aplicables en materia aduanera y de comercio exterior.\n                     Título 1. Disposiciones Generales y Actos Previos al Despacho\n                                    Capítulo 1.1. Disposiciones Generales\n                El objeto, alcance y aplicación de las RGCE y sus Anexos\n   1.1.1.       Para los efectos del artículo 33, primer párrafo, fracción I, inciso g) del CFF, el objeto de la\n                presente Resolución es dar a conocer, agrupar y facilitar el conocimiento de las disposiciones\n                de carácter general dictadas por las autoridades aduaneras y fiscales, en materia de comercio\n                exterior y aduanal, mediante una publicación anual, utilizando el formato integrado por tres\n                componentes: título, capítulo y número progresivo de cada regla. Las RGCE que en el futuro\n                se expidan, se harán como reforma, adición o derogación de las que contiene la presente\n                Resolución.\n\n            En los casos no establecidos en la presente Resolución, será aplicable en lo conducente la\n            RMF vigente y sus Anexos. Asimismo, cuando en esta Resolución o en sus Anexos se haga\n            referencia a la expedición de un CFDI o sus complementos, deberán emitirse de conformidad\n            con lo señalado en la RMF.\n            Esta Resolución es aplicable a las contribuciones, aprovechamientos federales, infracciones y\n            sanciones, que se deban pagar con motivo de las operaciones de comercio exterior.\n            Salvo señalamiento expreso en contrario, cuando se haga referencia a algún número de una\n            regla o Anexo se entenderán referidos a las reglas o Anexos de la presente Resolución.\n            Las referencias a las Reglas de Carácter General en Materia de Comercio Exterior que expide\n            el SAT, contenidas en los diversos ordenamientos jurídicos, normativos, administrativos o en\n            cualquier otro instrumento aplicable al comercio exterior, se entenderán realizadas a las\n            presentes Reglas.\n            Los epígrafes, así como cualquier referencia a la legislación aplicable que aparece al final de\n            cada regla, la referencia indicativa de los formatos y modelos contenidos en el Anexo 1 y el\n            número de las fichas de trámite contenidas en el Anexo 2, son meramente ilustrativos y no\n            confieren derecho alguno.\n            De conformidad con el artículo 2o., primer párrafo de la LFD, las cantidades señaladas en el\n            Anexo 2 son de carácter informativo y en caso de discrepancia con las establecidas en la\n            LFD, prevalecerán estas últimas.\n            Las facilidades establecidas en la presente Resolución podrán ser aplicables por los\n            contribuyentes sin perjuicio de que la autoridad pueda ejercer con posterioridad sus facultades\n            de comprobación.\n            LFD 2, CFF 33, RGCE Anexos 1, 2",
+  "officialUrl": "https://www.sat.gob.mx/minisitio/NormatividadRMFyRGCE/documentos2026/rgce/rgce/ReglasGeneralesComercioExteriorpara2026.pdf",
+  "publishedDate": "2025-12-27",
+  "fechaCotejo": "2026-08-20",
+  "claseTexto": "texto_integro",
+  "version": "RGCE 2026 (DOF 27-12-2025)",
+  "topics": [
+   "clasificacion",
+   "dta"
+  ]
+ },
+ {
+  "source": "RGCE_2026",
+  "type": "rgce",
   "reference": "Regla 1.1.2 RGCE 2026",
   "title": "Publicaciones anticipadas de las RGCE",
   "content": "            Publicaciones anticipadas de las RGCE\n1.1.2.      Para los efectos del artículo 33, primer párrafo, fracción I, inciso g) del CFF, el SAT podrá dar\n            a conocer en el Portal del SAT, de forma anticipada y únicamente con fines informativos, las\n            RGCE y Anexos que faciliten el cumplimiento de las obligaciones aduaneras de los usuarios\n            del comercio exterior. Los beneficios contenidos en dichas reglas y Anexos, serán aplicables a\n            partir de que se den a conocer en el Portal del SAT, salvo que se señale fecha expresa para\n            tales efectos.\n            CFF 33",
@@ -56,6 +72,11 @@
   "claseTexto": "texto_integro",
   "version": "RGCE 2026 (DOF 27-12-2025)",
   "topics": [
+   "recinto_fiscalizado",
+   "deposito_fiscal",
+   "transito",
+   "despacho",
+   "franja_fronteriza",
    "immex",
    "clasificacion",
    "padrones",
@@ -113,6 +134,7 @@
   "claseTexto": "texto_integro",
   "version": "RGCE 2026 (DOF 27-12-2025)",
   "topics": [
+   "ventanilla_digital",
    "clasificacion"
   ]
  },
@@ -141,6 +163,8 @@
   "claseTexto": "texto_integro",
   "version": "RGCE 2026 (DOF 27-12-2025)",
   "topics": [
+   "recinto_fiscalizado",
+   "ventanilla_digital",
    "valoracion",
    "clasificacion",
    "pama",
@@ -173,6 +197,9 @@
   "claseTexto": "texto_integro",
   "version": "RGCE 2026 (DOF 27-12-2025)",
   "topics": [
+   "despacho",
+   "pasajeros",
+   "ventanilla_digital",
    "immex",
    "clasificacion",
    "pedimento"
@@ -190,6 +217,8 @@
   "claseTexto": "texto_integro",
   "version": "RGCE 2026 (DOF 27-12-2025)",
   "topics": [
+   "despacho",
+   "ventanilla_digital",
    "fiscal",
    "rrnas"
   ]
@@ -206,6 +235,7 @@
   "claseTexto": "texto_integro",
   "version": "RGCE 2026 (DOF 27-12-2025)",
   "topics": [
+   "despacho",
    "fiscal"
   ]
  },
@@ -220,7 +250,9 @@
   "fechaCotejo": "2026-08-20",
   "claseTexto": "texto_integro",
   "version": "RGCE 2026 (DOF 27-12-2025)",
-  "topics": []
+  "topics": [
+   "ventanilla_digital"
+  ]
  },
  {
   "source": "RGCE_2026",
@@ -252,6 +284,7 @@
   "claseTexto": "texto_integro",
   "version": "RGCE 2026 (DOF 27-12-2025)",
   "topics": [
+   "agente_aduanal",
    "origen",
    "clasificacion",
    "padrones"
@@ -269,6 +302,7 @@
   "claseTexto": "texto_integro",
   "version": "RGCE 2026 (DOF 27-12-2025)",
   "topics": [
+   "agente_aduanal",
    "clasificacion",
    "padrones"
   ]
@@ -330,6 +364,9 @@
   "claseTexto": "texto_integro",
   "version": "RGCE 2026 (DOF 27-12-2025)",
   "topics": [
+   "deposito_fiscal",
+   "pasajeros",
+   "mensajeria",
    "automotriz",
    "textil",
    "clasificacion",
@@ -351,6 +388,8 @@
   "claseTexto": "texto_integro",
   "version": "RGCE 2026 (DOF 27-12-2025)",
   "topics": [
+   "recinto_fiscalizado",
+   "deposito_fiscal",
    "immex",
    "clasificacion",
    "padrones",
@@ -369,6 +408,10 @@
   "claseTexto": "texto_integro",
   "version": "RGCE 2026 (DOF 27-12-2025)",
   "topics": [
+   "deposito_fiscal",
+   "transito",
+   "despacho",
+   "agente_aduanal",
    "automotriz",
    "textil",
    "immex",
@@ -588,6 +631,7 @@
   "claseTexto": "texto_integro",
   "version": "RGCE 2026 (DOF 27-12-2025)",
   "topics": [
+   "agente_aduanal",
    "clasificacion",
    "rrnas"
   ]
@@ -604,6 +648,7 @@
   "claseTexto": "texto_integro",
   "version": "RGCE 2026 (DOF 27-12-2025)",
   "topics": [
+   "agente_aduanal",
    "clasificacion",
    "rrnas",
    "dta"
@@ -668,6 +713,8 @@
   "claseTexto": "texto_integro",
   "version": "RGCE 2026 (DOF 27-12-2025)",
   "topics": [
+   "agente_aduanal",
+   "franja_fronteriza",
    "clasificacion",
    "pedimento"
   ]
@@ -684,6 +731,7 @@
   "claseTexto": "texto_integro",
   "version": "RGCE 2026 (DOF 27-12-2025)",
   "topics": [
+   "agente_aduanal",
    "immex",
    "clasificacion",
    "pedimento"
@@ -700,7 +748,9 @@
   "fechaCotejo": "2026-08-20",
   "claseTexto": "texto_integro",
   "version": "RGCE 2026 (DOF 27-12-2025)",
-  "topics": []
+  "topics": [
+   "agente_aduanal"
+  ]
  },
  {
   "source": "RGCE_2026",
@@ -714,6 +764,7 @@
   "claseTexto": "texto_integro",
   "version": "RGCE 2026 (DOF 27-12-2025)",
   "topics": [
+   "agente_aduanal",
    "automotriz",
    "clasificacion",
    "pedimento"
@@ -731,6 +782,7 @@
   "claseTexto": "texto_integro",
   "version": "RGCE 2026 (DOF 27-12-2025)",
   "topics": [
+   "agente_aduanal",
    "immex",
    "valoracion",
    "pedimento"
@@ -766,6 +818,7 @@
   "claseTexto": "texto_integro",
   "version": "RGCE 2026 (DOF 27-12-2025)",
   "topics": [
+   "rectificacion",
    "valoracion",
    "clasificacion",
    "pedimento",
@@ -784,6 +837,7 @@
   "claseTexto": "texto_integro",
   "version": "RGCE 2026 (DOF 27-12-2025)",
   "topics": [
+   "agente_aduanal",
    "clasificacion",
    "ieps"
   ]
@@ -800,6 +854,7 @@
   "claseTexto": "texto_integro",
   "version": "Texto vigente compilado: reformada por la 1a RM RGCE 2026 (DOF 14-05-2026)",
   "topics": [
+   "agente_aduanal",
    "valoracion",
    "clasificacion",
    "pedimento",
@@ -818,6 +873,7 @@
   "claseTexto": "texto_integro",
   "version": "RGCE 2026 (DOF 27-12-2025)",
   "topics": [
+   "agente_aduanal",
    "clasificacion"
   ]
  },
@@ -833,6 +889,9 @@
   "claseTexto": "texto_integro",
   "version": "Texto vigente compilado: reformada por la 1a RM RGCE 2026 (DOF 14-05-2026)",
   "topics": [
+   "despacho",
+   "agente_aduanal",
+   "ventanilla_digital",
    "valoracion",
    "clasificacion",
    "pama",
@@ -900,6 +959,8 @@
   "claseTexto": "texto_integro",
   "version": "RGCE 2026 (DOF 27-12-2025)",
   "topics": [
+   "agente_aduanal",
+   "pasajeros",
    "automotriz",
    "immex",
    "clasificacion",
@@ -921,6 +982,8 @@
   "claseTexto": "texto_integro",
   "version": "RGCE 2026 (DOF 27-12-2025)",
   "topics": [
+   "deposito_fiscal",
+   "agente_aduanal",
    "clasificacion"
   ]
  },
@@ -982,6 +1045,7 @@
   "claseTexto": "texto_integro",
   "version": "RGCE 2026 (DOF 27-12-2025)",
   "topics": [
+   "despacho",
    "immex",
    "valoracion",
    "clasificacion",
@@ -1093,6 +1157,7 @@
   "claseTexto": "texto_integro",
   "version": "RGCE 2026 (DOF 27-12-2025)",
   "topics": [
+   "recinto_fiscalizado",
    "immex",
    "clasificacion",
    "pedimento",
@@ -1111,6 +1176,8 @@
   "claseTexto": "texto_integro",
   "version": "RGCE 2026 (DOF 27-12-2025)",
   "topics": [
+   "rectificacion",
+   "regularizacion",
    "textil",
    "immex",
    "clasificacion",
@@ -1130,6 +1197,8 @@
   "claseTexto": "texto_integro",
   "version": "RGCE 2026 (DOF 27-12-2025)",
   "topics": [
+   "rectificacion",
+   "regularizacion",
    "immex",
    "origen",
    "clasificacion",
@@ -1166,6 +1235,9 @@
   "claseTexto": "texto_integro",
   "version": "RGCE 2026 (DOF 27-12-2025)",
   "topics": [
+   "recinto_fiscalizado",
+   "deposito_fiscal",
+   "franja_fronteriza",
    "automotriz",
    "immex",
    "origen",
@@ -1255,6 +1327,8 @@
   "claseTexto": "texto_integro",
   "version": "RGCE 2026 (DOF 27-12-2025)",
   "topics": [
+   "deposito_fiscal",
+   "despacho",
    "clasificacion",
    "iva",
    "fiscal",
@@ -1276,6 +1350,7 @@
   "claseTexto": "texto_integro",
   "version": "RGCE 2026 (DOF 27-12-2025)",
   "topics": [
+   "prevalidacion",
    "immex",
    "pedimento",
    "iva"
@@ -1346,6 +1421,7 @@
   "claseTexto": "texto_integro",
   "version": "RGCE 2026 (DOF 27-12-2025)",
   "topics": [
+   "recinto_fiscalizado",
    "valoracion",
    "clasificacion",
    "pedimento",
@@ -1366,6 +1442,7 @@
   "claseTexto": "texto_integro",
   "version": "RGCE 2026 (DOF 27-12-2025)",
   "topics": [
+   "recinto_fiscalizado",
    "valoracion",
    "pama",
    "pedimento",
@@ -1386,6 +1463,10 @@
   "claseTexto": "texto_integro",
   "version": "RGCE 2026 (DOF 27-12-2025)",
   "topics": [
+   "agente_aduanal",
+   "pasajeros",
+   "franja_fronteriza",
+   "mensajeria",
    "automotriz",
    "valoracion",
    "clasificacion",
@@ -1407,6 +1488,8 @@
   "claseTexto": "texto_integro",
   "version": "RGCE 2026 (DOF 27-12-2025)",
   "topics": [
+   "agente_aduanal",
+   "regularizacion",
    "valoracion",
    "clasificacion",
    "pedimento",
@@ -1426,6 +1509,7 @@
   "claseTexto": "texto_integro",
   "version": "RGCE 2026 (DOF 27-12-2025)",
   "topics": [
+   "despacho",
    "clasificacion",
    "inventarios",
    "pedimento",
@@ -1497,6 +1581,8 @@
   "claseTexto": "texto_integro",
   "version": "RGCE 2026 (DOF 27-12-2025)",
   "topics": [
+   "recinto_fiscalizado",
+   "deposito_fiscal",
    "automotriz",
    "immex",
    "valoracion",
@@ -1534,6 +1620,8 @@
   "claseTexto": "texto_integro",
   "version": "RGCE 2026 (DOF 27-12-2025)",
   "topics": [
+   "recinto_fiscalizado",
+   "agente_aduanal",
    "valoracion",
    "clasificacion",
    "pedimento",
@@ -1553,6 +1641,7 @@
   "claseTexto": "texto_integro",
   "version": "RGCE 2026 (DOF 27-12-2025)",
   "topics": [
+   "transito",
    "clasificacion"
   ]
  },
@@ -1567,7 +1656,9 @@
   "fechaCotejo": "2026-08-20",
   "claseTexto": "texto_integro",
   "version": "RGCE 2026 (DOF 27-12-2025)",
-  "topics": []
+  "topics": [
+   "pasajeros"
+  ]
  },
  {
   "source": "RGCE_2026",
@@ -1581,6 +1672,9 @@
   "claseTexto": "texto_integro",
   "version": "RGCE 2026 (DOF 27-12-2025)",
   "topics": [
+   "deposito_fiscal",
+   "transito",
+   "franja_fronteriza",
    "automotriz",
    "immex",
    "clasificacion",
@@ -1599,6 +1693,7 @@
   "claseTexto": "texto_integro",
   "version": "RGCE 2026 (DOF 27-12-2025)",
   "topics": [
+   "agente_aduanal",
    "rrnas"
   ]
  },
@@ -1614,6 +1709,7 @@
   "claseTexto": "texto_integro",
   "version": "RGCE 2026 (DOF 27-12-2025)",
   "topics": [
+   "agente_aduanal",
    "automotriz",
    "clasificacion",
    "pedimento",
@@ -1632,6 +1728,11 @@
   "claseTexto": "texto_integro",
   "version": "RGCE 2026 (DOF 27-12-2025)",
   "topics": [
+   "deposito_fiscal",
+   "transito",
+   "despacho",
+   "agente_aduanal",
+   "ventanilla_digital",
    "automotriz",
    "origen",
    "clasificacion",
@@ -1650,6 +1751,7 @@
   "claseTexto": "texto_integro",
   "version": "RGCE 2026 (DOF 27-12-2025)",
   "topics": [
+   "agente_aduanal",
    "rrnas"
   ]
  },
@@ -1665,6 +1767,7 @@
   "claseTexto": "texto_integro",
   "version": "RGCE 2026 (DOF 27-12-2025)",
   "topics": [
+   "prevalidacion",
    "clasificacion",
    "rrnas"
   ]
@@ -1681,6 +1784,9 @@
   "claseTexto": "texto_integro",
   "version": "RGCE 2026 (DOF 27-12-2025)",
   "topics": [
+   "agente_aduanal",
+   "mensajeria",
+   "prevalidacion",
    "automotriz",
    "clasificacion",
    "pedimento",
@@ -1701,6 +1807,9 @@
   "claseTexto": "texto_integro",
   "version": "RGCE 2026 (DOF 27-12-2025)",
   "topics": [
+   "rectificacion",
+   "despacho",
+   "prevalidacion",
    "pedimento",
    "iva",
    "fiscal"
@@ -1745,7 +1854,9 @@
   "fechaCotejo": "2026-08-20",
   "claseTexto": "texto_integro",
   "version": "RGCE 2026 (DOF 27-12-2025)",
-  "topics": []
+  "topics": [
+   "pasajeros"
+  ]
  },
  {
   "source": "RGCE_2026",
@@ -1759,6 +1870,7 @@
   "claseTexto": "texto_integro",
   "version": "RGCE 2026 (DOF 27-12-2025)",
   "topics": [
+   "pasajeros",
    "origen",
    "clasificacion"
   ]
@@ -1775,6 +1887,7 @@
   "claseTexto": "texto_integro",
   "version": "RGCE 2026 (DOF 27-12-2025)",
   "topics": [
+   "pasajeros",
    "origen"
   ]
  },
@@ -1789,7 +1902,9 @@
   "fechaCotejo": "2026-08-20",
   "claseTexto": "texto_integro",
   "version": "RGCE 2026 (DOF 27-12-2025)",
-  "topics": []
+  "topics": [
+   "pasajeros"
+  ]
  },
  {
   "source": "RGCE_2026",
@@ -1803,6 +1918,7 @@
   "claseTexto": "texto_integro",
   "version": "RGCE 2026 (DOF 27-12-2025)",
   "topics": [
+   "pasajeros",
    "clasificacion",
    "sanciones"
   ]
@@ -1819,6 +1935,10 @@
   "claseTexto": "texto_integro",
   "version": "RGCE 2026 (DOF 27-12-2025)",
   "topics": [
+   "recinto_fiscalizado",
+   "rectificacion",
+   "despacho",
+   "agente_aduanal",
    "automotriz",
    "origen",
    "clasificacion",
@@ -1839,6 +1959,9 @@
   "claseTexto": "texto_integro",
   "version": "RGCE 2026 (DOF 27-12-2025)",
   "topics": [
+   "rectificacion",
+   "despacho",
+   "agente_aduanal",
    "automotriz",
    "origen",
    "clasificacion",
@@ -1859,6 +1982,10 @@
   "claseTexto": "texto_integro",
   "version": "RGCE 2026 (DOF 27-12-2025)",
   "topics": [
+   "recinto_fiscalizado",
+   "deposito_aduana",
+   "mensajeria",
+   "ventanilla_digital",
    "origen",
    "clasificacion",
    "sanciones",
@@ -1877,6 +2004,9 @@
   "claseTexto": "texto_integro",
   "version": "RGCE 2026 (DOF 27-12-2025)",
   "topics": [
+   "despacho",
+   "agente_aduanal",
+   "ventanilla_digital",
    "clasificacion",
    "pedimento",
    "fiscal"
@@ -1932,6 +2062,9 @@
   "claseTexto": "texto_integro",
   "version": "RGCE 2026 (DOF 27-12-2025)",
   "topics": [
+   "deposito_fiscal",
+   "despacho",
+   "agente_aduanal",
    "clasificacion",
    "pedimento",
    "fiscal"
@@ -1949,6 +2082,9 @@
   "claseTexto": "texto_integro",
   "version": "RGCE 2026 (DOF 27-12-2025)",
   "topics": [
+   "recinto_fiscalizado",
+   "mensajeria",
+   "ventanilla_digital",
    "origen",
    "clasificacion",
    "pedimento"
@@ -1966,6 +2102,10 @@
   "claseTexto": "texto_integro",
   "version": "RGCE 2026 (DOF 27-12-2025)",
   "topics": [
+   "rectificacion",
+   "despacho",
+   "agente_aduanal",
+   "ventanilla_digital",
    "clasificacion",
    "padrones",
    "pedimento",
@@ -1984,6 +2124,9 @@
   "claseTexto": "texto_integro",
   "version": "RGCE 2026 (DOF 27-12-2025)",
   "topics": [
+   "despacho",
+   "agente_aduanal",
+   "ventanilla_digital",
    "clasificacion",
    "pedimento",
    "fiscal"
@@ -2001,6 +2144,10 @@
   "claseTexto": "texto_integro",
   "version": "RGCE 2026 (DOF 27-12-2025)",
   "topics": [
+   "rectificacion",
+   "despacho",
+   "agente_aduanal",
+   "ventanilla_digital",
    "pama",
    "sanciones",
    "pedimento"
@@ -2035,6 +2182,9 @@
   "claseTexto": "texto_integro",
   "version": "RGCE 2026 (DOF 27-12-2025)",
   "topics": [
+   "recinto_fiscalizado",
+   "agente_aduanal",
+   "ventanilla_digital",
    "automotriz",
    "clasificacion",
    "pedimento",
@@ -2053,6 +2203,8 @@
   "claseTexto": "texto_integro",
   "version": "RGCE 2026 (DOF 27-12-2025)",
   "topics": [
+   "agente_aduanal",
+   "ventanilla_digital",
    "automotriz",
    "origen",
    "clasificacion",
@@ -2088,6 +2240,8 @@
   "claseTexto": "texto_integro",
   "version": "RGCE 2026 (DOF 27-12-2025)",
   "topics": [
+   "despacho",
+   "agente_aduanal",
    "clasificacion",
    "rrnas"
   ]
@@ -2104,6 +2258,7 @@
   "claseTexto": "texto_integro",
   "version": "RGCE 2026 (DOF 27-12-2025)",
   "topics": [
+   "despacho",
    "clasificacion",
    "pama",
    "sanciones",
@@ -2159,6 +2314,7 @@
   "claseTexto": "texto_integro",
   "version": "RGCE 2026 (DOF 27-12-2025)",
   "topics": [
+   "agente_aduanal",
    "rrnas"
   ]
  },
@@ -2174,6 +2330,7 @@
   "claseTexto": "texto_integro",
   "version": "RGCE 2026 (DOF 27-12-2025)",
   "topics": [
+   "despacho",
    "rrnas"
   ]
  },
@@ -2189,6 +2346,7 @@
   "claseTexto": "texto_integro",
   "version": "RGCE 2026 (DOF 27-12-2025)",
   "topics": [
+   "mensajeria",
    "clasificacion",
    "pedimento",
    "rrnas"
@@ -2205,7 +2363,9 @@
   "fechaCotejo": "2026-08-20",
   "claseTexto": "texto_integro",
   "version": "RGCE 2026 (DOF 27-12-2025)",
-  "topics": []
+  "topics": [
+   "agente_aduanal"
+  ]
  },
  {
   "source": "RGCE_2026",
@@ -2264,6 +2424,7 @@
   "claseTexto": "texto_integro",
   "version": "RGCE 2026 (DOF 27-12-2025)",
   "topics": [
+   "agente_aduanal",
    "clasificacion",
    "fiscal",
    "rrnas"
@@ -2281,6 +2442,7 @@
   "claseTexto": "texto_integro",
   "version": "RGCE 2026 (DOF 27-12-2025)",
   "topics": [
+   "agente_aduanal",
    "rrnas"
   ]
  },
@@ -2296,6 +2458,7 @@
   "claseTexto": "texto_integro",
   "version": "RGCE 2026 (DOF 27-12-2025)",
   "topics": [
+   "agente_aduanal",
    "rrnas"
   ]
  },
@@ -2311,6 +2474,8 @@
   "claseTexto": "texto_integro",
   "version": "RGCE 2026 (DOF 27-12-2025)",
   "topics": [
+   "despacho",
+   "agente_aduanal",
    "clasificacion",
    "pama",
    "pedimento",
@@ -2329,6 +2494,7 @@
   "claseTexto": "texto_integro",
   "version": "RGCE 2026 (DOF 27-12-2025)",
   "topics": [
+   "agente_aduanal",
    "rrnas"
   ]
  },
@@ -2344,6 +2510,7 @@
   "claseTexto": "texto_integro",
   "version": "RGCE 2026 (DOF 27-12-2025)",
   "topics": [
+   "agente_aduanal",
    "rrnas"
   ]
  },
@@ -2372,6 +2539,8 @@
   "claseTexto": "texto_integro",
   "version": "RGCE 2026 (DOF 27-12-2025)",
   "topics": [
+   "despacho",
+   "agente_aduanal",
    "clasificacion",
    "pama",
    "pedimento",
@@ -2406,6 +2575,8 @@
   "claseTexto": "texto_integro",
   "version": "RGCE 2026 (DOF 27-12-2025)",
   "topics": [
+   "agente_aduanal",
+   "franja_fronteriza",
    "clasificacion",
    "pedimento"
   ]
@@ -2422,6 +2593,7 @@
   "claseTexto": "texto_integro",
   "version": "RGCE 2026 (DOF 27-12-2025)",
   "topics": [
+   "agente_aduanal",
    "immex",
    "clasificacion",
    "pedimento"
@@ -2454,6 +2626,7 @@
   "claseTexto": "texto_integro",
   "version": "RGCE 2026 (DOF 27-12-2025)",
   "topics": [
+   "agente_aduanal",
    "clasificacion"
   ]
  },
@@ -2469,6 +2642,7 @@
   "claseTexto": "texto_integro",
   "version": "RGCE 2026 (DOF 27-12-2025)",
   "topics": [
+   "agente_aduanal",
    "automotriz",
    "clasificacion",
    "pedimento",
@@ -2486,7 +2660,9 @@
   "fechaCotejo": "2026-08-20",
   "claseTexto": "texto_integro",
   "version": "RGCE 2026 (DOF 27-12-2025)",
-  "topics": []
+  "topics": [
+   "agente_aduanal"
+  ]
  },
  {
   "source": "RGCE_2026",
@@ -2500,6 +2676,7 @@
   "claseTexto": "texto_integro",
   "version": "RGCE 2026 (DOF 27-12-2025)",
   "topics": [
+   "despacho",
    "clasificacion"
   ]
  },
@@ -2531,6 +2708,8 @@
   "claseTexto": "texto_integro",
   "version": "RGCE 2026 (DOF 27-12-2025)",
   "topics": [
+   "pasajeros",
+   "mensajeria",
    "pedimento"
   ]
  },
@@ -2563,6 +2742,7 @@
   "claseTexto": "texto_integro",
   "version": "RGCE 2026 (DOF 27-12-2025)",
   "topics": [
+   "deposito_aduana",
    "clasificacion",
    "rrnas"
   ]
@@ -2579,6 +2759,7 @@
   "claseTexto": "texto_integro",
   "version": "RGCE 2026 (DOF 27-12-2025)",
   "topics": [
+   "recinto_fiscalizado",
    "clasificacion"
   ]
  },
@@ -2594,6 +2775,8 @@
   "claseTexto": "texto_integro",
   "version": "RGCE 2026 (DOF 27-12-2025)",
   "topics": [
+   "recinto_fiscalizado",
+   "agente_aduanal",
    "pedimento",
    "rrnas"
   ]
@@ -2610,6 +2793,7 @@
   "claseTexto": "texto_integro",
   "version": "RGCE 2026 (DOF 27-12-2025)",
   "topics": [
+   "regularizacion",
    "clasificacion",
    "padrones",
    "sanciones"
@@ -2627,6 +2811,9 @@
   "claseTexto": "texto_integro",
   "version": "RGCE 2026 (DOF 27-12-2025)",
   "topics": [
+   "recinto_fiscalizado",
+   "deposito_aduana",
+   "despacho",
    "clasificacion",
    "pedimento",
    "fiscal",
@@ -2660,6 +2847,10 @@
   "claseTexto": "texto_integro",
   "version": "RGCE 2026 (DOF 27-12-2025)",
   "topics": [
+   "deposito_aduana",
+   "rectificacion",
+   "regularizacion",
+   "mensajeria",
    "origen",
    "clasificacion",
    "pedimento",
@@ -2695,6 +2886,7 @@
   "claseTexto": "texto_integro",
   "version": "RGCE 2026 (DOF 27-12-2025)",
   "topics": [
+   "recinto_fiscalizado",
    "clasificacion",
    "pedimento"
   ]
@@ -2724,6 +2916,7 @@
   "claseTexto": "texto_integro",
   "version": "RGCE 2026 (DOF 27-12-2025)",
   "topics": [
+   "recinto_fiscalizado",
    "clasificacion",
    "pedimento",
    "fiscal",
@@ -2742,6 +2935,7 @@
   "claseTexto": "texto_integro",
   "version": "RGCE 2026 (DOF 27-12-2025)",
   "topics": [
+   "recinto_fiscalizado",
    "pedimento",
    "rrnas"
   ]
@@ -2758,6 +2952,7 @@
   "claseTexto": "texto_integro",
   "version": "RGCE 2026 (DOF 27-12-2025)",
   "topics": [
+   "recinto_fiscalizado",
    "rrnas"
   ]
  },
@@ -2773,6 +2968,7 @@
   "claseTexto": "texto_integro",
   "version": "RGCE 2026 (DOF 27-12-2025)",
   "topics": [
+   "recinto_fiscalizado",
    "automotriz",
    "clasificacion",
    "inventarios",
@@ -2793,6 +2989,8 @@
   "claseTexto": "texto_integro",
   "version": "RGCE 2026 (DOF 27-12-2025)",
   "topics": [
+   "recinto_fiscalizado",
+   "ventanilla_digital",
    "valoracion",
    "clasificacion",
    "pama",
@@ -2816,6 +3014,7 @@
   "claseTexto": "texto_integro",
   "version": "RGCE 2026 (DOF 27-12-2025)",
   "topics": [
+   "recinto_fiscalizado",
    "fiscal",
    "rrnas"
   ]
@@ -2832,6 +3031,8 @@
   "claseTexto": "texto_integro",
   "version": "RGCE 2026 (DOF 27-12-2025)",
   "topics": [
+   "recinto_fiscalizado",
+   "despacho",
    "clasificacion",
    "iva",
    "fiscal",
@@ -2851,6 +3052,10 @@
   "claseTexto": "texto_integro",
   "version": "RGCE 2026 (DOF 27-12-2025)",
   "topics": [
+   "recinto_fiscalizado",
+   "agente_aduanal",
+   "mensajeria",
+   "ventanilla_digital",
    "clasificacion",
    "pedimento",
    "fiscal",
@@ -2869,6 +3074,7 @@
   "claseTexto": "texto_integro",
   "version": "RGCE 2026 (DOF 27-12-2025)",
   "topics": [
+   "recinto_fiscalizado",
    "clasificacion",
    "fiscal",
    "rrnas"
@@ -2899,6 +3105,9 @@
   "claseTexto": "texto_integro",
   "version": "RGCE 2026 (DOF 27-12-2025)",
   "topics": [
+   "recinto_fiscalizado",
+   "transito",
+   "ventanilla_digital",
    "origen",
    "clasificacion",
    "pedimento"
@@ -2956,6 +3165,12 @@
   "claseTexto": "texto_integro",
   "version": "RGCE 2026 (DOF 27-12-2025)",
   "topics": [
+   "deposito_fiscal",
+   "transito",
+   "rectificacion",
+   "despacho",
+   "agente_aduanal",
+   "regularizacion",
    "automotriz",
    "clasificacion",
    "pama",
@@ -2976,6 +3191,7 @@
   "claseTexto": "texto_integro",
   "version": "RGCE 2026 (DOF 27-12-2025)",
   "topics": [
+   "rectificacion",
    "clasificacion",
    "pedimento",
    "fiscal",
@@ -2995,6 +3211,7 @@
   "claseTexto": "texto_integro",
   "version": "RGCE 2026 (DOF 27-12-2025)",
   "topics": [
+   "ventanilla_digital",
    "automotriz",
    "valoracion",
    "clasificacion",
@@ -3014,6 +3231,7 @@
   "claseTexto": "texto_integro",
   "version": "RGCE 2026 (DOF 27-12-2025)",
   "topics": [
+   "agente_aduanal",
    "automotriz"
   ]
  },
@@ -3044,6 +3262,8 @@
   "claseTexto": "texto_integro",
   "version": "RGCE 2026 (DOF 27-12-2025)",
   "topics": [
+   "recinto_fiscalizado",
+   "deposito_aduana",
    "origen"
   ]
  },
@@ -3072,6 +3292,7 @@
   "claseTexto": "texto_integro",
   "version": "RGCE 2026 (DOF 27-12-2025)",
   "topics": [
+   "despacho",
    "clasificacion"
   ]
  },
@@ -3087,6 +3308,8 @@
   "claseTexto": "texto_integro",
   "version": "RGCE 2026 (DOF 27-12-2025)",
   "topics": [
+   "rectificacion",
+   "despacho",
    "clasificacion",
    "pama",
    "pedimento",
@@ -3106,6 +3329,8 @@
   "claseTexto": "texto_integro",
   "version": "RGCE 2026 (DOF 27-12-2025)",
   "topics": [
+   "despacho",
+   "agente_aduanal",
    "clasificacion",
    "pedimento",
    "fiscal",
@@ -3143,6 +3368,8 @@
   "claseTexto": "texto_integro",
   "version": "RGCE 2026 (DOF 27-12-2025)",
   "topics": [
+   "despacho",
+   "agente_aduanal",
    "immex",
    "clasificacion",
    "pama",
@@ -3161,6 +3388,9 @@
   "claseTexto": "texto_integro",
   "version": "RGCE 2026 (DOF 27-12-2025)",
   "topics": [
+   "despacho",
+   "franja_fronteriza",
+   "regularizacion",
    "automotriz",
    "valoracion",
    "origen",
@@ -3188,6 +3418,7 @@
   "claseTexto": "texto_integro",
   "version": "RGCE 2026 (DOF 27-12-2025)",
   "topics": [
+   "despacho",
    "immex",
    "valoracion",
    "origen",
@@ -3215,6 +3446,9 @@
   "claseTexto": "texto_integro",
   "version": "RGCE 2026 (DOF 27-12-2025)",
   "topics": [
+   "recinto_fiscalizado",
+   "despacho",
+   "regularizacion",
    "valoracion",
    "origen",
    "clasificacion",
@@ -3241,6 +3475,8 @@
   "claseTexto": "texto_integro",
   "version": "RGCE 2026 (DOF 27-12-2025)",
   "topics": [
+   "deposito_fiscal",
+   "despacho",
    "padrones",
    "pama",
    "sanciones",
@@ -3263,6 +3499,8 @@
   "claseTexto": "texto_integro",
   "version": "RGCE 2026 (DOF 27-12-2025)",
   "topics": [
+   "despacho",
+   "regularizacion",
    "automotriz",
    "clasificacion",
    "pama",
@@ -3282,6 +3520,8 @@
   "claseTexto": "texto_integro",
   "version": "RGCE 2026 (DOF 27-12-2025)",
   "topics": [
+   "despacho",
+   "franja_fronteriza",
    "valoracion",
    "origen",
    "clasificacion",
@@ -3302,6 +3542,11 @@
   "claseTexto": "texto_integro",
   "version": "RGCE 2026 (DOF 27-12-2025)",
   "topics": [
+   "recinto_fiscalizado",
+   "deposito_fiscal",
+   "transito",
+   "despacho",
+   "regularizacion",
    "automotriz",
    "immex",
    "valoracion",
@@ -3325,6 +3570,8 @@
   "claseTexto": "texto_integro",
   "version": "RGCE 2026 (DOF 27-12-2025)",
   "topics": [
+   "deposito_fiscal",
+   "transito",
    "clasificacion",
    "padrones",
    "pedimento",
@@ -3409,6 +3656,8 @@
   "claseTexto": "texto_integro",
   "version": "RGCE 2026 (DOF 27-12-2025)",
   "topics": [
+   "recinto_fiscalizado",
+   "agente_aduanal",
    "valoracion",
    "fiscal",
    "noms"
@@ -3426,6 +3675,7 @@
   "claseTexto": "texto_integro",
   "version": "RGCE 2026 (DOF 27-12-2025)",
   "topics": [
+   "despacho",
    "automotriz",
    "pedimento"
   ]
@@ -3442,6 +3692,7 @@
   "claseTexto": "texto_integro",
   "version": "RGCE 2026 (DOF 27-12-2025)",
   "topics": [
+   "agente_aduanal",
    "clasificacion",
    "padrones",
    "sanciones",
@@ -3546,6 +3797,7 @@
   "claseTexto": "texto_integro",
   "version": "RGCE 2026 (DOF 27-12-2025)",
   "topics": [
+   "ventanilla_digital",
    "immex",
    "origen",
    "clasificacion",
@@ -3581,6 +3833,7 @@
   "claseTexto": "texto_integro",
   "version": "RGCE 2026 (DOF 27-12-2025)",
   "topics": [
+   "agente_aduanal",
    "pedimento"
   ]
  },
@@ -3596,6 +3849,7 @@
   "claseTexto": "texto_integro",
   "version": "RGCE 2026 (DOF 27-12-2025)",
   "topics": [
+   "agente_aduanal",
    "clasificacion",
    "pedimento"
   ]
@@ -3612,6 +3866,7 @@
   "claseTexto": "texto_integro",
   "version": "RGCE 2026 (DOF 27-12-2025)",
   "topics": [
+   "ventanilla_digital",
    "automotriz",
    "clasificacion",
    "pedimento"
@@ -3629,6 +3884,7 @@
   "claseTexto": "texto_integro",
   "version": "RGCE 2026 (DOF 27-12-2025)",
   "topics": [
+   "despacho",
    "pedimento"
   ]
  },
@@ -3644,6 +3900,7 @@
   "claseTexto": "texto_integro",
   "version": "RGCE 2026 (DOF 27-12-2025)",
   "topics": [
+   "deposito_fiscal",
    "immex",
    "clasificacion",
    "padrones",
@@ -3663,6 +3920,10 @@
   "claseTexto": "texto_integro",
   "version": "RGCE 2026 (DOF 27-12-2025)",
   "topics": [
+   "deposito_fiscal",
+   "rectificacion",
+   "despacho",
+   "agente_aduanal",
    "automotriz",
    "clasificacion",
    "padrones",
@@ -3685,6 +3946,8 @@
   "claseTexto": "texto_integro",
   "version": "RGCE 2026 (DOF 27-12-2025)",
   "topics": [
+   "agente_aduanal",
+   "ventanilla_digital",
    "clasificacion",
    "padrones",
    "pedimento",
@@ -3703,6 +3966,7 @@
   "claseTexto": "texto_integro",
   "version": "RGCE 2026 (DOF 27-12-2025)",
   "topics": [
+   "rectificacion",
    "pedimento",
    "fiscal"
   ]
@@ -3719,6 +3983,9 @@
   "claseTexto": "texto_integro",
   "version": "RGCE 2026 (DOF 27-12-2025)",
   "topics": [
+   "transito",
+   "despacho",
+   "agente_aduanal",
    "automotriz",
    "clasificacion",
    "pama",
@@ -3738,6 +4005,8 @@
   "claseTexto": "texto_integro",
   "version": "RGCE 2026 (DOF 27-12-2025)",
   "topics": [
+   "deposito_fiscal",
+   "despacho",
    "automotriz",
    "textil",
    "immex",
@@ -3779,6 +4048,7 @@
   "claseTexto": "texto_integro",
   "version": "RGCE 2026 (DOF 27-12-2025)",
   "topics": [
+   "despacho",
    "clasificacion"
   ]
  },
@@ -3794,6 +4064,7 @@
   "claseTexto": "texto_integro",
   "version": "RGCE 2026 (DOF 27-12-2025)",
   "topics": [
+   "rectificacion",
    "immex",
    "origen",
    "clasificacion"
@@ -3827,6 +4098,7 @@
   "claseTexto": "texto_integro",
   "version": "RGCE 2026 (DOF 27-12-2025)",
   "topics": [
+   "despacho",
    "automotriz"
   ]
  },
@@ -3842,6 +4114,10 @@
   "claseTexto": "texto_integro",
   "version": "RGCE 2026 (DOF 27-12-2025)",
   "topics": [
+   "rectificacion",
+   "despacho",
+   "agente_aduanal",
+   "ventanilla_digital",
    "clasificacion",
    "pama",
    "pedimento"
@@ -3859,6 +4135,9 @@
   "claseTexto": "texto_integro",
   "version": "RGCE 2026 (DOF 27-12-2025)",
   "topics": [
+   "despacho",
+   "agente_aduanal",
+   "ventanilla_digital",
    "automotriz",
    "pedimento",
    "fiscal",
@@ -3877,6 +4156,8 @@
   "claseTexto": "texto_integro",
   "version": "RGCE 2026 (DOF 27-12-2025)",
   "topics": [
+   "despacho",
+   "agente_aduanal",
    "automotriz",
    "clasificacion",
    "pedimento",
@@ -3896,6 +4177,9 @@
   "claseTexto": "texto_integro",
   "version": "RGCE 2026 (DOF 27-12-2025)",
   "topics": [
+   "despacho",
+   "agente_aduanal",
+   "mensajeria",
    "automotriz",
    "origen",
    "clasificacion",
@@ -3914,6 +4198,9 @@
   "claseTexto": "texto_integro",
   "version": "RGCE 2026 (DOF 27-12-2025)",
   "topics": [
+   "recinto_fiscalizado",
+   "despacho",
+   "agente_aduanal",
    "automotriz",
    "origen",
    "clasificacion",
@@ -3947,6 +4234,7 @@
   "claseTexto": "texto_integro",
   "version": "RGCE 2026 (DOF 27-12-2025)",
   "topics": [
+   "franja_fronteriza",
    "automotriz",
    "clasificacion",
    "pedimento"
@@ -3995,6 +4283,8 @@
   "claseTexto": "texto_integro",
   "version": "RGCE 2026 (DOF 27-12-2025)",
   "topics": [
+   "transito",
+   "despacho",
    "pama",
    "pedimento",
    "rrnas"
@@ -4047,6 +4337,8 @@
   "claseTexto": "texto_integro",
   "version": "RGCE 2026 (DOF 27-12-2025)",
   "topics": [
+   "pasajeros",
+   "franja_fronteriza",
    "clasificacion"
   ]
  },
@@ -4062,6 +4354,9 @@
   "claseTexto": "texto_integro",
   "version": "RGCE 2026 (DOF 27-12-2025)",
   "topics": [
+   "despacho",
+   "agente_aduanal",
+   "pasajeros",
    "origen",
    "clasificacion",
    "pama",
@@ -4081,6 +4376,8 @@
   "claseTexto": "texto_integro",
   "version": "RGCE 2026 (DOF 27-12-2025)",
   "topics": [
+   "pasajeros",
+   "franja_fronteriza",
    "automotriz",
    "textil",
    "clasificacion",
@@ -4100,6 +4397,7 @@
   "claseTexto": "texto_integro",
   "version": "RGCE 2026 (DOF 27-12-2025)",
   "topics": [
+   "pasajeros",
    "rrnas"
   ]
  },
@@ -4114,7 +4412,9 @@
   "fechaCotejo": "2026-08-20",
   "claseTexto": "texto_integro",
   "version": "RGCE 2026 (DOF 27-12-2025)",
-  "topics": []
+  "topics": [
+   "pasajeros"
+  ]
  },
  {
   "source": "RGCE_2026",
@@ -4128,6 +4428,8 @@
   "claseTexto": "texto_integro",
   "version": "RGCE 2026 (DOF 27-12-2025)",
   "topics": [
+   "despacho",
+   "pasajeros",
    "automotriz",
    "clasificacion",
    "sanciones"
@@ -4145,6 +4447,9 @@
   "claseTexto": "texto_integro",
   "version": "RGCE 2026 (DOF 27-12-2025)",
   "topics": [
+   "transito",
+   "agente_aduanal",
+   "pasajeros",
    "automotriz",
    "immex",
    "clasificacion",
@@ -4164,6 +4469,7 @@
   "claseTexto": "texto_integro",
   "version": "RGCE 2026 (DOF 27-12-2025)",
   "topics": [
+   "pasajeros",
    "clasificacion",
    "pedimento"
   ]
@@ -4195,6 +4501,8 @@
   "claseTexto": "texto_integro",
   "version": "RGCE 2026 (DOF 27-12-2025)",
   "topics": [
+   "agente_aduanal",
+   "pasajeros",
    "immex",
    "clasificacion",
    "pedimento"
@@ -4212,6 +4520,7 @@
   "claseTexto": "texto_integro",
   "version": "RGCE 2026 (DOF 27-12-2025)",
   "topics": [
+   "pasajeros",
    "automotriz",
    "textil"
   ]
@@ -4228,6 +4537,7 @@
   "claseTexto": "texto_integro",
   "version": "RGCE 2026 (DOF 27-12-2025)",
   "topics": [
+   "recinto_fiscalizado",
    "immex",
    "clasificacion",
    "pedimento",
@@ -4247,6 +4557,7 @@
   "claseTexto": "texto_integro",
   "version": "RGCE 2026 (DOF 27-12-2025)",
   "topics": [
+   "pasajeros",
    "automotriz",
    "immex",
    "valoracion",
@@ -4313,6 +4624,8 @@
   "claseTexto": "texto_integro",
   "version": "RGCE 2026 (DOF 27-12-2025)",
   "topics": [
+   "franja_fronteriza",
+   "ventanilla_digital",
    "automotriz",
    "clasificacion",
    "padrones",
@@ -4333,6 +4646,7 @@
   "claseTexto": "texto_integro",
   "version": "RGCE 2026 (DOF 27-12-2025)",
   "topics": [
+   "agente_aduanal",
    "clasificacion",
    "pedimento"
   ]
@@ -4396,6 +4710,7 @@
   "claseTexto": "texto_integro",
   "version": "RGCE 2026 (DOF 27-12-2025)",
   "topics": [
+   "despacho",
    "immex",
    "clasificacion",
    "sanciones",
@@ -4416,6 +4731,8 @@
   "claseTexto": "texto_integro",
   "version": "RGCE 2026 (DOF 27-12-2025)",
   "topics": [
+   "despacho",
+   "ventanilla_digital",
    "textil",
    "clasificacion",
    "rrnas"
@@ -4482,6 +4799,8 @@
   "claseTexto": "texto_integro",
   "version": "RGCE 2026 (DOF 27-12-2025)",
   "topics": [
+   "pasajeros",
+   "franja_fronteriza",
    "automotriz",
    "clasificacion"
   ]
@@ -4498,6 +4817,9 @@
   "claseTexto": "texto_integro",
   "version": "RGCE 2026 (DOF 27-12-2025)",
   "topics": [
+   "despacho",
+   "agente_aduanal",
+   "pasajeros",
    "textil",
    "clasificacion",
    "pama",
@@ -4531,6 +4853,8 @@
   "claseTexto": "texto_integro",
   "version": "RGCE 2026 (DOF 27-12-2025)",
   "topics": [
+   "pasajeros",
+   "franja_fronteriza",
    "automotriz",
    "clasificacion",
    "ieps"
@@ -4548,6 +4872,7 @@
   "claseTexto": "texto_integro",
   "version": "RGCE 2026 (DOF 27-12-2025)",
   "topics": [
+   "franja_fronteriza",
    "clasificacion",
    "rrnas"
   ]
@@ -4564,6 +4889,8 @@
   "claseTexto": "texto_integro",
   "version": "RGCE 2026 (DOF 27-12-2025)",
   "topics": [
+   "agente_aduanal",
+   "franja_fronteriza",
    "origen",
    "clasificacion",
    "pedimento",
@@ -4582,6 +4909,7 @@
   "claseTexto": "texto_integro",
   "version": "RGCE 2026 (DOF 27-12-2025)",
   "topics": [
+   "franja_fronteriza",
    "automotriz",
    "origen",
    "pedimento",
@@ -4599,7 +4927,9 @@
   "fechaCotejo": "2026-08-20",
   "claseTexto": "texto_integro",
   "version": "RGCE 2026 (DOF 27-12-2025)",
-  "topics": []
+  "topics": [
+   "franja_fronteriza"
+  ]
  },
  {
   "source": "RGCE_2026",
@@ -4613,6 +4943,7 @@
   "claseTexto": "texto_integro",
   "version": "RGCE 2026 (DOF 27-12-2025)",
   "topics": [
+   "franja_fronteriza",
    "origen",
    "clasificacion"
   ]
@@ -4629,6 +4960,7 @@
   "claseTexto": "texto_integro",
   "version": "RGCE 2026 (DOF 27-12-2025)",
   "topics": [
+   "franja_fronteriza",
    "automotriz",
    "immex",
    "clasificacion",
@@ -4649,6 +4981,7 @@
   "claseTexto": "texto_integro",
   "version": "RGCE 2026 (DOF 27-12-2025)",
   "topics": [
+   "franja_fronteriza",
    "automotriz",
    "fiscal",
    "rrnas"
@@ -4666,6 +4999,7 @@
   "claseTexto": "texto_integro",
   "version": "RGCE 2026 (DOF 27-12-2025)",
   "topics": [
+   "franja_fronteriza",
    "automotriz",
    "clasificacion",
    "pedimento",
@@ -4685,6 +5019,8 @@
   "claseTexto": "texto_integro",
   "version": "RGCE 2026 (DOF 27-12-2025)",
   "topics": [
+   "despacho",
+   "franja_fronteriza",
    "pedimento"
   ]
  },
@@ -4700,6 +5036,7 @@
   "claseTexto": "texto_integro",
   "version": "RGCE 2026 (DOF 27-12-2025)",
   "topics": [
+   "despacho",
    "pedimento"
   ]
  },
@@ -4714,7 +5051,10 @@
   "fechaCotejo": "2026-08-20",
   "claseTexto": "texto_integro",
   "version": "RGCE 2026 (DOF 27-12-2025)",
-  "topics": []
+  "topics": [
+   "pasajeros",
+   "franja_fronteriza"
+  ]
  },
  {
   "source": "RGCE_2026",
@@ -4727,7 +5067,9 @@
   "fechaCotejo": "2026-08-20",
   "claseTexto": "texto_integro",
   "version": "RGCE 2026 (DOF 27-12-2025)",
-  "topics": []
+  "topics": [
+   "pasajeros"
+  ]
  },
  {
   "source": "RGCE_2026",
@@ -4741,6 +5083,9 @@
   "claseTexto": "texto_integro",
   "version": "RGCE 2026 (DOF 27-12-2025)",
   "topics": [
+   "rectificacion",
+   "despacho",
+   "agente_aduanal",
    "automotriz",
    "valoracion",
    "clasificacion",
@@ -4768,6 +5113,8 @@
   "claseTexto": "texto_integro",
   "version": "RGCE 2026 (DOF 27-12-2025)",
   "topics": [
+   "deposito_fiscal",
+   "agente_aduanal",
    "automotriz",
    "origen",
    "clasificacion",
@@ -4787,6 +5134,7 @@
   "claseTexto": "texto_integro",
   "version": "RGCE 2026 (DOF 27-12-2025)",
   "topics": [
+   "prevalidacion",
    "automotriz",
    "clasificacion",
    "pedimento",
@@ -4844,6 +5192,7 @@
   "claseTexto": "texto_integro",
   "version": "RGCE 2026 (DOF 27-12-2025)",
   "topics": [
+   "franja_fronteriza",
    "automotriz",
    "clasificacion",
    "padrones",
@@ -4879,6 +5228,8 @@
   "claseTexto": "texto_integro",
   "version": "RGCE 2026 (DOF 27-12-2025)",
   "topics": [
+   "despacho",
+   "agente_aduanal",
    "automotriz",
    "immex",
    "clasificacion",
@@ -4899,6 +5250,8 @@
   "claseTexto": "texto_integro",
   "version": "RGCE 2026 (DOF 27-12-2025)",
   "topics": [
+   "franja_fronteriza",
+   "prevalidacion",
    "automotriz",
    "valoracion",
    "clasificacion",
@@ -4919,6 +5272,7 @@
   "claseTexto": "texto_integro",
   "version": "RGCE 2026 (DOF 27-12-2025)",
   "topics": [
+   "prevalidacion",
    "automotriz",
    "valoracion",
    "clasificacion",
@@ -4939,6 +5293,9 @@
   "claseTexto": "texto_integro",
   "version": "RGCE 2026 (DOF 27-12-2025)",
   "topics": [
+   "despacho",
+   "agente_aduanal",
+   "franja_fronteriza",
    "automotriz",
    "valoracion",
    "clasificacion",
@@ -4960,6 +5317,7 @@
   "claseTexto": "texto_integro",
   "version": "RGCE 2026 (DOF 27-12-2025)",
   "topics": [
+   "prevalidacion",
    "automotriz",
    "valoracion",
    "clasificacion",
@@ -4979,6 +5337,10 @@
   "claseTexto": "texto_integro",
   "version": "RGCE 2026 (DOF 27-12-2025)",
   "topics": [
+   "rectificacion",
+   "despacho",
+   "agente_aduanal",
+   "franja_fronteriza",
    "automotriz",
    "valoracion",
    "clasificacion",
@@ -5112,6 +5474,7 @@
   "claseTexto": "texto_integro",
   "version": "RGCE 2026 (DOF 27-12-2025)",
   "topics": [
+   "despacho",
    "immex",
    "clasificacion",
    "pama",
@@ -5229,6 +5592,7 @@
   "claseTexto": "texto_integro",
   "version": "RGCE 2026 (DOF 27-12-2025)",
   "topics": [
+   "agente_aduanal",
    "clasificacion",
    "pedimento",
    "iva",
@@ -5247,6 +5611,8 @@
   "claseTexto": "texto_integro",
   "version": "RGCE 2026 (DOF 27-12-2025)",
   "topics": [
+   "rectificacion",
+   "agente_aduanal",
    "valoracion",
    "origen",
    "clasificacion",
@@ -5266,6 +5632,8 @@
   "claseTexto": "texto_integro",
   "version": "RGCE 2026 (DOF 27-12-2025)",
   "topics": [
+   "despacho",
+   "mensajeria",
    "clasificacion",
    "rrnas"
   ]
@@ -5282,6 +5650,7 @@
   "claseTexto": "texto_integro",
   "version": "RGCE 2026 (DOF 27-12-2025)",
   "topics": [
+   "mensajeria",
    "clasificacion",
    "sanciones",
    "rrnas"
@@ -5299,6 +5668,11 @@
   "claseTexto": "texto_integro",
   "version": "RGCE 2026 (DOF 27-12-2025)",
   "topics": [
+   "recinto_fiscalizado",
+   "deposito_fiscal",
+   "despacho",
+   "agente_aduanal",
+   "mensajeria",
    "valoracion",
    "origen",
    "clasificacion",
@@ -5321,6 +5695,7 @@
   "claseTexto": "texto_integro",
   "version": "RGCE 2026 (DOF 27-12-2025)",
   "topics": [
+   "mensajeria",
    "origen",
    "clasificacion",
    "pedimento"
@@ -5338,6 +5713,8 @@
   "claseTexto": "texto_integro",
   "version": "RGCE 2026 (DOF 27-12-2025)",
   "topics": [
+   "despacho",
+   "agente_aduanal",
    "clasificacion",
    "pama",
    "pedimento"
@@ -5439,6 +5816,7 @@
   "claseTexto": "texto_integro",
   "version": "RGCE 2026 (DOF 27-12-2025)",
   "topics": [
+   "pasajeros",
    "clasificacion"
   ]
  },
@@ -5471,6 +5849,8 @@
   "claseTexto": "texto_integro",
   "version": "RGCE 2026 (DOF 27-12-2025)",
   "topics": [
+   "recinto_fiscalizado",
+   "despacho",
    "valoracion",
    "clasificacion",
    "pama",
@@ -5490,6 +5870,8 @@
   "claseTexto": "texto_integro",
   "version": "RGCE 2026 (DOF 27-12-2025)",
   "topics": [
+   "transito",
+   "agente_aduanal",
    "clasificacion",
    "sanciones"
   ]
@@ -5525,6 +5907,8 @@
   "claseTexto": "texto_integro",
   "version": "RGCE 2026 (DOF 27-12-2025)",
   "topics": [
+   "rectificacion",
+   "despacho",
    "clasificacion",
    "pama",
    "sanciones",
@@ -5545,6 +5929,7 @@
   "claseTexto": "texto_integro",
   "version": "RGCE 2026 (DOF 27-12-2025)",
   "topics": [
+   "despacho",
    "valoracion",
    "pama",
    "sanciones",
@@ -5564,6 +5949,7 @@
   "claseTexto": "texto_integro",
   "version": "RGCE 2026 (DOF 27-12-2025)",
   "topics": [
+   "despacho",
    "clasificacion",
    "pama",
    "sanciones",
@@ -5582,6 +5968,9 @@
   "claseTexto": "texto_integro",
   "version": "RGCE 2026 (DOF 27-12-2025)",
   "topics": [
+   "deposito_fiscal",
+   "rectificacion",
+   "despacho",
    "automotriz",
    "immex",
    "valoracion",
@@ -5607,6 +5996,7 @@
   "claseTexto": "texto_integro",
   "version": "RGCE 2026 (DOF 27-12-2025)",
   "topics": [
+   "recinto_fiscalizado",
    "clasificacion",
    "sanciones",
    "pedimento"
@@ -5624,6 +6014,7 @@
   "claseTexto": "texto_integro",
   "version": "RGCE 2026 (DOF 27-12-2025)",
   "topics": [
+   "rectificacion",
    "immex",
    "clasificacion",
    "pedimento",
@@ -5655,6 +6046,7 @@
   "claseTexto": "texto_integro",
   "version": "RGCE 2026 (DOF 27-12-2025)",
   "topics": [
+   "despacho",
    "clasificacion",
    "pama",
    "sanciones",
@@ -5674,6 +6066,7 @@
   "claseTexto": "texto_integro",
   "version": "RGCE 2026 (DOF 27-12-2025)",
   "topics": [
+   "rectificacion",
    "immex",
    "clasificacion",
    "sanciones",
@@ -5692,6 +6085,7 @@
   "claseTexto": "texto_integro",
   "version": "RGCE 2026 (DOF 27-12-2025)",
   "topics": [
+   "despacho",
    "automotriz",
    "valoracion",
    "pama",
@@ -5714,6 +6108,8 @@
   "claseTexto": "texto_integro",
   "version": "RGCE 2026 (DOF 27-12-2025)",
   "topics": [
+   "recinto_fiscalizado",
+   "despacho",
    "automotriz",
    "clasificacion",
    "padrones",
@@ -5747,6 +6143,8 @@
   "claseTexto": "texto_integro",
   "version": "RGCE 2026 (DOF 27-12-2025)",
   "topics": [
+   "rectificacion",
+   "agente_aduanal",
    "origen",
    "clasificacion",
    "pedimento",
@@ -5765,6 +6163,8 @@
   "claseTexto": "texto_integro",
   "version": "RGCE 2026 (DOF 27-12-2025)",
   "topics": [
+   "rectificacion",
+   "despacho",
    "automotriz",
    "clasificacion",
    "pedimento"
@@ -5782,6 +6182,8 @@
   "claseTexto": "texto_integro",
   "version": "RGCE 2026 (DOF 27-12-2025)",
   "topics": [
+   "rectificacion",
+   "despacho",
    "valoracion",
    "clasificacion",
    "padrones",
@@ -5820,6 +6222,8 @@
   "claseTexto": "texto_integro",
   "version": "RGCE 2026 (DOF 27-12-2025)",
   "topics": [
+   "despacho",
+   "mensajeria",
    "clasificacion",
    "fiscal",
    "rrnas"
@@ -5837,6 +6241,8 @@
   "claseTexto": "texto_integro",
   "version": "RGCE 2026 (DOF 27-12-2025)",
   "topics": [
+   "despacho",
+   "mensajeria",
    "valoracion",
    "clasificacion",
    "iva",
@@ -5873,6 +6279,7 @@
   "claseTexto": "texto_integro",
   "version": "RGCE 2026 (DOF 27-12-2025)",
   "topics": [
+   "despacho",
    "automotriz",
    "pama",
    "sanciones",
@@ -5908,6 +6315,9 @@
   "claseTexto": "texto_integro",
   "version": "RGCE 2026 (DOF 27-12-2025)",
   "topics": [
+   "transito",
+   "rectificacion",
+   "franja_fronteriza",
    "immex",
    "origen",
    "clasificacion",
@@ -5926,6 +6336,8 @@
   "claseTexto": "texto_integro",
   "version": "RGCE 2026 (DOF 27-12-2025)",
   "topics": [
+   "rectificacion",
+   "regularizacion",
    "automotriz",
    "immex",
    "clasificacion",
@@ -5979,6 +6391,8 @@
   "claseTexto": "texto_integro",
   "version": "RGCE 2026 (DOF 27-12-2025)",
   "topics": [
+   "regularizacion",
+   "mensajeria",
    "automotriz",
    "immex",
    "clasificacion",
@@ -6050,6 +6464,7 @@
   "claseTexto": "texto_integro",
   "version": "RGCE 2026 (DOF 27-12-2025)",
   "topics": [
+   "rectificacion",
    "automotriz",
    "immex",
    "clasificacion",
@@ -6108,6 +6523,7 @@
   "claseTexto": "texto_integro",
   "version": "RGCE 2026 (DOF 27-12-2025)",
   "topics": [
+   "agente_aduanal",
    "immex",
    "clasificacion",
    "pedimento",
@@ -6126,6 +6542,7 @@
   "claseTexto": "texto_integro",
   "version": "RGCE 2026 (DOF 27-12-2025)",
   "topics": [
+   "pasajeros",
    "immex",
    "padrones",
    "pedimento",
@@ -6144,6 +6561,7 @@
   "claseTexto": "texto_integro",
   "version": "RGCE 2026 (DOF 27-12-2025)",
   "topics": [
+   "ventanilla_digital",
    "immex",
    "clasificacion",
    "inventarios",
@@ -6181,6 +6599,7 @@
   "claseTexto": "texto_integro",
   "version": "RGCE 2026 (DOF 27-12-2025)",
   "topics": [
+   "agente_aduanal",
    "immex",
    "pedimento",
    "rrnas"
@@ -6198,6 +6617,9 @@
   "claseTexto": "texto_integro",
   "version": "RGCE 2026 (DOF 27-12-2025)",
   "topics": [
+   "recinto_fiscalizado",
+   "deposito_fiscal",
+   "despacho",
    "automotriz",
    "immex",
    "valoracion",
@@ -6263,6 +6685,8 @@
   "claseTexto": "texto_integro",
   "version": "RGCE 2026 (DOF 27-12-2025)",
   "topics": [
+   "franja_fronteriza",
+   "regularizacion",
    "automotriz",
    "immex",
    "valoracion",
@@ -6400,6 +6824,7 @@
   "claseTexto": "texto_integro",
   "version": "RGCE 2026 (DOF 27-12-2025)",
   "topics": [
+   "franja_fronteriza",
    "immex",
    "clasificacion"
   ]
@@ -6447,6 +6872,8 @@
   "claseTexto": "texto_integro",
   "version": "RGCE 2026 (DOF 27-12-2025)",
   "topics": [
+   "despacho",
+   "agente_aduanal",
    "immex",
    "clasificacion",
    "padrones",
@@ -6469,6 +6896,8 @@
   "claseTexto": "texto_integro",
   "version": "RGCE 2026 (DOF 27-12-2025)",
   "topics": [
+   "rectificacion",
+   "agente_aduanal",
    "immex",
    "clasificacion",
    "sanciones",
@@ -6507,6 +6936,7 @@
   "claseTexto": "texto_integro",
   "version": "RGCE 2026 (DOF 27-12-2025)",
   "topics": [
+   "franja_fronteriza",
    "automotriz"
   ]
  },
@@ -6616,6 +7046,7 @@
   "claseTexto": "texto_integro",
   "version": "RGCE 2026 (DOF 27-12-2025)",
   "topics": [
+   "rectificacion",
    "automotriz",
    "immex"
   ]
@@ -6667,6 +7098,11 @@
   "claseTexto": "texto_integro",
   "version": "RGCE 2026 (DOF 27-12-2025)",
   "topics": [
+   "recinto_fiscalizado",
+   "deposito_fiscal",
+   "despacho",
+   "agente_aduanal",
+   "franja_fronteriza",
    "automotriz",
    "immex",
    "valoracion",
@@ -6743,6 +7179,7 @@
   "claseTexto": "texto_integro",
   "version": "RGCE 2026 (DOF 27-12-2025)",
   "topics": [
+   "ventanilla_digital",
    "immex",
    "clasificacion"
   ]
@@ -6777,6 +7214,7 @@
   "claseTexto": "texto_integro",
   "version": "RGCE 2026 (DOF 27-12-2025)",
   "topics": [
+   "rectificacion",
    "immex",
    "origen",
    "clasificacion"
@@ -6828,6 +7266,7 @@
   "claseTexto": "texto_integro",
   "version": "RGCE 2026 (DOF 27-12-2025)",
   "topics": [
+   "deposito_fiscal",
    "origen",
    "clasificacion",
    "fiscal",
@@ -6846,6 +7285,7 @@
   "claseTexto": "texto_integro",
   "version": "RGCE 2026 (DOF 27-12-2025)",
   "topics": [
+   "deposito_fiscal",
    "immex",
    "fiscal",
    "rrnas"
@@ -6863,6 +7303,9 @@
   "claseTexto": "texto_integro",
   "version": "RGCE 2026 (DOF 27-12-2025)",
   "topics": [
+   "deposito_fiscal",
+   "agente_aduanal",
+   "regularizacion",
    "immex",
    "clasificacion",
    "pedimento",
@@ -6882,6 +7325,7 @@
   "claseTexto": "texto_integro",
   "version": "RGCE 2026 (DOF 27-12-2025)",
   "topics": [
+   "deposito_fiscal",
    "pedimento",
    "fiscal"
   ]
@@ -6898,6 +7342,8 @@
   "claseTexto": "texto_integro",
   "version": "RGCE 2026 (DOF 27-12-2025)",
   "topics": [
+   "deposito_fiscal",
+   "agente_aduanal",
    "pedimento",
    "fiscal"
   ]
@@ -6914,6 +7360,9 @@
   "claseTexto": "texto_integro",
   "version": "RGCE 2026 (DOF 27-12-2025)",
   "topics": [
+   "deposito_fiscal",
+   "despacho",
+   "agente_aduanal",
    "clasificacion",
    "fiscal"
   ]
@@ -6930,6 +7379,10 @@
   "claseTexto": "texto_integro",
   "version": "RGCE 2026 (DOF 27-12-2025)",
   "topics": [
+   "deposito_fiscal",
+   "rectificacion",
+   "despacho",
+   "agente_aduanal",
    "pedimento",
    "fiscal",
    "rrnas"
@@ -6947,6 +7400,7 @@
   "claseTexto": "texto_integro",
   "version": "RGCE 2026 (DOF 27-12-2025)",
   "topics": [
+   "deposito_fiscal",
    "clasificacion",
    "fiscal"
   ]
@@ -6963,6 +7417,7 @@
   "claseTexto": "texto_integro",
   "version": "RGCE 2026 (DOF 27-12-2025)",
   "topics": [
+   "deposito_fiscal",
    "fiscal"
   ]
  },
@@ -6978,6 +7433,7 @@
   "claseTexto": "texto_integro",
   "version": "RGCE 2026 (DOF 27-12-2025)",
   "topics": [
+   "deposito_fiscal",
    "pedimento",
    "fiscal"
   ]
@@ -6994,6 +7450,7 @@
   "claseTexto": "texto_integro",
   "version": "RGCE 2026 (DOF 27-12-2025)",
   "topics": [
+   "deposito_fiscal",
    "iva",
    "fiscal"
   ]
@@ -7010,6 +7467,10 @@
   "claseTexto": "texto_integro",
   "version": "RGCE 2026 (DOF 27-12-2025)",
   "topics": [
+   "deposito_fiscal",
+   "despacho",
+   "agente_aduanal",
+   "regularizacion",
    "clasificacion",
    "pedimento",
    "fiscal",
@@ -7028,6 +7489,8 @@
   "claseTexto": "texto_integro",
   "version": "RGCE 2026 (DOF 27-12-2025)",
   "topics": [
+   "deposito_fiscal",
+   "regularizacion",
    "automotriz",
    "clasificacion",
    "pedimento",
@@ -7046,6 +7509,8 @@
   "claseTexto": "texto_integro",
   "version": "RGCE 2026 (DOF 27-12-2025)",
   "topics": [
+   "deposito_fiscal",
+   "agente_aduanal",
    "automotriz",
    "clasificacion",
    "pedimento",
@@ -7065,6 +7530,7 @@
   "claseTexto": "texto_integro",
   "version": "RGCE 2026 (DOF 27-12-2025)",
   "topics": [
+   "deposito_fiscal",
    "fiscal"
   ]
  },
@@ -7080,6 +7546,9 @@
   "claseTexto": "texto_integro",
   "version": "RGCE 2026 (DOF 27-12-2025)",
   "topics": [
+   "deposito_fiscal",
+   "despacho",
+   "regularizacion",
    "pedimento",
    "fiscal"
   ]
@@ -7096,6 +7565,8 @@
   "claseTexto": "texto_integro",
   "version": "RGCE 2026 (DOF 27-12-2025)",
   "topics": [
+   "deposito_fiscal",
+   "pasajeros",
    "clasificacion",
    "fiscal",
    "rrnas",
@@ -7114,6 +7585,8 @@
   "claseTexto": "texto_integro",
   "version": "RGCE 2026 (DOF 27-12-2025)",
   "topics": [
+   "deposito_fiscal",
+   "pasajeros",
    "clasificacion",
    "inventarios",
    "fiscal",
@@ -7134,6 +7607,11 @@
   "claseTexto": "texto_integro",
   "version": "RGCE 2026 (DOF 27-12-2025)",
   "topics": [
+   "deposito_fiscal",
+   "rectificacion",
+   "despacho",
+   "agente_aduanal",
+   "regularizacion",
    "clasificacion",
    "pedimento",
    "iva",
@@ -7153,6 +7631,8 @@
   "claseTexto": "texto_integro",
   "version": "RGCE 2026 (DOF 27-12-2025)",
   "topics": [
+   "deposito_fiscal",
+   "pasajeros",
    "clasificacion",
    "inventarios",
    "pedimento",
@@ -7171,6 +7651,8 @@
   "claseTexto": "texto_integro",
   "version": "RGCE 2026 (DOF 27-12-2025)",
   "topics": [
+   "deposito_fiscal",
+   "despacho",
    "clasificacion",
    "inventarios",
    "pedimento",
@@ -7189,6 +7671,7 @@
   "claseTexto": "texto_integro",
   "version": "RGCE 2026 (DOF 27-12-2025)",
   "topics": [
+   "deposito_fiscal",
    "clasificacion",
    "pedimento",
    "fiscal"
@@ -7206,6 +7689,10 @@
   "claseTexto": "texto_integro",
   "version": "RGCE 2026 (DOF 27-12-2025)",
   "topics": [
+   "deposito_fiscal",
+   "transito",
+   "despacho",
+   "regularizacion",
    "clasificacion",
    "inventarios",
    "pedimento",
@@ -7225,6 +7712,7 @@
   "claseTexto": "texto_integro",
   "version": "RGCE 2026 (DOF 27-12-2025)",
   "topics": [
+   "deposito_fiscal",
    "clasificacion",
    "inventarios",
    "pedimento",
@@ -7243,6 +7731,8 @@
   "claseTexto": "texto_integro",
   "version": "RGCE 2026 (DOF 27-12-2025)",
   "topics": [
+   "deposito_fiscal",
+   "pasajeros",
    "clasificacion",
    "pedimento",
    "fiscal",
@@ -7261,6 +7751,7 @@
   "claseTexto": "texto_integro",
   "version": "RGCE 2026 (DOF 27-12-2025)",
   "topics": [
+   "deposito_fiscal",
    "clasificacion",
    "padrones",
    "fiscal"
@@ -7278,6 +7769,8 @@
   "claseTexto": "texto_integro",
   "version": "RGCE 2026 (DOF 27-12-2025)",
   "topics": [
+   "deposito_fiscal",
+   "pasajeros",
    "clasificacion",
    "pedimento",
    "fiscal"
@@ -7295,6 +7788,7 @@
   "claseTexto": "texto_integro",
   "version": "RGCE 2026 (DOF 27-12-2025)",
   "topics": [
+   "deposito_fiscal",
    "clasificacion",
    "pedimento",
    "fiscal",
@@ -7313,6 +7807,8 @@
   "claseTexto": "texto_integro",
   "version": "RGCE 2026 (DOF 27-12-2025)",
   "topics": [
+   "deposito_fiscal",
+   "regularizacion",
    "immex",
    "clasificacion",
    "fiscal",
@@ -7331,6 +7827,7 @@
   "claseTexto": "texto_integro",
   "version": "RGCE 2026 (DOF 27-12-2025)",
   "topics": [
+   "deposito_fiscal",
    "automotriz",
    "clasificacion",
    "fiscal",
@@ -7349,6 +7846,12 @@
   "claseTexto": "texto_integro",
   "version": "RGCE 2026 (DOF 27-12-2025)",
   "topics": [
+   "recinto_fiscalizado",
+   "deposito_fiscal",
+   "despacho",
+   "agente_aduanal",
+   "regularizacion",
+   "ventanilla_digital",
    "automotriz",
    "immex",
    "valoracion",
@@ -7376,6 +7879,8 @@
   "claseTexto": "texto_integro",
   "version": "RGCE 2026 (DOF 27-12-2025)",
   "topics": [
+   "deposito_fiscal",
+   "ventanilla_digital",
    "automotriz",
    "clasificacion",
    "fiscal",
@@ -7395,6 +7900,7 @@
   "claseTexto": "texto_integro",
   "version": "RGCE 2026 (DOF 27-12-2025)",
   "topics": [
+   "deposito_fiscal",
    "pedimento"
   ]
  },
@@ -7403,17 +7909,35 @@
   "type": "rgce",
   "reference": "Regla 4.5.34 RGCE 2026",
   "title": "Cambio de régimen o transferencias de mercancía destinada al régimen de depósito fiscal",
-  "content": "              Cambio de régimen o transferencias de mercancía destinada al régimen de depósito\n              fiscal\n4.5.34.       Para los efectos de los artículos 119, sexto y décimo párrafos y 120 de la Ley, no procederá el\n              cambio de régimen aduanero o la transferencia de la mercancía que haya sido destinada al\n              régimen aduanero de depósito fiscal, hasta que la mercancía haya arribado al almacén\n              general de depósito, dentro del plazo máximo de veinte días naturales, contados a partir de la\n              fecha en que se transmita el aviso de conclusión del despacho aduanero.\n              Cuando las mercancías amparadas en el pedimento y en el modelo M1.8. “Carta de cupo\n              electrónica”, contenido en el Anexo 1, no hayan arribado en el plazo señalado, se encontrarán\n              ilegalmente en el país por haber concluido el plazo de arribo, por lo que se deberá efectuar el\n              pago de las contribuciones y de las cuotas compensatorias que correspondan, así como, en\n              su caso, cumplir con las regulaciones y restricciones no arancelarias, lo anterior con\n              independencia de las demás infracciones y sanciones que correspondan.\n              Ley 119,120, Reglamento 177, 178, Anexo 2\n                                   Capítulo 4.6. Tránsito de Mercancías\n              Tránsitos internos e internacionales entre aduanas, secciones aduaneras autorizadas y\n              aeropuertos internacionales\n  4.6.1.      Para los efectos de los artículos 125, fracción I y 130, fracción I de la Ley, se considera\n              tránsito interno o internacional el traslado de mercancías de procedencia extranjera que se\n              realicen conforme a lo siguiente:\n              I.          De       aduana de Ciudad Juárez      a    sección    aduanera    del    Aeropuerto\n                                                                     Internacional Abraham González.\n              II.         De       sección    aduanera      del a    aduana de Monterrey.\n                                   Aeropuerto     Internacional\n                                   General Mariano Escobedo\n              III.        De       aduana de Nogales            a    sección    aduanera    del   Aeropuerto\n                                                                     Internacional General Ignacio Pesqueira\n                                                                     García.\n              IV.         De       Aeropuerto      Internacional a   aduana de Mazatlán.\n                                   General Rafael Buelna\n              V.          De       Aeropuerto    Internacional a     sección aduanera de Pichilingue.\n                                   General Manuel Márquez de\n                                   León\n              VI.         De       sección aduanera de Loreto   a    sección aduanera de Pichilingue.\n              VII.        De       Aeropuerto Internacional de a     aduana de Torreón.\n                                   Torreón “Francisco Sarabia”\n              VIII.       De       aduana de Ciudad Hidalgo     a    sección aduanera de Puerto Chiapas, o\n                                                                     viceversa.\n\n            IX.            De      aduana de Progreso            a      sección    aduanera  del     Aeropuerto\n                                                                        Internacional Lic. Manuel    Crescencio\n                                                                        Rejón.\n            X.             De      aduana de Tijuana             a      sección    aduanera     del Aeropuerto\n                                                                        Internacional denominado Abelardo L.\n                                                                        Rodríguez, o viceversa.\n            XI.            De      sección    aduanera      del a       sección aduanera de Salinas Victoria B\n                                   Aeropuerto     Internacional         (Interpuerto), o viceversa.\n                                   General Mariano Escobedo\n            Para efecto de realizar el depósito ante la aduana o para someterla a cualquiera de los\n            regímenes aduaneros a que se refiere el artículo 90 de la Ley, cuando se cuente con\n            autorización por parte de las aduanas referidas, los tránsitos se realizarán en los términos que\n            se señalen en la autorización correspondiente.\n            Ley 90, 125, 130, Acuerdo por el que se determina la circunscripción territorial de las aduanas",
+  "content": "              Cambio de régimen o transferencias de mercancía destinada al régimen de depósito\n              fiscal\n4.5.34.       Para los efectos de los artículos 119, sexto y décimo párrafos y 120 de la Ley, no procederá el\n              cambio de régimen aduanero o la transferencia de la mercancía que haya sido destinada al\n              régimen aduanero de depósito fiscal, hasta que la mercancía haya arribado al almacén\n              general de depósito, dentro del plazo máximo de veinte días naturales, contados a partir de la\n              fecha en que se transmita el aviso de conclusión del despacho aduanero.\n              Cuando las mercancías amparadas en el pedimento y en el modelo M1.8. “Carta de cupo\n              electrónica”, contenido en el Anexo 1, no hayan arribado en el plazo señalado, se encontrarán\n              ilegalmente en el país por haber concluido el plazo de arribo, por lo que se deberá efectuar el\n              pago de las contribuciones y de las cuotas compensatorias que correspondan, así como, en\n              su caso, cumplir con las regulaciones y restricciones no arancelarias, lo anterior con\n              independencia de las demás infracciones y sanciones que correspondan.\n              Ley 119,120, Reglamento 177, 178, Anexo 2",
   "officialUrl": "https://www.sat.gob.mx/minisitio/NormatividadRMFyRGCE/documentos2026/rgce/rgce/ReglasGeneralesComercioExteriorpara2026.pdf",
   "publishedDate": "2025-12-27",
   "fechaCotejo": "2026-08-20",
   "claseTexto": "texto_integro",
   "version": "RGCE 2026 (DOF 27-12-2025)",
   "topics": [
+   "deposito_fiscal",
+   "despacho",
+   "pedimento",
+   "fiscal"
+  ]
+ },
+ {
+  "source": "RGCE_2026",
+  "type": "rgce",
+  "reference": "Regla 4.6.1 RGCE 2026",
+  "title": "Tránsitos internos e internacionales entre aduanas, secciones aduaneras autorizadas y aeropuertos internacionales",
+  "content": "                                   Capítulo 4.6. Tránsito de Mercancías\n              Tránsitos internos e internacionales entre aduanas, secciones aduaneras autorizadas y\n              aeropuertos internacionales\n  4.6.1.      Para los efectos de los artículos 125, fracción I y 130, fracción I de la Ley, se considera\n              tránsito interno o internacional el traslado de mercancías de procedencia extranjera que se\n              realicen conforme a lo siguiente:\n              I.          De       aduana de Ciudad Juárez      a    sección    aduanera    del    Aeropuerto\n                                                                     Internacional Abraham González.\n              II.         De       sección    aduanera      del a    aduana de Monterrey.\n                                   Aeropuerto     Internacional\n                                   General Mariano Escobedo\n              III.        De       aduana de Nogales            a    sección    aduanera    del   Aeropuerto\n                                                                     Internacional General Ignacio Pesqueira\n                                                                     García.\n              IV.         De       Aeropuerto      Internacional a   aduana de Mazatlán.\n                                   General Rafael Buelna\n              V.          De       Aeropuerto    Internacional a     sección aduanera de Pichilingue.\n                                   General Manuel Márquez de\n                                   León\n              VI.         De       sección aduanera de Loreto   a    sección aduanera de Pichilingue.\n              VII.        De       Aeropuerto Internacional de a     aduana de Torreón.\n                                   Torreón “Francisco Sarabia”\n              VIII.       De       aduana de Ciudad Hidalgo     a    sección aduanera de Puerto Chiapas, o\n                                                                     viceversa.\n\n            IX.            De      aduana de Progreso            a      sección    aduanera  del     Aeropuerto\n                                                                        Internacional Lic. Manuel    Crescencio\n                                                                        Rejón.\n            X.             De      aduana de Tijuana             a      sección    aduanera     del Aeropuerto\n                                                                        Internacional denominado Abelardo L.\n                                                                        Rodríguez, o viceversa.\n            XI.            De      sección    aduanera      del a       sección aduanera de Salinas Victoria B\n                                   Aeropuerto     Internacional         (Interpuerto), o viceversa.\n                                   General Mariano Escobedo\n            Para efecto de realizar el depósito ante la aduana o para someterla a cualquiera de los\n            regímenes aduaneros a que se refiere el artículo 90 de la Ley, cuando se cuente con\n            autorización por parte de las aduanas referidas, los tránsitos se realizarán en los términos que\n            se señalen en la autorización correspondiente.\n            Ley 90, 125, 130, Acuerdo por el que se determina la circunscripción territorial de las aduanas",
+  "officialUrl": "https://www.sat.gob.mx/minisitio/NormatividadRMFyRGCE/documentos2026/rgce/rgce/ReglasGeneralesComercioExteriorpara2026.pdf",
+  "publishedDate": "2025-12-27",
+  "fechaCotejo": "2026-08-20",
+  "claseTexto": "texto_integro",
+  "version": "RGCE 2026 (DOF 27-12-2025)",
+  "topics": [
+   "deposito_aduana",
+   "transito",
    "origen",
    "clasificacion",
-   "pedimento",
-   "fiscal",
    "rrnas"
   ]
  },
@@ -7429,6 +7953,8 @@
   "claseTexto": "texto_integro",
   "version": "RGCE 2026 (DOF 27-12-2025)",
   "topics": [
+   "transito",
+   "agente_aduanal",
    "clasificacion",
    "pedimento",
    "ieps"
@@ -7446,6 +7972,10 @@
   "claseTexto": "texto_integro",
   "version": "RGCE 2026 (DOF 27-12-2025)",
   "topics": [
+   "recinto_fiscalizado",
+   "deposito_aduana",
+   "transito",
+   "despacho",
    "clasificacion",
    "pama",
    "pedimento",
@@ -7464,6 +7994,10 @@
   "claseTexto": "texto_integro",
   "version": "RGCE 2026 (DOF 27-12-2025)",
   "topics": [
+   "recinto_fiscalizado",
+   "transito",
+   "agente_aduanal",
+   "regularizacion",
    "clasificacion",
    "inventarios",
    "pedimento",
@@ -7483,6 +8017,10 @@
   "claseTexto": "texto_integro",
   "version": "RGCE 2026 (DOF 27-12-2025)",
   "topics": [
+   "transito",
+   "despacho",
+   "agente_aduanal",
+   "regularizacion",
    "immex",
    "clasificacion",
    "pedimento"
@@ -7517,6 +8055,11 @@
   "claseTexto": "texto_integro",
   "version": "RGCE 2026 (DOF 27-12-2025)",
   "topics": [
+   "recinto_fiscalizado",
+   "transito",
+   "rectificacion",
+   "despacho",
+   "agente_aduanal",
    "automotriz",
    "clasificacion",
    "pama",
@@ -7536,6 +8079,9 @@
   "claseTexto": "texto_integro",
   "version": "RGCE 2026 (DOF 27-12-2025)",
   "topics": [
+   "recinto_fiscalizado",
+   "agente_aduanal",
+   "ventanilla_digital",
    "clasificacion",
    "pedimento",
    "fiscal"
@@ -7553,6 +8099,8 @@
   "claseTexto": "texto_integro",
   "version": "RGCE 2026 (DOF 27-12-2025)",
   "topics": [
+   "transito",
+   "ventanilla_digital",
    "clasificacion",
    "pedimento"
   ]
@@ -7569,6 +8117,8 @@
   "claseTexto": "texto_integro",
   "version": "RGCE 2026 (DOF 27-12-2025)",
   "topics": [
+   "transito",
+   "despacho",
    "automotriz",
    "clasificacion",
    "pedimento"
@@ -7586,6 +8136,7 @@
   "claseTexto": "texto_integro",
   "version": "RGCE 2026 (DOF 27-12-2025)",
   "topics": [
+   "transito",
    "automotriz",
    "clasificacion",
    "padrones"
@@ -7603,6 +8154,8 @@
   "claseTexto": "texto_integro",
   "version": "RGCE 2026 (DOF 27-12-2025)",
   "topics": [
+   "transito",
+   "franja_fronteriza",
    "origen"
   ]
  },
@@ -7618,6 +8171,9 @@
   "claseTexto": "texto_integro",
   "version": "RGCE 2026 (DOF 27-12-2025)",
   "topics": [
+   "transito",
+   "rectificacion",
+   "despacho",
    "origen",
    "pama",
    "pedimento"
@@ -7635,6 +8191,9 @@
   "claseTexto": "texto_integro",
   "version": "RGCE 2026 (DOF 27-12-2025)",
   "topics": [
+   "recinto_fiscalizado",
+   "transito",
+   "despacho",
    "pama",
    "pedimento"
   ]
@@ -7651,6 +8210,9 @@
   "claseTexto": "texto_integro",
   "version": "RGCE 2026 (DOF 27-12-2025)",
   "topics": [
+   "transito",
+   "despacho",
+   "agente_aduanal",
    "clasificacion",
    "pama",
    "pedimento"
@@ -7668,6 +8230,8 @@
   "claseTexto": "texto_integro",
   "version": "RGCE 2026 (DOF 27-12-2025)",
   "topics": [
+   "transito",
+   "agente_aduanal",
    "clasificacion"
   ]
  },
@@ -7683,6 +8247,8 @@
   "claseTexto": "texto_integro",
   "version": "RGCE 2026 (DOF 27-12-2025)",
   "topics": [
+   "transito",
+   "regularizacion",
    "immex"
   ]
  },
@@ -7698,6 +8264,7 @@
   "claseTexto": "texto_integro",
   "version": "RGCE 2026 (DOF 27-12-2025)",
   "topics": [
+   "transito",
    "fiscal"
   ]
  },
@@ -7713,6 +8280,8 @@
   "claseTexto": "texto_integro",
   "version": "RGCE 2026 (DOF 27-12-2025)",
   "topics": [
+   "transito",
+   "agente_aduanal",
    "valoracion",
    "clasificacion",
    "pedimento",
@@ -7731,6 +8300,9 @@
   "claseTexto": "texto_integro",
   "version": "RGCE 2026 (DOF 27-12-2025)",
   "topics": [
+   "transito",
+   "despacho",
+   "agente_aduanal",
    "clasificacion",
    "pedimento",
    "fiscal"
@@ -7747,7 +8319,9 @@
   "fechaCotejo": "2026-08-20",
   "claseTexto": "texto_integro",
   "version": "RGCE 2026 (DOF 27-12-2025)",
-  "topics": []
+  "topics": [
+   "transito"
+  ]
  },
  {
   "source": "RGCE_2026",
@@ -7761,6 +8335,7 @@
   "claseTexto": "texto_integro",
   "version": "RGCE 2026 (DOF 27-12-2025)",
   "topics": [
+   "transito",
    "padrones",
    "pedimento",
    "rrnas"
@@ -7778,6 +8353,9 @@
   "claseTexto": "texto_integro",
   "version": "RGCE 2026 (DOF 27-12-2025)",
   "topics": [
+   "transito",
+   "despacho",
+   "agente_aduanal",
    "valoracion",
    "clasificacion",
    "pama",
@@ -7797,6 +8375,9 @@
   "claseTexto": "texto_integro",
   "version": "RGCE 2026 (DOF 27-12-2025)",
   "topics": [
+   "transito",
+   "despacho",
+   "agente_aduanal",
    "clasificacion",
    "pama",
    "pedimento"
@@ -7814,6 +8395,9 @@
   "claseTexto": "texto_integro",
   "version": "RGCE 2026 (DOF 27-12-2025)",
   "topics": [
+   "transito",
+   "despacho",
+   "agente_aduanal",
    "textil",
    "clasificacion",
    "pama",
@@ -7832,6 +8416,7 @@
   "claseTexto": "texto_integro",
   "version": "RGCE 2026 (DOF 27-12-2025)",
   "topics": [
+   "transito",
    "valoracion",
    "clasificacion",
    "garantias"
@@ -7849,6 +8434,9 @@
   "claseTexto": "texto_integro",
   "version": "RGCE 2026 (DOF 27-12-2025)",
   "topics": [
+   "recinto_fiscalizado",
+   "transito",
+   "agente_aduanal",
    "clasificacion",
    "pedimento"
   ]
@@ -7865,6 +8453,10 @@
   "claseTexto": "texto_integro",
   "version": "RGCE 2026 (DOF 27-12-2025)",
   "topics": [
+   "transito",
+   "despacho",
+   "agente_aduanal",
+   "ventanilla_digital",
    "automotriz",
    "valoracion",
    "origen",
@@ -7888,6 +8480,7 @@
   "claseTexto": "texto_integro",
   "version": "RGCE 2026 (DOF 27-12-2025)",
   "topics": [
+   "recinto_fiscalizado",
    "origen",
    "clasificacion",
    "pedimento",
@@ -7905,7 +8498,9 @@
   "fechaCotejo": "2026-08-20",
   "claseTexto": "texto_integro",
   "version": "RGCE 2026 (DOF 27-12-2025)",
-  "topics": []
+  "topics": [
+   "recinto_fiscalizado"
+  ]
  },
  {
   "source": "RGCE_2026",
@@ -7919,6 +8514,7 @@
   "claseTexto": "texto_integro",
   "version": "RGCE 2026 (DOF 27-12-2025)",
   "topics": [
+   "recinto_fiscalizado",
    "origen",
    "clasificacion",
    "rrnas"
@@ -7936,6 +8532,7 @@
   "claseTexto": "texto_integro",
   "version": "RGCE 2026 (DOF 27-12-2025)",
   "topics": [
+   "recinto_fiscalizado",
    "clasificacion",
    "rrnas"
   ],
@@ -7953,6 +8550,7 @@
   "claseTexto": "texto_integro",
   "version": "RGCE 2026 (DOF 27-12-2025)",
   "topics": [
+   "recinto_fiscalizado",
    "immex",
    "clasificacion",
    "inventarios",
@@ -7970,7 +8568,9 @@
   "fechaCotejo": "",
   "claseTexto": "texto_integro",
   "version": "RGCE 2026 (DOF 27-12-2025)",
-  "topics": [],
+  "topics": [
+   "recinto_fiscalizado"
+  ],
   "vigenciaCondicionada": "Trans. Tercero 1a RM (DOF 14-05-2026): la modificación a esta regla entra en vigor hasta la publicación en DOF de la modificación al Anexo 29 — publicación NO confirmada al cotejo (20-ago-2026); se conserva el texto base."
  },
  {
@@ -7985,6 +8585,9 @@
   "claseTexto": "texto_integro",
   "version": "RGCE 2026 (DOF 27-12-2025)",
   "topics": [
+   "recinto_fiscalizado",
+   "despacho",
+   "agente_aduanal",
    "immex",
    "origen",
    "clasificacion",
@@ -8006,6 +8609,7 @@
   "claseTexto": "texto_integro",
   "version": "RGCE 2026 (DOF 27-12-2025)",
   "topics": [
+   "recinto_fiscalizado",
    "clasificacion"
   ]
  },
@@ -8021,6 +8625,10 @@
   "claseTexto": "texto_integro",
   "version": "RGCE 2026 (DOF 27-12-2025)",
   "topics": [
+   "recinto_fiscalizado",
+   "deposito_fiscal",
+   "despacho",
+   "agente_aduanal",
    "immex",
    "valoracion",
    "origen",
@@ -8044,6 +8652,7 @@
   "claseTexto": "texto_integro",
   "version": "RGCE 2026 (DOF 27-12-2025)",
   "topics": [
+   "recinto_fiscalizado",
    "immex",
    "clasificacion",
    "pedimento"
@@ -8060,7 +8669,9 @@
   "fechaCotejo": "2026-08-20",
   "claseTexto": "texto_integro",
   "version": "RGCE 2026 (DOF 27-12-2025)",
-  "topics": []
+  "topics": [
+   "recinto_fiscalizado"
+  ]
  },
  {
   "source": "RGCE_2026",
@@ -8074,6 +8685,8 @@
   "claseTexto": "texto_integro",
   "version": "RGCE 2026 (DOF 27-12-2025)",
   "topics": [
+   "recinto_fiscalizado",
+   "despacho",
    "automotriz",
    "immex",
    "pedimento",
@@ -8094,6 +8707,7 @@
   "claseTexto": "texto_integro",
   "version": "RGCE 2026 (DOF 27-12-2025)",
   "topics": [
+   "recinto_fiscalizado",
    "immex",
    "fiscal",
    "rrnas"
@@ -8110,7 +8724,10 @@
   "fechaCotejo": "2026-08-20",
   "claseTexto": "texto_integro",
   "version": "RGCE 2026 (DOF 27-12-2025)",
-  "topics": []
+  "topics": [
+   "recinto_fiscalizado",
+   "deposito_aduana"
+  ]
  },
  {
   "source": "RGCE_2026",
@@ -8124,6 +8741,7 @@
   "claseTexto": "texto_integro",
   "version": "RGCE 2026 (DOF 27-12-2025)",
   "topics": [
+   "recinto_fiscalizado",
    "clasificacion",
    "iva",
    "ieps"
@@ -8141,6 +8759,8 @@
   "claseTexto": "texto_integro",
   "version": "RGCE 2026 (DOF 27-12-2025)",
   "topics": [
+   "recinto_fiscalizado",
+   "despacho",
    "clasificacion",
    "padrones",
    "pama",
@@ -8160,6 +8780,7 @@
   "claseTexto": "texto_integro",
   "version": "RGCE 2026 (DOF 27-12-2025)",
   "topics": [
+   "recinto_fiscalizado",
    "valoracion",
    "pedimento"
   ]
@@ -8176,6 +8797,9 @@
   "claseTexto": "texto_integro",
   "version": "RGCE 2026 (DOF 27-12-2025)",
   "topics": [
+   "recinto_fiscalizado",
+   "despacho",
+   "franja_fronteriza",
    "clasificacion",
    "fiscal",
    "rrnas"
@@ -8193,6 +8817,7 @@
   "claseTexto": "texto_integro",
   "version": "RGCE 2026 (DOF 27-12-2025)",
   "topics": [
+   "recinto_fiscalizado",
    "rrnas"
   ]
  },
@@ -8208,6 +8833,7 @@
   "claseTexto": "texto_integro",
   "version": "RGCE 2026 (DOF 27-12-2025)",
   "topics": [
+   "recinto_fiscalizado",
    "clasificacion",
    "inventarios"
   ]
@@ -8260,6 +8886,7 @@
   "claseTexto": "texto_integro",
   "version": "RGCE 2026 (DOF 27-12-2025)",
   "topics": [
+   "franja_fronteriza",
    "clasificacion",
    "dta"
   ]
@@ -8276,6 +8903,7 @@
   "claseTexto": "texto_integro",
   "version": "RGCE 2026 (DOF 27-12-2025)",
   "topics": [
+   "rectificacion",
    "automotriz",
    "immex",
    "origen",
@@ -8395,6 +9023,7 @@
   "claseTexto": "texto_integro",
   "version": "RGCE 2026 (DOF 27-12-2025)",
   "topics": [
+   "deposito_fiscal",
    "automotriz",
    "immex",
    "clasificacion",
@@ -8415,6 +9044,8 @@
   "claseTexto": "texto_integro",
   "version": "RGCE 2026 (DOF 27-12-2025)",
   "topics": [
+   "recinto_fiscalizado",
+   "deposito_fiscal",
    "automotriz",
    "immex",
    "clasificacion",
@@ -8436,6 +9067,8 @@
   "claseTexto": "texto_integro",
   "version": "RGCE 2026 (DOF 27-12-2025)",
   "topics": [
+   "recinto_fiscalizado",
+   "deposito_fiscal",
    "automotriz",
    "immex",
    "fiscal",
@@ -8454,6 +9087,9 @@
   "claseTexto": "texto_integro",
   "version": "RGCE 2026 (DOF 27-12-2025)",
   "topics": [
+   "recinto_fiscalizado",
+   "deposito_fiscal",
+   "regularizacion",
    "immex",
    "pedimento",
    "iva",
@@ -8490,6 +9126,7 @@
   "claseTexto": "texto_integro",
   "version": "RGCE 2026 (DOF 27-12-2025)",
   "topics": [
+   "recinto_fiscalizado",
    "pedimento",
    "iva",
    "rrnas"
@@ -8507,6 +9144,7 @@
   "claseTexto": "texto_integro",
   "version": "RGCE 2026 (DOF 27-12-2025)",
   "topics": [
+   "deposito_fiscal",
    "clasificacion",
    "padrones",
    "fiscal",
@@ -8575,6 +9213,8 @@
   "claseTexto": "texto_integro",
   "version": "RGCE 2026 (DOF 27-12-2025)",
   "topics": [
+   "rectificacion",
+   "despacho",
    "automotriz",
    "antidumping",
    "origen",
@@ -8596,6 +9236,9 @@
   "claseTexto": "texto_integro",
   "version": "RGCE 2026 (DOF 27-12-2025)",
   "topics": [
+   "rectificacion",
+   "despacho",
+   "agente_aduanal",
    "clasificacion",
    "padrones",
    "pama",
@@ -8615,7 +9258,9 @@
   "fechaCotejo": "2026-08-20",
   "claseTexto": "texto_integro",
   "version": "RGCE 2026 (DOF 27-12-2025)",
-  "topics": []
+  "topics": [
+   "rectificacion"
+  ]
  },
  {
   "source": "RGCE_2026",
@@ -8629,6 +9274,8 @@
   "claseTexto": "texto_integro",
   "version": "RGCE 2026 (DOF 27-12-2025)",
   "topics": [
+   "rectificacion",
+   "despacho",
    "origen",
    "clasificacion",
    "pedimento"
@@ -8741,6 +9388,8 @@
   "claseTexto": "texto_integro",
   "version": "RGCE 2026 (DOF 27-12-2025)",
   "topics": [
+   "recinto_fiscalizado",
+   "deposito_fiscal",
    "automotriz",
    "immex",
    "clasificacion",
@@ -8784,6 +9433,8 @@
   "claseTexto": "texto_integro",
   "version": "RGCE 2026 (DOF 27-12-2025)",
   "topics": [
+   "recinto_fiscalizado",
+   "franja_fronteriza",
    "automotriz",
    "textil",
    "immex",
@@ -8810,6 +9461,10 @@
   "claseTexto": "texto_integro",
   "version": "RGCE 2026 (DOF 27-12-2025)",
   "topics": [
+   "recinto_fiscalizado",
+   "deposito_fiscal",
+   "agente_aduanal",
+   "mensajeria",
    "automotriz",
    "clasificacion",
    "padrones",
@@ -8849,6 +9504,7 @@
   "claseTexto": "texto_integro",
   "version": "RGCE 2026 (DOF 27-12-2025)",
   "topics": [
+   "ventanilla_digital",
    "immex",
    "clasificacion",
    "iva",
@@ -8885,6 +9541,7 @@
   "claseTexto": "texto_integro",
   "version": "RGCE 2026 (DOF 27-12-2025)",
   "topics": [
+   "despacho",
    "immex",
    "clasificacion",
    "inventarios",
@@ -8896,13 +9553,67 @@
   "type": "rgce",
   "reference": "Regla 7.1.10 RGCE 2026",
   "title": "Solicitud de dictamen de cumplimiento del SECIIT",
-  "content": "            Solicitud de dictamen de cumplimiento del SECIIT\n7.1.10.     Para los efectos de la regla 7.1.4. segundo párrafo, apartado D, fracción VIII, las empresas\n            interesadas en solicitar a las Asociaciones Civiles, Cámaras o Confederaciones autorizadas\n            conforme a la regla 7.1.9. la emisión del dictamen de cumplimiento, deberán permitir acceso\n            vía remota a su SECIIT o cuando resulte indispensable la visita del personal designado por\n            dicha autorizada a sus instalaciones, lo anterior, con el único fin de verificar la información,\n            documentación y sistemas que acrediten el cumplimiento de los “Lineamientos del Sistema\n            Electrónico para el Control de Inventarios de Importaciones Temporales” mismos que se\n            darán a conocer en el Portal del SAT.\n            Los dictámenes emitidos por las Asociaciones Civiles, Cámaras o Confederaciones\n            autorizadas, deberán ser presentados por las empresas interesadas en obtener la inscripción\n            en el Registro en el Esquema de Certificación de Empresas, modalidad Operador Económico\n            Autorizado, rubro SECIIT, ante la AGACE, a más tardar dentro de los dos meses posteriores a\n            la fecha de su emisión. En caso contrario, dicho dictamen se tendrá por no presentado.\n\n              Tratándose de la renovación en el Registro en el Esquema de Certificación de Empresas,\n              modalidad Operador Económico Autorizado, rubro SECIIT, dicho dictamen deberá haber sido\n              emitido por las Asociaciones Civiles, Cámaras o Confederaciones autorizadas, dentro de los\n              dos meses anteriores a la fecha en que se presente el aviso de renovación, de conformidad\n              de con la ficha de trámite 61/LA “Solicitud para la inscripción en el Registro del Esquema de\n              Certificación de Empresas y aviso para su renovación”, contenida en el Anexo 2, sin perjuicio\n              del plazo establecido para la renovación señalado en la regla 7.2.3.\n              El Dictamen emitido no constituye una resolución favorable, quedando a salvo el ejercicio de\n              facultades de la autoridad competente.\n              RGCE 1.2.2., 7.1.4., 7.1.9, 7.2.1., 7.2.3., Anexo 2\n              Ampliación de plazos para cumplir con requerimientos\n  7.1.11.     Para los efectos de las reglas 7.1.2., segundo párrafo, apartado A, sexto párrafo; 7.1.6.,\n              primer y tercer párrafos; 7.1.9, segundo párrafo; 7.2.2., segundo párrafo; 7.2.3., octavo\n              párrafo; 7.2.4., tercer párrafo; 7.2.5., segundo párrafo, 7.4.1., fracción II; 7.4.10., cuarto\n              párrafo; 7.4.11., segundo párrafo; 7.5.1., segundo párrafo; 7.5.2., fracción III; 7.5.3., segundo\n              párrafo, y 7.5.4., tercer párrafo, cuando la autoridad competente formule un requerimiento a la\n              empresa solicitante para que proporcione información, documentación o para que acredite el\n              cumplimiento de alguna obligación, esta podrá, por una sola ocasión, dar aviso de la\n              ampliación del plazo para cumplir con el requerimiento hasta por un término de diez días\n              adicionales al plazo señalado para tal efecto, de conformidad con la ficha de trámite 140/LA\n              “Aviso de ampliación de plazos para cumplir con requerimientos de empresas certificadas”,\n              contenida en el Anexo 2.\n              Una vez vencido el plazo de la prórroga antes mencionado, subsanada o no la inconsistencia,\n              la autoridad procederá conforme lo señale el procedimiento correspondiente.\n              RGCE 1.2.2., 7.1.2., 7.1.6., 7.1.9., 7.2.2., 7.2.3., 7.2.4., 7.4.1., 7.4.10., 7.4.11., 7.5.1., 7.5.2.,\n              7.5.3., 7.5.4., Anexos 1 y 2\n              Mercancías que pueden importar las empresas que cuenten con el registro en el\n              esquema de certificación de empresas (Anexo 28)\n  7.1.12.     Para los efectos de la regla 7.1.2., segundo párrafo, apartado B, las mercancías que pueden\n              importar las empresas que cuenten con el Registro en el Esquema de Certificación de\n              Empresas, modalidad de IVA e IEPS, son las que se señalan en el Anexo 28.\n              Las referidas empresas que operen mediante un programa IMMEX, únicamente podrán\n              importar las mercancías listadas en el Anexo 28, siempre que también hayan sido autorizadas\n              por la Secretaría de Economía en su respectivo programa y que las mercancías se\n              encuentren permitidas en el Decreto IMMEX y sus Anexos.\n              Ley del IVA 28-A, Ley del IEPS 15-A, Decreto IMMEX Anexo II, RGCE Anexo 28\nCapítulo 7.2. Obligaciones, requerimientos, renovación y cancelación en el Registro en el Esquema de\n                                      Certificación de Empresas\n              Obligaciones en el Registro en el Esquema de Certificación de Empresas\n  7.2.1.      Para los efectos de las reglas 7.1.2., 7.1.3., 7.1.4. y 7.1.5., los contribuyentes que hubieran\n              obtenido el Registro en el Esquema de Certificación de Empresas en la modalidad y rubros\n              respectivos, estarán sujetos a las siguientes obligaciones:\n              I.        Cumplir permanentemente con los requisitos señalados en el Registro en el\n                        Esquema de Certificación de Empresas bajo la modalidad y rubro otorgado.\n              II.       Estar permanentemente al corriente en el cumplimiento de sus obligaciones fiscales\n                        y aduaneras.\n              III.      Cuando se lleve a cabo la fusión o escisión de empresas que se encuentren\n                        registradas en el Esquema de Certificación de Empresas en una misma modalidad y\n                        subsista una de ellas, esta última deberá cumplir con las obligaciones que le\n                        correspondan a las empresas fusionadas o escindidas, incluida la obligación de\n                        presentar los informes de descargo de los saldos que se transfieran a la empresa\n                        que subsista para efectos del SCCCyG.\n                        Para estos efectos la empresa que subsista podrá seguir operando con su Registro\n                        en el Esquema de Certificación de Empresas modalidad IVA e IEPS en el rubro que\n                        se le hubiere autorizado y podrá solicitar la renovación en el momento que de\n                        acuerdo a su modalidad autorizada le corresponda.\n\n            IV.       Cuando derivado de la fusión o escisión de empresas que cuenten con el Registro en\n                      el Esquema de Certificación de Empresas resulte una nueva sociedad,\n                      extinguiéndose una o más empresas con Registro en el Esquema de Certificación de\n                      Empresas vigente, la empresa que resulte de la fusión o escisión, deberá presentar a\n                      través de la Ventanilla Digital, una nueva solicitud en los términos de la regla\n                      correspondiente. Adicionalmente, las empresas fusionadas o escindidas que\n                      contaban con el Registro en el Esquema de Certificación de Empresas en la\n                      modalidad de IVA e IEPS deberán acreditar que no cuentan con saldo pendiente de\n                      descargo o vencido para efectos del SCCCyG.\n                      Para el caso de las empresas que cuenten con el Registro en el Esquema de\n                      Certificación de Empresas Modalidad IVA e IEPS, la empresa que resulte de la\n                      fusión o escisión deberá cumplir con la obligación de presentar los informes de\n                      descargo de las empresas fusionadas o escindidas hasta agotarlos y deberá\n                      presentar aviso ante la AGACE, dentro de los diez días posteriores a que hayan\n                      quedado inscritos los acuerdos de fusión o escisión en el Registro Público de\n                      Comercio.\n            V.        Cuando se lleve a cabo la fusión de una empresa que se encuentre registrada en el\n                      Esquema de Certificación de Empresas con una o más empresas que no cuenten\n                      con el Registro en el Esquema de Certificación de Empresas y subsista la que\n                      cuenta con dicho registro vigente, esta última deberá dar aviso a la AGACE de\n                      conformidad con la ficha de trámite 62/LA “Avisos relacionados con el Registro en el\n                      Esquema de Certificación de Empresas” contenida en el Anexo 2, dentro de los diez\n                      días posteriores a que hayan quedado inscritos los acuerdos de fusión o escisión en\n                      el Registro Público de Comercio y deberá acreditar la transferencia de la totalidad del\n                      activo fijo e insumos que, en su caso, la empresa reciba, el cual tendrá el carácter de\n                      inventario inicial para efectos del SCCCyG.\n            VI.       Cuando se lleve a cabo la fusión de una empresa que cuente con el Registro en el\n                      Esquema de Certificación de Empresas con una o más personas morales que se\n                      encuentren registrados en el esquema de garantías en materia de IVA e IEPS, se\n                      deberá contar con aceptación del trámite de cancelación de la garantía, previo a la\n                      presentación del aviso de fusión o escisión, en su caso, si la empresa que subsiste\n                      cuenta con el Registro en el Esquema de Certificación de Empresas modalidad IVA e\n                      IEPS, podrá solicitar a la AGACE, mediante escrito libre, que el monto garantizado\n                      pendiente en el SCCCyG, se transfiera al saldo del crédito fiscal otorgado.\n            VII.      Permitir en todo momento el acceso de la autoridad aduanera para la inspección de\n                      supervisión sobre el cumplimiento del Registro en el Esquema de Certificación de\n                      Empresas.\n            VIII.     Dar aviso a la AGACE, a través de la Ventanilla Digital, cuando cambie la situación\n                      respecto del documento con el que se haya acreditado el legal uso y goce del\n                      inmueble o inmuebles en donde se lleven a cabo los procesos productivos o la\n                      prestación de servicios, según se trate, referente a la vigencia, las partes y el\n                      domicilio, que para tal efecto se disponga de conformidad con la ficha de trámite\n                      62/LA “Avisos relacionados con el Registro en el Esquema de Certificación de\n                      Empresas” contenida en el Anexo 2.\n            IX.       Las empresas que cuenten con el Registro en el Esquema de Certificación de\n                      Empresas en las modalidades de Comercializadora e Importadora, Operador\n                      Económico Autorizado y/o Socio Comercial Certificado, en cualquiera de sus rubros,\n                      cuya vigencia sea de dos años, deberán realizar el pago anual de derechos\n                      establecido en el artículo 40, inciso m) y segundo párrafo de la LFD, a través del\n                      esquema electrónico e5cinco, al cumplirse el año de que se emita la resolución por la\n                      que se autorice su registro y presentarlo ante la AGACE dentro de los quince días\n                      siguientes, mediante escrito libre.\n            X.        En caso de que la empresa que cuente con el Registro en el Esquema de\n                      Certificación de Empresas requiera introducir al territorio nacional mercancías\n                      adicionales a las que señaló en el documento correspondiente a la descripción de las\n                      actividades relacionadas con los procesos productivos o prestación de servicios,\n\n                      exhibido en su solicitud de inscripción, deberá presentar el aviso a que se refiere la\n                      ficha de trámite 62/LA “Avisos relacionados con el Registro en el Esquema de\n                      Certificación de Empresas” contenida en el Anexo 2, al menos un mes previo a la\n                      introducción al territorio nacional de dichas mercancías.\n                      El aviso a que se refiere el párrafo anterior, en ningún caso, se podrá presentar para\n                      actividades relacionadas con procesos productivos o prestación de servicios distintos\n                      a los manifestados en su solicitud de inscripción.\n            Las personas que obtengan el Registro en el Esquema de Certificación de Empresas\n            conforme a las reglas 7.1.2. y 7.1.3., adicionalmente de las obligaciones a que se refiere el\n            primer párrafo, de la presente regla, deberán cumplir con lo siguiente:\n            I.        Reportar mensualmente a la AGACE a través de la Ventanilla Digital, durante el mes\n                      inmediato siguiente, las modificaciones de socios, accionistas, según corresponda,\n                      representante legal con facultad para actos de dominio o integrantes de la\n                      administración, clientes y proveedores en el extranjero con los que realizaron\n                      operaciones de comercio exterior y proveedores nacionales, según sea el caso.\n            II.       Acreditar que siguen contando con el legal uso y goce del inmueble o inmuebles en\n                      donde se llevan a cabo los procesos productivos o la prestación de servicios según\n                      se trate.\n            III.      Estar permanentemente al corriente en el pago de cuotas obrero patronales ante el\n                      IMSS.\n            IV.       Transmitir de forma electrónica conforme al Anexo 30, a través del Portal del SAT, en\n                      el apartado de Comercio Exterior, las operaciones realizadas por cada uno de los\n                      tipos de destinos aduaneros a descargar, los informes de descargo asociados a cada\n                      uno de los pedimentos de retorno, cambios de régimen, transferencias virtuales,\n                      extracciones, regularizaciones de mercancías, a los apartados B y C de las\n                      constancias de transferencia de mercancía o, en su caso, los comprobantes fiscales\n                      que amparen la enajenación de las mercancías a las empresas de la industria\n                      automotriz terminal o manufacturera de vehículos de autotransporte a que se refiere\n                      la regla 7.3.1., fracción V y a los avisos de donación y destrucción de las operaciones\n                      sujetas al esquema de créditos o garantías en términos de los artículos 28-A, primer\n                      párrafo de la Ley del IVA y 15-A, primer párrafo de la Ley del IEPS.\n                      Adicionalmente, deberán trasmitir de forma electrónica, el inventario de mercancías\n                      y/o activo fijo, pendiente de retorno de aquellas operaciones que se encuentren bajo\n                      el régimen que tenga autorizado, en un plazo máximo de treinta días naturales\n                      posteriores a la fecha de su certificación.\n                      La obligación establecida en la presente fracción se tendrá como cumplida una vez\n                      que el SCCCyG refleje el estatus de “válido”, y la información de los pedimentos a\n                      descargar corresponda a las claves de los mismos y al periodo que se reporta tanto\n                      para los informes de descargo, como para el inventario de mercancías o activo fijo.\n            V.        Cuando se lleve a cabo la fusión de una empresa que cuenten con el Registro en el\n                      Esquema de Certificación de Empresas con una o más empresas que no cuenten\n                      con dicho registro y subsistan estas últimas, se deberá acreditar el descargo del\n                      inventario inicial y del crédito operado al amparo de la certificación y presentar a\n                      través de la Ventanilla Digital, una nueva solicitud en los términos de la regla\n                      correspondiente.\n            Tratándose de empresas que hubieran obtenido el Registro en el Esquema de Certificación de\n            Empresas a que se refiere la regla 7.1.4., adicionalmente a las obligaciones establecidas en el\n            primer párrafo de la presente regla, deberán cumplir con lo siguiente:\n            I.        Las empresas que tengan observaciones respecto a los estándares mínimos de\n                      seguridad, que deriven de cualquier inspección de supervisión de cumplimiento,\n                      deberán dar aviso a la AGACE, de conformidad con la ficha de trámite 62/LA “Avisos\n                      relacionados con el Registro en el Esquema de Certificación de Empresas”,\n                      contenida en el Anexo 2, de que las mismas fueron solventadas en un plazo no\n                      mayor a veinte días contados a partir de la fecha de su notificación.\n\n            II.       Dar aviso a la AGACE de conformidad con la ficha de trámite 62/LA “Avisos\n                      relacionados con el Registro en el Esquema de Certificación de Empresas”,\n                      contenida en el Anexo 2, dentro del mes siguiente de presentar los avisos de\n                      apertura, cierre o modificación de establecimientos y en general de cualquier lugar\n                      que se utilice para el desempeño de actividades, según corresponda o cuando las\n                      circunstancias por las cuales se les otorgó el registro hayan variado y derivado de\n                      estas se requieran cambios o modificaciones en la información vertida y\n                      proporcionada a la autoridad, llenando el formato E3 “Perfil de la empresa” o E8\n                      “Perfil del Recinto Fiscalizado Estratégico”, contenidos en el Anexo 1, por cada\n                      instalación que corresponda, debidamente llenado.\n            III.      Cumplir permanentemente con lo establecido en el formato E3“Perfil de la empresa”\n                      y E8 “Perfil del Recinto Fiscalizado Estratégico”, contenidos en el Anexo 1.\n            IV.       Las empresas que tengan algún incidente de seguridad, deberán de dar aviso a la\n                      AGACE, dentro de los primeros cinco días siguientes a dicho incidente, de\n                      conformidad con la ficha de trámite 62/LA “Avisos relacionados con el Registro en el\n                      Esquema de Certificación de Empresas”, contenida en el Anexo 2, adjuntando la\n                      documentación que soporte el cumplimiento de los estándares mínimos de\n                      seguridad.\n            V.        Dar aviso a la AGACE de la adición o revocación de empresas transportistas\n                      autorizadas para efectuar el traslado de las mercancías de comercio exterior, de\n                      conformidad con la ficha de trámite 62/LA “Avisos relacionados con el Registro en el\n                      Esquema de Certificación de Empresas”, contenida en el Anexo 2, al mes siguiente\n                      de transcurrido el semestre; para tal efecto, se considerarán como semestres los\n                      periodos comprendidos de enero a junio y de julio a diciembre de cada ejercicio\n                      fiscal.\n            VI.       Las empresas certificadas de conformidad con la regla 7.1.4., segundo párrafo,\n                      apartado D, deberán de dar aviso a la AGACE de los cambios que se presenten en\n                      el sistema corporativo y en el SECIIT, respecto a los que se tenían en operación\n                      cuando fue autorizado su registro en este rubro, de conformidad con la ficha de\n                      trámite 62/LA “Avisos relacionados con el Registro en el Esquema de Certificación de\n                      Empresas”, contenida en el Anexo 2.\n            VII.      Cuando las empresas con registro bajo el rubro Tercerización Logística presten sus\n                      servicios a través de terceros, deberán realizar esos servicios exclusivamente\n                      mediante los terceros que hubieren señalado en el listado para tales efectos.\n            VIII.     Deberá dar aviso a la AGACE, de conformidad con la ficha de trámite 62/LA “Avisos\n                      relacionados con el Registro en el Esquema de Certificación de Empresas”,\n                      contenida en el Anexo 2, la empresa con registro bajo el rubro Tercerización\n                      Logística la alta o baja de los terceros contratados para prestar servicios de gestión\n                      aduanera, almacenaje, traslado y/o distribución de mercancías de comercio exterior\n                      en su nombre.\n            IX.       La empresa con registro bajo el rubro Tercerización Logística, de conformidad con la\n                      ficha de trámite 62/LA “Avisos relacionados con el Registro en el Esquema de\n                      Certificación de Empresas”, contenida en el Anexo 2, deberá dar de baja al tercero\n                      que haya expirado o esté cancelado su Registro en el Esquema de Certificación de\n                      Empresas bajo la modalidad Socio Comercial Certificado, en su caso, pudiendo dar\n                      de alta a otro tercero en su listado, dentro de los treinta días contados a partir de que\n                      no aparezca publicado en el Portal del SAT en el listado de Socio Comercial que\n                      corresponda.\n            Los contribuyentes que hubieran obtenido el Registro en el Esquema de Certificación de\n            Empresas conforme a la regla 7.1.5., deberán adicionalmente a las obligaciones señaladas en\n            el primer párrafo de la presente regla, cumplir con lo siguiente:\n            I.        Cuando realicen modificaciones a lo establecido en el E4 “Perfil del Agente Aduanal”,\n                      E5 “Perfil del Auto transportista Terrestre”, E6 “Perfil de Mensajería y Paquetería”, E7\n                      “Perfil del Recinto Fiscalizado”, E9 “Perfil del Transportista Ferroviario”, E10 “Perfil de\n                      Parques Industriales” o E11 “Perfil del Almacén General de Depósito”, contenidos en\n                      el Anexo 1, correspondiente, deberán dar aviso a la AGACE a través de la Ventanilla\n                      Digital, de conformidad con la ficha de trámite 62/LA “Avisos relacionados con el\n                      Registro en el Esquema de Certificación de Empresas”, contenida en el Anexo 2,\n                      dentro del mes siguiente de realizada la modificación.\n\n            II.       Dar aviso a la AGACE a través de la Ventanilla Digital, de conformidad con la ficha\n                      de trámite 62/LA “Avisos relacionados con el Registro en el Esquema de Certificación\n                      de Empresas”, contenida en el Anexo 2 dentro del mes siguiente de presentar los\n                      avisos de apertura, cierre o modificación de establecimientos y en general de\n                      cualquier lugar que se utilice para el desempeño de actividades, según corresponda\n                      o cuando las circunstancias por las cuales se les otorgó el registro hayan variado y\n                      derivado de estas se requieran cambios o modificaciones en la información vertida y\n                      proporcionada a la autoridad, llenando debidamente el formato E4 “Perfil del Agente\n                      Aduanal”, E5 “Perfil del Auto transportista Terrestre”, E6 “Perfil de Mensajería y\n                      Paquetería”, E7 “Perfil del Recinto Fiscalizado”, E9“Perfil del Transportista\n                      Ferroviario”, E10 “Perfil de Parques Industriales” o E11 “Perfil del Almacén General\n                      de Depósito”, contenidos en el Anexo 1, según corresponda.\n            III.      Dar aviso a la AGACE a través de la Ventanilla Digital, de conformidad con la ficha\n                      de trámite 62/LA “Avisos relacionados con el Registro en el Esquema de Certificación\n                      de Empresas”, contenida en el Anexo 2, dentro de los primeros cinco días en que se\n                      efectúe la adición o modificación de mandatarios, aduana de adscripción o\n                      adicionales y/o sociedades a las que pertenece, bajo la patente aduanal con la que\n                      se haya obtenido su registro en la modalidad de Socio Comercial Certificado.\n            IV.       Los contribuyentes que tengan observaciones respecto a los estándares mínimos de\n                      seguridad que deriven de cualquier inspección posterior a la obtención de su registro\n                      deberán dar aviso a la AGACE a través de la Ventanilla Digital, de conformidad con\n                      la ficha de trámite 62/LA “Avisos relacionados con el Registro en el Esquema de\n                      Certificación de Empresas”, contenida en el Anexo 2, de que las mismas fueron\n                      solventadas en un plazo no mayor a veinte días a partir de la fecha de su\n                      notificación.\n            V.        Las empresas que tengan algún incidente de seguridad, deberán dar aviso a la\n                      AGACE dentro de los primeros cinco días posteriores a dicho incidente, de\n                      conformidad con la ficha de trámite 62/LA “Avisos relacionados con el Registro en el\n                      Esquema de Certificación de Empresas”, contenida en el Anexo 2, adjuntando la\n                      documentación que soporte el cumplimiento de los estándares mínimos de\n                      seguridad.\n            VI.       Cumplir permanentemente con lo establecido en el E4 “Perfil del Agente Aduanal”,\n                      E5 “Perfil del Auto Transportista Terrestre”, E6 “Perfil de Mensajería y Paquetería”,\n                      E7 “Perfil del Recinto Fiscalizado”, E9 “Perfil del Transportista Ferroviario”, E10\n                      “Perfil de Parques Industriales” y E11 “Perfil del Almacén General de Depósito”,\n                      contenidos en el Anexo 1.\n            Los avisos a que se refiere la presente regla, se tendrán por cumplidos al momento de su\n            presentación, lo que podrá acreditarse con el acuse correspondiente. Cuando la autoridad\n            detecte inconsistencias en la información y/o documentación presentada, requerirá al\n            contribuyente, a fin de que en un plazo de veinte días contados a partir del día siguiente en\n            que surta efectos la notificación, subsane dichas inconsistencias. En caso de no subsanar las\n            inconsistencias en dicho plazo, se tendrá por no presentado el aviso correspondiente y se\n            dará inicio al procedimiento de cancelación respecto del Registro en el Esquema de\n            Certificación de Empresas que se encuentre vigente, de conformidad con las reglas 7.2.4. o\n            7.2.5., según corresponda.\n            Ley 100-A, Ley del IVA 28-A, Ley del IEPS 15-A, LFD 4, 40, CFF 4, 27, 32-D, RGCE 1.2.1.,\n            1.2.2., 7.1.2., 7.1.3., 7.1.4., 7.1.5., 7.2.4., 7.2.5., 7.3.1., Anexos 1, 2, 22 y 30, RMF Anexo 4",
+  "content": "            Solicitud de dictamen de cumplimiento del SECIIT\n7.1.10.     Para los efectos de la regla 7.1.4. segundo párrafo, apartado D, fracción VIII, las empresas\n            interesadas en solicitar a las Asociaciones Civiles, Cámaras o Confederaciones autorizadas\n            conforme a la regla 7.1.9. la emisión del dictamen de cumplimiento, deberán permitir acceso\n            vía remota a su SECIIT o cuando resulte indispensable la visita del personal designado por\n            dicha autorizada a sus instalaciones, lo anterior, con el único fin de verificar la información,\n            documentación y sistemas que acrediten el cumplimiento de los “Lineamientos del Sistema\n            Electrónico para el Control de Inventarios de Importaciones Temporales” mismos que se\n            darán a conocer en el Portal del SAT.\n            Los dictámenes emitidos por las Asociaciones Civiles, Cámaras o Confederaciones\n            autorizadas, deberán ser presentados por las empresas interesadas en obtener la inscripción\n            en el Registro en el Esquema de Certificación de Empresas, modalidad Operador Económico\n            Autorizado, rubro SECIIT, ante la AGACE, a más tardar dentro de los dos meses posteriores a\n            la fecha de su emisión. En caso contrario, dicho dictamen se tendrá por no presentado.\n\n              Tratándose de la renovación en el Registro en el Esquema de Certificación de Empresas,\n              modalidad Operador Económico Autorizado, rubro SECIIT, dicho dictamen deberá haber sido\n              emitido por las Asociaciones Civiles, Cámaras o Confederaciones autorizadas, dentro de los\n              dos meses anteriores a la fecha en que se presente el aviso de renovación, de conformidad\n              de con la ficha de trámite 61/LA “Solicitud para la inscripción en el Registro del Esquema de\n              Certificación de Empresas y aviso para su renovación”, contenida en el Anexo 2, sin perjuicio\n              del plazo establecido para la renovación señalado en la regla 7.2.3.\n              El Dictamen emitido no constituye una resolución favorable, quedando a salvo el ejercicio de\n              facultades de la autoridad competente.\n              RGCE 1.2.2., 7.1.4., 7.1.9, 7.2.1., 7.2.3., Anexo 2",
   "officialUrl": "https://www.sat.gob.mx/minisitio/NormatividadRMFyRGCE/documentos2026/rgce/rgce/ReglasGeneralesComercioExteriorpara2026.pdf",
   "publishedDate": "2025-12-27",
   "fechaCotejo": "2026-08-20",
   "claseTexto": "texto_integro",
   "version": "RGCE 2026 (DOF 27-12-2025)",
   "topics": [
+   "clasificacion",
+   "padrones",
+   "inventarios"
+  ]
+ },
+ {
+  "source": "RGCE_2026",
+  "type": "rgce",
+  "reference": "Regla 7.1.11 RGCE 2026",
+  "title": "Ampliación de plazos para cumplir con requerimientos",
+  "content": "              Ampliación de plazos para cumplir con requerimientos\n  7.1.11.     Para los efectos de las reglas 7.1.2., segundo párrafo, apartado A, sexto párrafo; 7.1.6.,\n              primer y tercer párrafos; 7.1.9, segundo párrafo; 7.2.2., segundo párrafo; 7.2.3., octavo\n              párrafo; 7.2.4., tercer párrafo; 7.2.5., segundo párrafo, 7.4.1., fracción II; 7.4.10., cuarto\n              párrafo; 7.4.11., segundo párrafo; 7.5.1., segundo párrafo; 7.5.2., fracción III; 7.5.3., segundo\n              párrafo, y 7.5.4., tercer párrafo, cuando la autoridad competente formule un requerimiento a la\n              empresa solicitante para que proporcione información, documentación o para que acredite el\n              cumplimiento de alguna obligación, esta podrá, por una sola ocasión, dar aviso de la\n              ampliación del plazo para cumplir con el requerimiento hasta por un término de diez días\n              adicionales al plazo señalado para tal efecto, de conformidad con la ficha de trámite 140/LA\n              “Aviso de ampliación de plazos para cumplir con requerimientos de empresas certificadas”,\n              contenida en el Anexo 2.\n              Una vez vencido el plazo de la prórroga antes mencionado, subsanada o no la inconsistencia,\n              la autoridad procederá conforme lo señale el procedimiento correspondiente.\n              RGCE 1.2.2., 7.1.2., 7.1.6., 7.1.9., 7.2.2., 7.2.3., 7.2.4., 7.4.1., 7.4.10., 7.4.11., 7.5.1., 7.5.2.,\n              7.5.3., 7.5.4., Anexos 1 y 2",
+  "officialUrl": "https://www.sat.gob.mx/minisitio/NormatividadRMFyRGCE/documentos2026/rgce/rgce/ReglasGeneralesComercioExteriorpara2026.pdf",
+  "publishedDate": "2025-12-27",
+  "fechaCotejo": "2026-08-20",
+  "claseTexto": "texto_integro",
+  "version": "RGCE 2026 (DOF 27-12-2025)",
+  "topics": [
+   "clasificacion"
+  ]
+ },
+ {
+  "source": "RGCE_2026",
+  "type": "rgce",
+  "reference": "Regla 7.1.12 RGCE 2026",
+  "title": "Mercancías que pueden importar las empresas que cuenten con el registro en el esquema de certificación de empresas (Anexo 28)",
+  "content": "              Mercancías que pueden importar las empresas que cuenten con el registro en el\n              esquema de certificación de empresas (Anexo 28)\n  7.1.12.     Para los efectos de la regla 7.1.2., segundo párrafo, apartado B, las mercancías que pueden\n              importar las empresas que cuenten con el Registro en el Esquema de Certificación de\n              Empresas, modalidad de IVA e IEPS, son las que se señalan en el Anexo 28.\n              Las referidas empresas que operen mediante un programa IMMEX, únicamente podrán\n              importar las mercancías listadas en el Anexo 28, siempre que también hayan sido autorizadas\n              por la Secretaría de Economía en su respectivo programa y que las mercancías se\n              encuentren permitidas en el Decreto IMMEX y sus Anexos.\n              Ley del IVA 28-A, Ley del IEPS 15-A, Decreto IMMEX Anexo II, RGCE Anexo 28",
+  "officialUrl": "https://www.sat.gob.mx/minisitio/NormatividadRMFyRGCE/documentos2026/rgce/rgce/ReglasGeneralesComercioExteriorpara2026.pdf",
+  "publishedDate": "2025-12-27",
+  "fechaCotejo": "2026-08-20",
+  "claseTexto": "texto_integro",
+  "version": "RGCE 2026 (DOF 27-12-2025)",
+  "topics": [
+   "immex",
+   "iva",
+   "ieps"
+  ]
+ },
+ {
+  "source": "RGCE_2026",
+  "type": "rgce",
+  "reference": "Regla 7.2.1 RGCE 2026",
+  "title": "Certificación de Empresas Obligaciones en el Registro en el Esquema de Certificación de Empresas",
+  "content": "Capítulo 7.2. Obligaciones, requerimientos, renovación y cancelación en el Registro en el Esquema de\n                                      Certificación de Empresas\n              Obligaciones en el Registro en el Esquema de Certificación de Empresas\n  7.2.1.      Para los efectos de las reglas 7.1.2., 7.1.3., 7.1.4. y 7.1.5., los contribuyentes que hubieran\n              obtenido el Registro en el Esquema de Certificación de Empresas en la modalidad y rubros\n              respectivos, estarán sujetos a las siguientes obligaciones:\n              I.        Cumplir permanentemente con los requisitos señalados en el Registro en el\n                        Esquema de Certificación de Empresas bajo la modalidad y rubro otorgado.\n              II.       Estar permanentemente al corriente en el cumplimiento de sus obligaciones fiscales\n                        y aduaneras.\n              III.      Cuando se lleve a cabo la fusión o escisión de empresas que se encuentren\n                        registradas en el Esquema de Certificación de Empresas en una misma modalidad y\n                        subsista una de ellas, esta última deberá cumplir con las obligaciones que le\n                        correspondan a las empresas fusionadas o escindidas, incluida la obligación de\n                        presentar los informes de descargo de los saldos que se transfieran a la empresa\n                        que subsista para efectos del SCCCyG.\n                        Para estos efectos la empresa que subsista podrá seguir operando con su Registro\n                        en el Esquema de Certificación de Empresas modalidad IVA e IEPS en el rubro que\n                        se le hubiere autorizado y podrá solicitar la renovación en el momento que de\n                        acuerdo a su modalidad autorizada le corresponda.\n\n            IV.       Cuando derivado de la fusión o escisión de empresas que cuenten con el Registro en\n                      el Esquema de Certificación de Empresas resulte una nueva sociedad,\n                      extinguiéndose una o más empresas con Registro en el Esquema de Certificación de\n                      Empresas vigente, la empresa que resulte de la fusión o escisión, deberá presentar a\n                      través de la Ventanilla Digital, una nueva solicitud en los términos de la regla\n                      correspondiente. Adicionalmente, las empresas fusionadas o escindidas que\n                      contaban con el Registro en el Esquema de Certificación de Empresas en la\n                      modalidad de IVA e IEPS deberán acreditar que no cuentan con saldo pendiente de\n                      descargo o vencido para efectos del SCCCyG.\n                      Para el caso de las empresas que cuenten con el Registro en el Esquema de\n                      Certificación de Empresas Modalidad IVA e IEPS, la empresa que resulte de la\n                      fusión o escisión deberá cumplir con la obligación de presentar los informes de\n                      descargo de las empresas fusionadas o escindidas hasta agotarlos y deberá\n                      presentar aviso ante la AGACE, dentro de los diez días posteriores a que hayan\n                      quedado inscritos los acuerdos de fusión o escisión en el Registro Público de\n                      Comercio.\n            V.        Cuando se lleve a cabo la fusión de una empresa que se encuentre registrada en el\n                      Esquema de Certificación de Empresas con una o más empresas que no cuenten\n                      con el Registro en el Esquema de Certificación de Empresas y subsista la que\n                      cuenta con dicho registro vigente, esta última deberá dar aviso a la AGACE de\n                      conformidad con la ficha de trámite 62/LA “Avisos relacionados con el Registro en el\n                      Esquema de Certificación de Empresas” contenida en el Anexo 2, dentro de los diez\n                      días posteriores a que hayan quedado inscritos los acuerdos de fusión o escisión en\n                      el Registro Público de Comercio y deberá acreditar la transferencia de la totalidad del\n                      activo fijo e insumos que, en su caso, la empresa reciba, el cual tendrá el carácter de\n                      inventario inicial para efectos del SCCCyG.\n            VI.       Cuando se lleve a cabo la fusión de una empresa que cuente con el Registro en el\n                      Esquema de Certificación de Empresas con una o más personas morales que se\n                      encuentren registrados en el esquema de garantías en materia de IVA e IEPS, se\n                      deberá contar con aceptación del trámite de cancelación de la garantía, previo a la\n                      presentación del aviso de fusión o escisión, en su caso, si la empresa que subsiste\n                      cuenta con el Registro en el Esquema de Certificación de Empresas modalidad IVA e\n                      IEPS, podrá solicitar a la AGACE, mediante escrito libre, que el monto garantizado\n                      pendiente en el SCCCyG, se transfiera al saldo del crédito fiscal otorgado.\n            VII.      Permitir en todo momento el acceso de la autoridad aduanera para la inspección de\n                      supervisión sobre el cumplimiento del Registro en el Esquema de Certificación de\n                      Empresas.\n            VIII.     Dar aviso a la AGACE, a través de la Ventanilla Digital, cuando cambie la situación\n                      respecto del documento con el que se haya acreditado el legal uso y goce del\n                      inmueble o inmuebles en donde se lleven a cabo los procesos productivos o la\n                      prestación de servicios, según se trate, referente a la vigencia, las partes y el\n                      domicilio, que para tal efecto se disponga de conformidad con la ficha de trámite\n                      62/LA “Avisos relacionados con el Registro en el Esquema de Certificación de\n                      Empresas” contenida en el Anexo 2.\n            IX.       Las empresas que cuenten con el Registro en el Esquema de Certificación de\n                      Empresas en las modalidades de Comercializadora e Importadora, Operador\n                      Económico Autorizado y/o Socio Comercial Certificado, en cualquiera de sus rubros,\n                      cuya vigencia sea de dos años, deberán realizar el pago anual de derechos\n                      establecido en el artículo 40, inciso m) y segundo párrafo de la LFD, a través del\n                      esquema electrónico e5cinco, al cumplirse el año de que se emita la resolución por la\n                      que se autorice su registro y presentarlo ante la AGACE dentro de los quince días\n                      siguientes, mediante escrito libre.\n            X.        En caso de que la empresa que cuente con el Registro en el Esquema de\n                      Certificación de Empresas requiera introducir al territorio nacional mercancías\n                      adicionales a las que señaló en el documento correspondiente a la descripción de las\n                      actividades relacionadas con los procesos productivos o prestación de servicios,\n\n                      exhibido en su solicitud de inscripción, deberá presentar el aviso a que se refiere la\n                      ficha de trámite 62/LA “Avisos relacionados con el Registro en el Esquema de\n                      Certificación de Empresas” contenida en el Anexo 2, al menos un mes previo a la\n                      introducción al territorio nacional de dichas mercancías.\n                      El aviso a que se refiere el párrafo anterior, en ningún caso, se podrá presentar para\n                      actividades relacionadas con procesos productivos o prestación de servicios distintos\n                      a los manifestados en su solicitud de inscripción.\n            Las personas que obtengan el Registro en el Esquema de Certificación de Empresas\n            conforme a las reglas 7.1.2. y 7.1.3., adicionalmente de las obligaciones a que se refiere el\n            primer párrafo, de la presente regla, deberán cumplir con lo siguiente:\n            I.        Reportar mensualmente a la AGACE a través de la Ventanilla Digital, durante el mes\n                      inmediato siguiente, las modificaciones de socios, accionistas, según corresponda,\n                      representante legal con facultad para actos de dominio o integrantes de la\n                      administración, clientes y proveedores en el extranjero con los que realizaron\n                      operaciones de comercio exterior y proveedores nacionales, según sea el caso.\n            II.       Acreditar que siguen contando con el legal uso y goce del inmueble o inmuebles en\n                      donde se llevan a cabo los procesos productivos o la prestación de servicios según\n                      se trate.\n            III.      Estar permanentemente al corriente en el pago de cuotas obrero patronales ante el\n                      IMSS.\n            IV.       Transmitir de forma electrónica conforme al Anexo 30, a través del Portal del SAT, en\n                      el apartado de Comercio Exterior, las operaciones realizadas por cada uno de los\n                      tipos de destinos aduaneros a descargar, los informes de descargo asociados a cada\n                      uno de los pedimentos de retorno, cambios de régimen, transferencias virtuales,\n                      extracciones, regularizaciones de mercancías, a los apartados B y C de las\n                      constancias de transferencia de mercancía o, en su caso, los comprobantes fiscales\n                      que amparen la enajenación de las mercancías a las empresas de la industria\n                      automotriz terminal o manufacturera de vehículos de autotransporte a que se refiere\n                      la regla 7.3.1., fracción V y a los avisos de donación y destrucción de las operaciones\n                      sujetas al esquema de créditos o garantías en términos de los artículos 28-A, primer\n                      párrafo de la Ley del IVA y 15-A, primer párrafo de la Ley del IEPS.\n                      Adicionalmente, deberán trasmitir de forma electrónica, el inventario de mercancías\n                      y/o activo fijo, pendiente de retorno de aquellas operaciones que se encuentren bajo\n                      el régimen que tenga autorizado, en un plazo máximo de treinta días naturales\n                      posteriores a la fecha de su certificación.\n                      La obligación establecida en la presente fracción se tendrá como cumplida una vez\n                      que el SCCCyG refleje el estatus de “válido”, y la información de los pedimentos a\n                      descargar corresponda a las claves de los mismos y al periodo que se reporta tanto\n                      para los informes de descargo, como para el inventario de mercancías o activo fijo.\n            V.        Cuando se lleve a cabo la fusión de una empresa que cuenten con el Registro en el\n                      Esquema de Certificación de Empresas con una o más empresas que no cuenten\n                      con dicho registro y subsistan estas últimas, se deberá acreditar el descargo del\n                      inventario inicial y del crédito operado al amparo de la certificación y presentar a\n                      través de la Ventanilla Digital, una nueva solicitud en los términos de la regla\n                      correspondiente.\n            Tratándose de empresas que hubieran obtenido el Registro en el Esquema de Certificación de\n            Empresas a que se refiere la regla 7.1.4., adicionalmente a las obligaciones establecidas en el\n            primer párrafo de la presente regla, deberán cumplir con lo siguiente:\n            I.        Las empresas que tengan observaciones respecto a los estándares mínimos de\n                      seguridad, que deriven de cualquier inspección de supervisión de cumplimiento,\n                      deberán dar aviso a la AGACE, de conformidad con la ficha de trámite 62/LA “Avisos\n                      relacionados con el Registro en el Esquema de Certificación de Empresas”,\n                      contenida en el Anexo 2, de que las mismas fueron solventadas en un plazo no\n                      mayor a veinte días contados a partir de la fecha de su notificación.\n\n            II.       Dar aviso a la AGACE de conformidad con la ficha de trámite 62/LA “Avisos\n                      relacionados con el Registro en el Esquema de Certificación de Empresas”,\n                      contenida en el Anexo 2, dentro del mes siguiente de presentar los avisos de\n                      apertura, cierre o modificación de establecimientos y en general de cualquier lugar\n                      que se utilice para el desempeño de actividades, según corresponda o cuando las\n                      circunstancias por las cuales se les otorgó el registro hayan variado y derivado de\n                      estas se requieran cambios o modificaciones en la información vertida y\n                      proporcionada a la autoridad, llenando el formato E3 “Perfil de la empresa” o E8\n                      “Perfil del Recinto Fiscalizado Estratégico”, contenidos en el Anexo 1, por cada\n                      instalación que corresponda, debidamente llenado.\n            III.      Cumplir permanentemente con lo establecido en el formato E3“Perfil de la empresa”\n                      y E8 “Perfil del Recinto Fiscalizado Estratégico”, contenidos en el Anexo 1.\n            IV.       Las empresas que tengan algún incidente de seguridad, deberán de dar aviso a la\n                      AGACE, dentro de los primeros cinco días siguientes a dicho incidente, de\n                      conformidad con la ficha de trámite 62/LA “Avisos relacionados con el Registro en el\n                      Esquema de Certificación de Empresas”, contenida en el Anexo 2, adjuntando la\n                      documentación que soporte el cumplimiento de los estándares mínimos de\n                      seguridad.\n            V.        Dar aviso a la AGACE de la adición o revocación de empresas transportistas\n                      autorizadas para efectuar el traslado de las mercancías de comercio exterior, de\n                      conformidad con la ficha de trámite 62/LA “Avisos relacionados con el Registro en el\n                      Esquema de Certificación de Empresas”, contenida en el Anexo 2, al mes siguiente\n                      de transcurrido el semestre; para tal efecto, se considerarán como semestres los\n                      periodos comprendidos de enero a junio y de julio a diciembre de cada ejercicio\n                      fiscal.\n            VI.       Las empresas certificadas de conformidad con la regla 7.1.4., segundo párrafo,\n                      apartado D, deberán de dar aviso a la AGACE de los cambios que se presenten en\n                      el sistema corporativo y en el SECIIT, respecto a los que se tenían en operación\n                      cuando fue autorizado su registro en este rubro, de conformidad con la ficha de\n                      trámite 62/LA “Avisos relacionados con el Registro en el Esquema de Certificación de\n                      Empresas”, contenida en el Anexo 2.\n            VII.      Cuando las empresas con registro bajo el rubro Tercerización Logística presten sus\n                      servicios a través de terceros, deberán realizar esos servicios exclusivamente\n                      mediante los terceros que hubieren señalado en el listado para tales efectos.\n            VIII.     Deberá dar aviso a la AGACE, de conformidad con la ficha de trámite 62/LA “Avisos\n                      relacionados con el Registro en el Esquema de Certificación de Empresas”,\n                      contenida en el Anexo 2, la empresa con registro bajo el rubro Tercerización\n                      Logística la alta o baja de los terceros contratados para prestar servicios de gestión\n                      aduanera, almacenaje, traslado y/o distribución de mercancías de comercio exterior\n                      en su nombre.\n            IX.       La empresa con registro bajo el rubro Tercerización Logística, de conformidad con la\n                      ficha de trámite 62/LA “Avisos relacionados con el Registro en el Esquema de\n                      Certificación de Empresas”, contenida en el Anexo 2, deberá dar de baja al tercero\n                      que haya expirado o esté cancelado su Registro en el Esquema de Certificación de\n                      Empresas bajo la modalidad Socio Comercial Certificado, en su caso, pudiendo dar\n                      de alta a otro tercero en su listado, dentro de los treinta días contados a partir de que\n                      no aparezca publicado en el Portal del SAT en el listado de Socio Comercial que\n                      corresponda.\n            Los contribuyentes que hubieran obtenido el Registro en el Esquema de Certificación de\n            Empresas conforme a la regla 7.1.5., deberán adicionalmente a las obligaciones señaladas en\n            el primer párrafo de la presente regla, cumplir con lo siguiente:\n            I.        Cuando realicen modificaciones a lo establecido en el E4 “Perfil del Agente Aduanal”,\n                      E5 “Perfil del Auto transportista Terrestre”, E6 “Perfil de Mensajería y Paquetería”, E7\n                      “Perfil del Recinto Fiscalizado”, E9 “Perfil del Transportista Ferroviario”, E10 “Perfil de\n                      Parques Industriales” o E11 “Perfil del Almacén General de Depósito”, contenidos en\n                      el Anexo 1, correspondiente, deberán dar aviso a la AGACE a través de la Ventanilla\n                      Digital, de conformidad con la ficha de trámite 62/LA “Avisos relacionados con el\n                      Registro en el Esquema de Certificación de Empresas”, contenida en el Anexo 2,\n                      dentro del mes siguiente de realizada la modificación.\n\n            II.       Dar aviso a la AGACE a través de la Ventanilla Digital, de conformidad con la ficha\n                      de trámite 62/LA “Avisos relacionados con el Registro en el Esquema de Certificación\n                      de Empresas”, contenida en el Anexo 2 dentro del mes siguiente de presentar los\n                      avisos de apertura, cierre o modificación de establecimientos y en general de\n                      cualquier lugar que se utilice para el desempeño de actividades, según corresponda\n                      o cuando las circunstancias por las cuales se les otorgó el registro hayan variado y\n                      derivado de estas se requieran cambios o modificaciones en la información vertida y\n                      proporcionada a la autoridad, llenando debidamente el formato E4 “Perfil del Agente\n                      Aduanal”, E5 “Perfil del Auto transportista Terrestre”, E6 “Perfil de Mensajería y\n                      Paquetería”, E7 “Perfil del Recinto Fiscalizado”, E9“Perfil del Transportista\n                      Ferroviario”, E10 “Perfil de Parques Industriales” o E11 “Perfil del Almacén General\n                      de Depósito”, contenidos en el Anexo 1, según corresponda.\n            III.      Dar aviso a la AGACE a través de la Ventanilla Digital, de conformidad con la ficha\n                      de trámite 62/LA “Avisos relacionados con el Registro en el Esquema de Certificación\n                      de Empresas”, contenida en el Anexo 2, dentro de los primeros cinco días en que se\n                      efectúe la adición o modificación de mandatarios, aduana de adscripción o\n                      adicionales y/o sociedades a las que pertenece, bajo la patente aduanal con la que\n                      se haya obtenido su registro en la modalidad de Socio Comercial Certificado.\n            IV.       Los contribuyentes que tengan observaciones respecto a los estándares mínimos de\n                      seguridad que deriven de cualquier inspección posterior a la obtención de su registro\n                      deberán dar aviso a la AGACE a través de la Ventanilla Digital, de conformidad con\n                      la ficha de trámite 62/LA “Avisos relacionados con el Registro en el Esquema de\n                      Certificación de Empresas”, contenida en el Anexo 2, de que las mismas fueron\n                      solventadas en un plazo no mayor a veinte días a partir de la fecha de su\n                      notificación.\n            V.        Las empresas que tengan algún incidente de seguridad, deberán dar aviso a la\n                      AGACE dentro de los primeros cinco días posteriores a dicho incidente, de\n                      conformidad con la ficha de trámite 62/LA “Avisos relacionados con el Registro en el\n                      Esquema de Certificación de Empresas”, contenida en el Anexo 2, adjuntando la\n                      documentación que soporte el cumplimiento de los estándares mínimos de\n                      seguridad.\n            VI.       Cumplir permanentemente con lo establecido en el E4 “Perfil del Agente Aduanal”,\n                      E5 “Perfil del Auto Transportista Terrestre”, E6 “Perfil de Mensajería y Paquetería”,\n                      E7 “Perfil del Recinto Fiscalizado”, E9 “Perfil del Transportista Ferroviario”, E10\n                      “Perfil de Parques Industriales” y E11 “Perfil del Almacén General de Depósito”,\n                      contenidos en el Anexo 1.\n            Los avisos a que se refiere la presente regla, se tendrán por cumplidos al momento de su\n            presentación, lo que podrá acreditarse con el acuse correspondiente. Cuando la autoridad\n            detecte inconsistencias en la información y/o documentación presentada, requerirá al\n            contribuyente, a fin de que en un plazo de veinte días contados a partir del día siguiente en\n            que surta efectos la notificación, subsane dichas inconsistencias. En caso de no subsanar las\n            inconsistencias en dicho plazo, se tendrá por no presentado el aviso correspondiente y se\n            dará inicio al procedimiento de cancelación respecto del Registro en el Esquema de\n            Certificación de Empresas que se encuentre vigente, de conformidad con las reglas 7.2.4. o\n            7.2.5., según corresponda.\n            Ley 100-A, Ley del IVA 28-A, Ley del IEPS 15-A, LFD 4, 40, CFF 4, 27, 32-D, RGCE 1.2.1.,\n            1.2.2., 7.1.2., 7.1.3., 7.1.4., 7.1.5., 7.2.4., 7.2.5., 7.3.1., Anexos 1, 2, 22 y 30, RMF Anexo 4",
+  "officialUrl": "https://www.sat.gob.mx/minisitio/NormatividadRMFyRGCE/documentos2026/rgce/rgce/ReglasGeneralesComercioExteriorpara2026.pdf",
+  "publishedDate": "2025-12-27",
+  "fechaCotejo": "2026-08-20",
+  "claseTexto": "texto_integro",
+  "version": "RGCE 2026 (DOF 27-12-2025)",
+  "topics": [
+   "recinto_fiscalizado",
+   "deposito_fiscal",
+   "agente_aduanal",
+   "mensajeria",
+   "ventanilla_digital",
    "automotriz",
    "immex",
    "valoracion",
@@ -8969,6 +9680,10 @@
   "claseTexto": "texto_integro",
   "version": "RGCE 2026 (DOF 27-12-2025)",
   "topics": [
+   "recinto_fiscalizado",
+   "deposito_fiscal",
+   "agente_aduanal",
+   "mensajeria",
    "automotriz",
    "immex",
    "clasificacion",
@@ -8992,6 +9707,7 @@
   "claseTexto": "texto_integro",
   "version": "RGCE 2026 (DOF 27-12-2025)",
   "topics": [
+   "recinto_fiscalizado",
    "textil",
    "immex",
    "clasificacion",
@@ -9050,6 +9766,7 @@
   "claseTexto": "texto_integro",
   "version": "RGCE 2026 (DOF 27-12-2025)",
   "topics": [
+   "regularizacion",
    "immex",
    "rrnas"
   ]
@@ -9085,6 +9802,9 @@
   "claseTexto": "texto_integro",
   "version": "RGCE 2026 (DOF 27-12-2025)",
   "topics": [
+   "recinto_fiscalizado",
+   "deposito_fiscal",
+   "despacho",
    "automotriz",
    "immex",
    "clasificacion",
@@ -9125,6 +9845,15 @@
   "claseTexto": "texto_integro",
   "version": "RGCE 2026 (DOF 27-12-2025)",
   "topics": [
+   "recinto_fiscalizado",
+   "deposito_fiscal",
+   "transito",
+   "rectificacion",
+   "despacho",
+   "pasajeros",
+   "franja_fronteriza",
+   "regularizacion",
+   "ventanilla_digital",
    "automotriz",
    "immex",
    "valoracion",
@@ -9195,6 +9924,8 @@
   "claseTexto": "texto_integro",
   "version": "RGCE 2026 (DOF 27-12-2025)",
   "topics": [
+   "despacho",
+   "agente_aduanal",
    "immex",
    "clasificacion",
    "padrones",
@@ -9235,6 +9966,9 @@
   "claseTexto": "texto_integro",
   "version": "RGCE 2026 (DOF 27-12-2025)",
   "topics": [
+   "despacho",
+   "agente_aduanal",
+   "mensajeria",
    "automotriz",
    "valoracion",
    "origen",
@@ -9259,6 +9993,9 @@
   "claseTexto": "texto_integro",
   "version": "RGCE 2026 (DOF 27-12-2025)",
   "topics": [
+   "recinto_fiscalizado",
+   "deposito_fiscal",
+   "mensajeria",
    "rrnas"
   ]
  },
@@ -9274,6 +10011,9 @@
   "claseTexto": "texto_integro",
   "version": "RGCE 2026 (DOF 27-12-2025)",
   "topics": [
+   "recinto_fiscalizado",
+   "deposito_fiscal",
+   "ventanilla_digital",
    "automotriz",
    "immex",
    "valoracion",
@@ -9296,6 +10036,7 @@
   "claseTexto": "texto_integro",
   "version": "RGCE 2026 (DOF 27-12-2025)",
   "topics": [
+   "ventanilla_digital",
    "immex",
    "valoracion",
    "clasificacion",
@@ -9340,6 +10081,7 @@
   "claseTexto": "texto_integro",
   "version": "RGCE 2026 (DOF 27-12-2025)",
   "topics": [
+   "ventanilla_digital",
    "valoracion",
    "clasificacion",
    "iva",
@@ -9360,6 +10102,7 @@
   "claseTexto": "texto_integro",
   "version": "RGCE 2026 (DOF 27-12-2025)",
   "topics": [
+   "ventanilla_digital",
    "valoracion",
    "clasificacion",
    "iva",
@@ -9380,6 +10123,7 @@
   "claseTexto": "texto_integro",
   "version": "RGCE 2026 (DOF 27-12-2025)",
   "topics": [
+   "ventanilla_digital",
    "valoracion",
    "fiscal",
    "garantias"
@@ -9397,6 +10141,8 @@
   "claseTexto": "texto_integro",
   "version": "RGCE 2026 (DOF 27-12-2025)",
   "topics": [
+   "recinto_fiscalizado",
+   "deposito_fiscal",
    "automotriz",
    "immex",
    "valoracion",
@@ -9456,6 +10202,7 @@
   "claseTexto": "texto_integro",
   "version": "RGCE 2026 (DOF 27-12-2025)",
   "topics": [
+   "ventanilla_digital",
    "valoracion",
    "iva",
    "fiscal",
@@ -9494,6 +10241,7 @@
   "claseTexto": "texto_integro",
   "version": "RGCE 2026 (DOF 27-12-2025)",
   "topics": [
+   "ventanilla_digital",
    "immex",
    "origen",
    "clasificacion",
@@ -9515,6 +10263,8 @@
   "claseTexto": "texto_integro",
   "version": "RGCE 2026 (DOF 27-12-2025)",
   "topics": [
+   "agente_aduanal",
+   "ventanilla_digital",
    "clasificacion",
    "padrones",
    "rrnas"
@@ -9564,6 +10314,7 @@
   "claseTexto": "texto_integro",
   "version": "RGCE 2026 (DOF 27-12-2025)",
   "topics": [
+   "prevalidacion",
    "clasificacion",
    "padrones",
    "rrnas"
@@ -9581,6 +10332,8 @@
   "claseTexto": "texto_integro",
   "version": "RGCE 2026 (DOF 27-12-2025) · Décimo Primero reformado por 1a RM (DOF 14-05-2026)",
   "topics": [
+   "recinto_fiscalizado",
+   "agente_aduanal",
    "immex",
    "clasificacion",
    "padrones",
@@ -9605,6 +10358,75 @@
   "version": "1a RM RGCE 2026 (DOF 14-05-2026)",
   "topics": [
    "pedimento"
+  ]
+ },
+ {
+  "source": "RGCE_2026",
+  "type": "rgce",
+  "reference": "Glosario apartado I RGCE 2026",
+  "title": "Glosario RGCE 2026 — apartado I (ACRÓNIMOS DE AUTORIDADES:)",
+  "content": "Glosario\n    Para una mejor comprensión de lo establecido en la presente Resolución y sus Anexos, se compila el\nsiguiente glosario de acrónimos y definiciones:\n   I.   ACRÓNIMOS DE AUTORIDADES:\n        1.   ANAM. Agencia Nacional de Aduanas de México, sita en Paseo de la Reforma número 10,\n             planta baja, colonia Tabacalera, Alcaldía Cuauhtémoc, código postal 06030, Ciudad de México.\n             a)    DGOA. Dirección General de Operación Aduanera de la ANAM.\n             b)    DGIA. Dirección General de Investigación Aduanera de la ANAM.\n             c)    DGJA. Dirección General Jurídica de Aduanas de la ANAM.\n             d)    DGMEIA. Dirección General de Modernización, Equipamiento e Infraestructura Aduanera\n                   de la ANAM.\n             e)    DGR. Dirección General de Recaudación de la ANAM.\n\n      2.   AGACE. Administración General de Auditoría de Comercio Exterior.\n           a)   ACAJACE. Administración Central de Apoyo Jurídico de Auditoría de Comercio Exterior de\n                la AGACE.\n           b)   ACOECE. Administración Central de Operaciones Especiales de Comercio Exterior de la\n                AGACE.\n           c)   ACPPCE. Administración Central de Planeación y Programación de Comercio Exterior de\n                la AGACE.\n           d)   ADACE. Administración Desconcentrada de Auditoría de Comercio Exterior de la AGACE.\n      3.   AGAFF. Administración General de Auditoría Fiscal Federal.\n           a)   ADAFF. Administración Desconcentrada de Auditoría Fiscal Federal de la AGAFF.\n      4.   AGCTI. Administración General de Comunicaciones y Tecnologías de la Información.\n           a)   ACSMC. Administración Central de Seguridad, Monitoreo y Control de la AGCTI.\n      5.   AGJ. Administración General Jurídica.\n           a)   ACNCE. Administración Central de Normatividad en Comercio Exterior de la AGJ.\n           b)   ADJ. Administración Desconcentrada Jurídica de la AGJ.\n      6.   AGSC. Administración General de Servicios al Contribuyente.\n           a)   ADSC. Administración Desconcentrada de Servicios al Contribuyente de la AGSC.",
+  "officialUrl": "https://www.sat.gob.mx/minisitio/NormatividadRMFyRGCE/documentos2026/rgce/rgce/ReglasGeneralesComercioExteriorpara2026.pdf",
+  "publishedDate": "2025-12-27",
+  "fechaCotejo": "2026-08-20",
+  "claseTexto": "texto_integro",
+  "version": "RGCE 2026 (DOF 27-12-2025)",
+  "topics": [
+   "fiscal"
+  ]
+ },
+ {
+  "source": "RGCE_2026",
+  "type": "rgce",
+  "reference": "Glosario apartado II RGCE 2026",
+  "title": "Glosario RGCE 2026 — apartado II (ACRÓNIMOS:)",
+  "content": "II.   ACRÓNIMOS:\n      1.   AAEJ. Acuerdo para el Fortalecimiento de la Asociación Económica entre los Estados Unidos\n           Mexicanos y el Japón.\n      2.   ACC. Acuerdo de Continuidad Comercial entre los Estados Unidos Mexicanos y el Reino Unido\n           de la Gran Bretaña e Irlanda del Norte.\n      3.   ACE No.66. Acuerdo de Complementación Económica No. 66 celebrado entre los Estados\n           Unidos Mexicanos y el Estado Plurinacional de Bolivia.\n      4.   AELC. Asociación Europea de Libre Comercio.\n      5.   AICP. Acuerdo de Integración Comercial entre los Estados Unidos Mexicanos y la República del\n           Perú.\n      6.   ALADI. Asociación Latinoamericana de Integración.\n      7.   BANJERCITO. Banco Nacional del Ejército, Fuerza Aérea y Armada, S.N.C.\n      8.   CAAT. Código Alfanumérico Armonizado del Transportista (del Registro de Empresas\n           Porteadoras).\n      9.   CBP. (Customs and Border Protection, por sus siglas en inglés), Agencia de Aduanas y\n           Protección Fronteriza de los Estados Unidos de América.\n      10. CFDI. Comprobante Fiscal Digital por Internet.\n      11. CFF. Código Fiscal de la Federación.\n      12. CITES. (Convention on International Trade in Endangered Species of Wild Fauna and Flora, por\n          sus siglas en inglés) Convención sobre el Comercio Internacional de Especies Amenazadas de\n          Flora y Fauna Silvestres.\n      13. COFEPRIS. Comisión Federal para la Protección contra Riesgos Sanitarios.\n      14. CPF. Código Penal Federal.\n      15. CTPAT. (Customs Trade Partnership Against Terrorism, por sus siglas en inglés). Programa\n          “Alianza Aduana Comunidad Comercial contra el Terrorismo”, otorgado por CBP.\n      16. CURP. Clave Única de Registro de Población.\n      17. DOF. Diario Oficial de la Federación.\n      18. DODA. Documento de Operación para Despacho Aduanero.\n      19. DTA. Derecho de trámite aduanero.\n\n     20. ECEX. Empresas de Comercio Exterior (autorizadas por la SE, en los términos del Decreto para\n         el establecimiento de empresas de comercio exterior, publicado en el DOF el 11 de abril de\n         1997).\n     21. FGJE. Fiscalía General de Justicia de los Estados.\n     22. FGR. Fiscalía General de la República.\n     23. IEPS. Impuesto especial sobre producción y servicios.\n     24. IGI. Impuesto general de importación.\n     25. IMSS. Instituto Mexicano del Seguro Social.\n     26. INM. Instituto Nacional de Migración.\n     27. INDEP. Instituto para Devolver al Pueblo lo Robado.\n     28. ISAN. Impuesto sobre automóviles nuevos.\n     29. ISR. Impuesto sobre la renta.\n     30. IVA. Impuesto al valor agregado.\n     31. LCE. Ley de Comercio Exterior.\n     32. LFD. Ley Federal de Derechos.\n     33. LFDC. Ley Federal de los Derechos del Contribuyente.\n     34. LFPIORPI. Ley Federal para la Prevención e Identificación de Operaciones con Recursos de\n         Procedencia Ilícita.\n     35. LGTOC. Ley General de Títulos y Operaciones de Crédito.\n     36. LIGIE. Ley de los Impuestos Generales de Importación y de Exportación.\n     37. MULTI-IEPS. Declaración informativa múltiple del impuesto especial sobre producción y\n         servicios.\n     38. NIV. Número de Identificación Vehicular.\n     39. NOM. Normas Oficiales Mexicanas.\n     40. NICO. Número (s) de identificación comercial.\n     41. OMA. Organización Mundial de Aduanas.\n     42. PAAP. Protocolo Adicional al Acuerdo Marco de la Alianza del Pacífico.\n     43. PAMA. Procedimiento Administrativo en Materia Aduanera.\n     44. PEPS. Primeras Entradas Primeras Salidas.\n     45. PRODECON. Procuraduría de la Defensa del Contribuyente.\n     46. PROFEPA. Procuraduría Federal de Protección al Medio Ambiente.\n     47. PROSEC. Programas de Promoción Sectorial.\n     48. RFC. Registro Federal de Contribuyentes.\n     49. RGCE. Reglas Generales de Comercio Exterior.\n     50. RMF. Resolución Miscelánea Fiscal.\n     51. SAAI. Sistema Automatizado Aduanero Integral.\n     52. SADER. Secretaría de Agricultura y Desarrollo Rural.\n     53. SAT. Servicio de Administración Tributaria.\n     54. SCCCyG. Sistema de Control de Cuentas de Créditos y Garantías [sistema a través del cual el\n         SAT controla y vigila los saldos de las importaciones temporales no retornados sujetos al\n         beneficio del esquema de certificación y garantías establecidos en los artículos 28-A de la Ley\n         del IVA y 15-A de la Ley del IEPS, el cual permite al SAT llevar un estado de cuenta por\n         contribuyente de sus créditos y garantías (activos e inactivos)].\n     55. SICT. Secretaría de Infraestructura, Comunicaciones y Transportes.\n     56. SE. Secretaría de Economía.\n\n       57. SEA. Sistema Electrónico Aduanero.\n       58. SECIIT. Sistema Electrónico de Control de Inventarios para Importaciones Temporales.\n       59. SEDENA. Secretaría de la Defensa Nacional.\n       60. SEGOB. Secretaría de Gobernación.\n       61. SEMARNAT. Secretaría de Medio Ambiente y Recursos Naturales.\n       62. SENER. Secretaría de Energía.\n       63. SEP. Secretaría de Educación Pública.\n       64. SEPOMEX. Servicio Postal Mexicano.\n       65. SHCP. Secretaría de Hacienda y Crédito Público.\n       66. SIPARE. Sistema de pago referenciado (forma de pago para que los patrones realicen el pago\n           de las aportaciones al IMSS, a través de la ventanilla bancaria o el portal de banca electrónica\n           de un banco autorizado).\n       67. SRE. Secretaría de Relaciones Exteriores.\n       68. SOIA. Sistema de Operación Integral Aduanera.\n       69. SUA. Sistema Único de Autodeterminación (sistema a través del cual los patrones con cinco o\n           más trabajadores están obligados a efectuar el entero de sus obligaciones, para los patrones de\n           uno a cuatro trabajadores el uso del mismo es opcional).\n       70. TESOFE. Tesorería de la Federación.\n       71. TIGIE. Tarifa de la Ley de los Impuestos Generales de Importación y de Exportación.\n       72. TIPAT. Tratado Integral y Progresista de Asociación Transpacífico.\n       73. TLCAELC. Tratado de Libre Comercio entre los Estados Unidos Mexicanos y los Estados de la\n           Asociación Europea de Libre Comercio.\n       74. TLCC. Tratado de Libre Comercio entre los Estados Unidos Mexicanos y la República de\n           Colombia.\n       75. TLCCA. Tratado de Libre Comercio entre los Estados Unidos Mexicanos y las Repúblicas de\n           Costa Rica, El Salvador, Guatemala, Honduras y Nicaragua.\n       76. TLCCH. Tratado de Libre Comercio entre la República de Chile y los Estados Unidos Mexicanos.\n       77. TLCI. Tratado de Libre Comercio entre los Estados Unidos Mexicanos y el Estado de Israel.\n       78. TLCP. Tratado de Libre Comercio entre los Estados Unidos Mexicanos y la República de\n           Panamá.\n       79. TLCU. Tratado de Libre Comercio entre los Estados Unidos Mexicanos y la República Oriental\n           del Uruguay.\n       80. T-MEC. Tratado entre los Estados Unidos Mexicanos, los Estados Unidos de América y Canadá.",
+  "officialUrl": "https://www.sat.gob.mx/minisitio/NormatividadRMFyRGCE/documentos2026/rgce/rgce/ReglasGeneralesComercioExteriorpara2026.pdf",
+  "publishedDate": "2025-12-27",
+  "fechaCotejo": "2026-08-20",
+  "claseTexto": "texto_integro",
+  "version": "RGCE 2026 (DOF 27-12-2025)",
+  "topics": [
+   "despacho",
+   "valoracion",
+   "clasificacion",
+   "padrones",
+   "pama",
+   "inventarios",
+   "iva",
+   "fiscal",
+   "isan",
+   "ieps",
+   "noms",
+   "dta"
+  ]
+ },
+ {
+  "source": "RGCE_2026",
+  "type": "rgce",
+  "reference": "Glosario apartado III RGCE 2026",
+  "title": "Glosario RGCE 2026 — apartado III (DEFINICIONES:)",
+  "content": "III.   DEFINICIONES:\n1.     Comprobante de Valor Electrónico. Transmisión electrónica que se debe realizar conforme a las\n       reglas 1.9.16. y 1.9.17., que genera un número del acuse de valor.\n2.     Comunidad. Comunidad Europea.\n3.     Consejo. El Consejo de Clasificación Arancelaria a que se refiere el artículo 48 de la Ley.\n4.     Contador Público Inscrito. Contador público registrado ante el SAT, de conformidad con el artículo\n       52 del CFF.\n5.     Convenio ATA. Convenio Aduanero sobre Cuadernos A.T.A., para la Admisión Temporal de\n       Mercancías y su Anexo, hechos en Bruselas, el seis de diciembre de mil novecientos sesenta y uno,\n       publicado en el DOF el 05 de abril de 2001, mediante Decreto Promulgatorio.\n6.     Cuaderno ATA. Documento aduanero internacional válido como declaración en aduana, que permite\n       identificar las mercancías y que incluye una garantía válida internacional para cubrir los derechos e\n       impuestos al comercio exterior y demás contribuciones y cantidades exigibles para su importación,\n       utilizado para la reimportación temporal de las mercancías señaladas en los convenios a que hace\n       referencia el Capítulo 3.6., de las RGCE.\n\n7.    Decisión. La Decisión 2/2000 del Consejo Conjunto del Acuerdo Interino sobre Comercio y\n      Cuestiones Relacionadas con el Comercio entre los Estados Unidos Mexicanos y la Comunidad\n      Europea, publicada en el DOF el 26 de junio de 2000 y sus posteriores modificaciones.\n8.    Declaración de origen. Declaración de origen de conformidad con el AAEJ.\n9.    Declaración en factura. Declaración en factura de conformidad con el Anexo III de la Decisión, el\n      Anexo I del TLCAELC y el ACC.\n10.   Decreto de la Franja o Región Fronteriza. Decreto por el que se establece el impuesto general de\n      importación para la región fronteriza y la franja fronteriza norte, publicado en el DOF el 24 de\n      diciembre de 2008 y sus posteriores modificaciones.\n11.   Decreto de vehículos usados. Decreto por el que se regula la importación definitiva de vehículos\n      usados, publicado en el DOF el 04 de noviembre de 2024 y sus posteriores modificaciones.\n12.   Decreto IMMEX. Decreto para el fomento de la industria manufacturera, maquiladora y de servicios\n      de exportación referido en el artículo Único del Decreto por el que se modifica el diverso para el\n      fomento y operación de la industria maquiladora de exportación, publicado en el DOF el 01 de\n      noviembre de 2006 y sus posteriores modificaciones.\n13.   Días. Días hábiles de conformidad con el artículo 12 del CFF y la RMF.\n14.   Documento equivalente. El documento de carácter fiscal a que se refiere el artículo 2o., fracción\n      XVIII de la Ley.\n15.   e-document. Número(s) de acuse emitido por la Ventanilla Digital que corresponda a un documento\n      digital.\n16.   Empresas de mensajería y paquetería. Personas residentes en el país, cuya actividad principal es\n      la prestación permanente al público de servicios de transporte internacional expreso a destinatarios y\n      remitentes de documentos y de mercancías.\n17.   Equipo de ferrocarril. Para efectos de las reglas 1.9.11., 3.1.22., 3.1.32., 4.2.14. y 4.6.8., se\n      entenderá como equipo de ferrocarril y equipo especializado de ferrocarril, según corresponda: los\n      furgones, góndolas, locomotoras, tolvas, carros, carros tanque, chasises, remolques, plataformas que\n      circulan en las vías férreas y que se utilizan para transportar mercancía en su interior y en\n      contenedores.\n18.   Escrito libre. Aquel que reúne los requisitos establecidos en los artículos 18 y/o 18-A del CFF, y\n      cumple con lo establecido en el artículo 19 del citado ordenamiento, así como en la regla 1.2.2.\n19.   Industria de Autopartes. Empresas con Programa IMMEX que enajenen partes y componentes\n      importados temporalmente conforme al artículo 108 de la Ley, así como partes y componentes que\n      incorporen insumos importados temporalmente bajo dichos programas, a las empresas de la\n      industria automotriz terminal o manufacturera de vehículos de autotransporte para ser integrados a\n      sus procesos de ensamble y fabricación de vehículos.\n20.   Ley. Ley Aduanera.\n21.   Maquiladoras. Personas morales que hubieran obtenido un programa autorizado por la SE, en los\n      términos del “Decreto para el fomento y operación de la industria maquiladora de exportación”,\n      publicado en el DOF el 01 de junio de 1998 y sus posteriores modificaciones.\n22.   Módulo CIITEV. Módulo de Control de Importación e Internación Temporal de Vehículos.\n23.   Número o números de identificación comercial. Aquellos a los que se refiere el artículo 2o.,\n      fracción II, de la Regla Complementaria 10a. de la LIGIE, publicada en el DOF el 07 de junio de 2022\n      y sus posteriores modificaciones.\n24.   Pago Electrónico. Para efectos de la regla 1.6.2., es el canal de pago que ofrecen las instituciones\n      de crédito autorizadas para el cobro de contribuciones de comercio exterior, por medio del cual se\n      envían y reciben múltiples pagos mediante el uso de la línea de captura de comercio exterior, a\n      través del intercambio de información entre los sistemas electrónicos de los usuarios de comercio\n      exterior y las instituciones de crédito autorizadas para el cobro de contribuciones de comercio\n      exterior.\n25.   Pedimento Parte II. Parte del pedimento denominada, “Pedimento de importación. Parte II.\n      Embarque parcial de mercancías” o “Pedimento de exportación. Parte II. Embarque parcial de\n      mercancías”, según la operación de que se trate.\n26.   Programa IMMEX. Programa autorizado al amparo del Decreto IMMEX.\n\n   27.   Regla 8ª. Regla 8ª de las Complementarias de la fracción II, del artículo 2 de la LIGIE para la\n         aplicación e interpretación de la TIGIE.\n   28.   Reglamento. Reglamento de la Ley Aduanera.\n   29.   Representante legal acreditado. Persona física acreditada en términos de la regla 1.10.1., que\n         promueve en nombre y representación de una persona moral el despacho de sus mercancías, de\n         conformidad con el artículo 40 de la Ley.\n   30.   Resolución del ACC. Resolución que establece las reglas de carácter general relativas a la\n         aplicación de las disposiciones en materia aduanera del Acuerdo de Continuidad Comercial entre los\n         Estados Unidos Mexicanos y el Reino Unido de la Gran Bretaña e Irlanda del Norte, publicada en el\n         DOF el 01 de junio de 2021.\n   31.   Resolución de la Decisión. Resolución en materia aduanera de la Decisión 2/2000 del Consejo\n         Conjunto del Acuerdo Interino sobre Comercio y Cuestiones Relacionadas con el Comercio entre los\n         Estados Unidos Mexicanos y la Comunidad Europea y sus Anexos 1 y 2, publicada en el DOF el 31\n         de diciembre de 2002 y sus posteriores modificaciones.\n   32.   Resolución de precios estimados. Resolución que establece el mecanismo para garantizar el pago\n         de contribuciones en mercancías sujetas a precios estimados por la Secretaría de Hacienda y\n         Crédito Público, publicada en el DOF el 28 de febrero de 1994 y sus posteriores modificaciones.\n   33.   Resolución del TLCAELC. Resolución en materia aduanera del Tratado de Libre Comercio entre los\n         Estados Unidos Mexicanos y los Estados de la Asociación Europea de Libre Comercio y sus Anexos\n         1 y 2, publicada en el DOF el 31 de diciembre de 2002 y sus posteriores modificaciones.\n   34.   Reexportación. Retorno al extranjero de mercancía importada temporalmente al amparo de un\n         Cuaderno ATA, en términos del Capítulo 3.6., de las RGCE.\n   35.   Reimportación. Retorno a territorio nacional de mercancía exportada temporalmente al amparo de\n         un Cuaderno ATA, en términos del Capítulo 3.6., de las RGCE.\n   36.   Reino Unido. Reino Unido de la Gran Bretaña e Irlanda del Norte.\n   37.   Resolución del T-MEC. Resolución que establece las reglas de carácter general relativas a la\n         aplicación de las disposiciones en materia aduanera del T-MEC y sus Anexos, publicada en el DOF\n         el 30 de junio de 2020 y sus posteriores modificaciones.\n   38.   Socio comercial certificado. Persona física o moral que mantiene una relación comercial con una\n         empresa que realiza operaciones de comercio exterior y participa en su cadena de suministros, ya\n         sea como proveedor de materiales para la elaboración, empaque o embalaje de las mercancías\n         sometidas a comercio exterior, o como proveedor de servicios que de igual forma intervenga en el\n         control, manipulación, traslado o coordinación de las mismas, o en ambos, cumpliendo con los\n         estándares mínimos en materia de seguridad correspondientes, a que se refiere el artículo 100-A,\n         fracción IX de la Ley, en relación con el Operador Económico Autorizado, establecido en la regla\n         7.1.5.\n   39.   Transmigrante. Para efectos de la regla 3.2.7., es el extranjero que en su condición de estancia de\n         “visitante sin permiso para realizar actividades remuneradas”, transita en el territorio nacional hacia\n         otro país.\n   40.   Ventanilla Digital. La establecida en el “Decreto por el que se establece la Ventanilla Digital\n         Mexicana de Comercio Exterior”, publicado en el DOF el 14 de enero de 2011 y sus posteriores\n         modificaciones, que se ubica en la página electrónica www.ventanillaunica.gob.mx.\n   Asimismo, se aplicarán las definiciones establecidas en los artículos 2o. de la Ley y 1 del Reglamento, así",
+  "officialUrl": "https://www.sat.gob.mx/minisitio/NormatividadRMFyRGCE/documentos2026/rgce/rgce/ReglasGeneralesComercioExteriorpara2026.pdf",
+  "publishedDate": "2025-12-27",
+  "fechaCotejo": "2026-08-20",
+  "claseTexto": "texto_integro",
+  "version": "RGCE 2026 (DOF 27-12-2025)",
+  "topics": [
+   "franja_fronteriza",
+   "regularizacion",
+   "mensajeria",
+   "ventanilla_digital",
+   "automotriz",
+   "immex",
+   "valoracion",
+   "origen",
+   "clasificacion",
+   "padrones",
+   "pedimento",
+   "fiscal",
+   "rrnas",
+   "garantias"
   ]
  }
 ]
