@@ -36,7 +36,17 @@ async function main(): Promise<void> {
   assert.equal(PRORROGA_E2.dofFecha, null);
   console.log('  ✓ El instrumento conserva estado VERSION_ANTICIPADA y dofFecha null');
 
-  console.log('\nResumen: 8/8 pruebas pasaron.');
+  // DEFERRED #21 (cierre 21-ago-2026): fuente única de verdad con ambos plazos.
+  assert.equal(PRORROGA_E2.etiqueta, '2ª RM — versión anticipada Portal SAT, efectos conforme regla 1.1.2, pendiente DOF');
+  assert.equal(PRORROGA_E2.fundamentoEfectos.regla, 'Regla 1.1.2 RGCE 2026');
+  assert.ok(PRORROGA_E2.fundamentoEfectos.texto.includes('serán aplicables a partir de que se den a conocer en el Portal del SAT'));
+  assert.equal(PRORROGA_E2.plazoDOF.prorrogaHasta, '2026-05-31');
+  assert.ok(PRORROGA_E2.plazoDOF.prorrogaHasta < PRORROGA_E2.prorrogaHasta, 'la anticipada extiende el plazo DOF, no lo acorta');
+  assert.ok(regla.fundamento.fuente.includes('regla 1.1.2') || regla.fundamento.fuente.includes('Regla 1.1.2'));
+  assert.ok(regla.fundamento.fuente.includes('2026-05-31'));
+  console.log('  ✓ Etiqueta canónica + fundamento 1.1.2 + plazo DOF (31-may) conviven en la fuente única');
+
+  console.log('\nResumen: 12/12 pruebas pasaron.');
 }
 
 main()

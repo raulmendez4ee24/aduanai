@@ -72,7 +72,7 @@ export const RISK_RULES: RiskRule[] = [
     fundamento: {
       articulo: 'LA 59-III + RGCE 1.5.1 + Transitorio Décimo Primero RGCE 2026 (reformado)',
       citaCorta: `"Transmitir a través de la Ventanilla Digital, el formato E2 'Manifestación de Valor'… por cada operación de comercio exterior." Transitorio reformado: "${PRORROGA_E2.textoTransitorio}"`,
-      fuente: `${RGCE.fuente}; ${PRORROGA_E2.instrumento}, ${PRORROGA_E2.version}`,
+      fuente: `${RGCE.fuente}; ${PRORROGA_E2.instrumento} (${PRORROGA_E2.etiqueta}); fundamento de efectos: ${PRORROGA_E2.fundamentoEfectos.regla}. Último plazo en DOF: ${PRORROGA_E2.plazoDOF.prorrogaHasta} (${PRORROGA_E2.plazoDOF.instrumento}, DOF ${PRORROGA_E2.plazoDOF.dofFecha})`,
       url: PRORROGA_E2.urlOficial,
       fechaCotejo: PRORROGA_E2.fechaCotejo,
     },

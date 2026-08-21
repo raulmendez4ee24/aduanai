@@ -69,9 +69,12 @@ export function parseReferencia(texto: string): ClaveCita | null {
   m = /^Glosario(?:\s*,?\s*apartado\s+([IVX]+))?\s+(?:de\s+las?\s+)?([A-Za-z][A-Za-z0-9\s-]{0,25})$/i.exec(t);
   if (m) return { tipo: 'glosario', numero: m[1] ? m[1].toUpperCase() : '*', cuerpo: normalizarCuerpo(m[2]) };
 
-  // Transitorios de un decreto: "Transitorios DOF 19-11-2025 LA"
-  m = /^Transitorios?\s+(?:del\s+Decreto\s+)?DOF\s+(\d{2}-\d{2}-\d{4})\s*([A-Za-z][A-Za-z\s-]{0,25})?$/i.exec(t);
-  if (m) return { tipo: 'transitorio', numero: m[1]!, cuerpo: normalizarCuerpo(m[2]) };
+  // Transitorios de un decreto: "Transitorios DOF 19-11-2025 LA". Los de una
+  // VERSIÓN ANTICIPADA del Portal SAT llevan "VA-SAT" en vez de DOF
+  // ("Transitorios VA-SAT 31-07-2026 RGCE") y su clave conserva el prefijo:
+  // un transitorio anticipado NUNCA respalda una cita al DOF ni viceversa.
+  m = /^Transitorios?\s+(?:del\s+Decreto\s+)?(DOF|VA-SAT)\s+(\d{2}-\d{2}-\d{4})\s*([A-Za-z][A-Za-z\s-]{0,25})?$/i.exec(t);
+  if (m) return { tipo: 'transitorio', numero: m[1]!.toUpperCase() === 'DOF' ? m[2]! : `VA-SAT-${m[2]!}`, cuerpo: normalizarCuerpo(m[3]) };
 
   // Artículo: "Art. 54 LA" / "Artículo 28-A de la LIVA" / "Art. 4.5 T-MEC"
   m = /Art(?:ículo|\.)?\s*(\d+(?:\.\d+)*(?:-(?:[A-ZÑ]{1,2}(?![a-zñ])|(?:[Bb]is|BIS|[Tt]er|TER|[Qq]u[aá]ter|QU[AÁ]TER|[Qq]uintus|QUINTUS)))?(?:\s+(?:[Bb]is|BIS|[Tt]er|TER|[Qq]u[aá]ter|QU[AÁ]TER|[Qq]uintus|QUINTUS)(?:\s+\d+)?)?)\s*(?:,?\s*(?:fracci[oó]n\s+[IVXLC]+\s*)?)?(?:de\s+la\s+|de\s+el\s+|del\s+)?([A-Za-z][A-Za-z\s-]{0,25})?$/.exec(t);
@@ -87,7 +90,7 @@ export function parseReferencia(texto: string): ClaveCita | null {
 export function extraerCitas(answer: string): { texto: string; clave: ClaveCita }[] {
   const patrones = [
     /Art(?:ículo|\.)?\s*\d+(?:\.\d+)*(?:-(?:[A-ZÑ]{1,2}(?![a-zñ])|(?:[Bb]is|BIS|[Tt]er|TER|[Qq]u[aá]ter|QU[AÁ]TER|[Qq]uintus|QUINTUS)))?(?:\s+(?:[Bb]is|BIS|[Tt]er|TER|[Qq]u[aá]ter|QU[AÁ]TER|[Qq]uintus|QUINTUS)(?:\s+\d+)?)?(?:\s+(?:de\s+la\s+|del\s+)?[A-Z][A-Za-z-]{1,10})?/g,
-    /Transitorios?\s+(?:del\s+Decreto\s+)?DOF\s+\d{2}-\d{2}-\d{4}(?:\s+[A-Z][A-Za-z-]{1,10})?/g,
+    /Transitorios?\s+(?:del\s+Decreto\s+)?(?:DOF|VA-SAT)\s+\d{2}-\d{2}-\d{4}(?:\s+[A-Z][A-Za-z-]{1,10})?/g,
     /Glosario(?:\s*,?\s*apartado\s+[IVX]+)?\s+(?:de\s+las?\s+)?RGCE(?:\s+\d{4})?/g,
     /Regla\s+General\s+\d+\s*(?:[a-f]\))?\s*(?:\(RGI\))?/g,
     /Regla\s+\d+(?:\.\d+)+(?:\s+RGCE(?:\s+\d{4})?)?/g,

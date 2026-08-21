@@ -27,6 +27,10 @@ export interface RetrievedDoc {
   excerpt: string;
   officialUrl: string | null;
   effectiveDate: string | null;
+  /** Instrumento del que viene el texto (p. ej. "2ª RM — versión anticipada
+   *  Portal SAT…"). El Copilot lo muestra para que el modelo distinga texto
+   *  DOF de texto anticipado (DEFERRED #21). */
+  version?: string | null;
   topics: string[];
   keywords: string[];
   fractionRefs: string[];
@@ -271,7 +275,7 @@ export async function searchLegalDocuments(query: string, opts: { topK?: number;
     where,
     select: {
       id: true, type: true, claseTexto: true, source: true, title: true, reference: true,
-      content: true, officialUrl: true, effectiveDate: true,
+      content: true, officialUrl: true, effectiveDate: true, version: true,
       topics: true, fractionRefs: true, keywords: true, embedding: true,
     },
   });
@@ -319,6 +323,7 @@ export async function searchLegalDocuments(query: string, opts: { topK?: number;
       excerpt: makeExcerpt(d.content, query),
       officialUrl: d.officialUrl,
       effectiveDate: d.effectiveDate?.toISOString() ?? null,
+      version: d.version ?? null,
       topics: d.topics,
       keywords: d.keywords,
       fractionRefs: d.fractionRefs,

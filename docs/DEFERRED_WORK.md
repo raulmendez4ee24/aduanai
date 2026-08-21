@@ -392,6 +392,20 @@ Residuales SIN causa confirmada (para la siguiente ola):
 
 ## 21) Verificación DOF de la 2a RM RGCE 2026 (prórroga MVE 30-sep-2026)
 
+**CERRADO como inconsistencia el 2026-08-21 (decisión de Raúl) — queda solo
+la vigilancia del DOF.** Verificación hecha: la 2a RM sigue como **3a versión
+anticipada** en el Portal SAT (HTTP 200; no existe 4a VA ni PDF DOF); el
+Risk Scorer NO cita un instrumento inexistente: la regla 1.1.2 RGCE y el
+Transitorio Único de la propia VA dan efectos a lo anticipado. Resuelto con
+**UNA fuente de verdad**: `vigencias.ts` manda y lleva `etiqueta`
+("2ª RM — versión anticipada Portal SAT, efectos conforme regla 1.1.2,
+pendiente DOF"), `fundamentoEfectos` (1.1.2 verbatim) y `plazoDOF`
+(1a RM, DOF 14-may-2026 → 31-may-2026). Para que el Copilot no contradiga al
+Risk Scorer, el transitorio anticipado está sembrado en el corpus como
+`Transitorios VA-SAT 31-07-2026 RGCE` (clase texto_integro, `version`
+declarando que es anticipado; el matcher de citas distingue VA-SAT de DOF y
+el contexto del Copilot muestra `Instrumento/versión`).
+
 **Creado 2026-08-12.** `vigencias.ts` codifica la prórroga MVE E2 hasta el
 **30-sep-2026** con base en la **3a versión anticipada** (Portal SAT,
 31-jul-2026; commit `ff92109`). La 2a RM **sigue sin publicarse en DOF**
@@ -411,6 +425,9 @@ Residuales SIN causa confirmada (para la siguiente ola):
    directo — se actualiza solo con este cambio, verificar que lo refleje.
 5. Vigilar de paso si aparece una 4a versión anticipada o la 3a RM que
    vuelva a mover la fecha (patrón: la han prorrogado ya 2 veces).
+6. Al publicarse en DOF: sembrar el transitorio DOF como
+   `Transitorios DOF <fecha> RGCE` y DESACTIVAR el doc `VA-SAT` (no borrar —
+   queda la traza de qué se aplicó y con qué fundamento mientras tanto).
 
 ---
 

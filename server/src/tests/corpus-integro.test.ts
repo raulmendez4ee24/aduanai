@@ -140,6 +140,18 @@ async function main() {
     assert.equal(cruce.respaldadas.size, 1);
   });
 
+  await test('transitorio de VERSIÓN ANTICIPADA (VA-SAT): clave propia, nunca respalda una cita al DOF (DEFERRED #21)', async () => {
+    const { parseReferencia, clavesIguales, cruzarCitas } = await import('../services/citas-legales');
+    const va = parseReferencia('Transitorios VA-SAT 31-07-2026 RGCE');
+    assert.deepEqual(va, { tipo: 'transitorio', numero: 'VA-SAT-31-07-2026', cuerpo: 'RGCE' });
+    const dof = parseReferencia('Transitorios DOF 14-05-2026 RGCE')!;
+    assert.equal(dof.numero, '14-05-2026', 'el formato DOF no cambia');
+    assert.equal(clavesIguales(va!, dof), false);
+    const cruce = cruzarCitas('Según los Transitorios VA-SAT 31-07-2026 RGCE el plazo corre hasta el 30-sep; los Transitorios DOF 14-05-2026 RGCE decían 31-may.', ['Transitorios VA-SAT 31-07-2026 RGCE']);
+    assert.deepEqual(cruce.noRespaldadas, ['Transitorios DOF 14-05-2026 RGCE']);
+    assert.equal(cruce.respaldadas.size, 1);
+  });
+
   await test('taxonomía extendida: "recinto fiscalizado" ya es detectable', async () => {
     const { topicsDeTexto, detectQueryTopics } = await import('../services/rag-search');
     assert.ok(topicsDeTexto('las mercancías destinadas al régimen de recinto fiscalizado estratégico').includes('recinto_fiscalizado'));

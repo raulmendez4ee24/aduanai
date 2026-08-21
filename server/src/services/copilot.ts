@@ -177,7 +177,10 @@ function buildContextBlock(docs: RetrievedDoc[]): string {
   const blocks = docs.map((d, i) => {
     const url = d.officialUrl ? `\nFuente oficial: ${d.officialUrl}` : '';
     const date = d.effectiveDate ? `\nVigente desde: ${d.effectiveDate.slice(0, 10)}` : '';
-    return `[${i + 1}] ${d.reference} — ${d.title}\nTipo: ${d.type} · Fuente: ${d.source}${date}${url}\n\n${d.content}`;
+    // Instrumento/versión: distingue texto DOF de versión anticipada del
+    // Portal SAT (efectos conforme regla 1.1.2 RGCE) — DEFERRED #21.
+    const version = d.version ? `\nInstrumento/versión: ${d.version}` : '';
+    return `[${i + 1}] ${d.reference} — ${d.title}\nTipo: ${d.type} · Fuente: ${d.source}${date}${version}${url}\n\n${d.content}`;
   }).join('\n\n---\n\n');
   return `\n[CONTEXTO LEGAL DISPONIBLE — ${docs.length} documento(s)]\n\n${blocks}\n\n[FIN DEL CONTEXTO]\n`;
 }
