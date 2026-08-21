@@ -507,3 +507,31 @@ cotizador sigue aplicando el beneficio aproximado, pero etiquetado ámbar
 no tomada). Alcance grande: el texto consolidado del decreto PROSEC no está
 en un solo PDF oficial descargable — hay que compilarlo por modificaciones,
 mismo patrón que RGCE+1a RM del Corpus Íntegro.
+
+---
+
+## 26) Reglas 4.8.2 y 4.8.4 RGCE: vigencia condicionada al Anexo 29 (lote 2)
+
+**Creado 2026-08-20 (compilación RGCE + 1a RM, decisión de Raúl).** La 1a RM
+(DOF 14-may-2026) deroga el segundo párrafo de la 4.8.2 y adiciona un segundo
+párrafo a la 4.8.4, PERO su **Transitorio Tercero** condiciona la vigencia de
+ambas modificaciones (y de los Anexos 5 y 29) a **la publicación en el DOF de
+la "Primera Modificación al Anexo 29 de las RGCE para 2026"** — publicación
+que NO se pudo confirmar contra el DOF al 20-ago-2026 (2 búsquedas).
+
+**Estado en el corpus:** ambas reglas sembradas con TEXTO BASE, `fechaCotejo`
+NULA (sin_verificar a nivel dato) y la condición completa en `version`.
+
+**Condición exacta a confirmar:** que el DOF publique la "Primera Modificación
+al Anexo 29 de las RGCE para 2026" (SHCP/SAT). Al confirmarse:
+1. Compilar 4.8.2 (sin su segundo párrafo) y 4.8.4 (con el nuevo segundo
+   párrafo, texto en la 1a RM) — re-seed del lote 2 (incremental por hash).
+2. Poner `fechaCotejo` y `version` = compilado 1a RM.
+
+**Vigilancia:** el vigilante de decretos actual NO cubre esto sin cambiar su
+alcance (vigila la página de reformas de la LIGIE en Diputados; el Anexo 29
+se publica vía DOF/minisitio SAT de RGCE — otra fuente). PROPUESTA pendiente
+de decisión: un segundo vigilante gemelo (misma arquitectura solo-avisa,
+fuente = minisitio SAT RGCE 2026 o búsqueda DOF por título) — si Raúl no lo
+aprueba, queda REINTENTO MANUAL: buscar en dof.gob.mx el título exacto de
+arriba, idealmente cada revisión de sombra/lote.
