@@ -68,6 +68,13 @@ export const classifierLimiter = rateLimit({
   windowMs: HOUR,
   max: 100,
   message: { status: 'error', message: 'Límite de clasificaciones alcanzado (100/hora). Intenta en 1 hora.' },
+  // Clasificación asíncrona (BUG-1, 24-ago-2026): el polling de GET /jobs/:id
+  // hace ~30-60 llamadas por clasificación (cada 2.5-5s durante 1-3 min) — si
+  // contara aquí, dos clasificaciones agotarían las 100/hora y el 429
+  // bloquearía al usuario a media operación. El límite del clasificador es
+  // sobre CREAR clasificaciones; el polling queda cubierto por el
+  // generalLimiter global (200/min).
+  skip: req => req.method === 'GET' && req.path.startsWith('/jobs/'),
 });
 
 /** /api/quote: 200 por usuario por hora. */
