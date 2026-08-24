@@ -300,7 +300,11 @@ export function ClassifierPage() {
         }
         primeraVuelta = false
         if (j.status === 'done' && j.result) {
-          try { localStorage.removeItem(jobKey()) } catch { /* best-effort */ }
+          // Re-verificación 24-ago (BUG-2 parcial): la llave NO se borra al
+          // terminar — es lo que permite RESTAURAR el expediente al volver al
+          // módulo ("estará aquí al volver"), incluso días después (el job
+          // vive 7 días). Solo se suelta con el 404 de expiración o cuando
+          // una clasificación nueva la reemplaza.
           setResultado(j.result)
           setClassificationId(j.classificationId ?? '')
           setExpedienteNuevo(true)
@@ -313,7 +317,8 @@ export function ClassifierPage() {
           return
         }
         if (j.status === 'error') {
-          try { localStorage.removeItem(jobKey()) } catch { /* best-effort */ }
+          // El error también se restaura al volver (mensaje + texto en el
+          // borrador para reintentar) — misma razón que el done.
           if (j.description) setInput(prev => prev || j.description || '')
           setMensajes(m => [...m, {
             rol: 'sistema',

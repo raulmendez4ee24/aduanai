@@ -455,6 +455,26 @@ void (async () => {
       errorMessage: err instanceof Error ? err.message : String(err),
     });
   }
+  // BUG-12 (re-verificación 24-ago): origin_rules estaba VACÍA en prod — el
+  // seed solo corría con db:seed local y ningún deploy lo ejecutaba, así que
+  // Origen T-MEC decía "Sin regla específica" para TODA fracción. Siembra
+  // SOLO si la tabla está vacía (el seed hace deleteMany+create; con tabla
+  // poblada no se toca — actualizaciones deliberadas van por ssh/seed).
+  try {
+    const originRulesCount = await prisma.originRule.count();
+    if (originRulesCount === 0) {
+      const { seedOriginRules } = await import('./lib/origin-rules-data');
+      const r = await seedOriginRules(prisma);
+      logger.info(`[origin] Tabla origin_rules vacía — sembradas ${r.inserted} reglas`, {
+        action: 'origin_rules_seeded_on_boot', metadata: r,
+      });
+    }
+  } catch (err) {
+    logger.error('[origin] seed de origin_rules al arranque falló', {
+      action: 'origin_rules_seed_failed',
+      errorMessage: err instanceof Error ? err.message : String(err),
+    });
+  }
   // Clasificación asíncrona (BUG-1/BUG-2): los jobs que quedaron en vuelo
   // pertenecen al proceso anterior (deploy/reinicio) — se marcan interrumpidos
   // para que la UI muestre el error honesto con reintento, no un spinner eterno.

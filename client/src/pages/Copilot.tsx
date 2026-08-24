@@ -19,6 +19,39 @@ interface Message {
   feedback?: 'helpful' | 'unhelpful' | null;
 }
 
+
+// Re-verificación 24-ago (cosmético): las respuestas del Copilot llegan con
+// markdown (##, **, listas, `código`) que se pintaba CRUDO. Renderer ligero en
+// React puro — sin dangerouslySetInnerHTML ni dependencias: los tokens se
+// convierten a elementos, nunca a HTML, así que no hay superficie XSS.
+function MarkdownLigero({ texto }: { texto: string }) {
+  const inline = (s: string) => {
+    const parts = s.split(/(\*\*[^*]+\*\*|`[^`]+`)/g)
+    return parts.map((p, i) =>
+      p.startsWith('**') && p.endsWith('**') && p.length > 4
+        ? <strong key={i}>{p.slice(2, -2)}</strong>
+        : p.startsWith('`') && p.endsWith('`') && p.length > 2
+          ? <code key={i} className="bg-slate-100 rounded px-1 text-[12px]">{p.slice(1, -1)}</code>
+          : <span key={i}>{p}</span>,
+    )
+  }
+  const lineas = texto.split('\n')
+  return (
+    <div className="text-[13px] leading-relaxed space-y-1">
+      {lineas.map((linea, i) => {
+        const h = linea.match(/^(#{1,4})\s+(.*)$/)
+        if (h) return <p key={i} className="font-bold text-slate-900 mt-2">{inline(h[2] ?? '')}</p>
+        const li = linea.match(/^\s*[-*]\s+(.*)$/)
+        if (li) return <p key={i} className="pl-4 relative before:content-['•'] before:absolute before:left-1">{inline(li[1] ?? '')}</p>
+        const num = linea.match(/^\s*(\d+)[.)]\s+(.*)$/)
+        if (num) return <p key={i} className="pl-4">{num[1]}. {inline(num[2] ?? '')}</p>
+        if (linea.trim() === '') return <div key={i} className="h-1" />
+        return <p key={i} className="whitespace-pre-wrap">{inline(linea)}</p>
+      })}
+    </div>
+  )
+}
+
 export function CopilotPage() {
   const [messages, setMessages] = useState<Message[]>([])
   const [input, setInput] = useState('')
@@ -143,6 +176,8 @@ export function CopilotPage() {
                       </button>
                     )}
                   </div>
+                ) : msg.role === 'assistant' ? (
+                  <MarkdownLigero texto={msg.content} />
                 ) : (
                   <p className="text-[13px] leading-relaxed whitespace-pre-wrap">{msg.content}</p>
                 )}
