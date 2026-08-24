@@ -43,6 +43,11 @@ export interface ClassificationJobError {
 }
 
 const JOB_RETENTION_DAYS = 7;
+// Momento en que arrancó ESTE proceso: el recovery de arranque solo puede
+// interrumpir jobs creados ANTES (huérfanos del proceso anterior). Sin esta
+// marca, una clasificación enviada en la ventana entre listen() y el paso de
+// recovery del boot sería marcada interrumpida estando viva (revisión 24-ago).
+const PROCESS_BOOT = new Date();
 // Tope duro de un job en 'running': el pipeline real tarda 45s-2.5min (D14);
 // 15 min solo puede significar una promesa colgada o un proceso muerto.
 export const JOB_RUNNING_TIMEOUT_MS = 15 * 60 * 1000;
@@ -58,7 +63,7 @@ export async function createClassificationJob(params: {
   tenantId: string;
   userId: string;
   inputs: ClassificationJobInputs;
-}): Promise<{ jobId: string; reused: boolean }> {
+}): Promise<{ jobId: string; reused: boolean; description?: string }> {
   const { tenantId, userId, inputs } = params;
 
   // Borrado perezoso de jobs viejos del tenant (retención 7 días).
@@ -67,14 +72,42 @@ export async function createClassificationJob(params: {
 
   const active = await prisma.classificationJob.findFirst({
     where: { tenantId, userId, status: { in: ACTIVE_STATUSES } },
-    select: { id: true },
+    select: { id: true, inputs: true },
   });
-  if (active) return { jobId: active.id, reused: true };
+  if (active) {
+    return {
+      jobId: active.id,
+      reused: true,
+      description: (active.inputs as { description?: string } | null)?.description,
+    };
+  }
 
-  const job = await prisma.classificationJob.create({
-    data: { tenantId, userId, inputs: inputs as unknown as object },
-    select: { id: true },
-  });
+  let job: { id: string };
+  try {
+    job = await prisma.classificationJob.create({
+      data: { tenantId, userId, inputs: inputs as unknown as object },
+      select: { id: true },
+    });
+  } catch (err) {
+    // Índice único parcial (un job activo por tenant+usuario): si dos POST
+    // simultáneos pasaron el findFirst, el segundo create truena aquí — se
+    // devuelve el job que ganó la carrera, no se duplica el pipeline.
+    const code = (err as { code?: string }).code;
+    if (code === 'P2002') {
+      const winner = await prisma.classificationJob.findFirst({
+        where: { tenantId, userId, status: { in: ACTIVE_STATUSES } },
+        select: { id: true, inputs: true },
+      });
+      if (winner) {
+        return {
+          jobId: winner.id,
+          reused: true,
+          description: (winner.inputs as { description?: string } | null)?.description,
+        };
+      }
+    }
+    throw err;
+  }
 
   // Fire-and-forget deliberado: el POST ya respondió 202. Cualquier error
   // del pipeline queda registrado EN el job (fail-closed), nunca sin manejar.
@@ -90,10 +123,13 @@ export async function runClassificationJob(jobId: string): Promise<void> {
   const job = await prisma.classificationJob.findUnique({ where: { id: jobId } });
   if (!job || job.status !== 'queued') return;
 
-  await prisma.classificationJob.update({
-    where: { id: jobId },
+  // Transición condicional: si el recovery de arranque (u otro camino) ya
+  // movió el job fuera de 'queued', este runner no debe correr.
+  const claimed = await prisma.classificationJob.updateMany({
+    where: { id: jobId, status: 'queued' },
     data: { status: 'running', startedAt: new Date() },
   });
+  if (claimed.count === 0) return;
 
   const inputs = job.inputs as unknown as ClassificationJobInputs;
   const { description, context, countryOfOrigin, declaredValueUSD, declaredQuantity, useCase, sector, importerType, userRole } = inputs;
@@ -225,8 +261,12 @@ export async function runClassificationJob(jobId: string): Promise<void> {
       },
     };
 
-    await prisma.classificationJob.update({
-      where: { id: jobId },
+    // Transición condicional running→done: si el watchdog o el recovery ya
+    // marcaron error (timeout/interrupción), NO se sobreescribe — el estado
+    // que el usuario ya vio se respeta; la Classification creada queda en el
+    // historial de todos modos.
+    const finished = await prisma.classificationJob.updateMany({
+      where: { id: jobId, status: 'running' },
       data: {
         status: 'done',
         finishedAt: new Date(),
@@ -234,6 +274,9 @@ export async function runClassificationJob(jobId: string): Promise<void> {
         result: JSON.parse(JSON.stringify(payload)) as object,
       },
     });
+    if (finished.count === 0) {
+      console.warn(`[classification-job] job ${jobId} terminó pero ya estaba marcado error (watchdog/recovery) — resultado en Classification ${record.id}, job no sobrescrito`);
+    }
   } catch (err) {
     console.error(`[classification-job] pipeline falló (job ${jobId}):`, err);
     const statusCode = (err as { statusCode?: number }).statusCode;
@@ -249,8 +292,8 @@ export async function runClassificationJob(jobId: string): Promise<void> {
             message: 'La clasificación falló por un error interno del servicio. Intenta de nuevo.',
             retriable: true,
           };
-    await prisma.classificationJob.update({
-      where: { id: jobId },
+    await prisma.classificationJob.updateMany({
+      where: { id: jobId, status: { in: ACTIVE_STATUSES } },
       data: { status: 'error', finishedAt: new Date(), error: jobError as unknown as object },
     }).catch(updateErr => {
       console.error(`[classification-job] no pude registrar el error del job ${jobId}:`, updateErr);
@@ -264,8 +307,15 @@ export async function runClassificationJob(jobId: string): Promise<void> {
  * fail-closed honesto, no se finge que sobrevivió.
  */
 export async function recoverInterruptedClassificationJobs(): Promise<number> {
+  // Purga de retención en cada arranque: el borrado perezoso al crear jobs no
+  // cubre tenants que dejaron de clasificar — aquí se barre todo lo >7 días.
+  const cutoffRetention = new Date(Date.now() - JOB_RETENTION_DAYS * 24 * 60 * 60 * 1000);
+  await prisma.classificationJob.deleteMany({ where: { createdAt: { lt: cutoffRetention } } }).catch(() => {});
+
   const { count } = await prisma.classificationJob.updateMany({
-    where: { status: { in: ACTIVE_STATUSES } },
+    // Solo jobs creados ANTES de que este proceso arrancara: los del proceso
+    // anterior (muerto). Un job creado por este proceso tiene runner vivo.
+    where: { status: { in: ACTIVE_STATUSES }, createdAt: { lt: PROCESS_BOOT } },
     data: {
       status: 'error',
       finishedAt: new Date(),

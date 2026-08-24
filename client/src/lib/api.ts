@@ -123,7 +123,7 @@ export const api = {
     declaredValueUSD?: number,
     extras?: { useCase?: string; sector?: IndustrialSector; importerType?: ImporterType; declaredQuantity?: number },
   ) =>
-    request<{ status: string; jobId: string; reused: boolean }>('/classify', {
+    request<{ status: string; jobId: string; reused: boolean; description: string | null }>('/classify', {
       method: 'POST',
       body: JSON.stringify({ description, context, countryOfOrigin, declaredValueUSD, ...extras }),
     }, 30000),

@@ -61,6 +61,7 @@ model Tenant {
   proposals            Proposal[]
   users                User[]
   classifications      Classification[]
+  classificationJobs   ClassificationJob[]
   quotes               Quote[]
   copilotMessages      CopilotMessage[]
   alerts               Alert[]
@@ -162,7 +163,8 @@ model User {
   tenantId String
   tenant   Tenant @relation(fields: [tenantId], references: [id])
 
-  classifications   Classification[]
+  classifications    Classification[]
+  classificationJobs ClassificationJob[]
   quotes            Quote[]
   copilotMessages   CopilotMessage[]
   auditLogs         AuditLog[]
@@ -400,9 +402,15 @@ model Classification {
 model ClassificationJob {
   id       String @id @default(cuid())
   tenantId String
+  tenant   Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   userId   String
+  user     User   @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   // queued | running | done | error
+  // NOTA: existe además un índice único PARCIAL (solo en SQL de la migración,
+  // Prisma no lo expresa): UNIQUE(tenantId, userId) WHERE status IN
+  // ('queued','running') — un job activo por usuario, cierra la carrera de
+  // doble submit.
   status String @default("queued")
 
   // Body original del request (description, context, etc.) + userRole para

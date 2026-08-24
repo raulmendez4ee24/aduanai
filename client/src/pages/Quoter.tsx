@@ -91,15 +91,20 @@ export function QuoterPage() {
     }
   }
 
+  // BUG-4: rango máximo por partida — sin esto un valor absurdo produce
+  // totales que desbordan el panel y aritmética sin sentido. Se aplica en
+  // Cotizar Y en Comparar escenarios (misma entrada, mismo tope); el servidor
+  // valida lo mismo con 422 como línea dura.
+  function errorDeRango(): string {
+    const fuera = items.findIndex(i => i.fractionCode && (i.unitValueUSD > MAX_PARTIDA_USD || i.unitValueUSD * i.quantity > MAX_PARTIDA_USD))
+    if (fuera >= 0) return `Valor fuera de rango en la partida ${fuera + 1}: el valor por partida no puede exceder $1,000,000,000 USD. Revisa cantidad y valor unitario.`
+    return ''
+  }
+
   async function handleQuote() {
     if (items.filter(i => i.fractionCode && i.quantity > 0).length === 0) return
-    // BUG-4: rango máximo por partida — sin esto un valor absurdo produce
-    // totales que desbordan el panel y aritmética sin sentido.
-    const fuera = items.findIndex(i => i.fractionCode && (i.unitValueUSD > MAX_PARTIDA_USD || i.unitValueUSD * i.quantity > MAX_PARTIDA_USD))
-    if (fuera >= 0) {
-      setError(`Valor fuera de rango en la partida ${fuera + 1}: el valor por partida no puede exceder $1,000,000,000 USD. Revisa cantidad y valor unitario.`)
-      return
-    }
+    const rango = errorDeRango()
+    if (rango) { setError(rango); return }
     setLoading(true); setError(''); setResult(null); setScenarios(null)
     try {
       const r = await api.quoteMulti(buildInput())
@@ -110,6 +115,8 @@ export function QuoterPage() {
 
   async function handleScenarios() {
     if (!result) return
+    const rango = errorDeRango()
+    if (rango) { setError(rango); return }
     setLoading(true); setError('')
     try {
       const variants: ScenarioVariant[] = [
@@ -165,7 +172,7 @@ export function QuoterPage() {
             {tcMode === 'historical' && (
               <input type="date" value={tcDate} onChange={e => setTcDate(e.target.value)} className="text-[12px] border border-slate-200 rounded-lg px-2 py-1.5"/>
             )}
-            <input type="number" step="0.0001" autoComplete="off" name="tc-override" onWheel={blurOnWheel} placeholder="Override manual TC" value={tcOverride} onChange={e => setTcOverride(e.target.value)} className="text-[12px] border border-slate-200 rounded-lg px-2 py-1.5 w-40 ml-auto"/>
+            <input type="number" min="0" step="0.0001" autoComplete="off" name="tc-override" onWheel={blurOnWheel} placeholder="Override manual TC" value={tcOverride} onChange={e => setTcOverride(e.target.value)} onBlur={e => { const v = e.currentTarget.value; if (v !== '') { const n = Math.max(0, parseNum(v)); setTcOverride(n > 0 ? String(n) : ''); e.currentTarget.value = n > 0 ? String(n) : '' } }} className="text-[12px] border border-slate-200 rounded-lg px-2 py-1.5 w-40 ml-auto"/>
           </div>
         </div>
 
@@ -193,8 +200,8 @@ export function QuoterPage() {
                 <div className="grid grid-cols-2 md:grid-cols-5 gap-2 mt-2">
                   <Field label="Flete USD"><input type="number" min="0" step="0.01" autoComplete="off" name={`freight-${rowIds[idx]}`} onWheel={blurOnWheel} className="w-full text-[12px] border border-slate-200 rounded-lg px-2 py-1.5" value={it.freightUSD ?? 0} onChange={e => updateItem(idx, { freightUSD: parseNum(e.target.value) })} onBlur={e => normalizeNumericBlur(e, n => updateItem(idx, { freightUSD: n }))}/></Field>
                   <Field label="Seguro USD"><input type="number" min="0" step="0.01" autoComplete="off" name={`insurance-${rowIds[idx]}`} onWheel={blurOnWheel} className="w-full text-[12px] border border-slate-200 rounded-lg px-2 py-1.5" value={it.insuranceUSD ?? 0} onChange={e => updateItem(idx, { insuranceUSD: parseNum(e.target.value) })} onBlur={e => normalizeNumericBlur(e, n => updateItem(idx, { insuranceUSD: n }))}/></Field>
-                  <Field label="Peso kg (cuota USD/kg)"><input type="number" step="0.01" autoComplete="off" name={`weight-${rowIds[idx]}`} onWheel={blurOnWheel} placeholder="opt." title="Requerido si aplica cuota compensatoria USD/kg" className="w-full text-[12px] border border-slate-200 rounded-lg px-2 py-1.5" value={it.weightKg ?? ''} onChange={e => updateItem(idx, { weightKg: e.target.value === '' ? undefined : parseNum(e.target.value) })}/></Field>
-                  <Field label="Override IGI %"><input type="number" step="0.1" autoComplete="off" name={`igi-${rowIds[idx]}`} onWheel={blurOnWheel} placeholder="auto" className="w-full text-[12px] border border-slate-200 rounded-lg px-2 py-1.5" value={it.igiRateOverride ?? ''} onChange={e => updateItem(idx, { igiRateOverride: e.target.value === '' ? undefined : parseNum(e.target.value) })}/></Field>
+                  <Field label="Peso kg (cuota USD/kg)"><input type="number" step="0.01" autoComplete="off" name={`weight-${rowIds[idx]}`} min="0" onWheel={blurOnWheel} placeholder="opt." title="Requerido si aplica cuota compensatoria USD/kg" className="w-full text-[12px] border border-slate-200 rounded-lg px-2 py-1.5" value={it.weightKg ?? ''} onChange={e => updateItem(idx, { weightKg: e.target.value === '' ? undefined : parseNum(e.target.value) })}/></Field>
+                  <Field label="Override IGI %"><input type="number" step="0.1" autoComplete="off" name={`igi-${rowIds[idx]}`} min="0" onWheel={blurOnWheel} placeholder="auto" className="w-full text-[12px] border border-slate-200 rounded-lg px-2 py-1.5" value={it.igiRateOverride ?? ''} onChange={e => updateItem(idx, { igiRateOverride: e.target.value === '' ? undefined : parseNum(e.target.value) })}/></Field>
                   <Field label="Tratado">
                     <select className="w-full text-[12px] border border-slate-200 rounded-lg px-2 py-1.5 bg-white"
                       value={it.applyTreaty ?? ''}
@@ -269,11 +276,11 @@ export function QuoterPage() {
         <details className="mb-4 rounded-xl bg-amber-50/40 border border-amber-100 p-3" open>
           <summary className="text-[12px] font-semibold text-amber-800 cursor-pointer">Costos de despacho aduanero (editables)</summary>
           <div className="grid grid-cols-2 md:grid-cols-5 gap-2 mt-3">
-            <Field label="Honorarios agente"><input type="number" autoComplete="off" name="dispatch-honorarios" onWheel={blurOnWheel} className="w-full text-[12px] border border-slate-200 rounded-lg px-2 py-1.5" value={dispatch.honorariosAgente} onChange={e => setDispatch({...dispatch, honorariosAgente: parseNum(e.target.value)})}/></Field>
-            <Field label="Prevalidación"><input type="number" autoComplete="off" name="dispatch-prevalidacion" onWheel={blurOnWheel} className="w-full text-[12px] border border-slate-200 rounded-lg px-2 py-1.5" value={dispatch.prevalidacion} onChange={e => setDispatch({...dispatch, prevalidacion: parseNum(e.target.value)})}/></Field>
-            <Field label="Almacenaje"><input type="number" autoComplete="off" name="dispatch-almacenaje" onWheel={blurOnWheel} className="w-full text-[12px] border border-slate-200 rounded-lg px-2 py-1.5" value={dispatch.almacenaje} onChange={e => setDispatch({...dispatch, almacenaje: parseNum(e.target.value)})}/></Field>
-            <Field label="Estiba"><input type="number" autoComplete="off" name="dispatch-estiba" onWheel={blurOnWheel} className="w-full text-[12px] border border-slate-200 rounded-lg px-2 py-1.5" value={dispatch.estiba} onChange={e => setDispatch({...dispatch, estiba: parseNum(e.target.value)})}/></Field>
-            <Field label="Flete interno"><input type="number" autoComplete="off" name="dispatch-flete-interno" onWheel={blurOnWheel} className="w-full text-[12px] border border-slate-200 rounded-lg px-2 py-1.5" value={dispatch.fleteInterno} onChange={e => setDispatch({...dispatch, fleteInterno: parseNum(e.target.value)})}/></Field>
+            <Field label="Honorarios agente"><input type="number" autoComplete="off" name="dispatch-honorarios" min="0" onWheel={blurOnWheel} className="w-full text-[12px] border border-slate-200 rounded-lg px-2 py-1.5" value={dispatch.honorariosAgente} onChange={e => setDispatch({...dispatch, honorariosAgente: parseNum(e.target.value)})} onBlur={e => { const n = Math.max(0, parseNum(e.currentTarget.value)); setDispatch(d => ({...d, honorariosAgente: n})); e.currentTarget.value = String(n) }}/></Field>
+            <Field label="Prevalidación"><input type="number" autoComplete="off" name="dispatch-prevalidacion" min="0" onWheel={blurOnWheel} className="w-full text-[12px] border border-slate-200 rounded-lg px-2 py-1.5" value={dispatch.prevalidacion} onChange={e => setDispatch({...dispatch, prevalidacion: parseNum(e.target.value)})} onBlur={e => { const n = Math.max(0, parseNum(e.currentTarget.value)); setDispatch(d => ({...d, prevalidacion: n})); e.currentTarget.value = String(n) }}/></Field>
+            <Field label="Almacenaje"><input type="number" autoComplete="off" name="dispatch-almacenaje" min="0" onWheel={blurOnWheel} className="w-full text-[12px] border border-slate-200 rounded-lg px-2 py-1.5" value={dispatch.almacenaje} onChange={e => setDispatch({...dispatch, almacenaje: parseNum(e.target.value)})} onBlur={e => { const n = Math.max(0, parseNum(e.currentTarget.value)); setDispatch(d => ({...d, almacenaje: n})); e.currentTarget.value = String(n) }}/></Field>
+            <Field label="Estiba"><input type="number" autoComplete="off" name="dispatch-estiba" min="0" onWheel={blurOnWheel} className="w-full text-[12px] border border-slate-200 rounded-lg px-2 py-1.5" value={dispatch.estiba} onChange={e => setDispatch({...dispatch, estiba: parseNum(e.target.value)})} onBlur={e => { const n = Math.max(0, parseNum(e.currentTarget.value)); setDispatch(d => ({...d, estiba: n})); e.currentTarget.value = String(n) }}/></Field>
+            <Field label="Flete interno"><input type="number" autoComplete="off" name="dispatch-flete-interno" onWheel={blurOnWheel} className="w-full text-[12px] border border-slate-200 rounded-lg px-2 py-1.5" value={dispatch.fleteInterno} onChange={e => setDispatch({...dispatch, fleteInterno: parseNum(e.target.value)})} onBlur={e => { const n = Math.max(0, parseNum(e.currentTarget.value)); setDispatch(d => ({...d, fleteInterno: n})); e.currentTarget.value = String(n) }}/></Field>
           </div>
         </details>
 

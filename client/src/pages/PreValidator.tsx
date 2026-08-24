@@ -63,11 +63,14 @@ export function PreValidatorPage() {
   // stepper. Es un chequeo de completitud/cordura del cliente; la validación
   // normativa completa (TIGIE, NOMs, TC del DOF, RFC contra padrón) sigue
   // siendo la del servidor en el paso 5.
-  const RFC_RE = /^[A-ZÑ&]{3,4}\d{6}[A-Z0-9]{3}$/
+  // RFC con fecha REAL (mes 01-12, día 01-31) — el patrón laxo de 6 dígitos
+  // pintaba verde RFCs que el servidor rechaza (revisión 24-ago).
+  const RFC_RE = /^[A-ZÑ&]{3,4}\d{2}(0[1-9]|1[0-2])(0[1-9]|[12]\d|3[01])[A-Z0-9]{3}$/
   function pasoValido(id: number): boolean {
     switch (id) {
       case 1:
-        return RFC_RE.test(ped.rfcImportador.trim()) && ped.pesoBruto > 0 && ped.pesoNeto > 0 && ped.bultos >= 1 && ped.tipoCambio > 0
+        return RFC_RE.test(ped.rfcImportador.trim()) && ped.pesoBruto > 0 && ped.pesoNeto > 0 &&
+          ped.pesoNeto <= ped.pesoBruto && ped.bultos >= 1 && ped.tipoCambio > 0
       case 2:
         return ped.incoterm.trim() !== '' && ped.transporte.trim() !== ''
       case 3:

@@ -65,6 +65,40 @@ quoteRouter.post('/', authenticate, requirePermission('quoter', 'create'), async
   }
 });
 
+
+// BUG-4 (24-ago-2026): topes de cordura del cotizador — la línea dura del
+// servidor (el cliente valida lo mismo, pero una petición directa no puede
+// esquivar esto). $1,000 millones USD por partida/concepto; nada negativo;
+// TC override dentro de un rango plausible.
+const MAX_PARTIDA_USD = 1_000_000_000;
+function validarRangosMultiQuote(input: MultiQuoteInput): string | null {
+  const noNegativo = (v: number | undefined) => v === undefined || (Number.isFinite(v) && v >= 0 && v <= MAX_PARTIDA_USD);
+  for (let i = 0; i < input.items.length; i++) {
+    const it = input.items[i];
+    if (!(Number.isFinite(it.quantity) && Number.isFinite(it.unitValueUSD)) ||
+        it.quantity < 0 || it.unitValueUSD < 0 ||
+        it.unitValueUSD > MAX_PARTIDA_USD || it.quantity * it.unitValueUSD > MAX_PARTIDA_USD) {
+      return `Valor fuera de rango en la partida ${i + 1}: el valor por partida no puede exceder $1,000,000,000 USD ni ser negativo.`;
+    }
+    if (!noNegativo(it.freightUSD) || !noNegativo(it.insuranceUSD) || !noNegativo(it.weightKg)) {
+      return `Flete, seguro o peso fuera de rango en la partida ${i + 1} (0 a $1,000,000,000).`;
+    }
+    if (it.igiRateOverride !== undefined && !(Number.isFinite(it.igiRateOverride) && it.igiRateOverride >= 0 && it.igiRateOverride <= 100)) {
+      return `Override de IGI fuera de rango en la partida ${i + 1} (0-100%).`;
+    }
+  }
+  if (input.exchangeRate !== undefined && !(Number.isFinite(input.exchangeRate) && input.exchangeRate > 0 && input.exchangeRate <= 100)) {
+    return 'Tipo de cambio manual fuera de rango (debe ser mayor a 0 y a lo sumo 100 MXN/USD).';
+  }
+  const d = input.dispatch;
+  if (d) {
+    const costos: (number | undefined)[] = [d.honorariosAgente, d.prevalidacion, d.almacenaje, d.estiba, d.fleteInterno];
+    if (costos.some(c => !noNegativo(c))) return 'Costos de despacho fuera de rango (0 a $1,000,000,000).';
+    if (d.otrosGastos?.some(g => !noNegativo(g.amount))) return 'Otros gastos de despacho fuera de rango (0 a $1,000,000,000).';
+  }
+  return null;
+}
+
 // POST /api/quote/multi — multi-partida con costos de despacho editables
 quoteRouter.post('/multi', authenticate, async (req: AuthRequest, res, next) => {
   try {
@@ -72,19 +106,9 @@ quoteRouter.post('/multi', authenticate, async (req: AuthRequest, res, next) => 
     if (!input?.items?.length) {
       return res.status(400).json({ status: 'error', message: 'items[] requerido (al menos 1 partida)' });
     }
-    // BUG-4 (24-ago-2026): tope de cordura por partida — $1,000 millones USD.
-    // Sin él, un valor absurdo produce aritmética sin sentido y desbordes
-    // visuales. Se valida también en el cliente; aquí es la línea dura.
-    const MAX_PARTIDA_USD = 1_000_000_000;
-    const fueraDeRango = input.items.findIndex(i =>
-      !(Number.isFinite(i.quantity) && Number.isFinite(i.unitValueUSD)) ||
-      i.quantity < 0 || i.unitValueUSD < 0 ||
-      i.unitValueUSD > MAX_PARTIDA_USD || i.quantity * i.unitValueUSD > MAX_PARTIDA_USD);
-    if (fueraDeRango >= 0) {
-      return res.status(422).json({
-        status: 'error',
-        message: `Valor fuera de rango en la partida ${fueraDeRango + 1}: el valor por partida no puede exceder $1,000,000,000 USD ni ser negativo.`,
-      });
+    const rangoInvalido = validarRangosMultiQuote(input);
+    if (rangoInvalido) {
+      return res.status(422).json({ status: 'error', message: rangoInvalido });
     }
     const result = await calculateMultiQuote(input);
 
@@ -170,6 +194,12 @@ quoteRouter.post('/scenarios', authenticate, async (req: AuthRequest, res, next)
     }
     if (!Array.isArray(variants) || variants.length === 0) {
       return res.status(400).json({ status: 'error', message: 'variants[] requerido' });
+    }
+    // BUG-4: los escenarios usan el mismo tope — sin esto era una vía de
+    // bypass directa (cotizar bien, editar a un valor absurdo y "Comparar").
+    const rangoInvalidoBase = validarRangosMultiQuote(base);
+    if (rangoInvalidoBase) {
+      return res.status(422).json({ status: 'error', message: rangoInvalidoBase });
     }
     const data = await compareScenarios(base, variants);
     res.json({ status: 'ok', data });

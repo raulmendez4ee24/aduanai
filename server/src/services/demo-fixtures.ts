@@ -35,17 +35,19 @@ interface FractionMeta {
 
 export const DEMO_FRACTIONS: FractionMeta[] = [
   { code: '85443099', description: 'Arneses de cables eléctricos para vehículos automotores', unit: 'Kg', avgUnitValueUSD: 12.5, identificadores: ['IM'] },
-  { code: '85365001', description: 'Interruptores de uso automotriz para tensión <= 1000V', unit: 'Pza', avgUnitValueUSD: 3.8 },
-  { code: '85366901', description: 'Conectores eléctricos para arnés automotriz', unit: 'Pza', avgUnitValueUSD: 0.45 },
+  { code: '85365099', description: 'Los demás.', unit: 'Pza', avgUnitValueUSD: 3.8 },
+  { code: '85366999', description: 'Los demás.', unit: 'Pza', avgUnitValueUSD: 0.45 },
   { code: '87082101', description: 'Cinturones de seguridad para vehículos', unit: 'Pza', avgUnitValueUSD: 14.2 },
-  { code: '87082999', description: 'Partes y accesorios de carrocería para vehículos', unit: 'Pza', avgUnitValueUSD: 22.7 },
+  { code: '87082999', description: 'Las demás partes y accesorios de carrocería, incluidas las de cabina', unit: 'Pza', avgUnitValueUSD: 22.7 },
+  { code: '87082922', description: 'Tableros de instrumentos, incluso con instrumentos de medida o control, para uso exclusivo en vehículos automóviles.', unit: 'Pza', avgUnitValueUSD: 35.0 },
   { code: '87089999', description: 'Las demás partes y accesorios para vehículos automóviles', unit: 'Pza', avgUnitValueUSD: 18.5 },
   { code: '73181599', description: 'Tornillos de acero al carbono, M5–M12', unit: 'Kg', avgUnitValueUSD: 4.6 },
   { code: '73181606', description: 'Tuercas hexagonales de acero', unit: 'Kg', avgUnitValueUSD: 5.1 },
-  { code: '85011099', description: 'Motores eléctricos de potencia inferior a 37.5 W', unit: 'Pza', avgUnitValueUSD: 6.4 },
-  { code: '90328905', description: 'Sensores de control automático para uso automotriz', unit: 'Pza', avgUnitValueUSD: 9.8 },
+  { code: '85011010', description: 'Motores de potencia inferior o igual a 37.5 W.', unit: 'Pza', avgUnitValueUSD: 6.4 },
+  { code: '90251901', description: 'De vehículos automóviles.', unit: 'Pza', avgUnitValueUSD: 9.8 },
+  { code: '90262099', description: 'Los demás.', unit: 'Pza', avgUnitValueUSD: 10.5 },
   { code: '39269099', description: 'Las demás manufacturas de plástico', unit: 'Kg', avgUnitValueUSD: 7.2 },
-  { code: '85044012', description: 'Convertidores estáticos de potencia <= 1 kVA', unit: 'Pza', avgUnitValueUSD: 11.3 },
+  { code: '85044099', description: 'Los demás convertidores estáticos', unit: 'Pza', avgUnitValueUSD: 11.3 },
 ];
 
 // ──────────────────────────────────────────────────────────────────────────
@@ -391,19 +393,22 @@ function buildCertification() {
 // ("Conector hembra de 12 pines" → 7318.16.06 tuercas de acero) e incluso con
 // feedback "correcta" — la vitrina reprobando su propio examen. El feedback
 // 'correct' solo es admisible porque ahora TODOS los pares son correctos.
+// Recurado 24-ago contra el catálogo LIGIE 2026 real (fracciones inexistentes
+// 85366901/85011099/85044012/85365001 sustituidas; 90328905 era controladores
+// de flama para calderas, no sensores automotrices).
 const PRODUCT_FIXTURES: { description: string; fractionCode: string }[] = [
   { description: 'Arnés eléctrico de 45 circuitos para tablero automotriz, conectores Molex', fractionCode: '85443099' },
-  { description: 'Sensor de temperatura NTC con encapsulado plástico, salida 12V', fractionCode: '90328905' },
+  { description: 'Sensor de temperatura NTC con encapsulado plástico, salida 12V', fractionCode: '90251901' },
   { description: 'Tornillo hexagonal M8x25 acero al carbono galvanizado', fractionCode: '73181599' },
-  { description: 'Conector hembra de 12 pines para arnés automotriz', fractionCode: '85366901' },
-  { description: 'Motor DC 12V 30W para movimiento de espejo retrovisor', fractionCode: '85011099' },
+  { description: 'Conector hembra de 12 pines para arnés automotriz', fractionCode: '85366999' },
+  { description: 'Motor DC 12V 30W para movimiento de espejo retrovisor', fractionCode: '85011010' },
   { description: 'Cinturón de seguridad de 3 puntos con pretensor pirotécnico', fractionCode: '87082101' },
-  { description: 'Tablero plástico inyectado para vehículo SUV color negro mate', fractionCode: '87082999' },
+  { description: 'Tablero plástico inyectado para vehículo SUV color negro mate', fractionCode: '87082922' },
   { description: 'Tuerca M6 acero zincado, paso 1.0', fractionCode: '73181606' },
-  { description: 'Convertidor DC-DC 12V a 5V, 1A, encapsulado epoxy', fractionCode: '85044012' },
-  { description: 'Sensor de presión del aceite con conector estandar', fractionCode: '90328905' },
-  { description: 'Pieza plástica decorativa para interior automotriz, ABS pintado', fractionCode: '39269099' },
-  { description: 'Interruptor de palanca para luces interiores, contacto plata', fractionCode: '85365001' },
+  { description: 'Convertidor DC-DC 12V a 5V, 1A, encapsulado epoxy', fractionCode: '85044099' },
+  { description: 'Sensor de presión del aceite con conector estandar', fractionCode: '90262099' },
+  { description: 'Pieza plástica decorativa para interior automotriz, ABS pintado', fractionCode: '87082999' },
+  { description: 'Interruptor de palanca para luces interiores, contacto plata', fractionCode: '85365099' },
 ];
 
 interface ClassificationFixture {
@@ -855,18 +860,18 @@ function buildProductsAndBOM(): {
   // Materia prima — referenciadas por fractionCode existente en imports demo
   const materias: ProductFixture[] = [
     { productCode: 'MP-ARNES-12C',  description: 'Arnés 12 circuitos automotriz',                  fractionCode: '85443099', unit: 'Pza', isFinished: false },
-    { productCode: 'MP-CONECT-MOLEX', description: 'Conector Molex hembra 12 pines',               fractionCode: '85366901', unit: 'Pza', isFinished: false },
+    { productCode: 'MP-CONECT-MOLEX', description: 'Conector Molex hembra 12 pines',               fractionCode: '85366999', unit: 'Pza', isFinished: false },
     { productCode: 'MP-TORN-M5',    description: 'Tornillo hexagonal M5 acero al carbono',         fractionCode: '73181599', unit: 'Pza', isFinished: false },
     { productCode: 'MP-PLAST-ABS',  description: 'Pieza plástica ABS pintada',                     fractionCode: '39269099', unit: 'Pza', isFinished: false },
-    { productCode: 'MP-MOTOR-30W',  description: 'Motor DC 12V 30W',                               fractionCode: '85011099', unit: 'Pza', isFinished: false },
-    { productCode: 'MP-SENSOR-NTC', description: 'Sensor NTC temperatura',                         fractionCode: '90328905', unit: 'Pza', isFinished: false },
+    { productCode: 'MP-MOTOR-30W',  description: 'Motor DC 12V 30W',                               fractionCode: '85011010', unit: 'Pza', isFinished: false },
+    { productCode: 'MP-SENSOR-NTC', description: 'Sensor NTC temperatura',                         fractionCode: '90251901', unit: 'Pza', isFinished: false },
   ];
 
   // Productos terminados
   const finished: ProductFixture[] = [
     { productCode: 'PT-TABLERO-ABC123', description: 'Tablero automotriz ensamblado modelo ABC123', fractionCode: '87082999', unit: 'Pza', isFinished: true },
-    { productCode: 'PT-SENSOR-T200',    description: 'Módulo de sensor de temperatura T200',        fractionCode: '90328905', unit: 'Pza', isFinished: true },
-    { productCode: 'PT-MOTOR-M50',      description: 'Sub-ensamble motor con conector M50',          fractionCode: '85011099', unit: 'Pza', isFinished: true },
+    { productCode: 'PT-SENSOR-T200',    description: 'Módulo de sensor de temperatura T200',        fractionCode: '90251901', unit: 'Pza', isFinished: true },
+    { productCode: 'PT-MOTOR-M50',      description: 'Sub-ensamble motor con conector M50',          fractionCode: '85011010', unit: 'Pza', isFinished: true },
   ];
 
   const products: ProductFixture[] = [...materias, ...finished];

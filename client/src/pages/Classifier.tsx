@@ -181,13 +181,26 @@ function SeccionExpediente({ titulo, children }: { titulo: string; children: Rea
 // Persistencia del borrador y del job en vuelo (BUG-2, 24-ago-2026): el
 // borrador se guarda al escribir y el job activo sobrevive a la navegación —
 // al volver al módulo se retoma el polling o se pinta el resultado terminado.
-// Llaves con namespace propio del módulo: ningún otro módulo puede pisarlas.
-const DRAFT_KEY = 'aduanai:classifier:draft'
-const JOB_KEY = 'aduanai:classifier:job'
+// Llaves con namespace del módulo Y del usuario autenticado (revisión 24-ago):
+// otro usuario que inicie sesión en el mismo navegador no ve el borrador ni
+// retoma el job de quien salió.
+function idUsuarioLocal(): string {
+  try {
+    const t = localStorage.getItem('aduanai_token')
+    const b64 = t?.split('.')[1]
+    if (!b64) return 'anon'
+    const payload = JSON.parse(atob(b64.replace(/-/g, '+').replace(/_/g, '/'))) as { userId?: string }
+    return payload.userId ?? 'anon'
+  } catch {
+    return 'anon'
+  }
+}
+const draftKey = () => `aduanai:classifier:draft:${idUsuarioLocal()}`
+const jobKey = () => `aduanai:classifier:job:${idUsuarioLocal()}`
 
 function leerDraft(): { input: string; pais: string; valor: string; cantidad: string } {
   try {
-    const d = JSON.parse(localStorage.getItem(DRAFT_KEY) ?? '{}') as Record<string, unknown>
+    const d = JSON.parse(localStorage.getItem(draftKey()) ?? '{}') as Record<string, unknown>
     return {
       input: typeof d.input === 'string' ? d.input : '',
       pais: typeof d.pais === 'string' ? d.pais : '',
@@ -221,7 +234,10 @@ export function ClassifierPage() {
   // retomar un job tras navegar) y control de cancelación del polling.
   const inicioJob = useRef<number | null>(null)
   const pollCancelado = useRef(false)
-  const jobActivo = useRef<string | null>(null)
+  // Número de "vuelta" del watcher: cada vigilarJob toma la suya y muere si
+  // deja de ser la vigente (StrictMode, doble submit, desmontaje) — nunca hay
+  // dos watchers vivos del mismo componente ni acciones tras un await viejo.
+  const vueltaSeq = useRef(0)
 
   // Etapas por tiempo transcurrido desde que arrancó el job (no desde que se
   // montó el componente): al volver a la página el indicador sigue donde iba.
@@ -243,7 +259,7 @@ export function ClassifierPage() {
   // Borrador persistente (BUG-2): se guarda al escribir, con debounce corto.
   useEffect(() => {
     const t = setTimeout(() => {
-      try { localStorage.setItem(DRAFT_KEY, JSON.stringify({ input, pais, valor, cantidad })) } catch { /* almacenamiento lleno/bloqueado: el borrador es best-effort */ }
+      try { localStorage.setItem(draftKey(), JSON.stringify({ input, pais, valor, cantidad })) } catch { /* almacenamiento lleno/bloqueado: el borrador es best-effort */ }
     }, 400)
     return () => clearTimeout(t)
   }, [input, pais, valor, cantidad])
@@ -253,7 +269,7 @@ export function ClassifierPage() {
   // sigue corriendo server-side; la llave queda para retomarlo al volver).
   useEffect(() => {
     pollCancelado.current = false
-    const jobGuardado = localStorage.getItem(JOB_KEY)
+    const jobGuardado = localStorage.getItem(jobKey())
     if (jobGuardado) void vigilarJob(jobGuardado, { reanudando: true })
     return () => { pollCancelado.current = true }
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -264,14 +280,19 @@ export function ClassifierPage() {
   // Sondea el job hasta que termine. Los errores de red transitorios NO matan
   // nada: el job sigue server-side y el siguiente intento lo recupera.
   async function vigilarJob(jobId: string, opts?: { reanudando?: boolean }) {
-    jobActivo.current = jobId
-    try { localStorage.setItem(JOB_KEY, jobId) } catch { /* best-effort */ }
+    const miVuelta = ++vueltaSeq.current
+    const vigente = () => !pollCancelado.current && vueltaSeq.current === miVuelta
+    try { localStorage.setItem(jobKey(), jobId) } catch { /* best-effort */ }
     setCargando(true)
     let intervalo = 2500
     let primeraVuelta = true
-    while (!pollCancelado.current && jobActivo.current === jobId) {
+    while (vigente()) {
       try {
         const res = await api.classifyJob(jobId)
+        // Chequeo POST-await: si esta vuelta dejó de ser la vigente mientras
+        // esperaba la red, NO toca estado ni localStorage — otro watcher (o
+        // ninguno) es el dueño ahora.
+        if (!vigente()) return
         const j = res.job
         if (opts?.reanudando && primeraVuelta) {
           inicioJob.current = new Date(j.createdAt).getTime()
@@ -279,8 +300,7 @@ export function ClassifierPage() {
         }
         primeraVuelta = false
         if (j.status === 'done' && j.result) {
-          try { localStorage.removeItem(JOB_KEY) } catch { /* best-effort */ }
-          jobActivo.current = null
+          try { localStorage.removeItem(jobKey()) } catch { /* best-effort */ }
           setResultado(j.result)
           setClassificationId(j.classificationId ?? '')
           setExpedienteNuevo(true)
@@ -293,8 +313,7 @@ export function ClassifierPage() {
           return
         }
         if (j.status === 'error') {
-          try { localStorage.removeItem(JOB_KEY) } catch { /* best-effort */ }
-          jobActivo.current = null
+          try { localStorage.removeItem(jobKey()) } catch { /* best-effort */ }
           if (j.description) setInput(prev => prev || j.description || '')
           setMensajes(m => [...m, {
             rol: 'sistema',
@@ -305,11 +324,11 @@ export function ClassifierPage() {
           return
         }
       } catch (e) {
+        if (!vigente()) return
         // Job expirado o borrado (404): soltar la llave sin drama. Cualquier
         // otro error (red, 5xx transitorio) se reintenta en el siguiente ciclo.
         if (e instanceof Error && /no encontrada/i.test(e.message)) {
-          try { localStorage.removeItem(JOB_KEY) } catch { /* best-effort */ }
-          jobActivo.current = null
+          try { localStorage.removeItem(jobKey()) } catch { /* best-effort */ }
           setCargando(false)
           return
         }
@@ -322,10 +341,6 @@ export function ClassifierPage() {
   async function clasificar() {
     const q = input.trim()
     if (!q || cargando) return
-    // BUG-6: los errores de intentos anteriores se limpian al iniciar una
-    // operación nueva — no se apilan encima del resultado bueno.
-    setMensajes(m => [...m.filter(x => !x.esError), { rol: 'usuario', texto: q }])
-    setInput('')
     setFeedback(null)
     inicioJob.current = Date.now()
     setCargando(true)
@@ -337,10 +352,26 @@ export function ClassifierPage() {
         valor ? parseFloat(valor) : undefined,
         { declaredQuantity: cantidad ? parseFloat(cantidad) : undefined },
       )
+      // Revisión 24-ago (#3): si el servidor reutilizó un job activo con OTRA
+      // descripción (doble pestaña, llave perdida), la conversación muestra la
+      // descripción de ESE job — jamás se asocia el resultado del producto A
+      // con el texto del producto B. El texto nuevo se queda en el borrador.
+      const reusadoDistinto = res.reused && res.description && res.description.trim() !== q
+      if (reusadoDistinto) {
+        setMensajes(m => [...m.filter(x => !x.esError),
+          { rol: 'usuario', texto: res.description! },
+          { rol: 'sistema', texto: 'Ya tenías una clasificación en curso — la retomo primero. Tu texto nuevo sigue en el borrador para clasificarlo cuando esta termine.' },
+        ])
+        // input NO se limpia: el borrador conserva el texto nuevo.
+      } else {
+        // BUG-6: los errores de intentos anteriores se limpian al iniciar una
+        // operación nueva — no se apilan encima del resultado bueno.
+        setMensajes(m => [...m.filter(x => !x.esError), { rol: 'usuario', texto: q }])
+        setInput('')
+      }
       void vigilarJob(res.jobId)
     } catch (e) {
       setCargando(false)
-      setInput(q) // el texto vuelve al campo: reintentar no cuesta reescribir
       setMensajes(m => [...m, {
         rol: 'sistema',
         esError: true,

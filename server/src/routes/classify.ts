@@ -128,13 +128,16 @@ classifyRouter.post('/', authenticate, requirePermission('classifier', 'create')
       userRole: req.userRole,
     };
 
-    const { jobId, reused } = await createClassificationJob({
+    const { jobId, reused, description: activeDescription } = await createClassificationJob({
       tenantId: req.tenantId!,
       userId: req.userId!,
       inputs,
     });
 
-    res.status(202).json({ status: 'ok', jobId, reused });
+    // Si se reutilizó un job activo, `description` trae la descripción de ESE
+    // job — la UI la compara con lo que el usuario tecleó para no asociar el
+    // resultado del producto A con el texto del producto B (revisión 24-ago).
+    res.status(202).json({ status: 'ok', jobId, reused, description: reused ? activeDescription ?? null : null });
   } catch (err) {
     next(err);
   }
@@ -154,17 +157,25 @@ classifyRouter.get('/jobs/:id', authenticate, async (req: AuthRequest, res, next
 
     // Watchdog perezoso: un job "corriendo" desde hace >15 min es una promesa
     // colgada o un proceso que murió sin marcar nada — se declara timeout.
+    // Transición CONDICIONAL (updateMany con status/startedAt en el where):
+    // si el runner terminó entre el findFirst y este update, count=0 y no se
+    // pisa el 'done' — el estado que se responde es el que quedó en la DB.
     if (job.status === 'running' && job.startedAt && Date.now() - job.startedAt.getTime() > JOB_RUNNING_TIMEOUT_MS) {
-      await prisma.classificationJob.update({
-        where: { id: job.id },
-        data: {
-          status: 'error',
-          finishedAt: new Date(),
-          error: { code: 'TIMEOUT', message: 'La clasificación tardó demasiado y se canceló. Intenta de nuevo.', retriable: true } as unknown as object,
-        },
+      const timeoutError = { code: 'TIMEOUT', message: 'La clasificación tardó demasiado y se canceló. Intenta de nuevo.', retriable: true };
+      const cutoff = new Date(Date.now() - JOB_RUNNING_TIMEOUT_MS);
+      const marked = await prisma.classificationJob.updateMany({
+        where: { id: job.id, status: 'running', startedAt: { lt: cutoff } },
+        data: { status: 'error', finishedAt: new Date(), error: timeoutError as unknown as object },
       });
-      job.status = 'error';
-      job.error = { code: 'TIMEOUT', message: 'La clasificación tardó demasiado y se canceló. Intenta de nuevo.', retriable: true } as unknown as typeof job.error;
+      if (marked.count === 1) {
+        job.status = 'error';
+        job.finishedAt = new Date();
+        job.error = timeoutError as unknown as typeof job.error;
+      } else {
+        // El runner ganó la carrera: re-leer el estado real.
+        const fresh = await prisma.classificationJob.findFirst({ where: { id: job.id, tenantId: req.tenantId! } });
+        if (fresh) Object.assign(job, fresh);
+      }
     }
 
     res.json({
