@@ -2310,7 +2310,10 @@ model OriginRule {
   agreement       String // "TMEC" | "TLCUEM" | "CPTPP" | "ALADI" | "AAP"
   ruleType        String // "wholly_obtained" | "tariff_shift" | "rvc" | "specific_process" | "combined"
   description     String
-  rvcRequired     Float? // % requerido si aplica RVC
+  rvcRequired     Float? // % requerido si aplica RVC (valor de transacción, o único)
+  // Umbral distinto por costo neto (T-MEC típico: 60% VT / 50% CN). Si es
+  // null, aplica rvcRequired a todos los métodos (comportamiento previo).
+  rvcRequiredNetCost Float?
   rvcMethod       String? // "transaction_value" | "net_cost" | "either" | "build_up" | "build_down"
   tariffShift     String? // descripción del cambio (ej. "cambio a partida 8703 desde cualquier otro capítulo")
   tariffShiftCode String? // "CC" (cambio capítulo) | "CTH" (cambio partida) | "CTSH" (cambio subpartida)

@@ -13,6 +13,7 @@ interface OriginRuleSeed {
   ruleType: 'wholly_obtained' | 'tariff_shift' | 'rvc' | 'specific_process' | 'combined';
   description: string;
   rvcRequired?: number;
+  rvcRequiredNetCost?: number;
   rvcMethod?: 'transaction_value' | 'net_cost' | 'either' | 'build_up' | 'build_down';
   tariffShift?: string;
   tariffShiftCode?: string;
@@ -180,6 +181,7 @@ export const ORIGIN_RULES: OriginRuleSeed[] = [
     tariffShift: 'Cambio a las subpartidas 8544.11 a 8544.60 desde cualquier subpartida fuera de ese grupo, excepto de las partidas 74.08, 74.13, 76.05 o 76.14',
     tariffShiftCode: 'CTSH',
     rvcRequired: 60,
+    rvcRequiredNetCost: 50,
     rvcMethod: 'either' as const,
     annex: '4-B',
     isAutomotive: sub === '854430',
@@ -191,7 +193,7 @@ export const ORIGIN_RULES: OriginRuleSeed[] = [
     description: 'Cables de fibra óptica — cambio de subpartida desde cualquier otra (excepto partidas 70.02 o 90.01); o desde 70.02/90.01 con VCR 60% (VT) o 50% (CN)',
     tariffShift: 'Cambio a la subpartida 8544.70 desde cualquier otra subpartida, excepto de las partidas 70.02 o 90.01',
     tariffShiftCode: 'CTSH',
-    rvcRequired: 60, rvcMethod: 'either', annex: '4-B',
+    rvcRequired: 60, rvcRequiredNetCost: 50, rvcMethod: 'either', annex: '4-B',
     notes: 'Regla 115 cap. 85 (GN 11 USMCA Rev.17-2026). VCR alternativo: 50% por costo neto.' },
 
   // ════════════════════════════════════════════════════════════════════
@@ -340,6 +342,7 @@ export async function seedOriginRules(prisma: PrismaClient): Promise<{ inserted:
         ruleType: rule.ruleType,
         description: rule.description,
         rvcRequired: rule.rvcRequired,
+        rvcRequiredNetCost: rule.rvcRequiredNetCost,
         rvcMethod: rule.rvcMethod,
         tariffShift: rule.tariffShift,
         tariffShiftCode: rule.tariffShiftCode,

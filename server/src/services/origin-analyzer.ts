@@ -41,6 +41,7 @@ export interface OriginRuleMatch {
   ruleType: string;
   description: string;
   rvcRequired: number | null;
+  rvcRequiredNetCost: number | null;
   rvcMethod: string | null;
   tariffShift: string | null;
   tariffShiftCode: string | null;
@@ -262,27 +263,31 @@ export function analyzeOriginPure(args: { input: OriginAnalysisInput; rule: Orig
           candidates.push({ name: 'transaction_value', value: rvc.transactionValue });
           candidates.push({ name: 'net_cost', value: rvc.netCost });
         }
-        const required = rule.rvcRequired ?? 0;
-        const passing = candidates.filter(c => c.value != null && c.value >= required);
+        // Umbral POR MÉTODO (fidelidad T-MEC): el tratado típico pide 60% por
+        // valor de transacción O 50% por costo neto. rvcRequiredNetCost null
+        // conserva el comportamiento previo (un solo umbral).
+        const requiredFor = (name: RVCMethod) =>
+          name === 'net_cost' && rule.rvcRequiredNetCost != null ? rule.rvcRequiredNetCost : rule.rvcRequired ?? 0;
+        const passing = candidates.filter(c => c.value != null && c.value >= requiredFor(c.name));
         const best = candidates.reduce<{ name: RVCMethod; value: number | null } | null>((b, c) => (c.value != null && (b == null || (b.value ?? 0) < c.value)) ? c : b, null);
 
         if (passing.length > 0) {
           qualifies = true;
           qualifyingMethod = passing[0]!.name;
           rvcMethodApplied = passing[0]!.name;
-          reason = `Cumple RVC ${passing[0]!.value}% ≥ ${required}% (método ${passing[0]!.name}).`;
+          reason = `Cumple RVC ${passing[0]!.value}% ≥ ${requiredFor(passing[0]!.name)}% (método ${passing[0]!.name}).`;
         } else if (best?.value != null) {
           qualifies = false;
           rvcMethodApplied = best.name;
-          reason = `No cumple RVC: mejor cálculo ${best.value}% (${best.name}) < ${required}% requerido.`;
+          reason = `No cumple RVC: mejor cálculo ${best.value}% (${best.name}) < ${requiredFor(best.name)}% requerido.`;
           // Recomendación: cuánto VNM bajar (con mejor método)
           const denominator = best.name === 'net_cost' ? nc : input.productValue;
-          const targetVNM = denominator * (1 - required / 100);
+          const targetVNM = denominator * (1 - requiredFor(best.name) / 100);
           const reduceVNMBy = round2(totalNonOriginatingValue - targetVNM);
           if (reduceVNMBy > 0) {
             recommendations.push({
               type: 'reduce_vnm',
-              message: `Reducir VNM en $${reduceVNMBy.toLocaleString('es-MX')} USD (de $${round2(totalNonOriginatingValue)} a $${round2(targetVNM)}) para alcanzar ${required}% RVC.`,
+              message: `Reducir VNM en $${reduceVNMBy.toLocaleString('es-MX')} USD (de $${round2(totalNonOriginatingValue)} a $${round2(targetVNM)}) para alcanzar ${requiredFor(best.name)}% RVC.`,
               deltaUSD: reduceVNMBy,
             });
             recommendations.push({
