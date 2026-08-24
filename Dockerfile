@@ -16,6 +16,11 @@ RUN npm ci
 RUN npx prisma generate
 RUN npm run build
 
+# Gate anti-reincidencia D4 (24-ago-2026): si la clase rota de input numérico
+# (`value={x || ''}` + parseFloat por tecla) reaparece en client/src, el build
+# FALLA aquí — corre mientras /app/client todavía existe (se borra más abajo).
+RUN npx tsx src/tests/campo-numerico-clase.test.ts
+
 # Build client
 WORKDIR /app/client
 RUN npm ci

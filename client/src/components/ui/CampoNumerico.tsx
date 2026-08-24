@@ -17,7 +17,7 @@
  *  - `<CampoNumerico value onValue className … />` → un `<input>` plano con
  *    el comportamiento integrado, para filas dinámicas.
  */
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 
 function aTexto(n: number): string {
   return n === 0 ? '' : String(n)
@@ -26,11 +26,23 @@ function aTexto(n: number): string {
 export function useCampoNumerico(value: number, onValue: (n: number) => void) {
   const [texto, setTexto] = useState(() => aTexto(value))
   const [enfocado, setEnfocado] = useState(false)
+  // Último número que ESTE campo emitió: distingue el eco de nuestro propio
+  // onValue (no debe pisar lo tecleado — "0." emite 0 y el texto sigue "0.")
+  // de un cambio EXTERNO real (reset programático, querystring) que sí debe
+  // adoptarse aunque el campo esté enfocado — sin esto, el blur re-emitía el
+  // texto local y deshacía el cambio externo (revisión 24-ago).
+  const ultimoEmitido = useRef(value)
 
-  // Cambios externos del valor (reset del form, navegación con querystring)
-  // se reflejan solo cuando el usuario NO está escribiendo.
   useEffect(() => {
-    if (!enfocado) setTexto(aTexto(value))
+    if (!enfocado) {
+      setTexto(aTexto(value))
+      ultimoEmitido.current = value
+      return
+    }
+    if (value !== ultimoEmitido.current) {
+      setTexto(aTexto(value))
+      ultimoEmitido.current = value
+    }
   }, [value, enfocado])
 
   return {
@@ -43,11 +55,14 @@ export function useCampoNumerico(value: number, onValue: (n: number) => void) {
       const t = e.target.value
       setTexto(t)
       const n = parseFloat(t)
-      onValue(Number.isFinite(n) && n >= 0 ? n : 0)
+      const emitir = Number.isFinite(n) && n >= 0 ? n : 0
+      ultimoEmitido.current = emitir
+      onValue(emitir)
     },
     onBlur: (e: React.FocusEvent<HTMLInputElement>) => {
       setEnfocado(false)
       const n = Math.max(0, parseFloat(e.currentTarget.value) || 0)
+      ultimoEmitido.current = n
       onValue(n)
       setTexto(aTexto(n))
     },

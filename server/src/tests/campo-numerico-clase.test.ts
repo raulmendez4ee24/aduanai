@@ -17,12 +17,34 @@ import { strict as assert } from 'node:assert';
 import fs from 'node:fs';
 import path from 'node:path';
 
-const CLIENT_SRC = path.resolve(process.cwd(), '../client/src');
+// Ruta anclada al ARCHIVO, no al cwd — el guard corre igual desde server/,
+// desde la raíz del repo, o dentro del contenedor (revisión 24-ago).
+const CLIENT_SRC = path.resolve(__dirname, '../../../client/src');
 
-// `value={… || ''}` seguido (mismo elemento, ventana corta) de parseFloat
-// sobre el valor tecleado. La ventana de 300 chars cubre atributos intermedios
-// sin cruzar a otro input.
-const CLASE_ROTA = /value=\{[^}]+\|\|\s*''\s*\}[\s\S]{0,300}?parseFloat\(e\.target\.value\)/;
+// Las dos mitades de la clase rota, cada una tolerante a variantes
+// (comillas simples/dobles, e|ev|event, target|currentTarget,
+// parseFloat|Number, cualquier orden de atributos):
+const VALUE_FALSY = /value=\{[^}]+\|\|\s*(?:''|"")\s*\}/g;
+const PARSE_POR_TECLA = /(?:parseFloat|Number)\(\s*(?:e|ev|event)\.(?:target|currentTarget)\.value\s*\)/g;
+const VENTANA = 350;
+
+// Un archivo viola el guard si ambas mitades co-ocurren a menos de VENTANA
+// chars (en cualquier orden) SIN que el tramo intermedio cierre el elemento
+// JSX (`/>` o `</`) — así un input de TEXTO legítimo con `|| ''` junto a un
+// input numérico sano no dispara falso positivo.
+function violaClaseRota(contenido: string): boolean {
+  const posValue = [...contenido.matchAll(VALUE_FALSY)].map(m => m.index ?? 0);
+  const posParse = [...contenido.matchAll(PARSE_POR_TECLA)].map(m => m.index ?? 0);
+  for (const a of posValue) {
+    for (const b of posParse) {
+      const [ini, fin] = a < b ? [a, b] : [b, a];
+      if (fin - ini > VENTANA) continue;
+      const entre = contenido.slice(ini, fin);
+      if (!entre.includes('/>') && !entre.includes('</')) return true;
+    }
+  }
+  return false;
+}
 
 function walk(dir: string, out: string[]): void {
   for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
@@ -49,8 +71,8 @@ test(`el barrido encuentra el árbol del cliente (${files.length} archivos)`, ()
   assert.ok(files.length > 20, `solo ${files.length} archivos — ¿cambió la ruta client/src?`);
 });
 
-test('ningún archivo del cliente reintroduce `value={x || \'\'}` + parseFloat por tecla', () => {
-  const offenders = files.filter(f => CLASE_ROTA.test(fs.readFileSync(f, 'utf8')));
+test('ningún archivo del cliente reintroduce `value={x || \'\'}` + parse por tecla', () => {
+  const offenders = files.filter(f => violaClaseRota(fs.readFileSync(f, 'utf8')));
   assert.equal(
     offenders.length, 0,
     `clase D4 reintroducida en: ${offenders.map(f => path.relative(CLIENT_SRC, f)).join(', ')} — usa CampoNumerico/useCampoNumerico (components/ui)`,
