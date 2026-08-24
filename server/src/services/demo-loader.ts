@@ -485,9 +485,23 @@ export async function loadDemoIntoTenant(
           });
           for (let i = 0; i < classes.length; i++) {
             const item = catalog[i % catalog.length]!;
+            // BUG-11 (24-ago-2026): al sustituir el par descripción/fracción,
+            // la descripción DE LA FRACCIÓN debe ser la de la fracción nueva
+            // (antes quedaba la del fixture anterior → "Conector…" mostrando
+            // "Tuercas de acero"), y el feedback se limpia — "correcta" solo
+            // puede afirmarse sobre un par verificado, no heredarse.
+            const fracCanon = await prisma.fraction.findUnique({
+              where: { code: item.fraction.replace(/\D/g, '') },
+              select: { description: true },
+            });
             await prisma.classification.update({
               where: { id: classes[i]!.id },
-              data: { inputDescription: item.description, fractionCode: item.fraction },
+              data: {
+                inputDescription: item.description,
+                fractionCode: item.fraction,
+                fractionDescription: fracCanon?.description ?? null,
+                feedback: null,
+              },
             });
           }
           // Update quotes recientes (top 20)

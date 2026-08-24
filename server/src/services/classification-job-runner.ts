@@ -135,8 +135,6 @@ export async function runClassificationJob(jobId: string): Promise<void> {
       declaredQuantity,
     });
 
-    const consultedAt = new Date();
-    void consultedAt;
     const versions = await getActiveVersions();
     const consultHash = computeConsultHash({
       description,
