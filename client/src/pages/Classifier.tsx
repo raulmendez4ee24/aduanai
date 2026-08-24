@@ -361,6 +361,13 @@ export function ClassifierPage() {
       // descripción (doble pestaña, llave perdida), la conversación muestra la
       // descripción de ESE job — jamás se asocia el resultado del producto A
       // con el texto del producto B. El texto nuevo se queda en el borrador.
+      // Revisión 24-ago: al arrancar una clasificación nueva, el expediente
+      // anterior (posiblemente restaurado, de hasta 7 días) deja de mostrarse
+      // — sus acciones (exportar, enviar a Pre-Glosa) no deben quedar activas
+      // apuntando al resultado viejo mientras corre (o falla) el nuevo.
+      setResultado(null)
+      setClassificationId('')
+      setExpedienteNuevo(false)
       const reusadoDistinto = res.reused && res.description && res.description.trim() !== q
       if (reusadoDistinto) {
         setMensajes(m => [...m.filter(x => !x.esError),

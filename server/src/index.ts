@@ -462,10 +462,17 @@ void (async () => {
   // poblada no se toca — actualizaciones deliberadas van por ssh/seed).
   try {
     const originRulesCount = await prisma.originRule.count();
-    if (originRulesCount === 0) {
+    // Marcador de versión del seed: la regla del grupo 8544.11-8544.60 solo
+    // existe desde el seed del 24-ago — una tabla poblada SIN ella viene de un
+    // seed anterior y se re-siembra (el seed es atómico y solo contiene datos
+    // de catálogo propios del seed, nunca datos de usuario).
+    const tieneAnexo4B8544 = originRulesCount > 0
+      ? await prisma.originRule.count({ where: { fractionCode: '854430', agreement: 'TMEC', active: true } })
+      : 0;
+    if (originRulesCount === 0 || tieneAnexo4B8544 === 0) {
       const { seedOriginRules } = await import('./lib/origin-rules-data');
       const r = await seedOriginRules(prisma);
-      logger.info(`[origin] Tabla origin_rules vacía — sembradas ${r.inserted} reglas`, {
+      logger.info(`[origin] origin_rules ${originRulesCount === 0 ? 'vacía' : 'de seed anterior'} — sembradas ${r.inserted} reglas`, {
         action: 'origin_rules_seeded_on_boot', metadata: r,
       });
     }

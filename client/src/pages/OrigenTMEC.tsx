@@ -272,7 +272,12 @@ function OriginResult({ result }: { result: OriginAnalysisResult }) {
                 buildUp: 'Build-Up',
                 buildDown: 'Build-Down',
               }
-              const meets = value != null && result.rvcRequired != null && value >= result.rvcRequired
+              // Umbral por método (T-MEC típico: 60% VT / 50% CN) — sin esto
+              // el panel marcaba "no cumple" un costo neto de 52% que sí cumple.
+              const required = method === 'netCost' && result.rule?.rvcRequiredNetCost != null
+                ? result.rule.rvcRequiredNetCost
+                : result.rvcRequired
+              const meets = value != null && required != null && value >= required
               return (
                 <div key={method} className={`rounded-lg p-3 bg-white/60 border ${meets ? 'border-emerald-300' : 'border-slate-200'}`}>
                   <p className="text-[10px] uppercase opacity-70">{labels[method]}</p>

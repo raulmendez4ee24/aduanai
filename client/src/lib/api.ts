@@ -3028,6 +3028,7 @@ export interface OriginRule {
   ruleType: 'wholly_obtained' | 'tariff_shift' | 'rvc' | 'specific_process' | 'combined';
   description: string;
   rvcRequired: number | null;
+  rvcRequiredNetCost: number | null;
   rvcMethod: string | null;
   tariffShift: string | null;
   tariffShiftCode: string | null;

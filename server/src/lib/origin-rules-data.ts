@@ -184,7 +184,12 @@ export const ORIGIN_RULES: OriginRuleSeed[] = [
     rvcRequiredNetCost: 50,
     rvcMethod: 'either' as const,
     annex: '4-B',
-    isAutomotive: sub === '854430',
+    // isAutomotive false: el señalamiento del tratado (subrayado) es
+    // CONDICIONAL al uso en vehículo del cap. 87 — marcarlo incondicional
+    // activaba el bloque automotriz de la UI para cualquier operación. La
+    // condición vive en notes; el Apéndice automotriz aplica al calcular el
+    // VCR del VEHÍCULO, no de la parte como mercancía propia.
+    isAutomotive: false,
     notes: sub === '854430'
       ? 'Regla 114 cap. 85 (GN 11 USMCA Rev.17-2026). Para uso en vehículo automotor del capítulo 87 la mercancía está señalada en el tratado: al calcular el VCR del VEHÍCULO aplican además las disposiciones del Apéndice automotriz al Anexo 4-B. VCR alternativo: 50% por costo neto.'
       : 'Regla 114 cap. 85 (GN 11 USMCA Rev.17-2026). VCR alternativo: 50% por costo neto.',
@@ -328,35 +333,38 @@ export const AUTO_4B_RULES: OriginRuleSeed[] = [
 ];
 
 export async function seedOriginRules(prisma: PrismaClient): Promise<{ inserted: number }> {
-  await prisma.originRule.deleteMany({});
-
-  let inserted = 0;
   // Combina las reglas básicas + el Anexo 4-B automotriz detallado
   const allRules = [...ORIGIN_RULES, ...AUTO_4B_RULES];
-  for (const rule of allRules) {
-    await prisma.originRule.create({
-      data: {
-        fractionCode: rule.fractionCode,
-        matchType: rule.matchType ?? 'exact',
-        agreement: rule.agreement,
-        ruleType: rule.ruleType,
-        description: rule.description,
-        rvcRequired: rule.rvcRequired,
-        rvcRequiredNetCost: rule.rvcRequiredNetCost,
-        rvcMethod: rule.rvcMethod,
-        tariffShift: rule.tariffShift,
-        tariffShiftCode: rule.tariffShiftCode,
-        specificProcess: rule.specificProcess,
-        annex: rule.annex,
-        isAutomotive: rule.isAutomotive ?? false,
-        autoCategory: rule.autoCategory,
-        laborValueContent: rule.laborValueContent,
-        steelAluminumPercent: rule.steelAluminumPercent,
-        textileRule: rule.textileRule,
-        notes: rule.notes,
-      },
-    });
-    inserted++;
-  }
-  return { inserted };
+  const data = allRules.map(rule => ({
+    fractionCode: rule.fractionCode,
+    matchType: rule.matchType ?? 'exact',
+    agreement: rule.agreement,
+    ruleType: rule.ruleType,
+    description: rule.description,
+    rvcRequired: rule.rvcRequired,
+    rvcRequiredNetCost: rule.rvcRequiredNetCost,
+    rvcMethod: rule.rvcMethod,
+    tariffShift: rule.tariffShift,
+    tariffShiftCode: rule.tariffShiftCode,
+    specificProcess: rule.specificProcess,
+    annex: rule.annex,
+    isAutomotive: rule.isAutomotive ?? false,
+    autoCategory: rule.autoCategory,
+    laborValueContent: rule.laborValueContent,
+    steelAluminumPercent: rule.steelAluminumPercent,
+    textileRule: rule.textileRule,
+    notes: rule.notes,
+  }));
+
+  // Concurrencia + atomicidad (revisión 24-ago): advisory lock transaccional
+  // de Postgres (se libera solo al cerrar la transacción) + deleteMany/
+  // createMany dentro de UNA transacción. Dos instancias arrancando a la vez
+  // no pueden intercalar borrado/creación, y un fallo a mitad revierte todo —
+  // nunca queda una tabla parcial que el chequeo count>0 daría por buena.
+  return await prisma.$transaction(async tx => {
+    await tx.$queryRawUnsafe('SELECT pg_advisory_xact_lock(854430)::text');
+    await tx.originRule.deleteMany({});
+    const res = await tx.originRule.createMany({ data });
+    return { inserted: res.count };
+  });
 }

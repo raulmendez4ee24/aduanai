@@ -271,6 +271,11 @@ export function analyzeOriginPure(args: { input: OriginAnalysisInput; rule: Orig
         const passing = candidates.filter(c => c.value != null && c.value >= requiredFor(c.name));
         const best = candidates.reduce<{ name: RVCMethod; value: number | null } | null>((b, c) => (c.value != null && (b == null || (b.value ?? 0) < c.value)) ? c : b, null);
 
+        // Regla con alternativa por salto arancelario (revisión 24-ago): si la
+        // regla 'combined' trae tariffShift y el VCR NO alcanza, la mercancía
+        // aún puede calificar por la alternativa de cambio arancelario — el
+        // analizador no puede verificarla sin las fracciones de cada material,
+        // así que se recomienda la auditoría en vez de rechazar en silencio.
         if (passing.length > 0) {
           qualifies = true;
           qualifyingMethod = passing[0]!.name;
@@ -280,6 +285,12 @@ export function analyzeOriginPure(args: { input: OriginAnalysisInput; rule: Orig
           qualifies = false;
           rvcMethodApplied = best.name;
           reason = `No cumple RVC: mejor cálculo ${best.value}% (${best.name}) < ${requiredFor(best.name)}% requerido.`;
+          if (rule.ruleType === 'combined' && rule.tariffShift) {
+            recommendations.push({
+              type: 'tariff_shift_audit',
+              message: `Alternativa por salto arancelario (no verificable sin las fracciones de cada material no originario): ${rule.tariffShift}. Si TODOS los materiales no originarios cumplen el cambio, la mercancía puede calificar SIN VCR — audita sus fracciones.`,
+            });
+          }
           // Recomendación: cuánto VNM bajar (con mejor método)
           const denominator = best.name === 'net_cost' ? nc : input.productValue;
           const targetVNM = denominator * (1 - requiredFor(best.name) / 100);
