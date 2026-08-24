@@ -67,6 +67,17 @@ test('Fiscal Guardian no presenta el crédito como IVA diferido ni mezcla USD co
 
 // D7 (auditoría 21-ago-2026, aduana-shopping): el barrido de árbol completo
 // vive en src/tests/no-aduana-shopping.test.ts (usa
-// src/lib/aduana-shopping-guard.ts) — no se duplica aquí.
+// src/lib/aduana-shopping-guard.ts) — no se duplica aquí. Lo que SÍ se
+// protege aquí es la puerta de entrada de ese guard: si un merge mal
+// resuelto de package.json borra el script test:no-aduana-shopping, esta
+// suite (independiente) lo detecta. El dato en prod lo protege además el
+// verificador del Dockerfile (verify-no-aduana-shopping.mjs, cada deploy).
+test('package.json conserva el script test:no-aduana-shopping (puerta de entrada del guard)', () => {
+  const pkg = JSON.parse(read('package.json'));
+  assert.equal(
+    pkg.scripts['test:no-aduana-shopping'],
+    'tsx src/tests/no-aduana-shopping.test.ts',
+  );
+});
 
 console.log(`\n${passed} passed, 0 failed\n`);

@@ -5,7 +5,10 @@
 // cumplimiento.
 //
 // Uso local:  node prisma/seed/verify-no-aduana-shopping.mjs   (desde server/)
-// Uso prod:   railway ssh → node /app/server/prisma/seed/verify-no-aduana-shopping.mjs
+// Uso prod:   corre en CADA deploy vía el CMD del Dockerfile (raíz del repo),
+//             después de `migrate deploy` y antes de arrancar el servidor —
+//             si falla, el deploy queda FAILED y el anterior sigue sirviendo.
+//             Manual: railway ssh → node /app/server/prisma/seed/verify-no-aduana-shopping.mjs
 //
 // Solo LEE. No hace ningún UPDATE — la corrección vive en la migración
 // idempotente (prisma/migrations/<timestamp>_no_aduana_shopping_glosa_risk_rules/).

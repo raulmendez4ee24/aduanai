@@ -38,4 +38,9 @@ ENV NODE_ENV=production
 # migración falla, el contenedor sale ≠0, Railway marca el deploy FAILED y el
 # deployment anterior sigue sirviendo — fallo ruidoso sin downtime, nunca un
 # arranque con esquema a medias. Runbook: docs/MIGRATIONS.md.
-CMD ["sh", "-c", "npx prisma migrate deploy && node dist/index.js"]
+#
+# D7 (24-ago-2026): verify-no-aduana-shopping.mjs corre en CADA deploy, tras
+# las migraciones y antes de arrancar — fail-closed: si alguna fila de
+# glosa_risk_rules recomienda cambiar de aduana/puerto/patente, el deploy
+# queda FAILED. Una corrida manual no cierra la clase; esta sí.
+CMD ["sh", "-c", "npx prisma migrate deploy && node prisma/seed/verify-no-aduana-shopping.mjs && node dist/index.js"]
