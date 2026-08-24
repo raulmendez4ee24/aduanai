@@ -29,7 +29,7 @@ import {
 } from 'lucide-react'
 import { api } from '../lib/api'
 import type { GlosaSimulationInput, GlosaSimulationResult, GlosaRiskFlag, DominioGlosa, Anexo22Catalogs } from '../lib/api'
-import { Button, Card, Badge, Input, Select, SelloVerificacion, type EstadoSello } from '../components/ui'
+import { Button, Card, Badge, Input, Select, SelloVerificacion, useCampoNumerico, type EstadoSello } from '../components/ui'
 
 // ── Mapa flag.category → dato del pedimento (solo lo que mapea de verdad) ──
 // Homenaje honesto a la estructura del pedimento: mostramos el NOMBRE del dato
@@ -192,6 +192,13 @@ export function GlosaSimulatorPage() {
   const set = <K extends keyof GlosaSimulationInput>(k: K, v: GlosaSimulationInput[K]) =>
     setForm(f => ({ ...f, [k]: v }))
 
+  // D4 (auditoría 21-ago, cerrado 24-ago): los campos de dinero/peso usan el
+  // campo numérico compartido — "0.02" y ".02" se capturan tal cual (la clase
+  // rota `value={x || ''}` + parseFloat por tecla se los comía).
+  const campoUnitValue = useCampoNumerico(form.unitValueUSD, n => set('unitValueUSD', n))
+  const campoWeight = useCampoNumerico(form.weightKg, n => set('weightKg', n))
+  const campoTotalValue = useCampoNumerico(form.totalValueUSD, n => set('totalValueUSD', n))
+
   async function generar() {
     setEstado('generando'); setError('')
     try {
@@ -231,12 +238,9 @@ export function GlosaSimulatorPage() {
             <Select label="Clave de pedimento" value={form.regimenCode} onChange={e => set('regimenCode', e.target.value)}>
               {catalogos?.clavesPedimento.map(c => <option key={c.clave} value={c.clave}>{c.clave} — {c.descripcion}</option>)}
             </Select>
-            <Input label="Valor unitario (USD)" mono type="number" placeholder="0.00"
-              value={form.unitValueUSD || ''} onChange={e => set('unitValueUSD', parseFloat(e.target.value) || 0)} />
-            <Input label="Peso (kg)" mono type="number" placeholder="0"
-              value={form.weightKg || ''} onChange={e => set('weightKg', parseFloat(e.target.value) || 0)} />
-            <Input label="Valor total de la operación (USD)" mono type="number" placeholder="0.00"
-              value={form.totalValueUSD || ''} onChange={e => set('totalValueUSD', parseFloat(e.target.value) || 0)} />
+            <Input label="Valor unitario (USD)" mono placeholder="0.00" {...campoUnitValue} />
+            <Input label="Peso (kg)" mono placeholder="0" {...campoWeight} />
+            <Input label="Valor total de la operación (USD)" mono placeholder="0.00" {...campoTotalValue} />
           </div>
 
           <div className="mt-5 pt-4 border-t border-linea">

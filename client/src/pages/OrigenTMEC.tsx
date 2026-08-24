@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { Globe, Calculator, AlertTriangle, ShieldCheck, FileWarning, RefreshCw, Plus, Trash2, Award, FileText } from 'lucide-react'
 import { api } from '../lib/api'
 import type { OriginAnalysisInput, OriginAnalysisResult, OriginRule, OriginCertificateInput } from '../lib/api'
+import { CampoNumerico } from '../components/ui'
 
 const GLASS = 'bg-white/70 backdrop-blur-xl border border-white/50 shadow-[0_8px_30px_rgb(0,0,0,0.04)]'
 
@@ -376,10 +377,11 @@ function MaterialsBlock(props: {
               placeholder="Descripción del material"
               value={m.description}
               onChange={e => props.onUpdate(m.id, { description: e.target.value })} />
-            <input type="number" step="0.01" className="w-32 text-[12px] font-mono border border-slate-200 rounded-lg px-2 py-1.5"
+            {/* D4 (24-ago): campo numérico compartido — acepta 0.02, sin residuos */}
+            <CampoNumerico step="0.01" className="w-32 text-[12px] font-mono border border-slate-200 rounded-lg px-2 py-1.5"
               placeholder="USD"
-              value={m.valueUSD || ''}
-              onChange={e => props.onUpdate(m.id, { valueUSD: parseFloat(e.target.value) || 0 })} />
+              value={m.valueUSD}
+              onValue={v => props.onUpdate(m.id, { valueUSD: v })} />
             <button onClick={() => props.onRemove(m.id)} className="text-rose-500 hover:text-rose-700">
               <Trash2 className="w-3.5 h-3.5" />
             </button>
@@ -406,11 +408,13 @@ function Field({ label, children }: { label: string; children: React.ReactNode }
   )
 }
 
+// D4 (24-ago): NumInput tenía la misma clase rota (`value={value || ''}` +
+// parseFloat por tecla — "0.02" → "2"). Ahora es un alias del campo numérico
+// compartido con el estilo local de esta página.
 function NumInput({ value, onChange, placeholder }: { value: number; onChange: (v: number) => void; placeholder?: string }) {
   return (
-    <input type="number" step="0.01" className="w-full text-[13px] font-mono border border-slate-200 rounded-lg px-3 py-2"
-      placeholder={placeholder ?? '0.00'} value={value || ''}
-      onChange={e => onChange(parseFloat(e.target.value) || 0)} />
+    <CampoNumerico step="0.01" className="w-full text-[13px] font-mono border border-slate-200 rounded-lg px-3 py-2"
+      placeholder={placeholder ?? '0.00'} value={value} onValue={onChange} />
   )
 }
 
