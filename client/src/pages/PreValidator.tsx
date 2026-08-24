@@ -59,6 +59,31 @@ export function PreValidatorPage() {
     setPed(p => ({ ...p, [k]: v }))
   }
 
+  // BUG-10 (24-ago-2026): validez básica POR PASO — alimenta la palomita del
+  // stepper. Es un chequeo de completitud/cordura del cliente; la validación
+  // normativa completa (TIGIE, NOMs, TC del DOF, RFC contra padrón) sigue
+  // siendo la del servidor en el paso 5.
+  const RFC_RE = /^[A-ZÑ&]{3,4}\d{6}[A-Z0-9]{3}$/
+  function pasoValido(id: number): boolean {
+    switch (id) {
+      case 1:
+        return RFC_RE.test(ped.rfcImportador.trim()) && ped.pesoBruto > 0 && ped.pesoNeto > 0 && ped.bultos >= 1 && ped.tipoCambio > 0
+      case 2:
+        return ped.incoterm.trim() !== '' && ped.transporte.trim() !== ''
+      case 3:
+        return ped.partidas.length > 0 && ped.partidas.every(p =>
+          p.fraccion.replace(/\D/g, '').length === 8 &&
+          p.descripcion.trim() !== '' &&
+          p.cantidad > 0 && p.valorUnitario > 0 && p.valorAduana > 0 &&
+          p.pais.trim() !== '')
+      case 4:
+        return (ped.factura ?? '').trim() !== '' && (ped.cove ?? '').trim() !== ''
+      default:
+        // El paso 5 ES la validación — nunca se marca "completo" por sí solo.
+        return false
+    }
+  }
+
   function updatePartida(idx: number, patch: Partial<PedimentoPartidaInputV2>) {
     setPed(p => ({
       ...p,
@@ -117,13 +142,16 @@ export function PreValidatorPage() {
           <h1 className="text-xl font-bold text-slate-900">Pre-validador de Pedimento (Anexo 22)</h1>
         </div>
 
-        {/* Stepper */}
+        {/* Stepper — BUG-10 (24-ago-2026): la palomita ✓ refleja VALIDEZ del
+            paso (sus campos pasan el chequeo básico), no "lo visité". Avanzar
+            en blanco ya no pinta pasos verdes. La validación completa sigue
+            siendo la del servidor en el paso 5. */}
         <div className="flex items-center gap-1 mb-6 overflow-x-auto">
           {STEPS.map((s, i) => (
             <div key={s.id} className="flex items-center gap-1 shrink-0">
-              <button onClick={() => setStep(s.id)} className={`flex items-center gap-2 px-3 py-1.5 rounded-full text-[11px] font-medium transition ${step === s.id ? 'bg-emerald-500 text-white' : step > s.id ? 'bg-emerald-100 text-emerald-700' : 'bg-slate-100 text-slate-500'}`}>
-                <span className={`w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-bold ${step === s.id ? 'bg-white/20' : step > s.id ? 'bg-emerald-500 text-white' : 'bg-white text-slate-500'}`}>
-                  {step > s.id ? '✓' : s.id}
+              <button onClick={() => setStep(s.id)} className={`flex items-center gap-2 px-3 py-1.5 rounded-full text-[11px] font-medium transition ${step === s.id ? 'bg-emerald-500 text-white' : pasoValido(s.id) ? 'bg-emerald-100 text-emerald-700' : 'bg-slate-100 text-slate-500'}`}>
+                <span className={`w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-bold ${step === s.id ? 'bg-white/20' : pasoValido(s.id) ? 'bg-emerald-500 text-white' : 'bg-white text-slate-500'}`}>
+                  {pasoValido(s.id) && step !== s.id ? '✓' : s.id}
                 </span>
                 {s.label}
               </button>

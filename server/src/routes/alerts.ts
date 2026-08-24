@@ -7,6 +7,24 @@ export const alertsRouter = Router();
 
 const SEVERITY_ORDER: Record<string, number> = { critical: 0, high: 1, medium: 2, low: 3 };
 
+// BUG-7 (24-ago-2026): reescribe las frases relativas almacenadas ("vence en
+// N días", "expira en N días", "hace N días") contra el daysToDue real del
+// momento de servir. Una alerta ya vencida dice "venció hace N días", nunca
+// "vence en 1 día" junto a la etiqueta "vencida".
+const plural = (n: number) => `${n} día${n === 1 ? '' : 's'}`;
+function refrescarTextoRelativo(texto: string, daysToDue: number | null): string {
+  if (daysToDue == null) return texto;
+  const d = daysToDue;
+  return texto
+    .replace(/\b(vence|expira) en \d+ d[ií]as?\b/gi, (m, verbo: string) => {
+      void m;
+      const v = verbo.toLowerCase();
+      if (d >= 0) return `${v} en ${plural(d)}`;
+      return v === 'expira' ? `expiró hace ${plural(-d)}` : `venció hace ${plural(-d)}`;
+    })
+    .replace(/\bhace \d+ d[ií]as\b/gi, m => (d < 0 ? `hace ${plural(-d)}` : m));
+}
+
 // Listar alertas activas del tenant — ordenadas por severidad y vencimiento
 alertsRouter.get('/', authenticate, async (req: AuthRequest, res, next) => {
   try {
@@ -27,12 +45,20 @@ alertsRouter.get('/', authenticate, async (req: AuthRequest, res, next) => {
 
     // Recalcular daysToDue dinámico antes de enviar (para precisión)
     const alerts = rows
-      .map(a => ({
-        ...a,
-        daysToDue: a.dueDate
+      .map(a => {
+        const daysToDue = a.dueDate
           ? Math.ceil((a.dueDate.getTime() - now.getTime()) / (1000 * 60 * 60 * 24))
-          : null,
-      }))
+          : null;
+        return {
+          ...a,
+          daysToDue,
+          // BUG-7 (24-ago-2026): el texto relativo se recalcula al SERVIR.
+          // El almacenado quedó congelado al generarse ("vence en 30 días"
+          // para siempre); aquí se reescribe contra la fecha real.
+          title: refrescarTextoRelativo(a.title, daysToDue),
+          content: refrescarTextoRelativo(a.content, daysToDue),
+        };
+      })
       .sort((a, b) => {
         const sa = SEVERITY_ORDER[a.severity] ?? 9;
         const sb = SEVERITY_ORDER[b.severity] ?? 9;

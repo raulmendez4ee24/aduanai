@@ -391,6 +391,40 @@ model Classification {
   @@map("classifications")
 }
 
+// Clasificación asíncrona (BUG-1/BUG-2, 24-ago-2026): POST /api/classify crea
+// un job y responde 202 de inmediato; el pipeline corre server-side y la UI
+// hace polling a GET /api/classify/jobs/:id. El resultado definitivo vive en
+// Classification (como siempre); el job guarda una copia del payload de
+// respuesta para reconstruir el expediente aunque el usuario vuelva días
+// después. Retención: 7 días (borrado perezoso al crear jobs nuevos).
+model ClassificationJob {
+  id       String @id @default(cuid())
+  tenantId String
+  userId   String
+
+  // queued | running | done | error
+  status String @default("queued")
+
+  // Body original del request (description, context, etc.) + userRole para
+  // resolver permisos SOD dentro del runner. Permite "reintentar" exacto.
+  inputs Json
+
+  // { code, message, retriable } — nunca un stack ni texto de infraestructura.
+  error Json?
+
+  // Payload completo que la ruta síncrona devolvía (data + classificationId).
+  result           Json?
+  classificationId String?
+
+  createdAt  DateTime  @default(now())
+  startedAt  DateTime?
+  finishedAt DateTime?
+
+  @@index([tenantId, createdAt])
+  @@index([tenantId, userId, status])
+  @@map("classification_jobs")
+}
+
 // ============================================
 // COTIZACIONES
 // ============================================

@@ -2,12 +2,11 @@ import { Router } from 'express';
 import rateLimit from 'express-rate-limit';
 import { authenticate, AuthRequest } from '../middlewares/auth';
 import { requirePermission } from '../middlewares/requirePermission';
-import { getUserPermissions, hasPermission } from '../services/permissions';
 import { classifyProduct, type IndustrialSector, type ImporterType } from '../services/classifier';
-import { buildClassifierAlerts, computeConsultHash } from '../services/classifier-alerts';
-import { recordConsult, verifyConsult, getActiveVersions } from '../services/traceability';
-import { isDomesticOrigin, DOMESTIC_ORIGIN_NOTE } from '../lib/origin';
+import { validateClassifyInput, createClassifyInputError } from '../services/classify-input';
+import { verifyConsult } from '../services/traceability';
 import { reconciliarClasificacion } from '../services/clasificador-reconciliacion';
+import { createClassificationJob, JOB_RUNNING_TIMEOUT_MS, type ClassificationJobInputs } from '../services/classification-job-runner';
 import { prisma } from '../lib/prisma';
 
 export const classifyRouter = Router();
@@ -90,7 +89,12 @@ classifyRouter.post('/demo', demoClassifyLimit, async (req, res, next) => {
   }
 });
 
-// POST /api/classify — con auth + alertas defensivas + verificabilidad
+// POST /api/classify — asíncrono (BUG-1/BUG-2, 24-ago-2026): valida el input
+// de inmediato (422 síncrono, mismo contrato de siempre para texto basura),
+// crea un ClassificationJob y responde 202 con el jobId en <1s. El pipeline
+// completo corre en services/classification-job-runner.ts; la UI hace polling
+// a GET /api/classify/jobs/:id. Así el gateway nunca corta la petición larga
+// (502) y el trabajo en vuelo sobrevive a la navegación.
 classifyRouter.post('/', authenticate, requirePermission('classifier', 'create'), async (req: AuthRequest, res, next) => {
   try {
     const { description: rawDescription, context, countryOfOrigin, declaredValueUSD, declaredQuantity, useCase, sector, importerType } = (req.body ?? {}) as {
@@ -105,149 +109,79 @@ classifyRouter.post('/', authenticate, requirePermission('classifier', 'create')
     };
     const description = typeof rawDescription === 'string' ? rawDescription : '';
 
-    const bruto = await classifyProduct(description, context, { useCase, sector, importerType });
-
-    // FRONTERA CANÓNICA §3: reconciliación EN LA RUTA, después de que el
-    // clasificador terminó (retry + candado incluidos) — ningún camino interno
-    // puede esquivarla. NICO, tarifas, NOMs, RRNA y padrón quedan SUSTITUIDOS
-    // por los canónicos; lo que el LLM dijo distinto queda en `discrepancias`
-    // (telemetría, no UI). Alertas y regulaciones ahora beben de la misma
-    // fuente → no pueden contradecirse.
-    const { resultado: result, datosCanonicos, discrepancias } = await reconciliarClasificacion(bruto);
-
-    // Origen nacional (México): la mercancía NO se importa, así que removemos
-    // lo que solo aplica a importación: permisos (rrna), padrón y preferencias
-    // arancelarias. Las NOM se conservan (aplican también en comercio nacional).
-    // Es una regla de APLICABILIDAD sobre el dato canónico, no un cambio de fuente.
-    const domestic = isDomesticOrigin(countryOfOrigin);
-    if (domestic) {
-      result.regulations = { ...result.regulations, rrna: [], sectoralRegistry: false };
-      result.tariffs = { ...result.tariffs, preferential: {} };
-      const notaDomestica = 'Origen nacional: no aplica a esta operación (no hay importación).';
-      datosCanonicos.regulaciones.rrna = { ...datosCanonicos.regulaciones.rrna, valor: [], nota: notaDomestica };
-      datosCanonicos.regulaciones.padronSectorial = {
-        ...datosCanonicos.regulaciones.padronSectorial,
-        valor: { requerido: false, sectores: [] },
-        nota: notaDomestica,
-      };
-      datosCanonicos.tarifas.preferenciales = {
-        ...datosCanonicos.tarifas.preferenciales,
-        valor: { TMEC: null, TLCUEM: null, CPTPP: null },
-        nota: notaDomestica,
-      };
+    // Validación barata ANTES de crear el job: el texto basura sigue
+    // recibiendo su 422 inmediato, no un job que muere después.
+    const inputValidation = validateClassifyInput(description);
+    if (!inputValidation.ok) {
+      throw createClassifyInputError(inputValidation.reason);
     }
 
-    // Alertas defensivas (cuotas comp + NOMs + padrón + automotive + subvaloración)
-    const alerts = await buildClassifierAlerts({
-      fractionCode: result.fraction.code,
-      fractionDescription: result.fraction.description,
+    const inputs: ClassificationJobInputs = {
       description,
       context,
       countryOfOrigin,
       declaredValueUSD,
       declaredQuantity,
-    });
+      useCase,
+      sector,
+      importerType,
+      userRole: req.userRole,
+    };
 
-    const consultedAt = new Date();
-    // FUENTE ÚNICA de versión: se resuelve una vez y alimenta TANTO el legacyHash
-    // como recordConsult, de modo que ambos lean de la misma fuente (no divergen).
-    const versions = await getActiveVersions();
-    const consultHash = computeConsultHash({
-      description,
-      context,
-      fractionCode: result.fraction.code,
-      confidence: result.confidence,
-      tigieVersion: versions.tigie,
-    });
-
-    // Registro de trazabilidad versional — captura inputs, outputs, versiones,
-    // knowledge base y modelo usados, generando un consultHash auditable.
-    const trace = await recordConsult({
+    const { jobId, reused } = await createClassificationJob({
       tenantId: req.tenantId!,
       userId: req.userId!,
-      inputs: { description, context, countryOfOrigin, declaredValueUSD, useCase, sector, importerType },
-      // El expediente de trazabilidad conserva el canon aplicado Y lo que el
-      // LLM dijo distinto (discrepanciasLLM) — auditoría, no UI (§3.3).
-      outputs: { ...result, _trace: undefined, alerts, datosCanonicos, discrepanciasLLM: discrepancias },
-      modelUsed: result._trace?.modelUsed ?? 'unknown',
-      modelProvider: result._trace?.modelProvider ?? 'unknown',
-      knowledgeUsed: result._trace?.knowledgeUsed ?? [],
-      versions, // misma fuente que el legacyHash
+      inputs,
     });
 
-    // SOD: si el usuario no puede aprobar, la clasificación queda pendiente.
-    const perms = await getUserPermissions(req.userId!, req.tenantId!, req.userRole);
-    const canApprove = hasPermission(perms, 'classifier', 'approve');
-    const status = canApprove ? 'approved' : 'pending_approval';
+    res.status(202).json({ status: 'ok', jobId, reused });
+  } catch (err) {
+    next(err);
+  }
+});
 
-    const record = await prisma.classification.create({
-      data: {
-        tenantId: req.tenantId!,
-        userId: req.userId!,
-        inputDescription: description,
-        inputContext: context,
-        inputCountryOfOrigin: countryOfOrigin,
-        inputDeclaredValueUSD: declaredValueUSD,
-        inputUseCase: useCase,
-        inputSector: sector,
-        inputImporterType: importerType,
-        useBasedAnalysis: result.useBasedAnalysis ? (result.useBasedAnalysis as unknown as object) : undefined,
-        fractionCode: result.fraction.code,
-        fractionDescription: result.fraction.description,
-        confidence: result.confidence,
-        griApplied: result.griApplied,
-        alternatives: JSON.stringify(result.alternatives),
-        legalBasis: result.legalBasis ? (result.legalBasis as unknown as object) : undefined,
-        fullResponse: JSON.stringify({ ...result, datosCanonicos, discrepanciasLLM: discrepancias }),
-        tigieVersion: trace.versions.tigie,
-        ligieVersion: trace.versions.ligie,
-        consultHash: trace.consultHash, // hash combinado de trazabilidad
-        consultedAt: trace.consultedAt,
-        alertsJson: alerts as unknown as object,
-        status,
-        approvedAt: canApprove ? new Date() : null,
-        approvedById: canApprove ? req.userId! : null,
-      },
+// GET /api/classify/jobs/:id — polling del job. Scoped por tenant (el id de
+// otro tenant devuelve 404, no 403 — no filtra existencia). Cuando termina,
+// `result` trae el payload completo que la ruta síncrona devolvía en `data`.
+classifyRouter.get('/jobs/:id', authenticate, async (req: AuthRequest, res, next) => {
+  try {
+    const job = await prisma.classificationJob.findFirst({
+      where: { id: String(req.params.id), tenantId: req.tenantId! },
     });
+    if (!job) {
+      return res.status(404).json({ status: 'error', message: 'Clasificación no encontrada (pudo haber expirado — se conservan 7 días).' });
+    }
 
-    // Vincular el consult al classification creado (one-shot)
-    await prisma.classificationConsult.update({
-      where: { id: trace.id },
-      data: { classificationId: record.id },
-    });
-
-    // Verificación de Padrones SAT — bloquea operación si no está inscrito.
-    // No aplica a mercancía de origen nacional (no hay importación que inscribir).
-    const { checkRequiredPadrones } = await import('../services/padron-checker');
-    const padronCheck = domestic ? null : await checkRequiredPadrones(req.tenantId!, result.fraction.code, 'classify', record.id);
+    // Watchdog perezoso: un job "corriendo" desde hace >15 min es una promesa
+    // colgada o un proceso que murió sin marcar nada — se declara timeout.
+    if (job.status === 'running' && job.startedAt && Date.now() - job.startedAt.getTime() > JOB_RUNNING_TIMEOUT_MS) {
+      await prisma.classificationJob.update({
+        where: { id: job.id },
+        data: {
+          status: 'error',
+          finishedAt: new Date(),
+          error: { code: 'TIMEOUT', message: 'La clasificación tardó demasiado y se canceló. Intenta de nuevo.', retriable: true } as unknown as object,
+        },
+      });
+      job.status = 'error';
+      job.error = { code: 'TIMEOUT', message: 'La clasificación tardó demasiado y se canceló. Intenta de nuevo.', retriable: true } as unknown as typeof job.error;
+    }
 
     res.json({
       status: 'ok',
-      data: {
-        ...result,
-        _trace: undefined,
-        alerts,
-        datosCanonicos,
-        discrepanciasLLM: discrepancias,
-        padronCheck,
-        domesticOrigin: domestic,
-        domesticNote: domestic ? DOMESTIC_ORIGIN_NOTE : undefined,
-        meta: {
-          tigieVersion: trace.versions.tigie,
-          ligieVersion: trace.versions.ligie,
-          rgceVersion: trace.versions.rgce,
-          modelUsed: result._trace?.modelUsed,
-          modelProvider: result._trace?.modelProvider,
-          inputHash: trace.inputHash,
-          outputHash: trace.outputHash,
-          knowledgeBaseHash: trace.knowledgeBaseHash,
-          legacyHash: consultHash,
-          consultHash: trace.consultHash,
-          consultedAt: trace.consultedAt.toISOString(),
-          verifyUrl: `/verify/${trace.consultHash}`,
-        },
+      job: {
+        id: job.id,
+        status: job.status,
+        createdAt: job.createdAt.toISOString(),
+        startedAt: job.startedAt?.toISOString() ?? null,
+        finishedAt: job.finishedAt?.toISOString() ?? null,
+        // La descripción original permite reconstruir la conversación en la
+        // UI cuando el usuario vuelve al módulo con el job aún en vuelo.
+        description: (job.inputs as { description?: string } | null)?.description ?? null,
+        error: job.error ?? null,
+        classificationId: job.classificationId ?? null,
+        result: job.status === 'done' ? job.result : null,
       },
-      classificationId: record.id,
     });
   } catch (err) {
     next(err);

@@ -34,11 +34,23 @@ async function request<T>(path: string, options?: RequestInit, timeoutMs?: numbe
         }
         throw new Error('Tu sesión expiró. Inicia sesión de nuevo.');
       }
-      const error = await res.json().catch(() => ({ message: 'Error de conexión' }));
-      throw new Error(error.message || `Error ${res.status}`);
+      // BUG-1 (24-ago-2026): un 502/503/504 del gateway trae HTML crudo de la
+      // plataforma ("Application failed to respond") — NUNCA se muestra ese
+      // texto al usuario. Se normaliza a un mensaje claro y reintentable.
+      if (res.status === 502 || res.status === 503 || res.status === 504) {
+        throw new Error('El servicio no respondió (error temporal). Intenta de nuevo en unos segundos.');
+      }
+      const error = await res.json().catch(() => ({ message: null }));
+      throw new Error(error.message || `El servidor respondió con un error (${res.status}). Intenta de nuevo.`);
     }
 
-    return res.json();
+    // Respuesta 200 que no es JSON (p. ej. una página de error interpuesta):
+    // mensaje claro, nunca el SyntaxError del parser.
+    try {
+      return await res.json();
+    } catch {
+      throw new Error('El servidor devolvió una respuesta inválida. Intenta de nuevo.');
+    }
   } catch (error) {
     if (controller?.signal.aborted) {
       throw new Error('La consulta tardó demasiado. Intenta de nuevo.');
@@ -102,18 +114,35 @@ export const api = {
       body: JSON.stringify({ resetToken, newPassword }),
     }),
 
-  // Clasificador
-  classify: (
+  // Clasificador — asíncrono (BUG-1/BUG-2): el POST crea un job y responde
+  // 202 de inmediato; el resultado se obtiene con polling a classifyJob().
+  classifyStart: (
     description: string,
     context?: string,
     countryOfOrigin?: string,
     declaredValueUSD?: number,
     extras?: { useCase?: string; sector?: IndustrialSector; importerType?: ImporterType; declaredQuantity?: number },
   ) =>
-    request<{ status: string; data: ClassificationResult; classificationId?: string }>('/classify', {
+    request<{ status: string; jobId: string; reused: boolean }>('/classify', {
       method: 'POST',
       body: JSON.stringify({ description, context, countryOfOrigin, declaredValueUSD, ...extras }),
-    }),
+    }, 30000),
+
+  classifyJob: (jobId: string) =>
+    request<{
+      status: string;
+      job: {
+        id: string;
+        status: 'queued' | 'running' | 'done' | 'error';
+        createdAt: string;
+        startedAt: string | null;
+        finishedAt: string | null;
+        description: string | null;
+        error: { code: string; message: string; retriable: boolean } | null;
+        classificationId: string | null;
+        result: ClassificationResult | null;
+      };
+    }>(`/classify/jobs/${encodeURIComponent(jobId)}`, undefined, 15000),
 
   classifyHistory: (search?: string, page = 1) =>
     request<{ status: string; data: ClassificationRecord[]; pagination: { page: number; total: number } }>(

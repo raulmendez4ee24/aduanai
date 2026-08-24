@@ -385,19 +385,25 @@ function buildCertification() {
 // 6) CLASIFICACIONES (80)
 // ──────────────────────────────────────────────────────────────────────────
 
-const PRODUCT_DESCRIPTIONS = [
-  'Arnés eléctrico de 45 circuitos para tablero automotriz, conectores Molex',
-  'Sensor de temperatura NTC con encapsulado plástico, salida 12V',
-  'Tornillo hexagonal M8x25 acero al carbono galvanizado',
-  'Conector hembra de 12 pines para arnés automotriz',
-  'Motor DC 12V 30W para movimiento de espejo retrovisor',
-  'Cinturón de seguridad de 3 puntos con pretensor pirotécnico',
-  'Tablero plástico inyectado para vehículo SUV color negro mate',
-  'Tuerca M6 acero zincado, paso 1.0',
-  'Convertidor DC-DC 12V a 5V, 1A, encapsulado epoxy',
-  'Sensor de presión del aceite con conector estandar',
-  'Pieza plástica decorativa para interior automotriz, ABS pintado',
-  'Interruptor de palanca para luces interiores, contacto plata',
+// BUG-11 (auditoría 24-ago-2026): cada descripción va SIEMPRE en par con su
+// fracción correcta. Antes descripción y fracción se elegían con RNG
+// independiente, así que el historial demo mostraba pares barajados
+// ("Conector hembra de 12 pines" → 7318.16.06 tuercas de acero) e incluso con
+// feedback "correcta" — la vitrina reprobando su propio examen. El feedback
+// 'correct' solo es admisible porque ahora TODOS los pares son correctos.
+const PRODUCT_FIXTURES: { description: string; fractionCode: string }[] = [
+  { description: 'Arnés eléctrico de 45 circuitos para tablero automotriz, conectores Molex', fractionCode: '85443099' },
+  { description: 'Sensor de temperatura NTC con encapsulado plástico, salida 12V', fractionCode: '90328905' },
+  { description: 'Tornillo hexagonal M8x25 acero al carbono galvanizado', fractionCode: '73181599' },
+  { description: 'Conector hembra de 12 pines para arnés automotriz', fractionCode: '85366901' },
+  { description: 'Motor DC 12V 30W para movimiento de espejo retrovisor', fractionCode: '85011099' },
+  { description: 'Cinturón de seguridad de 3 puntos con pretensor pirotécnico', fractionCode: '87082101' },
+  { description: 'Tablero plástico inyectado para vehículo SUV color negro mate', fractionCode: '87082999' },
+  { description: 'Tuerca M6 acero zincado, paso 1.0', fractionCode: '73181606' },
+  { description: 'Convertidor DC-DC 12V a 5V, 1A, encapsulado epoxy', fractionCode: '85044012' },
+  { description: 'Sensor de presión del aceite con conector estandar', fractionCode: '90328905' },
+  { description: 'Pieza plástica decorativa para interior automotriz, ABS pintado', fractionCode: '39269099' },
+  { description: 'Interruptor de palanca para luces interiores, contacto plata', fractionCode: '85365001' },
 ];
 
 interface ClassificationFixture {
@@ -413,13 +419,17 @@ interface ClassificationFixture {
 
 function buildClassifications(): ClassificationFixture[] {
   const rng = seedRng(7);
+  const porCodigo = new Map(DEMO_FRACTIONS.map(f => [f.code, f]));
   const out: ClassificationFixture[] = [];
   for (let i = 0; i < 80; i++) {
-    const frac = DEMO_FRACTIONS[Math.floor(rng() * DEMO_FRACTIONS.length)];
-    const desc = PRODUCT_DESCRIPTIONS[Math.floor(rng() * PRODUCT_DESCRIPTIONS.length)];
+    // Se elige el PAR curado completo (descripción + su fracción correcta) —
+    // nunca descripción y fracción por separado (BUG-11).
+    const fixture = PRODUCT_FIXTURES[Math.floor(rng() * PRODUCT_FIXTURES.length)];
+    const frac = porCodigo.get(fixture.fractionCode);
+    if (!frac) throw new Error(`PRODUCT_FIXTURES apunta a fracción fuera de DEMO_FRACTIONS: ${fixture.fractionCode}`);
     const conf = 70 + rng() * 28;
     out.push({
-      inputDescription: desc,
+      inputDescription: fixture.description,
       inputContext: 'Industria automotriz — mercancía importada bajo IMMEX',
       fractionCode: frac.code,
       fractionDescription: frac.description,

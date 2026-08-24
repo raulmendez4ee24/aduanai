@@ -44,6 +44,21 @@ const parseNum = (s: string): number => {
   return Number.isFinite(n) ? n : 0
 }
 
+// BUG-9 (24-ago-2026): al bloquear el signo negativo, el input quedaba con el
+// cero de relleno ("-5" → "05", "-100" → "0100") porque el DOM conserva el
+// texto tecleado mientras el estado ya es otro número. Al perder foco se
+// normaliza el texto del DOM al número realmente almacenado (nunca negativo).
+const normalizeNumericBlur = (e: React.FocusEvent<HTMLInputElement>, apply: (n: number) => void) => {
+  const n = Math.max(0, parseNum(e.currentTarget.value))
+  apply(n)
+  e.currentTarget.value = String(n)
+}
+
+// BUG-4 (24-ago-2026): tope de cordura por partida. $1,000 millones USD por
+// renglón está por encima de cualquier operación real; más allá de eso solo
+// se producen desbordes visuales y aritmética sin sentido.
+const MAX_PARTIDA_USD = 1_000_000_000
+
 export function QuoterPage() {
   const [meta, setMeta] = useState({ name: '', client: '', incoterm: 'CIF', currency: 'USD', destination: 'Aduana de Nuevo Laredo' })
   const [items, setItems] = useState<MultiQuoteItemInput[]>([emptyItem()])
@@ -78,6 +93,13 @@ export function QuoterPage() {
 
   async function handleQuote() {
     if (items.filter(i => i.fractionCode && i.quantity > 0).length === 0) return
+    // BUG-4: rango máximo por partida — sin esto un valor absurdo produce
+    // totales que desbordan el panel y aritmética sin sentido.
+    const fuera = items.findIndex(i => i.fractionCode && (i.unitValueUSD > MAX_PARTIDA_USD || i.unitValueUSD * i.quantity > MAX_PARTIDA_USD))
+    if (fuera >= 0) {
+      setError(`Valor fuera de rango en la partida ${fuera + 1}: el valor por partida no puede exceder $1,000,000,000 USD. Revisa cantidad y valor unitario.`)
+      return
+    }
     setLoading(true); setError(''); setResult(null); setScenarios(null)
     try {
       const r = await api.quoteMulti(buildInput())
@@ -164,13 +186,13 @@ export function QuoterPage() {
                   <Field label="Fracción"><input autoComplete="off" name={`fraction-${rowIds[idx]}`} className="w-full text-[12px] font-mono border border-slate-200 rounded-lg px-2 py-1.5" placeholder="0000.00.00" value={it.fractionCode} onChange={e => updateItem(idx, { fractionCode: e.target.value })}/></Field>
                   <Field label="Descripción"><input autoComplete="off" name={`desc-${rowIds[idx]}`} className="w-full text-[12px] border border-slate-200 rounded-lg px-2 py-1.5" value={it.description ?? ''} onChange={e => updateItem(idx, { description: e.target.value })}/></Field>
                   <Field label="País origen"><input autoComplete="off" name={`country-${rowIds[idx]}`} className="w-full text-[12px] border border-slate-200 rounded-lg px-2 py-1.5" placeholder="China" value={it.countryOfOrigin} onChange={e => updateItem(idx, { countryOfOrigin: e.target.value })}/></Field>
-                  <Field label="Cantidad"><input type="number" autoComplete="off" name={`qty-${rowIds[idx]}`} onWheel={blurOnWheel} className="w-full text-[12px] border border-slate-200 rounded-lg px-2 py-1.5" value={it.quantity} onChange={e => updateItem(idx, { quantity: parseNum(e.target.value) })}/></Field>
-                  <Field label="Valor unit. USD"><input type="number" step="0.01" autoComplete="off" name={`unitVal-${rowIds[idx]}`} onWheel={blurOnWheel} className="w-full text-[12px] border border-slate-200 rounded-lg px-2 py-1.5" value={it.unitValueUSD} onChange={e => updateItem(idx, { unitValueUSD: parseNum(e.target.value) })}/></Field>
-                  <Field label="Total USD"><div className="text-[12px] py-1.5 px-2 text-slate-700 font-semibold">${(it.quantity * it.unitValueUSD).toLocaleString('en-US', { maximumFractionDigits: 2 })}</div></Field>
+                  <Field label="Cantidad"><input type="number" min="0" autoComplete="off" name={`qty-${rowIds[idx]}`} onWheel={blurOnWheel} className="w-full text-[12px] border border-slate-200 rounded-lg px-2 py-1.5" value={it.quantity} onChange={e => updateItem(idx, { quantity: parseNum(e.target.value) })} onBlur={e => normalizeNumericBlur(e, n => updateItem(idx, { quantity: n }))}/></Field>
+                  <Field label="Valor unit. USD"><input type="number" min="0" step="0.01" autoComplete="off" name={`unitVal-${rowIds[idx]}`} onWheel={blurOnWheel} className="w-full text-[12px] border border-slate-200 rounded-lg px-2 py-1.5" value={it.unitValueUSD} onChange={e => updateItem(idx, { unitValueUSD: parseNum(e.target.value) })} onBlur={e => normalizeNumericBlur(e, n => updateItem(idx, { unitValueUSD: n }))}/></Field>
+                  <Field label="Total USD"><div className="text-[12px] py-1.5 px-2 text-slate-700 font-semibold break-all">${(it.quantity * it.unitValueUSD).toLocaleString('en-US', { maximumFractionDigits: 2 })}</div></Field>
                 </div>
                 <div className="grid grid-cols-2 md:grid-cols-5 gap-2 mt-2">
-                  <Field label="Flete USD"><input type="number" step="0.01" autoComplete="off" name={`freight-${rowIds[idx]}`} onWheel={blurOnWheel} className="w-full text-[12px] border border-slate-200 rounded-lg px-2 py-1.5" value={it.freightUSD ?? 0} onChange={e => updateItem(idx, { freightUSD: parseNum(e.target.value) })}/></Field>
-                  <Field label="Seguro USD"><input type="number" step="0.01" autoComplete="off" name={`insurance-${rowIds[idx]}`} onWheel={blurOnWheel} className="w-full text-[12px] border border-slate-200 rounded-lg px-2 py-1.5" value={it.insuranceUSD ?? 0} onChange={e => updateItem(idx, { insuranceUSD: parseNum(e.target.value) })}/></Field>
+                  <Field label="Flete USD"><input type="number" min="0" step="0.01" autoComplete="off" name={`freight-${rowIds[idx]}`} onWheel={blurOnWheel} className="w-full text-[12px] border border-slate-200 rounded-lg px-2 py-1.5" value={it.freightUSD ?? 0} onChange={e => updateItem(idx, { freightUSD: parseNum(e.target.value) })} onBlur={e => normalizeNumericBlur(e, n => updateItem(idx, { freightUSD: n }))}/></Field>
+                  <Field label="Seguro USD"><input type="number" min="0" step="0.01" autoComplete="off" name={`insurance-${rowIds[idx]}`} onWheel={blurOnWheel} className="w-full text-[12px] border border-slate-200 rounded-lg px-2 py-1.5" value={it.insuranceUSD ?? 0} onChange={e => updateItem(idx, { insuranceUSD: parseNum(e.target.value) })} onBlur={e => normalizeNumericBlur(e, n => updateItem(idx, { insuranceUSD: n }))}/></Field>
                   <Field label="Peso kg (cuota USD/kg)"><input type="number" step="0.01" autoComplete="off" name={`weight-${rowIds[idx]}`} onWheel={blurOnWheel} placeholder="opt." title="Requerido si aplica cuota compensatoria USD/kg" className="w-full text-[12px] border border-slate-200 rounded-lg px-2 py-1.5" value={it.weightKg ?? ''} onChange={e => updateItem(idx, { weightKg: e.target.value === '' ? undefined : parseNum(e.target.value) })}/></Field>
                   <Field label="Override IGI %"><input type="number" step="0.1" autoComplete="off" name={`igi-${rowIds[idx]}`} onWheel={blurOnWheel} placeholder="auto" className="w-full text-[12px] border border-slate-200 rounded-lg px-2 py-1.5" value={it.igiRateOverride ?? ''} onChange={e => updateItem(idx, { igiRateOverride: e.target.value === '' ? undefined : parseNum(e.target.value) })}/></Field>
                   <Field label="Tratado">
@@ -375,12 +397,13 @@ function QuoteResult({ result }: { result: MultiQuoteResult }) {
         </div>
       )}
 
-      {/* Header totales */}
+      {/* Header totales — BUG-4: min-w-0 + break-all contienen el número
+          dentro de la tarjeta; nunca se corta contra el borde de la pantalla. */}
       <div className="flex items-start justify-between flex-wrap gap-4">
-        <div>
+        <div className="min-w-0 max-w-full">
           <p className="text-[11px] text-slate-500 uppercase tracking-wider mb-1">Costo total con despacho</p>
-          <p className="text-[36px] font-bold text-slate-900">${mxn(result.totals.totalAll)} <span className="text-[16px] text-slate-500">MXN</span></p>
-          <p className="text-[12px] text-emerald-600 mt-1">Landed cost: ${mxn(result.totals.totalLandedCost)} · Despacho: ${mxn(result.totals.totalDispatch)}</p>
+          <p className="text-[36px] font-bold text-slate-900 break-all leading-tight">${mxn(result.totals.totalAll)} <span className="text-[16px] text-slate-500">MXN</span></p>
+          <p className="text-[12px] text-emerald-600 mt-1 break-all">Landed cost: ${mxn(result.totals.totalLandedCost)} · Despacho: ${mxn(result.totals.totalDispatch)}</p>
         </div>
         <div className="text-right">
           <p className="text-[11px] text-slate-500">Tipo de cambio</p>

@@ -72,6 +72,20 @@ quoteRouter.post('/multi', authenticate, async (req: AuthRequest, res, next) => 
     if (!input?.items?.length) {
       return res.status(400).json({ status: 'error', message: 'items[] requerido (al menos 1 partida)' });
     }
+    // BUG-4 (24-ago-2026): tope de cordura por partida — $1,000 millones USD.
+    // Sin él, un valor absurdo produce aritmética sin sentido y desbordes
+    // visuales. Se valida también en el cliente; aquí es la línea dura.
+    const MAX_PARTIDA_USD = 1_000_000_000;
+    const fueraDeRango = input.items.findIndex(i =>
+      !(Number.isFinite(i.quantity) && Number.isFinite(i.unitValueUSD)) ||
+      i.quantity < 0 || i.unitValueUSD < 0 ||
+      i.unitValueUSD > MAX_PARTIDA_USD || i.quantity * i.unitValueUSD > MAX_PARTIDA_USD);
+    if (fueraDeRango >= 0) {
+      return res.status(422).json({
+        status: 'error',
+        message: `Valor fuera de rango en la partida ${fueraDeRango + 1}: el valor por partida no puede exceder $1,000,000,000 USD ni ser negativo.`,
+      });
+    }
     const result = await calculateMultiQuote(input);
 
     const permsMulti = await getUserPermissions(req.userId!, req.tenantId!, req.userRole);

@@ -72,6 +72,7 @@ import { statusRouter } from './routes/status';
 import { performBackup, cleanupExpiredBackups } from './services/backup';
 import { seedAllTenantsRoles, migrateTenantsWithoutAdmin } from './services/permissions';
 import { backfillAntidumpingDates } from './services/antidumping-backfill';
+import { recoverInterruptedClassificationJobs } from './services/classification-job-runner';
 import {
   ipBlockGuard, authLimiter, classifierLimiter, quoterLimiter,
   copilotLimiter as copilotLim, leadLimiter, publicLimiter, adminLimiter,
@@ -451,6 +452,22 @@ void (async () => {
   } catch (err) {
     logger.error('[antidumping] backfillAntidumpingDates failed', {
       action: 'backfill_antidumping_dates_failed',
+      errorMessage: err instanceof Error ? err.message : String(err),
+    });
+  }
+  // Clasificación asíncrona (BUG-1/BUG-2): los jobs que quedaron en vuelo
+  // pertenecen al proceso anterior (deploy/reinicio) — se marcan interrumpidos
+  // para que la UI muestre el error honesto con reintento, no un spinner eterno.
+  try {
+    const interrupted = await recoverInterruptedClassificationJobs();
+    if (interrupted > 0) {
+      logger.warn(`[classify-jobs] ${interrupted} job(s) interrumpidos por reinicio`, {
+        action: 'classification_jobs_interrupted', metadata: { interrupted },
+      });
+    }
+  } catch (err) {
+    logger.error('[classify-jobs] recoverInterruptedClassificationJobs failed', {
+      action: 'classification_jobs_recover_failed',
       errorMessage: err instanceof Error ? err.message : String(err),
     });
   }

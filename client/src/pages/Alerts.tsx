@@ -114,7 +114,10 @@ export function AlertsPage() {
         {/* Tabs */}
         <div className="flex gap-2 mb-5">
           <button onClick={() => setTab('alerts')} className={`text-[12px] font-medium px-4 py-2 rounded-full transition-all ${tab === 'alerts' ? 'bg-emerald-500 text-white' : 'bg-white/50 text-slate-600 hover:bg-white/70'}`}>
-            Alertas {alerts.filter(a => !a.read).length > 0 && <span className="ml-1 text-[10px] bg-white/30 px-1.5 py-0.5 rounded-full">{alerts.filter(a => !a.read).length}</span>}
+            {/* BUG-8 (24-ago-2026): la píldora contaba "no leídas" mientras
+                "Todas" contaba activas — resolver una alerta leída bajaba una
+                y no la otra. Ambas derivan ahora del mismo estado: activas. */}
+            Alertas {alerts.length > 0 && <span className="ml-1 text-[10px] bg-white/30 px-1.5 py-0.5 rounded-full">{alerts.length}</span>}
           </button>
           <button onClick={() => setTab('watch')} className={`text-[12px] font-medium px-4 py-2 rounded-full transition-all ${tab === 'watch' ? 'bg-emerald-500 text-white' : 'bg-white/50 text-slate-600 hover:bg-white/70'}`}>
             <Eye className="w-3 h-3 inline mr-1" /> Monitoreo ({watched.length})

@@ -178,13 +178,35 @@ function SeccionExpediente({ titulo, children }: { titulo: string; children: Rea
   )
 }
 
+// Persistencia del borrador y del job en vuelo (BUG-2, 24-ago-2026): el
+// borrador se guarda al escribir y el job activo sobrevive a la navegación —
+// al volver al módulo se retoma el polling o se pinta el resultado terminado.
+// Llaves con namespace propio del módulo: ningún otro módulo puede pisarlas.
+const DRAFT_KEY = 'aduanai:classifier:draft'
+const JOB_KEY = 'aduanai:classifier:job'
+
+function leerDraft(): { input: string; pais: string; valor: string; cantidad: string } {
+  try {
+    const d = JSON.parse(localStorage.getItem(DRAFT_KEY) ?? '{}') as Record<string, unknown>
+    return {
+      input: typeof d.input === 'string' ? d.input : '',
+      pais: typeof d.pais === 'string' ? d.pais : '',
+      valor: typeof d.valor === 'string' ? d.valor : '',
+      cantidad: typeof d.cantidad === 'string' ? d.cantidad : '',
+    }
+  } catch {
+    return { input: '', pais: '', valor: '', cantidad: '' }
+  }
+}
+
 export function ClassifierPage() {
   const navigate = useNavigate()
+  const draftInicial = useMemo(leerDraft, [])
   const [mensajes, setMensajes] = useState<Mensaje[]>([])
-  const [input, setInput] = useState('')
-  const [pais, setPais] = useState('')
-  const [valor, setValor] = useState('')
-  const [cantidad, setCantidad] = useState('')
+  const [input, setInput] = useState(draftInicial.input)
+  const [pais, setPais] = useState(draftInicial.pais)
+  const [valor, setValor] = useState(draftInicial.valor)
+  const [cantidad, setCantidad] = useState(draftInicial.cantidad)
   const [detallesAbiertos, setDetallesAbiertos] = useState(false)
   const [cargando, setCargando] = useState(false)
   const [etapa, setEtapa] = useState(0)
@@ -195,51 +217,136 @@ export function ClassifierPage() {
   const [tabMovil, setTabMovil] = useState<'conversacion' | 'expediente'>('conversacion')
   const [expedienteNuevo, setExpedienteNuevo] = useState(false)
   const finConversacion = useRef<HTMLDivElement>(null)
+  // Momento en que arrancó el job (para el indicador de etapas, también al
+  // retomar un job tras navegar) y control de cancelación del polling.
+  const inicioJob = useRef<number | null>(null)
+  const pollCancelado = useRef(false)
+  const jobActivo = useRef<string | null>(null)
 
+  // Etapas por tiempo transcurrido desde que arrancó el job (no desde que se
+  // montó el componente): al volver a la página el indicador sigue donde iba.
   useEffect(() => {
     if (!cargando) return
-    setEtapa(0)
-    const t1 = setTimeout(() => setEtapa(1), 4000)
-    const t2 = setTimeout(() => setEtapa(2), 11000)
-    return () => { clearTimeout(t1); clearTimeout(t2) }
+    const tick = () => {
+      const transcurrido = Date.now() - (inicioJob.current ?? Date.now())
+      setEtapa(transcurrido < 4000 ? 0 : transcurrido < 11000 ? 1 : 2)
+    }
+    tick()
+    const iv = setInterval(tick, 1000)
+    return () => clearInterval(iv)
   }, [cargando])
 
   useEffect(() => {
     finConversacion.current?.scrollIntoView({ behavior: 'smooth', block: 'nearest' })
   }, [mensajes, cargando])
 
+  // Borrador persistente (BUG-2): se guarda al escribir, con debounce corto.
+  useEffect(() => {
+    const t = setTimeout(() => {
+      try { localStorage.setItem(DRAFT_KEY, JSON.stringify({ input, pais, valor, cantidad })) } catch { /* almacenamiento lleno/bloqueado: el borrador es best-effort */ }
+    }, 400)
+    return () => clearTimeout(t)
+  }, [input, pais, valor, cantidad])
+
+  // Al montar: si hay un job guardado, retomarlo — el trabajo en vuelo
+  // sobrevive a la navegación. El polling se cancela al desmontar (el job
+  // sigue corriendo server-side; la llave queda para retomarlo al volver).
+  useEffect(() => {
+    pollCancelado.current = false
+    const jobGuardado = localStorage.getItem(JOB_KEY)
+    if (jobGuardado) void vigilarJob(jobGuardado, { reanudando: true })
+    return () => { pollCancelado.current = true }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
   const expediente = useMemo(() => (resultado ? mapExpediente(resultado) : null), [resultado])
+
+  // Sondea el job hasta que termine. Los errores de red transitorios NO matan
+  // nada: el job sigue server-side y el siguiente intento lo recupera.
+  async function vigilarJob(jobId: string, opts?: { reanudando?: boolean }) {
+    jobActivo.current = jobId
+    try { localStorage.setItem(JOB_KEY, jobId) } catch { /* best-effort */ }
+    setCargando(true)
+    let intervalo = 2500
+    let primeraVuelta = true
+    while (!pollCancelado.current && jobActivo.current === jobId) {
+      try {
+        const res = await api.classifyJob(jobId)
+        const j = res.job
+        if (opts?.reanudando && primeraVuelta) {
+          inicioJob.current = new Date(j.createdAt).getTime()
+          if (j.description) setMensajes([{ rol: 'usuario', texto: j.description }])
+        }
+        primeraVuelta = false
+        if (j.status === 'done' && j.result) {
+          try { localStorage.removeItem(JOB_KEY) } catch { /* best-effort */ }
+          jobActivo.current = null
+          setResultado(j.result)
+          setClassificationId(j.classificationId ?? '')
+          setExpedienteNuevo(true)
+          setFeedback(null)
+          setMensajes(m => [...m, {
+            rol: 'sistema',
+            texto: `Fracción propuesta: ${formatFraction(j.result!.fraction.code)} — ${j.result!.fraction.description}. El expediente completo está en el panel derecho, con cada cita y su estado de verificación.`,
+          }])
+          setCargando(false)
+          return
+        }
+        if (j.status === 'error') {
+          try { localStorage.removeItem(JOB_KEY) } catch { /* best-effort */ }
+          jobActivo.current = null
+          if (j.description) setInput(prev => prev || j.description || '')
+          setMensajes(m => [...m, {
+            rol: 'sistema',
+            esError: true,
+            texto: j.error?.message ?? 'La clasificación falló. Intenta de nuevo.',
+          }])
+          setCargando(false)
+          return
+        }
+      } catch (e) {
+        // Job expirado o borrado (404): soltar la llave sin drama. Cualquier
+        // otro error (red, 5xx transitorio) se reintenta en el siguiente ciclo.
+        if (e instanceof Error && /no encontrada/i.test(e.message)) {
+          try { localStorage.removeItem(JOB_KEY) } catch { /* best-effort */ }
+          jobActivo.current = null
+          setCargando(false)
+          return
+        }
+      }
+      await new Promise(r => setTimeout(r, intervalo))
+      intervalo = Math.min(intervalo + 500, 5000)
+    }
+  }
 
   async function clasificar() {
     const q = input.trim()
     if (!q || cargando) return
-    setMensajes(m => [...m, { rol: 'usuario', texto: q }])
+    // BUG-6: los errores de intentos anteriores se limpian al iniciar una
+    // operación nueva — no se apilan encima del resultado bueno.
+    setMensajes(m => [...m.filter(x => !x.esError), { rol: 'usuario', texto: q }])
     setInput('')
-    setCargando(true)
     setFeedback(null)
+    inicioJob.current = Date.now()
+    setCargando(true)
     try {
-      const res = await api.classify(
+      const res = await api.classifyStart(
         q,
         undefined,
         pais.trim() || undefined,
         valor ? parseFloat(valor) : undefined,
         { declaredQuantity: cantidad ? parseFloat(cantidad) : undefined },
       )
-      setResultado(res.data)
-      setClassificationId(res.classificationId ?? '')
-      setExpedienteNuevo(true)
-      setMensajes(m => [...m, {
-        rol: 'sistema',
-        texto: `Fracción propuesta: ${formatFraction(res.data.fraction.code)} — ${res.data.fraction.description}. El expediente completo está en el panel derecho, con cada cita y su estado de verificación.`,
-      }])
+      void vigilarJob(res.jobId)
     } catch (e) {
+      setCargando(false)
+      setInput(q) // el texto vuelve al campo: reintentar no cuesta reescribir
       setMensajes(m => [...m, {
         rol: 'sistema',
         esError: true,
         texto: e instanceof Error ? e.message : 'No pude clasificar. Reformula la descripción con más detalle (material, uso, características).',
       }])
     }
-    setCargando(false)
   }
 
   async function enviarFeedback(fb: 'correct' | 'incorrect') {
@@ -309,7 +416,10 @@ export function ClassifierPage() {
                 {e}
               </div>
             ))}
-            <p className="text-13 text-tinta-suave pt-1">La clasificación fundamentada suele tomar 10-20 segundos.</p>
+            <p className="text-13 text-tinta-suave pt-1">
+              La clasificación fundamentada puede tomar de 1 a 3 minutos. Puedes navegar a otros
+              módulos — el trabajo continúa y estará aquí al volver.
+            </p>
           </div>
         )}
         <div ref={finConversacion} />
