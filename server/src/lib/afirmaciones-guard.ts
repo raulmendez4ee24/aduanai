@@ -45,10 +45,10 @@ export const PATRONES_PROHIBIDOS: PatronProhibido[] = [
   { id: 'instantaneo', regex: /clasifica(ci[oó]n)? instant[aá]ne|resultados instant[aá]neos/i, porQue: 'La clasificación tarda 1-3 minutos.' },
   // Orden 25-ago (regla permanente): ningún tercero nombrado en páginas
   // públicas sin artefacto por afirmación. Sensible a mayúsculas: son marcas.
-  { id: 'terceros-nombrados', regex: /\b(AJR|SICOMEX|CAAAREM|Camtom|CASA)\b/, porQue: 'Ningún tercero nombrado en páginas públicas sin artefacto por afirmación.', soloEn: ['client/src/pages/Public'] },
+  { id: 'terceros-nombrados', regex: /\b(AJR|SICOMEX|CAAAREM|Camtom|CASA|iAudita|SLAM)\b/, porQue: 'Ningún tercero nombrado en páginas públicas sin artefacto por afirmación.', soloEn: ['client/src/pages/Public'] },
   // "Compatible con" + sistema gubernamental = afirmación de integración.
   // Solo con integración real demostrable (hoy no existe transmisión VUCEM).
-  { id: 'compatible-gubernamental', regex: /(?<![Nn]o )(?<![Ii]n)compatib(?:le\w*|ilidad)[^.\n]{0,40}\b(VUCEM|SAT|ANAM|AGACE)\b/i, porQue: 'Afirmar compatibilidad con un sistema gubernamental exige integración real demostrable; hoy solo se generan formatos alineados al Anexo 22.' },
+  { id: 'compatible-gubernamental', regex: /(?<![Nn]o )(?<![Ii]n)compatib(?:le\w*|ilidad)[^.\n]{0,40}\b(VUCEM|SAT|ANAM|AGACE|Ventanilla)\b/i, porQue: 'Afirmar compatibilidad con un sistema gubernamental exige integración real demostrable; hoy solo se generan formatos alineados al Anexo 22.' },
 ];
 
 export interface ExcepcionPermitida {

@@ -13,7 +13,11 @@ import * as fs from 'fs';
 import { prisma } from '../src/lib/prisma';
 import { dedupPorRfc } from '../src/lib/sat69b-dedup';
 
-const URL_SAT = 'http://omawww.sat.gob.mx/cifras_sat/Documents/Listado_Completo_69-B.csv';
+// URL vigente (25-ago-2026): el minisitio de Datos Abiertos del SAT
+// (https://www.sat.gob.mx/minisitio/DatosAbiertos/contribuyentes_publicados.html)
+// publica el listado en este blob; la URL vieja de omawww quedó CONGELADA en
+// el corte 31-dic-2025 mientras esta sirve el corte vigente (31-jul-2026 hoy).
+const URL_SAT = 'https://wu1agsprosta001.blob.core.windows.net/agsc-publicaciones/Datos_abiertos/Documents_AGAFF/Listado_completo_69-B.csv';
 
 const MESES: Record<string, number> = {
   enero: 0, febrero: 1, marzo: 2, abril: 3, mayo: 4, junio: 5,

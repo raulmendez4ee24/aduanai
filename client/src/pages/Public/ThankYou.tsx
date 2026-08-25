@@ -75,7 +75,7 @@ export function ThankYouPage() {
                 {leadName ? `¡Gracias, ${leadName}!` : '¡Gracias por tu interés!'}
               </h1>
               <p className="text-[16px] text-[#666] max-w-lg mx-auto leading-relaxed">
-                Uno de nuestros asesores te contactará en las próximas 24 horas para agendar tu demo personalizada.
+                Te contactaremos en las próximas 24 horas para agendar tu demo personalizada.
               </p>
             </FadeIn>
           </div>

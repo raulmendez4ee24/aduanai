@@ -75,7 +75,7 @@ export function PilotBanner() {
             className="flex items-center gap-1.5 px-4 py-1.5 rounded-full bg-white text-[13px] font-semibold text-slate-900 hover:bg-white/90 transition-colors shadow-sm"
           >
             <MessageCircle className="w-3.5 h-3.5" />
-            Hablar con asesor
+            Hablar con el fundador
           </a>
 
           <button

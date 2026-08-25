@@ -604,7 +604,7 @@ export function AppLayout({ children, onLogout, userRole, userName, userEmail, t
       {location.pathname !== '/copilot' && (
         <div className="fixed bottom-5 right-5 z-30 flex flex-col gap-2.5">
           <a href="https://wa.me/523326617755?text=Hola%2C%20necesito%20ayuda%20con%20ADUANAI" target="_blank" rel="noopener noreferrer"
-            className="w-11 h-11 bg-[#25D366] rounded-full flex items-center justify-center shadow-lg shadow-[#25D366]/20 hover:scale-110 transition-transform" title="Contactar asesor">
+            className="w-11 h-11 bg-[#25D366] rounded-full flex items-center justify-center shadow-lg shadow-[#25D366]/20 hover:scale-110 transition-transform" title="Hablar con el fundador">
             <MessageCircle className="w-5 h-5 text-white" />
           </a>
           <button onClick={() => navigate('/copilot')}

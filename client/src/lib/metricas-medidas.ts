@@ -39,6 +39,14 @@ export const METRICAS_CLASIFICADOR = {
  * su unidad y corte. Si producción cambia, el vivo manda.
  */
 export const FALLBACK_STATS = {
+  /** RISK_RULES del Risk Scorer (rules.ts, RULES_VERSION v1.3.0) — cada una
+   *  con fundamento citado (artículo + cita corta + URL + fecha de cotejo). */
+  reglasRiesgo: 26,
+  /** Listado 69-B CFF ingerido (pipeline v1.3.0, dedup por fecha de
+   *  publicación). Fuente: CSV oficial del SAT (Datos Abiertos),
+   *  corte declarado por el propio archivo. */
+  rfc69B: 14438,
+  corte69B: '2026-07-31',
   /** Fracciones TIGIE con active=true (8,256 totales − 8544.42.01 retirada). */
   fraccionesActivas: 8255,
   /** legal_documents con isActive=true (1,174 totales − 3 inactivos). */

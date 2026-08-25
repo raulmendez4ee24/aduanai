@@ -29,6 +29,10 @@ statsRouter.get('/public', publicStatsLimit, async (_req, res, next) => {
       prisma.legalDocument.count({ where: { isActive: true } }),
       prisma.legalDocument.findMany({ where: { isActive: true }, select: { source: true }, distinct: ['source'] }),
     ]);
+    // Listado 69-B: conteo y corte REALES de la tabla ingerida (el corte lo
+    // declara el propio CSV del SAT y viaja en importedAt).
+    const sat69bMeta = await prisma.sat69B.findFirst({ orderBy: { importedAt: 'desc' }, select: { importedAt: true } });
+    const sat69bCount = sat69bMeta ? await prisma.sat69B.count() : 0;
 
     // avgAccuracy ELIMINADA del endpoint público (25-ago): era el % de
     // clasificaciones marcadas "correctas" entre las que RECIBIERON feedback
@@ -44,6 +48,11 @@ statsRouter.get('/public', publicStatsLimit, async (_req, res, next) => {
         corpusDocumentosActivos: corpusDocs,
         corpusFuentes: corpusFuentes.length,
         totalClassifications,
+        sat69B: sat69bMeta ? { rfc: sat69bCount, corte: sat69bMeta.importedAt.toISOString().slice(0, 10) } : null,
+        // Medición PÚBLICA del clasificador — espejo del artefacto
+        // server/src/tests/medicion-tanda-8544-2026-08-24.json (99 casos,
+        // temp 0). La página pública muestra estos mismos números.
+        medicion: { top1: '61.6%', capitulo: '81.8%', casos: 99, fecha: '2026-08-24', artefacto: 'medicion-tanda-8544-2026-08-24.json' },
       },
     });
   } catch (err) {

@@ -9,6 +9,8 @@ export interface StatsPublicos {
   fracciones: number
   documentos: number
   fuentes: number
+  rfc69B: number
+  corte69B: string
 }
 
 export function useStatsPublicos(): StatsPublicos & { formatted: string } {
@@ -16,6 +18,8 @@ export function useStatsPublicos(): StatsPublicos & { formatted: string } {
     fracciones: FALLBACK_STATS.fraccionesActivas,
     documentos: FALLBACK_STATS.documentosLegalesActivos,
     fuentes: FALLBACK_STATS.fuentesLegales,
+    rfc69B: FALLBACK_STATS.rfc69B,
+    corte69B: FALLBACK_STATS.corte69B,
   })
 
   useEffect(() => {
@@ -33,6 +37,8 @@ export function useStatsPublicos(): StatsPublicos & { formatted: string } {
           fracciones: num(d.totalFractions, prev.fracciones),
           documentos: num(d.corpusDocumentosActivos, prev.documentos),
           fuentes: num(d.corpusFuentes, prev.fuentes),
+          rfc69B: num(d.sat69B?.rfc, prev.rfc69B),
+          corte69B: typeof d.sat69B?.corte === 'string' ? d.sat69B.corte : prev.corte69B,
         }))
       })
       .catch(() => {})

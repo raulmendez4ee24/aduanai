@@ -4,7 +4,7 @@ import { api } from '../../lib/api'
 import { useStatsPublicos } from '../../hooks/useTotalFractions'
 import { FadeIn, SlideIn, CountUp, Expandable, motion, staggerContainer, staggerItem } from '../../lib/animations'
 import { DemoClassifier } from '../../components/DemoClassifier'
-import { METRICAS_CLASIFICADOR } from '../../lib/metricas-medidas'
+import { METRICAS_CLASIFICADOR, FALLBACK_STATS } from '../../lib/metricas-medidas'
 import {
   AlertTriangle, Files, Puzzle, PenLine, Cpu, FileCheck2, ArrowRight, Check,
   Boxes, Calculator, Bot, Warehouse, ShieldCheck, FileText,
@@ -14,25 +14,29 @@ import {
 } from 'lucide-react'
 
 const WA_NUMBER = '523326617755'
-const WA_MSG = encodeURIComponent('Hola, me interesa una demo de ADUANAI para mi empresa')
+const WA_MSG = encodeURIComponent('Hola, quiero hablar sobre mi exposición bajo la reforma aduanera 2026')
 
 // ── Data ──────────────────────────────────────────────────────────────────
 
+// Problema = la reforma 2026 y la exposición del agente/importador.
+// Precisión legal: la responsabilidad solidaria NO es nueva — lo nuevo (DOF
+// 19-11-2025) es la ELIMINACIÓN de excluyentes del Art. 54 y la ampliación
+// del alcance. Fundamentos citados en el Risk Scorer (rules.ts/shield.ts).
 const PROBLEMS = [
   {
     icon: AlertTriangle,
-    title: 'Pagas miles de pesos por una clasificación que tarda días en llegar',
-    body: 'Cada producto nuevo es una cotización que se convierte en una espera. Mientras, tu mercancía se queda detenida o arriesgas pasarla mal.',
+    title: 'El Art. 54 ya no tiene excluyentes de responsabilidad',
+    body: 'La reforma (DOF 19-11-2025) eliminó las causales que te liberaban. Tu defensa ya no es una excepción legal: es la evidencia documental de cada operación.',
   },
   {
     icon: Files,
-    title: 'Tus expedientes están en Excel, emails y carpetas que nadie encuentra',
-    body: 'Cuando el SAT llega con una auditoría, empieza la cacería de documentos. Uno o dos faltantes significan multas, recargos y más estrés.',
+    title: 'El expediente 59-V es exigible, operación por operación',
+    body: 'Recursos empleados, transferencias, cartas de crédito: si el expediente no existe cuando lo pidan, el hallazgo es tuyo. Armarlo después de la notificación llega tarde.',
   },
   {
     icon: Puzzle,
-    title: 'Manejas 7 sistemas que no se hablan entre sí y cada uno cuesta una fortuna',
-    body: 'Clasificador en un lado, inventario en otro, impuestos en un tercero. Duplicas datos, duplicas errores y triplicas facturas.',
+    title: '¿Sabes si tu cliente está en el 69-B hoy?',
+    body: 'Operar con un RFC listado como definitivo contamina la operación completa. La lista cambia con cada publicación del SAT — revisarla una vez al año no te protege.',
   },
 ]
 
@@ -166,7 +170,7 @@ const FAQ_ITEMS = [
 // ── Components ────────────────────────────────────────────────────────────
 
 export function AboutPage() {
-  const { fracciones: total, documentos, fuentes, formatted } = useStatsPublicos()
+  const { fracciones: total, documentos, fuentes, rfc69B, corte69B, formatted } = useStatsPublicos()
   const [mobileOpen, setMobileOpen] = useState(false)
   const [showAllModules, setShowAllModules] = useState(false)
 
@@ -219,16 +223,18 @@ export function AboutPage() {
           <div className="px-6 md:px-10 pt-10 md:pt-16 pb-10 md:pb-16">
             <div className="max-w-3xl">
               <FadeIn>
-                <p className="text-[11px] uppercase tracking-[0.2em] text-[#999] font-medium mb-5">Software de comercio exterior con IA</p>
+                <p className="text-[11px] uppercase tracking-[0.2em] text-[#999] font-medium mb-5">Cumplimiento aduanero bajo la reforma 2026</p>
               </FadeIn>
               <FadeIn delay={0.1}>
                 <h1 className="text-[clamp(2rem,5.5vw,4rem)] font-bold text-[#1a1a1a] leading-[1.05] tracking-tight" style={{ fontFamily: "'Outfit', sans-serif" }}>
-                  Clasifica en minutos lo que antes tomaba días
+                  Desde 2026 respondes sin excluyentes. Entérate dónde quedas expuesto — antes de transmitir.
                 </h1>
               </FadeIn>
               <FadeIn delay={0.2}>
                 <p className="mt-6 text-[17px] text-[#666] leading-relaxed max-w-xl">
-                  19 módulos de comercio exterior con IA. {formatted} fracciones arancelarias. Una sola plataforma.
+                  ADUANAI revisa tu operación contra los listados del 69-B, el expediente del 59-V y 26 reglas
+                  deterministas con fundamento citado y fecha de cotejo. Cada dato declara si está verificado.
+                  Nuestra medición es pública.
                 </p>
               </FadeIn>
               <FadeIn delay={0.3}>
@@ -240,21 +246,22 @@ export function AboutPage() {
                   <a href={`https://wa.me/${WA_NUMBER}?text=${WA_MSG}`} target="_blank" rel="noopener noreferrer"
                     className="inline-flex items-center justify-center gap-2 text-[13px] text-[#1a1a1a] px-7 py-3.5 rounded-full border border-[#e0e0e0] hover:bg-[#f5f5f3] transition-colors font-medium">
                     <svg className="w-4 h-4 text-[#25D366]" viewBox="0 0 24 24" fill="currentColor"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/></svg>
-                    Hablar con un asesor
+                    Hablar con el fundador
                   </a>
                 </div>
               </FadeIn>
             </div>
 
             <motion.div
-              className="mt-14 grid grid-cols-2 md:grid-cols-4 gap-6"
+              className="mt-14 grid grid-cols-2 md:grid-cols-5 gap-6"
               variants={staggerContainer}
               initial="hidden"
               whileInView="show"
               viewport={{ once: true }}
             >
               {[
-                { n: 19, l: 'Módulos', s: '' },
+                { n: FALLBACK_STATS.reglasRiesgo, l: 'Reglas de riesgo con fundamento citado', s: '' },
+                { n: rfc69B, l: `RFC del listado 69-B (corte ${corte69B})`, s: '' },
                 { n: total, l: 'Fracciones TIGIE activas', s: '' },
                 { n: documentos, l: 'Documentos legales activos', s: '' },
                 { n: fuentes, l: 'Fuentes oficiales en el corpus', s: '' },
@@ -290,9 +297,9 @@ export function AboutPage() {
         <FadeIn>
           <div id="problema" className="bg-white rounded-2xl md:rounded-3xl px-6 md:px-10 py-10 md:py-14">
             <div className="max-w-2xl mb-10">
-              <p className="text-[11px] uppercase tracking-[0.15em] text-[#999] font-medium mb-3">/EL PROBLEMA</p>
+              <p className="text-[11px] uppercase tracking-[0.15em] text-[#999] font-medium mb-3">/LA REFORMA 2026</p>
               <h2 className="text-3xl md:text-[2.5rem] font-bold text-[#1a1a1a] tracking-tight leading-tight" style={{ fontFamily: "'Outfit', sans-serif" }}>
-                ¿Te suena familiar?
+                Lo que cambió — y dónde te deja
               </h2>
             </div>
 
@@ -368,8 +375,43 @@ export function AboutPage() {
 
             <div className="mt-10 text-center max-w-2xl mx-auto">
               <p className="text-[15px] text-[#666] leading-relaxed">
-                Y eso es solo el clasificador. ADUANAI tiene <strong className="text-[#1a1a1a]">18 módulos más</strong> para cotizar, validar, controlar inventario IMMEX y mantener tu compliance fiscal al día.
+                La pregunta ya no es si te van a revisar, sino <strong className="text-[#1a1a1a]">qué van a encontrar</strong>. ADUANAI te lo dice antes que ellos.
               </p>
+            </div>
+          </div>
+        </FadeIn>
+
+        {/* ═══ CÓMO TE REVISA (la estrella: escudo, no cronómetro) ═══════ */}
+        <FadeIn>
+          <div id="como-te-revisa" className="bg-white rounded-2xl md:rounded-3xl px-6 md:px-10 py-10 md:py-14">
+            <div className="max-w-2xl mb-10">
+              <p className="text-[11px] uppercase tracking-[0.15em] text-[#999] font-medium mb-3">/CÓMO TE REVISA</p>
+              <h2 className="text-3xl md:text-[2.5rem] font-bold text-[#1a1a1a] tracking-tight leading-tight" style={{ fontFamily: "'Outfit', sans-serif" }}>
+                La misma revisión que te harían — pero antes de transmitir
+              </h2>
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div className="bg-[#f8f8f6] rounded-2xl p-7">
+                <div className="w-10 h-10 rounded-xl bg-emerald-50 flex items-center justify-center mb-5">
+                  <ShieldCheck className="w-5 h-5 text-emerald-600" />
+                </div>
+                <h3 className="text-[15px] font-semibold text-[#1a1a1a] mb-2">Risk Scorer: exposición vs escudo</h3>
+                <p className="text-[13px] text-[#666] leading-relaxed">26 reglas deterministas — 69-B, perfil, valor, expediente — cada una con artículo citado, cita textual y fecha de cotejo. Separa cuánto estás expuesto de cuánta evidencia te respalda, y declara qué señal quedó sin evaluar y por qué.</p>
+              </div>
+              <div className="bg-[#f8f8f6] rounded-2xl p-7">
+                <div className="w-10 h-10 rounded-xl bg-emerald-50 flex items-center justify-center mb-5">
+                  <FileCheck2 className="w-5 h-5 text-emerald-600" />
+                </div>
+                <h3 className="text-[15px] font-semibold text-[#1a1a1a] mb-2">Pre-validador: el pedimento contra el Anexo 22</h3>
+                <p className="text-[13px] text-[#666] leading-relaxed">Claves, régimen, RFC, pesos, tipo de cambio del DOF y partidas contra los catálogos oficiales del Anexo 22 — los errores de forma se detectan antes del despacho, no en el reconocimiento.</p>
+              </div>
+              <div className="bg-[#f8f8f6] rounded-2xl p-7">
+                <div className="w-10 h-10 rounded-xl bg-emerald-50 flex items-center justify-center mb-5">
+                  <FolderOpen className="w-5 h-5 text-emerald-600" />
+                </div>
+                <h3 className="text-[15px] font-semibold text-[#1a1a1a] mb-2">El expediente que te van a pedir</h3>
+                <p className="text-[13px] text-[#666] leading-relaxed">Checklist del expediente 59-V y 162: qué documento falta en qué operación, con su fundamento. Trazabilidad con cadena de hashes y verificación pública de cada expediente emitido.</p>
+              </div>
             </div>
           </div>
         </FadeIn>
@@ -378,9 +420,9 @@ export function AboutPage() {
         <div id="demo-clasificador" className="grid grid-cols-1 lg:grid-cols-2 gap-3">
           <FadeIn>
             <div className="bg-white rounded-2xl md:rounded-3xl px-6 md:px-10 py-10 md:py-14 flex flex-col justify-center h-full">
-              <p className="text-[11px] uppercase tracking-[0.15em] text-[#999] font-medium mb-3">/PRUÉBALO TÚ MISMO</p>
+              <p className="text-[11px] uppercase tracking-[0.15em] text-[#999] font-medium mb-3">/HERRAMIENTA DE APOYO: EL CLASIFICADOR</p>
               <h2 className="text-3xl md:text-[2.5rem] font-bold text-[#1a1a1a] tracking-tight leading-tight mb-4" style={{ fontFamily: "'Outfit', sans-serif" }}>
-                Este es tu momento “ah, sí funciona”
+                Clasifica en minutos, con fuentes — y pruébalo tú mismo
               </h2>
               <p className="text-[14px] text-[#666] leading-relaxed mb-6">
                 Escribe cualquier producto (laptop, tequila, camiseta…) y la IA te propone una fracción arancelaria fundamentada, con sus aranceles, NOMs y base legal para que la valides. Sin registro, tres usos gratis.
