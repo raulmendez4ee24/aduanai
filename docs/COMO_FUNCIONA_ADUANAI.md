@@ -1,10 +1,10 @@
 # Cómo funciona ADUANAI — estado real del sistema
 
-**Corte técnico:** 24 de agosto de 2026, 18:31 CST
+**Corte técnico:** 25 de agosto de 2026 (misión honestidad comercial)
 
-**Código revisado:** `main` en `b40d8d2`
+**Código revisado:** rama de honestidad sobre `b40d8d2` — commit `addce42` (About.tsx §11, disclaimers de runtime, motor 69‑B, guard de afirmaciones)
 
-**Producción observada:** Railway `kanaduana`, deploy `SUCCESS` del mismo commit
+**Producción observada:** Railway `kanaduana` — el deploy de esta tanda se verifica al cierre de la misión (bundle servido + evaluación Risk real)
 
 **Alcance:** `client/`, `server/`, Prisma, migraciones, seeds, pruebas, Docker/Railway y consultas de solo lectura a producción.
 
@@ -342,7 +342,7 @@ Cuando el usuario no declara `totalValueMXN`, Glosa usa el servicio central de t
 - `appliesTMEC` acepta cualquier país de origen de dos caracteres; no valida que sea miembro T‑MEC.
 - Las cinco aduanas de “alto riesgo” y los prefijos de fracciones “típicamente chinas” son listas hardcodeadas sin dataset estadístico citable.
 - Aun con revisión incompleta, el backend devuelve y persiste el `riskLevel` y los porcentajes crudos; sólo `riskLevelPresentacion` pasa a `indeterminado`. Todo consumidor debe atender `revision` y el nivel de presentación.
-- El disclaimer del backend todavía afirma “heurísticas calibradas con prácticas de la industria”, texto que contradice los 0 outcomes y debe corregirse en runtime.
+- El disclaimer del backend fue corregido (25‑ago, commit de la misión honestidad): ahora declara checklist heurístico preventivo con índices heurísticos no calibrados; la UI etiqueta las tres cifras como “Índice … (heurístico)”. El guard de afirmaciones vigila la reincidencia.
 - Historial y outcome existen en la API, pero no tienen interfaz de usuario.
 - El reporte imprimible usa `window.print()`, no PDF generado por servidor.
 - `CampoNumerico` conserva `type="number"` controlado; una prueba React/jsdom reprodujo que teclear `0.02` puede acabar como `2`. El gate del Dockerfile detecta la clase `value={x || ''}+parseFloat`, no este comportamiento del navegador.
@@ -387,13 +387,13 @@ Los ocho incisos del expediente 59‑V se consideran aplicables siempre, incluid
 
 La vigencia E2 contempla la versión anticipada que extiende el plazo al 30‑09‑2026 y la distingue de la última publicación DOF.
 
-### 7.3 Lista 69‑B: bug vigente
+### 7.3 Lista 69‑B: bug corregido (25‑ago‑2026)
 
-La lista tiene 14,054 RFC y corte 31‑12‑2025: 11,182 definitivos, 963 presuntos, 340 desvirtuados y 1,569 con sentencia favorable. `signals.ts` calcula `lista69BDisponible=false` después de 30 días y la UI puede mostrar `no_evaluado`. Sin embargo, `engine.ts` calcula los puntos antes de aplicar esa etiqueta y las reglas disparan por `en69B` sin consultar disponibilidad.
+**Motor corregido:** `engine.ts` consulta la disponibilidad ANTES de puntuar. Una señal con `senalDisponible=false` (lista vencida >30 días o sin ingesta) produce 0 puntos, no activa bandera y la regla queda `no_evaluado` con `motivo` explícito que viaja a persistencia y UI (tooltip). El fix es general para toda regla con `senalDisponible`, no solo 69‑B. Regresión: `risk-69b-disponibilidad.test.ts` (7 casos: lista vencida → 0 pts/no_evaluado/sin bandera; lista vigente → intacto; RFC limpio con lista vigente → verificado) y gate en el Dockerfile.
 
-Resultado: un RFC presente como definitivo/presunto en una lista vencida puede sumar puntos, activar bandera y elevar la banda mientras la misma señal aparece como no evaluada. Debe corregirse en el motor; el documento no debe presentarlo como simple problema visual.
+**Ingesta corregida:** el dedup por RFC prevalece la situación MÁS RECIENTE del proceso (presunto < definitivo < desvirtuado < sentencia favorable), no la más severa — un desvirtuado o sentencia favorable posterior ya no queda eclipsado (`src/lib/sat69b-dedup.ts`). Con el CSV real del SAT (corte 31‑12‑2025), 92 RFC recuperan su situación favorable: 11,138 definitivos, 959 presuntos, 340 desvirtuados y 1,617 con sentencia favorable.
 
-La ingesta también resuelve RFC duplicados conservando la situación más severa, no necesariamente la más reciente; un cambio posterior a desvirtuado o sentencia favorable puede quedar eclipsado por una fila anterior más grave.
+La lista sigue con corte 31‑12‑2025 (> 30 días): mientras no haya ingesta fresca, las reglas 69‑B correctamente no puntúan y aparecen `no_evaluado` con motivo.
 
 ### 7.4 Pesos
 
@@ -516,18 +516,11 @@ No debe llamarse probabilidad real de reconocimiento/glosa del SAT, revisión co
 
 No debe afirmarse que todas las señales están actuales mientras la lista 69‑B siga vencida y pueda afectar el score.
 
-### Conflictos que existen hoy en la web pública
+### Conflictos en la web pública: RESUELTOS (25‑ago‑2026)
 
-`client/src/pages/Public/About.tsx` todavía afirma:
+`About.tsx` fue reescrito al posicionamiento de esta sección: murieron las seis afirmaciones (RGI como algoritmo, 95%+/12,000, “fracción exacta”, decretos “mismo día”, “15 segundos”, garantías de seguridad sin evidencia), se eliminaron los testimonios con personas sin evidencia, y toda métrica de desempeño visible sale de la constante única `client/src/lib/metricas-medidas.ts` anotada con su artefacto (`medicion-tanda-8544-2026-08-24.json`: 61.6% top‑1, 81.8% capítulo, 99 casos).
 
-- que el motor “aplica las 6 RGI” y elige la fracción correcta;
-- 95%+ a nivel capítulo sobre más de 12,000 productos;
-- “fracción arancelaria exacta”;
-- decretos DOF aplicados el mismo día;
-- resultados siempre en 15 segundos;
-- aislamiento/seguridad con garantías que requieren evidencia de infraestructura adicional.
-
-La evidencia disponible es 61.6% top‑1 y 81.8% de capítulo sobre 99 casos internos. El vigilante tarifario sólo alerta y el runner documenta duraciones reales de aproximadamente 45 segundos a 2.5 minutos. Esos textos públicos no están acordes con el producto y deben corregirse antes de usarse como promesa comercial.
+La reincidencia la vigila el guard `server/src/lib/afirmaciones-guard.ts` + `afirmaciones-comerciales.test.ts` (14 patrones prohibidos, lista blanca solo con artefacto), que corre como gate fail‑closed en el Dockerfile: una afirmación prohibida en una superficie de usuario rompe el build.
 
 ---
 
