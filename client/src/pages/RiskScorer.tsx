@@ -75,9 +75,11 @@ const DECL_AGENCIA: DeclItem[] = [
   { key: 'constancia32D', label: 'Constancia 32-D de socios/administración (235-J)' },
 ]
 
-function OrigenBadge({ origen }: { origen: string }) {
+function OrigenBadge({ origen, motivo }: { origen: string; motivo?: string }) {
   if (origen === 'no_evaluado') {
-    return <span className="inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-full bg-slate-100 text-slate-600 border border-slate-200">No evaluado</span>
+    // El motivo viene del motor (7.3): dataset vencido, sin ingesta o dato
+    // faltante — la regla no sumó puntos ni activó bandera.
+    return <span title={motivo ?? 'Señal no disponible — no suma puntos ni activa bandera'} className="inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-full bg-slate-100 text-slate-600 border border-slate-200 cursor-help">No evaluado</span>
   }
   if (origen === 'verificado') {
     return <span className="inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-700 border border-emerald-200"><ShieldCheck className="w-3 h-3" />VERIFICADO POR EL SISTEMA</span>
@@ -356,7 +358,7 @@ export function RiskScorerPage() {
                     <div className="min-w-0">
                       <p className="text-[13px] text-slate-800">{r.descripcion}{r.bandera && <span className="ml-2 text-[10px] font-bold text-rose-600">⚑ {r.bandera}</span>}</p>
                       <div className="flex items-center gap-3 mt-1 flex-wrap">
-                        <OrigenBadge origen={r.origenEfectivo ?? r.origenSenal} />
+                        <OrigenBadge origen={r.origenEfectivo ?? r.origenSenal} motivo={r.motivo} />
                         <FundamentoLink regla={r} />
                       </div>
                     </div>

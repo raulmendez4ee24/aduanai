@@ -25,18 +25,24 @@ export function evaluate(signals: Signals, weights: Record<string, number>): Ass
   const banderas: string[] = [];
 
   for (const rule of RISK_RULES) {
-    const puntos = Math.max(0, Math.min(rule.maxPuntos, rule.evaluar(signals)));
-    const origenEfectivo: OrigenEfectivo = rule.origenSenal === 'declarado'
-      ? 'declarado'
-      : rule.senalDisponible
-        ? rule.senalDisponible(signals) ? rule.origenSenal : 'no_evaluado'
-        : rule.origenSenal;
+    // Disponibilidad ANTES de puntuar (7.3, corregido 24-ago): una señal no
+    // disponible (dataset vencido, sin ingesta, dato faltante) NO suma puntos
+    // ni activa bandera — la regla queda no_evaluado con motivo. Antes los
+    // puntos se calculaban primero y la etiqueta convivía con puntos y
+    // bandera activos (una lista 69-B vencida elevaba la banda mientras la
+    // misma señal aparecía como no evaluada).
+    const disponible = rule.senalDisponible ? rule.senalDisponible(signals) : true;
+    const puntos = disponible ? Math.max(0, Math.min(rule.maxPuntos, rule.evaluar(signals))) : 0;
+    const origenEfectivo: OrigenEfectivo = !disponible
+      ? 'no_evaluado'
+      : rule.origenSenal === 'declarado' ? 'declarado' : rule.origenSenal;
     const res: ReglaResultado = {
       id: rule.id, factor: rule.factor, descripcion: rule.descripcion,
       puntos, maxPuntos: rule.maxPuntos, bandera: rule.bandera,
       origenSenal: rule.origenSenal, origenEfectivo, fundamento: rule.fundamento,
+      ...(disponible ? {} : { motivo: rule.motivoNoDisponible ?? 'Señal no disponible: dato faltante o dataset vencido — no suma puntos ni activa bandera.' }),
     };
-    if (puntos > 0 && rule.bandera) banderas.push(rule.bandera);
+    if (disponible && puntos > 0 && rule.bandera) banderas.push(rule.bandera);
     const list = porFactor.get(rule.factor) ?? [];
     list.push(res);
     porFactor.set(rule.factor, list);

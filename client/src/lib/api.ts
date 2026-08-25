@@ -1680,7 +1680,7 @@ export interface HealthStatus {
 
 // ── Risk Scorer (responsabilidad solidaria) ──
 export interface RiskFundamento { articulo: string; citaCorta: string; fuente: string; url: string; fechaCotejo: string }
-export interface RiskRegla { id: string; factor: string; descripcion: string; puntos: number; maxPuntos: number; bandera?: string; origenSenal: string; origenEfectivo?: string; fundamento: RiskFundamento }
+export interface RiskRegla { id: string; factor: string; descripcion: string; puntos: number; maxPuntos: number; bandera?: string; origenSenal: string; origenEfectivo?: string; motivo?: string; fundamento: RiskFundamento }
 export interface RiskFactor { factor: string; puntos: number; peso: number; reglas: RiskRegla[] }
 export interface RiskChecklistItem { id: string; grupo: string; descripcion: string; aplicable: boolean; completo: boolean; origenSenal: string; accionSugerida: string; fundamento: RiskFundamento }
 export interface RiskAssessInput {

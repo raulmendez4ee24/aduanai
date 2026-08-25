@@ -11,6 +11,7 @@
  */
 import * as fs from 'fs';
 import { prisma } from '../src/lib/prisma';
+import { dedupPorRfc } from '../src/lib/sat69b-dedup';
 
 const URL_SAT = 'http://omawww.sat.gob.mx/cifras_sat/Documents/Listado_Completo_69-B.csv';
 
@@ -54,6 +55,8 @@ function mapSituacion(raw: string): string | null {
   return null;
 }
 
+
+
 async function main() {
   let raw: Buffer;
   const localPath = process.argv[2];
@@ -94,14 +97,7 @@ async function main() {
   console.log(`Filas válidas: ${rows.length} | descartadas: ${malas.length}`);
   if (rows.length < 5000) throw new Error(`Demasiado pocas filas (${rows.length}) — no reemplazo la tabla (falla cerrada)`);
 
-  // dedup por RFC (el listado puede repetir RFC en etapas distintas: gana la más severa)
-  const rango: Record<string, number> = { DEFINITIVO: 4, PRESUNTO: 3, DESVIRTUADO: 2, SENTENCIA_FAVORABLE: 1 };
-  const porRfc = new Map<string, { rfc: string; razonSocial: string; situacion: string }>();
-  for (const r of rows) {
-    const prev = porRfc.get(r.rfc);
-    if (!prev || rango[r.situacion] > rango[prev.situacion]) porRfc.set(r.rfc, r);
-  }
-  const finales = [...porRfc.values()];
+  const finales = dedupPorRfc(rows);
   console.log(`RFC únicos: ${finales.length}`);
   const porSituacion = finales.reduce((a: Record<string, number>, r) => { a[r.situacion] = (a[r.situacion] ?? 0) + 1; return a; }, {});
   console.log('Por situación:', JSON.stringify(porSituacion));
@@ -119,4 +115,8 @@ async function main() {
   await prisma.$disconnect();
 }
 
-main().catch(e => { console.error('FATAL:', e?.message); process.exit(1); });
+// Solo ejecuta cuando se corre como script — importar dedupPorRfc desde un
+// test no debe disparar la descarga/reemplazo de la tabla.
+if (require.main === module) {
+  main().catch(e => { console.error('FATAL:', e?.message); process.exit(1); });
+}

@@ -99,6 +99,9 @@ export interface RiskRule {
   bandera?: 'EMBARGO' | 'BLOQUEANTE' | 'LISTADO_69B';
   origenSenal: OrigenSenal | 'mixto';
   senalDisponible?: (s: Signals) => boolean;
+  // Motivo que se muestra cuando senalDisponible=false (dataset vencido, sin
+  // ingesta, dato faltante). Viaja al resultado persistido y a la UI.
+  motivoNoDisponible?: string;
   evaluar: (s: Signals) => number; // determinista; 0..maxPuntos
   fundamento: Fundamento;
 }
@@ -126,6 +129,8 @@ export interface ReglaResultado {
   bandera?: string;
   origenSenal: string;
   origenEfectivo: OrigenEfectivo;
+  // Presente solo cuando origenEfectivo === 'no_evaluado': por qué no se evaluó.
+  motivo?: string;
   fundamento: Fundamento;
 }
 
