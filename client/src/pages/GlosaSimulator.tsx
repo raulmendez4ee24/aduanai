@@ -136,7 +136,7 @@ function veredicto(result: GlosaSimulationResult) {
   if (observaciones > 0) return {
     color: 'ambar' as const, icono: AlertTriangle,
     titulo: `${observaciones} ${observaciones === 1 ? 'observación' : 'observaciones'}`,
-    frase: 'No hay hallazgos críticos, pero conviene revisar y documentar los puntos siguientes para reducir la probabilidad de una revisión.',
+    frase: 'No hay hallazgos críticos, pero conviene revisar y documentar los puntos siguientes para llegar mejor preparado a una revisión.',
   }
   return {
     color: 'sello' as const, icono: CheckCircle2,
@@ -377,7 +377,7 @@ export function GlosaSimulatorPage() {
                   ))}
                 </ul>
                 <p className="text-sm text-tinta leading-relaxed mt-3 pt-3 border-t border-carmin/20">
-                  El score y las probabilidades de este reporte se calcularon SOLO sobre los dominios revisados.
+                  El score y los índices heurísticos de este reporte se calcularon SOLO sobre los dominios revisados.
                   Un dominio sin revisar puede esconder exactamente el hallazgo que falta — este resultado no puede
                   presentarse como riesgo bajo.
                 </p>
@@ -396,9 +396,9 @@ export function GlosaSimulatorPage() {
               </div>
               <p className="text-base text-tinta leading-relaxed mt-2">{v.frase}</p>
               <div className="mt-3 pt-3 border-t border-linea grid grid-cols-3 gap-4 text-13">
-                <div><span className="text-tinta-suave">Prob. de revisión: </span><span className="font-sello-mono text-tinta">{Math.round(result.raProbability)}%{revisionIncompleta && '*'}</span></div>
-                <div><span className="text-tinta-suave">Prob. de cotejo: </span><span className="font-sello-mono text-tinta">{Math.round(result.cotejoProb)}%{revisionIncompleta && '*'}</span></div>
-                <div><span className="text-tinta-suave">Prob. de glosa: </span><span className="font-sello-mono text-tinta">{Math.round(result.glosaProb)}%{revisionIncompleta && '*'}</span></div>
+                <div><span className="text-tinta-suave">Índice de revisión (heurístico): </span><span className="font-sello-mono text-tinta">{Math.round(result.raProbability)}%{revisionIncompleta && '*'}</span></div>
+                <div><span className="text-tinta-suave">Índice de cotejo (heurístico): </span><span className="font-sello-mono text-tinta">{Math.round(result.cotejoProb)}%{revisionIncompleta && '*'}</span></div>
+                <div><span className="text-tinta-suave">Índice de glosa (heurístico): </span><span className="font-sello-mono text-tinta">{Math.round(result.glosaProb)}%{revisionIncompleta && '*'}</span></div>
               </div>
               {revisionIncompleta && (
                 <p className="text-13 text-carmin mt-2">* Cifras parciales — calculadas solo sobre los dominios revisados.</p>

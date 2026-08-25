@@ -4,11 +4,12 @@ import { api } from '../../lib/api'
 import { useTotalFractions } from '../../hooks/useTotalFractions'
 import { FadeIn, SlideIn, CountUp, Expandable, motion, staggerContainer, staggerItem } from '../../lib/animations'
 import { DemoClassifier } from '../../components/DemoClassifier'
+import { METRICAS_CLASIFICADOR } from '../../lib/metricas-medidas'
 import {
   AlertTriangle, Files, Puzzle, PenLine, Cpu, FileCheck2, ArrowRight, Check, X as XIcon,
   Boxes, Calculator, Bot, Warehouse, ShieldCheck, FileText,
   Truck, Megaphone, BarChart3, FolderOpen, RefreshCw, Package, Zap, Globe, Languages,
-  Star, Quote, Building2, Factory, Briefcase, Plane,
+  Building2, Factory, Briefcase, Plane,
   Sparkles, Lock, Database, FileCode,
 } from 'lucide-react'
 
@@ -45,8 +46,8 @@ const STEPS = [
   {
     n: 2,
     icon: Cpu,
-    title: 'La IA clasifica en 15 segundos',
-    body: 'Nuestro motor aplica las 6 Reglas Generales Interpretativas contra 8,183 fracciones y elige la correcta con su base legal.',
+    title: 'La IA propone en minutos, con fuentes',
+    body: 'El motor reduce el universo TIGIE, compara candidatos con IA, verifica que el código exista en el catálogo y sustituye los datos arancelarios cubiertos por fuentes del catálogo. El resultado es una hipótesis documentada para revisión profesional.',
   },
   {
     n: 3,
@@ -57,9 +58,9 @@ const STEPS = [
 ]
 
 const MAIN_MODULES = [
-  { icon: Boxes, title: 'Clasificador IA', desc: 'Fracción arancelaria en 15 segundos' },
-  { icon: Calculator, title: 'Cotizador', desc: 'Desglose completo de impuestos al instante' },
-  { icon: Bot, title: 'Copilot', desc: 'Tu abogado aduanero con IA disponible 24/7' },
+  { icon: Boxes, title: 'Clasificador IA', desc: 'Hipótesis arancelaria documentada en minutos' },
+  { icon: Calculator, title: 'Cotizador', desc: 'Desglose de impuestos en segundos' },
+  { icon: Bot, title: 'Copilot', desc: 'Consultas normativas con citas de su biblioteca legal' },
   { icon: Warehouse, title: 'Inventario IMMEX', desc: 'Control de Anexo 24/30 con alertas' },
   { icon: ShieldCheck, title: 'Fiscal Guardian', desc: 'Protege tu certificación IVA/IEPS' },
   { icon: FileText, title: 'Auto MVE', desc: 'Manifestación de valor sin captura manual' },
@@ -71,7 +72,7 @@ const EXTRA_MODULES = [
   { icon: Megaphone, title: 'Alertas', desc: 'Cambios en aranceles, NOMs y regulaciones' },
   { icon: BarChart3, title: 'Analytics', desc: 'Dashboards de operación y comportamiento' },
   { icon: Truck, title: 'Logística 3D', desc: 'Cubicaje óptimo en contenedores y camiones' },
-  { icon: RefreshCw, title: 'TIGIE Updater', desc: 'Decretos del DOF aplicados el mismo día' },
+  { icon: RefreshCw, title: 'Vigilante DOF', desc: 'Detecta decretos de tarifa y te alerta para cotejo' },
   { icon: Package, title: 'Operaciones', desc: 'Todas tus importaciones en una línea de tiempo' },
   { icon: Zap, title: 'Motor de Reglas', desc: 'Automatiza validaciones por país, fracción o permiso' },
   { icon: FileCode, title: 'COVE', desc: 'Generación y firma digital del valor oficial' },
@@ -82,11 +83,11 @@ const EXTRA_MODULES = [
 ]
 
 const COMPARATIVA = [
-  { f: 'Clasificación arancelaria', manual: 'Días', ajr: 'No tiene', aduanai: '15 segundos con IA', highlight: true },
+  { f: 'Clasificación arancelaria', manual: 'Días', ajr: 'No tiene', aduanai: 'Minutos, con IA y fuentes', highlight: true },
   { f: 'Módulos integrados', manual: '—', ajr: '7 separados', aduanai: '19 unificados', highlight: true },
   { f: 'Inteligencia artificial', manual: <XIcon className="w-4 h-4 text-rose-400 inline" />, ajr: <XIcon className="w-4 h-4 text-rose-400 inline" />, aduanai: <span className="inline-flex items-center gap-1 text-emerald-600 font-medium"><Check className="w-4 h-4" /> En todo</span> },
   { f: 'Soporte por WhatsApp', manual: <XIcon className="w-4 h-4 text-rose-400 inline" />, ajr: <XIcon className="w-4 h-4 text-rose-400 inline" />, aduanai: <span className="inline-flex items-center gap-1 text-emerald-600 font-medium"><Check className="w-4 h-4" /> 24/7</span> },
-  { f: 'Actualizaciones TIGIE', manual: 'Manual', ajr: 'Semanas', aduanai: 'Mismo día' },
+  { f: 'Cambios de tarifa (DOF)', manual: 'Manual', ajr: 'Manual', aduanai: 'Alerta automática para cotejo' },
   { f: 'Onboarding guiado', manual: <XIcon className="w-4 h-4 text-rose-400 inline" />, ajr: <XIcon className="w-4 h-4 text-rose-400 inline" />, aduanai: <span className="inline-flex items-center gap-1 text-emerald-600 font-medium"><Check className="w-4 h-4" /> 6 pasos</span> },
   { f: 'Inversión mensual', manual: 'Consultores por hora', ajr: 'Millones al año', aduanai: 'Desde $2,999 MXN/mes', highlight: true },
 ]
@@ -96,30 +97,12 @@ const TRUST_PILLS = [
   'Aranceles LIGIE actualizados',
   'Compatible SAT • VUCEM • T-MEC',
   'Reforma aduanera 2026 incluida',
-  'Datos encriptados en tránsito y reposo',
-  'Hospedaje en México (MX-Central)',
+  'Datos cifrados en tránsito (HTTPS)',
 ]
 
-const TESTIMONIALS = [
-  {
-    quote: 'Por fin un sistema que entiende comex mexicano. No es un SaaS genérico adaptado; se nota que lo construyeron con maestros aduanales.',
-    name: 'Ricardo M.',
-    role: 'Gerente de Comex · Sector automotriz',
-    initials: 'RM',
-  },
-  {
-    quote: 'La IA clasificó correctamente productos que nos tomaban horas de investigar con la TIGIE abierta en varias pestañas.',
-    name: 'Ana P.',
-    role: 'Agente Aduanal · Guadalajara',
-    initials: 'AP',
-  },
-  {
-    quote: 'Dejamos AJR después de 5 años. No hay comparación: todo en un lugar, sin exportar archivos ni pelear con licencias.',
-    name: 'Héctor L.',
-    role: 'Director de Operaciones · IMMEX textil',
-    initials: 'HL',
-  },
-]
+// Testimonios eliminados (misión honestidad 24-ago): eran citas con nombres
+// e iniciales SIN EVIDENCIA de personas reales. Se restauran solo cuando haya
+// citas públicas verificables de clientes reales.
 
 const FOR_WHO = [
   {
@@ -137,7 +120,7 @@ const FOR_WHO = [
   {
     icon: Factory,
     tag: 'Maquilas IMMEX',
-    title: 'Control total de Anexo 24/30 con IA predictiva',
+    title: 'Control de Anexo 24/30 con alertas de vencimiento',
     body: 'Descarga pedimentos, evita vencimientos y genera reportes al SAT en minutos.',
   },
   {
@@ -151,15 +134,15 @@ const FOR_WHO = [
 const FAQ_ITEMS = [
   {
     q: '¿La clasificación con IA es legal?',
-    a: 'Sí. ADUANAI aplica las 6 Reglas Generales Interpretativas de la LIGIE (la misma metodología que un clasificador humano) y documenta la base legal de cada decisión. El criterio final sigue siendo tuyo o de tu agente aduanal, pero llegan ahí con trabajo previo completo.',
+    a: 'Sí, como herramienta de apoyo. ADUANAI reduce el universo TIGIE, compara candidatos con IA, verifica que la fracción exista en el catálogo y documenta el razonamiento y las fuentes de cada dato. No es un motor que aplique las RGI como algoritmo: el resultado es una hipótesis fundamentada, y el criterio final es tuyo o de tu agente aduanal.',
   },
   {
     q: '¿Qué tan preciso es el clasificador?',
-    a: 'Tenemos 95%+ de acierto a nivel de capítulo en un benchmark interno de +12,000 productos reales. La plataforma también devuelve alternativas ranqueadas cuando hay ambigüedad, y conserva la razón por la que descartó cada partida.',
+    a: `En nuestra medición interna más reciente (${METRICAS_CLASIFICADOR.casos} casos, ${METRICAS_CLASIFICADOR.fechaMedicion}): ${METRICAS_CLASIFICADOR.capitulo} de acierto a nivel de capítulo y ${METRICAS_CLASIFICADOR.top1} de fracción completa a 8 dígitos. Cada corrida queda archivada y es reproducible. La plataforma devuelve alternativas ranqueadas cuando hay ambigüedad y conserva la razón por la que descartó cada partida — la revisión profesional sigue siendo parte del flujo.`,
   },
   {
     q: '¿Mis datos están seguros?',
-    a: 'Todo viaja y se guarda encriptado (TLS 1.3 + AES-256). El acceso es multi-tenant aislado por empresa, con bitácora de auditoría inmutable. No entrenamos modelos con tu información.',
+    a: 'Todo viaja cifrado (HTTPS). El acceso es multi-tenant con permisos por rol y separación por empresa a nivel de aplicación, y las acciones quedan en bitácora de auditoría. No entrenamos modelos con tu información.',
   },
   {
     q: '¿Se conecta al SAT?',
@@ -175,7 +158,7 @@ const FAQ_ITEMS = [
   },
   {
     q: '¿Qué pasa si la IA se equivoca?',
-    a: 'Marcas la clasificación como incorrecta y la plataforma la archiva como caso para revisión humana. El motor aprende de tus correcciones y mejora con el tiempo para tu operación específica.',
+    a: 'Marcas la clasificación como incorrecta y queda archivada con tu retroalimentación para revisión humana. Tu historial conserva el criterio corregido para tu operación; el resultado siempre incluye alternativas y fuentes para validar.',
   },
 ]
 
@@ -239,7 +222,7 @@ export function AboutPage() {
               </FadeIn>
               <FadeIn delay={0.1}>
                 <h1 className="text-[clamp(2rem,5.5vw,4rem)] font-bold text-[#1a1a1a] leading-[1.05] tracking-tight" style={{ fontFamily: "'Outfit', sans-serif" }}>
-                  Clasifica en segundos lo que antes tomaba días
+                  Clasifica en minutos lo que antes tomaba días
                 </h1>
               </FadeIn>
               <FadeIn delay={0.2}>
@@ -272,12 +255,12 @@ export function AboutPage() {
               {[
                 { n: 19, l: 'Módulos', s: '' },
                 { n: total, l: 'Fracciones TIGIE', s: '' },
-                { n: 36, l: 'Documentos legales en corpus', s: '' },
-                { n: 15, l: 'Tiempo de respuesta', s: 's', p: '<' },
+                { n: 1174, l: 'Documentos legales en corpus', s: '' },
+                { n: 26, l: 'Reglas reproducibles de riesgo', s: '' },
               ].map((s, i) => (
                 <motion.div key={i} variants={staggerItem}>
                   <p className="text-3xl md:text-4xl font-bold text-[#1a1a1a] tracking-tight" style={{ fontFamily: "'Outfit', sans-serif" }}>
-                    <CountUp target={s.n} prefix={s.p} suffix={s.s} />
+                    <CountUp target={s.n} suffix={s.s} />
                   </p>
                   <p className="text-[13px] text-[#999] mt-1">{s.l}</p>
                 </motion.div>
@@ -291,7 +274,7 @@ export function AboutPage() {
               <img src="/assets/hero-puerto.jpg" alt="Puerto comercial" className="w-full h-full object-cover object-center" loading="eager" />
               <div className="absolute inset-0 bg-gradient-to-t from-black/30 to-transparent" />
               <div className="absolute bottom-6 left-6 bg-white/90 backdrop-blur-sm rounded-xl px-5 py-3">
-                <p className="text-[11px] text-[#999] uppercase tracking-wider font-medium">Plataforma líder</p>
+                <p className="text-[11px] text-[#999] uppercase tracking-wider font-medium">Plataforma integral</p>
                 <p className="text-sm font-semibold text-[#1a1a1a] mt-0.5">Comercio exterior inteligente</p>
               </div>
               <div className="absolute bottom-6 right-6 bg-white/90 backdrop-blur-sm rounded-xl px-5 py-3">
@@ -399,11 +382,11 @@ export function AboutPage() {
                 Este es tu momento “ah, sí funciona”
               </h2>
               <p className="text-[14px] text-[#666] leading-relaxed mb-6">
-                Escribe cualquier producto (laptop, tequila, camiseta…) y la IA te devuelve la fracción arancelaria exacta con sus aranceles, NOMs y base legal. Sin registro, tres usos gratis.
+                Escribe cualquier producto (laptop, tequila, camiseta…) y la IA te propone una fracción arancelaria fundamentada, con sus aranceles, NOMs y base legal para que la valides. Sin registro, tres usos gratis.
               </p>
               <div className="flex flex-col gap-3">
                 {[
-                  { i: Zap, t: 'Resultados en 15 segundos' },
+                  { i: Zap, t: `Respuesta típica en ${METRICAS_CLASIFICADOR.duracionTipica}` },
                   { i: ShieldCheck, t: `Clasificación fundamentada en ${formatted} fracciones TIGIE vigentes` },
                   { i: Lock, t: 'Sin guardar tu información ni spam posterior' },
                 ].map(({ i: Icon, t }, idx) => (
@@ -559,52 +542,6 @@ export function AboutPage() {
               </div>
               <p className="text-[10px] text-[#ccc] mt-4">Logos se agregan conforme inician empresas piloto</p>
             </div>
-          </div>
-        </FadeIn>
-
-        {/* ═══ TESTIMONIOS ═══════════════════════════════════════════════ */}
-        <FadeIn>
-          <div className="bg-white rounded-2xl md:rounded-3xl px-6 md:px-10 py-10 md:py-14">
-            <div className="flex items-center justify-between flex-wrap gap-3 mb-10">
-              <div className="max-w-xl">
-                <p className="text-[11px] uppercase tracking-[0.15em] text-[#999] font-medium mb-3">/TESTIMONIOS</p>
-                <h2 className="text-3xl md:text-[2.5rem] font-bold text-[#1a1a1a] tracking-tight leading-tight" style={{ fontFamily: "'Outfit', sans-serif" }}>
-                  Lo que dicen nuestros usuarios
-                </h2>
-              </div>
-              <span className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-amber-50 border border-amber-100 text-[11px] font-medium text-amber-700">
-                Beta testers · actualizaremos con citas públicas
-              </span>
-            </div>
-
-            <motion.div
-              className="grid grid-cols-1 md:grid-cols-3 gap-4"
-              variants={staggerContainer}
-              initial="hidden"
-              whileInView="show"
-              viewport={{ once: true, margin: '-80px' }}
-            >
-              {TESTIMONIALS.map((t, i) => (
-                <motion.div key={i} variants={staggerItem} className="bg-[#f8f8f6] rounded-2xl p-7 flex flex-col h-full">
-                  <div className="flex items-center gap-1 mb-4">
-                    {[1, 2, 3, 4, 5].map(s => (
-                      <Star key={s} className="w-3.5 h-3.5 text-amber-400 fill-amber-400" />
-                    ))}
-                  </div>
-                  <Quote className="w-6 h-6 text-[#d0d0c8] mb-3" />
-                  <p className="text-[14px] text-[#333] leading-relaxed flex-1 mb-5">&ldquo;{t.quote}&rdquo;</p>
-                  <div className="flex items-center gap-3 pt-4 border-t border-[#eee]">
-                    <div className="w-10 h-10 rounded-full bg-gradient-to-br from-emerald-400 to-emerald-600 flex items-center justify-center text-white text-[13px] font-semibold shrink-0">
-                      {t.initials}
-                    </div>
-                    <div>
-                      <p className="text-[13px] font-semibold text-[#1a1a1a]">{t.name}</p>
-                      <p className="text-[11px] text-[#888]">{t.role}</p>
-                    </div>
-                  </div>
-                </motion.div>
-              ))}
-            </motion.div>
           </div>
         </FadeIn>
 

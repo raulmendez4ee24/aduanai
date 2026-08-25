@@ -231,7 +231,7 @@ export function DemoClassifier() {
           </div>
           <div className="h-4 w-full bg-gray-200 rounded" />
           <div className="h-4 w-3/4 bg-gray-200 rounded" />
-          <p className="text-[12px] text-gray-400 text-center pt-1">Analizando con IA... esto puede tomar unos segundos</p>
+          <p className="text-[12px] text-gray-400 text-center pt-1">Analizando con IA… la clasificación fundamentada puede tomar de 1 a 3 minutos</p>
         </div>
       )}
 

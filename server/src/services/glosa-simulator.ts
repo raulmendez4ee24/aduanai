@@ -1,5 +1,7 @@
 /**
- * Simulador de Glosa — predice probabilidad de Reconocimiento Aduanero (RA).
+ * Pre-Glosa — checklist heurístico preventivo de señales de riesgo de
+ * Reconocimiento Aduanero (RA). Los índices que produce son heurísticos, no
+ * probabilidades calibradas (§11 de la radiografía).
  *
  * El score se construye sumando los pesos de las reglas que se activan
  * sobre los datos del pedimento simulado. Cada regla se ejecuta contra
@@ -139,7 +141,9 @@ const HIGH_RISK_CUSTOMS = new Set(['16', '43', '40', '24', '51']);
 const ASIAN_TRIANGULATION_PROVIDERS = new Set(['VN', 'MY', 'TH', 'KH', 'ID']);
 const COMMON_CHINESE_FRACTION_PREFIXES = ['72', '73', '64', '50', '51', '52', '53', '54', '55', '56', '57', '58', '59', '60', '61', '62', '63', '85', '94', '95'];
 
-const DISCLAIMER = 'Este simulador estima probabilidades basado en modelos de riesgo conocidos del SAT y heurísticas calibradas con prácticas de la industria. Los resultados son orientativos. La decisión final del SAT depende de su sistema interno y criterios del personal de reconocimiento. Úselo como herramienta de prevención, no como garantía.';
+// Lenguaje acorde a la radiografía §11 (24-ago): checklist heurístico
+// preventivo, NO probabilidades reales ni calibración con la industria.
+const DISCLAIMER = 'Esta Pre-Glosa es un checklist heurístico preventivo: revisa señales disponibles de la operación contra reglas conocidas de riesgo y declara los dominios que no pudieron revisarse. Los índices que reporta son heurísticos, no probabilidades reales de revisión ni predicciones calibradas del SAT. La decisión final del SAT depende de su sistema interno y del personal de reconocimiento. Úsela como herramienta de prevención documental, no como garantía.';
 
 function fractionLikelyChinese(fractionCode: string): boolean {
   const cleaned = fractionCode.replace(/[.\s-]/g, '');
