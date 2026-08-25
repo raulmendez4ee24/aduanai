@@ -60,10 +60,19 @@ function hallazgosDe(op: OperacionExtraida, signals: Signals): { codigo: string;
       mensaje: `El pedimento cita la fracción ${op.partida.fraccion} y NO existe en la TIGIE vigente del catálogo — revisar de inmediato (LA 54: responsabilidad por correcta clasificación).`,
     });
   }
-  if (v.en69B) {
+  // Coherencia con el motor (25-ago): el hallazgo destacado solo se emite con
+  // lista DISPONIBLE. Con lista vencida/sin ingesta se informa que la señal no
+  // se evaluó — nunca se presenta un hit de lista caduca como alerta vigente
+  // mientras el score dice "no evaluado".
+  if (v.en69B && v.lista69BDisponible === true) {
     h.push({
       codigo: 'LISTADO_69B', destacado: true,
       mensaje: `El RFC del importador aparece como ${v.en69B.situacion} en el listado del Art. 69-B CFF (lista al ${v.en69B.listaAl}).`,
+    });
+  } else if (v.lista69BDisponible === false) {
+    h.push({
+      codigo: 'LISTA_69B_NO_EVALUADA', destacado: false,
+      mensaje: 'La consulta al listado 69-B no se evaluó: la lista está vencida (>30 días) o sin ingesta. No afecta el score.',
     });
   }
   if (v.cuotaActiva) {

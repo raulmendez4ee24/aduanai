@@ -31,7 +31,7 @@ La lectura correcta de sus cuatro experiencias principales es:
 1. **Clasificador:** reduce el universo TIGIE con búsqueda léxica, usa Sonnet 4.6 para proponer y Haiku 4.5 para verificar, comprueba que la fracción exista y después sustituye datos legales puntuales por el catálogo canónico. No ejecuta las RGI como algoritmo jurídico.
 2. **Copilot:** hace RAG con embeddings y un corpus legal mixto. Tiene un modo estricto capaz de regenerar o abstenerse ante citas no respaldadas, pero producción sigue en modo sombra; hoy una respuesta advertida todavía puede mostrarse.
 3. **Pre‑Glosa:** aplica reglas y heurísticas sin LLM. Registra dependencias que fallan como `no_revisado`, pero no puede distinguir siempre entre “consulta completa sin hallazgos” y “catálogo incompleto sin datos”. Sus porcentajes no están calibrados con outcomes reales.
-4. **Risk Scorer:** ejecuta 26 reglas deterministas y separa exposición de escudo documental. Es la mejor implementación de fundamento jurídico estructurado, pero algunas señales siguen incompletas y la lista 69‑B vencida todavía puede sumar puntos.
+4. **Risk Scorer:** ejecuta 26 reglas deterministas y separa exposición de escudo documental. Es la mejor implementación de fundamento jurídico estructurado; desde el 25‑ago una señal no disponible (p. ej. lista 69‑B vencida) no suma puntos ni bandera — queda `no_evaluado` con motivo visible (§7.3). Algunas señales siguen incompletas.
 
 La posición defendible del producto es: **plataforma de prevención, organización y preparación documental asistida, con supervisión profesional**. No es una autoridad legal autónoma ni sustituye el criterio del agente aduanal.
 
@@ -514,7 +514,7 @@ No debe llamarse probabilidad real de reconocimiento/glosa del SAT, revisión co
 
 > “Ejecuta 26 reglas reproducibles y separa exposición de escudo documental. Distingue señales verificadas, declaradas y no evaluadas.”
 
-No debe afirmarse que todas las señales están actuales mientras la lista 69‑B siga vencida y pueda afectar el score.
+No debe afirmarse que todas las señales están actuales mientras la lista 69‑B siga vencida; con lista vencida la señal queda `no_evaluado` y NO afecta el score (motor corregido 25‑ago).
 
 ### Conflictos en la web pública: RESUELTOS (25‑ago‑2026)
 

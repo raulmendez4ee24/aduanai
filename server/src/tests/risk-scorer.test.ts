@@ -61,7 +61,7 @@ assert(SHIELD_ITEMS.every(i => i.fundamento.url.startsWith('http')), 'todo ítem
 
 // ── 4. 69-B definitivo = bandera BLOQUEANTE → fila alta de la matriz ──
 {
-  const s = base({ verificado: { en69B: { situacion: 'DEFINITIVO', listaAl: '2026-07-01' } } });
+  const s = base({ verificado: { en69B: { situacion: 'DEFINITIVO', listaAl: '2026-07-01' }, lista69BDisponible: true } });
   const r = evaluate(s, DEFAULT_WEIGHTS);
   assert(r.banderas.includes('LISTADO_69B'), '69-B definitivo: bandera presente');
   assert(['NARANJA', 'ROJO', 'ROJO_CRITICO'].includes(r.banda), `69-B: banda elevada (dio ${r.banda})`);
@@ -133,7 +133,7 @@ assert(SHIELD_ITEMS.every(i => i.fundamento.url.startsWith('http')), 'todo ítem
 
 // ── 11. Pesos configurables cambian la exposición ──
 {
-  const s = base({ verificado: { en69B: { situacion: 'PRESUNTO', listaAl: '2026-07-01' } } });
+  const s = base({ verificado: { en69B: { situacion: 'PRESUNTO', listaAl: '2026-07-01' }, lista69BDisponible: true } });
   // PRESUNTO (10) + KYC sin responder (8) = 18 bruto, bajo el peso 22
   const conDefault = evaluate(s, DEFAULT_WEIGHTS).factores.find(f => f.factor === 'PERFIL')!.puntos;
   const pesosAlt = { ...DEFAULT_WEIGHTS, PERFIL: 5, VALOR: 41 };

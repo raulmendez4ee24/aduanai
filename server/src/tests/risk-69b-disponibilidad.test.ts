@@ -83,33 +83,33 @@ test('(b-bis) lista VIGENTE + RFC limpio → 0 puntos pero VERIFICADO (evaluado,
   assert.equal(regla.origenEfectivo, 'verificado');
 });
 
-console.log('\nIngesta 69-B: prevalece la situación más reciente');
+console.log('\nIngesta 69-B: prevalece la situación con fecha más reciente');
 
-test('(c) DEFINITIVO seguido de SENTENCIA_FAVORABLE → prevalece la sentencia', () => {
-  const out = dedupPorRfc([
-    { rfc: 'XYZ010101XY1', razonSocial: 'X SA', situacion: 'DEFINITIVO' },
-    { rfc: 'XYZ010101XY1', razonSocial: 'X SA', situacion: 'SENTENCIA_FAVORABLE' },
-  ]);
+const f = (rfc: string, situacion: string, fecha?: string) => ({ rfc, razonSocial: 'X', situacion, fecha: fecha ? new Date(fecha) : null });
+
+test('(c) DEFINITIVO 2018 + SENTENCIA_FAVORABLE 2019 → prevalece la sentencia (por fecha)', () => {
+  const out = dedupPorRfc([f('XYZ010101XY1', 'DEFINITIVO', '2018-09-28'), f('XYZ010101XY1', 'SENTENCIA_FAVORABLE', '2019-03-05')]);
   assert.equal(out.length, 1);
   assert.equal(out[0]!.situacion, 'SENTENCIA_FAVORABLE');
 });
 
-test('(c-bis) PRESUNTO seguido de DESVIRTUADO → prevalece desvirtuado (en cualquier orden de filas)', () => {
+test('(c-bis) PRESUNTO NUEVO posterior a sentencia favorable vieja → prevalece el presunto (cronología real)', () => {
+  const out = dedupPorRfc([f('NVO010101NV1', 'SENTENCIA_FAVORABLE', '2019-03-05'), f('NVO010101NV1', 'PRESUNTO', '2025-11-10')]);
+  assert.equal(out[0]!.situacion, 'PRESUNTO');
+});
+
+test('(c-ter) desvirtuado posterior a presunto → prevalece desvirtuado (por fecha, cualquier orden de filas)', () => {
   for (const filas of [
-    [{ rfc: 'AAA010101AA1', razonSocial: 'A', situacion: 'PRESUNTO' }, { rfc: 'AAA010101AA1', razonSocial: 'A', situacion: 'DESVIRTUADO' }],
-    [{ rfc: 'AAA010101AA1', razonSocial: 'A', situacion: 'DESVIRTUADO' }, { rfc: 'AAA010101AA1', razonSocial: 'A', situacion: 'PRESUNTO' }],
+    [f('AAA010101AA1', 'PRESUNTO', '2024-01-15'), f('AAA010101AA1', 'DESVIRTUADO', '2024-06-20')],
+    [f('AAA010101AA1', 'DESVIRTUADO', '2024-06-20'), f('AAA010101AA1', 'PRESUNTO', '2024-01-15')],
   ]) {
-    const out = dedupPorRfc(filas);
-    assert.equal(out[0]!.situacion, 'DESVIRTUADO');
+    assert.equal(dedupPorRfc(filas)[0]!.situacion, 'DESVIRTUADO');
   }
 });
 
-test('(c-ter) PRESUNTO que avanza a DEFINITIVO → prevalece definitivo (el proceso avanzó en contra)', () => {
-  const out = dedupPorRfc([
-    { rfc: 'BBB010101BB1', razonSocial: 'B', situacion: 'PRESUNTO' },
-    { rfc: 'BBB010101BB1', razonSocial: 'B', situacion: 'DEFINITIVO' },
-  ]);
-  assert.equal(out[0]!.situacion, 'DEFINITIVO');
+test('(c-4) SIN fechas parseables → fallback por etapa del proceso (sentencia > definitivo > desvirtuado... nunca eclipsa la favorable)', () => {
+  const out = dedupPorRfc([f('BBB010101BB1', 'DEFINITIVO'), f('BBB010101BB1', 'SENTENCIA_FAVORABLE')]);
+  assert.equal(out[0]!.situacion, 'SENTENCIA_FAVORABLE');
 });
 
 console.log(`\n${passed} passed, 0 failed\n`);

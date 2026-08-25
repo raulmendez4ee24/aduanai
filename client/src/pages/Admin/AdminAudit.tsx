@@ -157,7 +157,7 @@ export function AdminAuditPage() {
         </div>
         <div>
           <h1 className="text-[18px] font-bold text-[#1a1a1a]">Audit Trail</h1>
-          <p className="text-[12px] text-gray-400">Trazabilidad inmutable con cadena de hashes SHA-256</p>
+          <p className="text-[12px] text-gray-400">Trazabilidad verificable con cadena de hashes SHA-256 (alteraciones detectables)</p>
         </div>
       </div>
 

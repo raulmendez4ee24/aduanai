@@ -11,7 +11,7 @@ const TILES: Tile[] = [
   { to: '/settings/users', icon: Users, label: 'Usuarios y roles', desc: 'Permisos granulares y SOD (OEA)', requiresSettings: true },
   { to: '/settings/padrones', icon: Shield, label: 'Padrones SAT', desc: 'General y sectoriales (Anexo 10)' },
   { to: '/verificacion', icon: BadgeCheck, label: 'Verificación profesional', desc: 'Credenciales del agente aduanal' },
-  { to: '/audit', icon: FileText, label: 'Audit Trail', desc: 'Registro inmutable de eventos' },
+  { to: '/audit', icon: FileText, label: 'Audit Trail', desc: 'Registro de eventos con cadena de hashes verificable' },
   { to: '/alertas', icon: Bell, label: 'Notificaciones', desc: 'Alertas inteligentes' },
 ]
 

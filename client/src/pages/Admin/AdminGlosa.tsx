@@ -16,7 +16,7 @@ export function AdminGlosaPage() {
           <Target className="w-5 h-5 text-emerald-600"/>
           <h1 className="text-xl font-bold text-slate-900">Simulador de Glosa — Administración</h1>
         </div>
-        <p className="text-[12px] text-slate-500 mb-4">Estadísticas globales, calibración del modelo y ajuste de reglas de riesgo.</p>
+        <p className="text-[12px] text-slate-500 mb-4">Estadísticas globales, comparación índice-vs-outcomes y ajuste de reglas de riesgo.</p>
         <div className="flex gap-2 flex-wrap">
           {(['overview', 'rules', 'customs'] as Tab[]).map(t => (
             <button key={t} onClick={() => setTab(t)} className={`text-[12px] font-medium px-3 py-1.5 rounded-full transition ${tab === t ? 'bg-slate-900 text-white' : 'bg-white border border-slate-200 text-slate-700 hover:bg-slate-50'}`}>
@@ -41,9 +41,9 @@ function OverviewTab() {
     <div className="space-y-3">
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
         <Card label="Total simulaciones" value={stats.total.toLocaleString('es-MX')}/>
-        <Card label="Predicción media" value={`${stats.modelCalibration.predictedAvg}%`} hint="RA prob promedio"/>
+        <Card label="Índice heurístico medio" value={`${stats.modelCalibration.predictedAvg}%`} hint="índice de revisión promedio (no calibrado)"/>
         <Card label="RA real (verificado)" value={`${stats.modelCalibration.actualRA}%`} hint={`n=${stats.modelCalibration.total}`}/>
-        <Card label="Calibración"
+        <Card label="Índice vs outcomes"
           value={stats.modelCalibration.total >= 10
             ? `Δ ${Math.abs(stats.modelCalibration.predictedAvg - stats.modelCalibration.actualRA)}pts`
             : 'Insuficiente'}
@@ -116,7 +116,7 @@ function RulesTab() {
   return (
     <div className={`${GLASS} rounded-2xl p-5`}>
       <p className="text-[13px] font-semibold text-slate-900 mb-3 flex items-center gap-1">
-        <Sliders className="w-4 h-4"/> Reglas activas — ajusta peso y severity para calibrar el modelo
+        <Sliders className="w-4 h-4"/> Reglas activas — ajusta peso y severity del checklist heurístico
       </p>
       <div className="space-y-2">
         {rules.map(r => (

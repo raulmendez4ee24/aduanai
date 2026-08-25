@@ -172,6 +172,10 @@ export function RiskScorerPage() {
 
   const banda = result ? BANDA_STYLE[result.banda] ?? BANDA_STYLE.ROJO : null
   const reglasActivas = result?.factores.flatMap(f => f.reglas.filter(r => r.puntos > 0)) ?? []
+  // Reglas no evaluadas (señal no disponible: dataset vencido/sin ingesta) —
+  // 0 puntos por diseño, así que el filtro de arriba jamás las mostraría y el
+  // motivo sería invisible (revisión 25-ago). Se listan aparte, con su motivo.
+  const reglasNoEvaluadas = result?.factores.flatMap(f => f.reglas.filter(r => r.origenEfectivo === 'no_evaluado')) ?? []
   const checklistAplicable = (result?.checklist ?? []).filter((c: RiskChecklistItem) => c.aplicable)
   const pendientes = checklistAplicable.filter(c => !c.completo)
 
@@ -349,7 +353,7 @@ export function RiskScorerPage() {
           </div>
 
           {/* Reglas que sumaron puntos — con fundamento clickeable y origen de señal */}
-          {reglasActivas.length > 0 && (
+          {(reglasActivas.length > 0 || reglasNoEvaluadas.length > 0) && (
             <div className={`${GLASS} rounded-[2rem] p-6`}>
               <p className="text-[11px] font-bold text-slate-500 uppercase tracking-wider mb-3">Por qué — reglas que sumaron exposición ({reglasActivas.length})</p>
               <div className="space-y-2">
@@ -366,6 +370,26 @@ export function RiskScorerPage() {
                   </div>
                 ))}
               </div>
+              {reglasNoEvaluadas.length > 0 && (
+                <div className="mt-4 pt-3 border-t border-slate-200/60">
+                  <p className="text-[11px] font-bold text-slate-500 uppercase tracking-wider mb-2">No evaluadas — sin puntos ni bandera ({reglasNoEvaluadas.length})</p>
+                  <div className="space-y-2">
+                    {reglasNoEvaluadas.map(r => (
+                      <div key={r.id} className="flex items-start justify-between gap-3 bg-slate-50/60 rounded-xl px-3 py-2.5 border border-slate-100">
+                        <div className="min-w-0">
+                          <p className="text-[13px] text-slate-600">{r.descripcion}</p>
+                          {r.motivo && <p className="text-[11px] text-slate-500 mt-0.5">{r.motivo}</p>}
+                          <div className="flex items-center gap-3 mt-1 flex-wrap">
+                            <OrigenBadge origen="no_evaluado" motivo={r.motivo} />
+                            <FundamentoLink regla={r} />
+                          </div>
+                        </div>
+                        <span className="font-mono text-[13px] text-slate-400 shrink-0">0</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
             </div>
           )}
 

@@ -143,7 +143,7 @@ const COMMON_CHINESE_FRACTION_PREFIXES = ['72', '73', '64', '50', '51', '52', '5
 
 // Lenguaje acorde a la radiografía §11 (24-ago): checklist heurístico
 // preventivo, NO probabilidades reales ni calibración con la industria.
-const DISCLAIMER = 'Esta Pre-Glosa es un checklist heurístico preventivo: revisa señales disponibles de la operación contra reglas conocidas de riesgo y declara los dominios que no pudieron revisarse. Los índices que reporta son heurísticos, no probabilidades reales de revisión ni predicciones calibradas del SAT. La decisión final del SAT depende de su sistema interno y del personal de reconocimiento. Úsela como herramienta de prevención documental, no como garantía.';
+export const GLOSA_DISCLAIMER = 'Esta Pre-Glosa es un checklist heurístico preventivo: revisa señales disponibles de la operación contra reglas conocidas de riesgo y declara los dominios que no pudieron revisarse. Los índices que reporta son heurísticos, no probabilidades reales de revisión ni predicciones calibradas del SAT. La decisión final del SAT depende de su sistema interno y del personal de reconocimiento. Úsela como herramienta de prevención documental, no como garantía.';
 
 function fractionLikelyChinese(fractionCode: string): boolean {
   const cleaned = fractionCode.replace(/[.\s-]/g, '');
@@ -585,7 +585,7 @@ export async function simulateGlosa(
     yourHistory: ownHistory && ownHistory.total >= 5 ? ownHistory.raRate : null,
     revision,
     tipoCambio,
-    disclaimer: DISCLAIMER,
+    disclaimer: GLOSA_DISCLAIMER,
   };
 }
 

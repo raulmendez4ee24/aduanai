@@ -81,7 +81,21 @@ async function main() {
   const headerIdx = lines.findIndex(l => l.startsWith('No,RFC,'));
   if (headerIdx === -1) throw new Error('Encabezados "No,RFC,…" no encontrados — ¿cambió el formato del CSV?');
 
-  const rows: { rfc: string; razonSocial: string; situacion: string }[] = [];
+  // Columnas de fecha de publicación por situación (bloques de 4 desde la 4):
+  // presunción 4-7, desvirtuados 8-11, definitivos 12-15, sentencia 16-19.
+  // Se toma la publicación en página SAT del bloque de la situación de la
+  // fila (fallback: publicación DOF del mismo bloque).
+  const COL_FECHA: Record<string, [number, number]> = {
+    PRESUNTO: [5, 7], DESVIRTUADO: [9, 11], DEFINITIVO: [13, 15], SENTENCIA_FAVORABLE: [17, 19],
+  };
+  const parseFecha = (v: string | undefined): Date | null => {
+    const m = (v ?? '').match(/(\d{2})\/(\d{2})\/(\d{4})/);
+    if (!m) return null;
+    const d = new Date(Date.UTC(Number(m[3]), Number(m[2]) - 1, Number(m[1])));
+    return isNaN(d.getTime()) ? null : d;
+  };
+
+  const rows: { rfc: string; razonSocial: string; situacion: string; fecha: Date | null }[] = [];
   const malas: string[] = [];
   for (const line of lines.slice(headerIdx + 1)) {
     if (!line.trim()) continue;
@@ -92,8 +106,12 @@ async function main() {
       if (line.trim()) malas.push(line.slice(0, 60));
       continue;
     }
-    rows.push({ rfc, razonSocial: (cols[2] ?? '').trim().slice(0, 250), situacion });
+    const [cSat, cDof] = COL_FECHA[situacion]!;
+    const fecha = parseFecha(cols[cSat]) ?? parseFecha(cols[cDof]);
+    rows.push({ rfc, razonSocial: (cols[2] ?? '').trim().slice(0, 250), situacion, fecha });
   }
+  const conFecha = rows.filter(r => r.fecha).length;
+  console.log(`Con fecha de publicación parseable: ${conFecha}/${rows.length}`);
   console.log(`Filas válidas: ${rows.length} | descartadas: ${malas.length}`);
   if (rows.length < 5000) throw new Error(`Demasiado pocas filas (${rows.length}) — no reemplazo la tabla (falla cerrada)`);
 
@@ -106,7 +124,7 @@ async function main() {
     await tx.sat69B.deleteMany();
     for (let i = 0; i < finales.length; i += 2000) {
       await tx.sat69B.createMany({
-        data: finales.slice(i, i + 2000).map(r => ({ ...r, importedAt: corte })),
+        data: finales.slice(i, i + 2000).map(r => ({ rfc: r.rfc, razonSocial: r.razonSocial, situacion: r.situacion, fechaOficio: r.fecha ?? null, importedAt: corte })),
       });
     }
   }, { timeout: 120_000 });

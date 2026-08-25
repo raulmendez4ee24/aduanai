@@ -323,7 +323,7 @@ auditPublicRouter.get('/:hash', async (req, res, next) => {
           hash: log.hash,
           prevHash: log.prevHash,
         },
-        message: 'Hash válido — el evento está registrado en la cadena de auditoría inmutable de ADUANAI.',
+        message: 'Hash válido — el evento está registrado en la cadena de auditoría verificable de ADUANAI (hashes encadenados; una alteración rompería la cadena).',
       },
     });
   } catch (err) { next(err); }

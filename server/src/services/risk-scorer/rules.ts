@@ -9,7 +9,7 @@
 import type { RiskRule, Signals } from './types';
 import { e2Exigible, PRORROGA_E2 } from './vigencias';
 
-export const RULES_VERSION = 'v1.2.0-2026-07-19';
+export const RULES_VERSION = 'v1.3.0-2026-08-25';
 
 const LA = {
   fuente: 'Ley Aduanera consolidada (Última Reforma DOF 19-11-2025)',
@@ -200,7 +200,9 @@ export const RISK_RULES: RiskRule[] = [
   {
     id: 'F6-CLA-01', factor: 'CLASIFICACION', maxPuntos: 5, origenSenal: 'verificado',
     descripcion: 'Fracción inexistente/inactiva en el catálogo, o discrepante del Clasificador validado',
-    senalDisponible: s => s.verificado.fraccionValida !== undefined,
+    // Evalúa DOS señales; la disponibilidad refleja ambas (25-ago): antes una
+    // señal parcial (coincidencia sin validez) puntuaba mal-etiquetada.
+    senalDisponible: s => s.verificado.fraccionValida !== undefined || s.verificado.fraccionClasificadorCoincide != null,
     evaluar: s => {
       if (s.verificado.fraccionValida === false) return 5;
       if (s.verificado.fraccionClasificadorCoincide === false) return 3;

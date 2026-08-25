@@ -20,6 +20,7 @@ import {
   recordOutcome,
   getSimulationStats,
   type GlosaSimulationInput,
+  GLOSA_DISCLAIMER,
 } from '../services/glosa-simulator';
 import { getActiveVersions } from '../services/traceability';
 import { TARIFF_VERSION } from '../lib/tariff-version';
@@ -98,7 +99,10 @@ glosaRouter.get('/history', authenticate, async (req: AuthRequest, res: Response
         revision: true, // fail-closed: el listado distingue revisiones incompletas
       },
     });
-    res.json({ status: 'ok', data: items });
+    // Honestidad §11: el histórico expone raProbability (nombre legado del
+    // campo) — el disclaimer acompaña SIEMPRE para que ningún consumidor lo
+    // lea como probabilidad calibrada.
+    res.json({ status: 'ok', data: items, disclaimer: GLOSA_DISCLAIMER });
   } catch (err) { next(err); }
 });
 
@@ -108,7 +112,7 @@ glosaRouter.get('/:id', authenticate, async (req: AuthRequest, res: Response, ne
       where: { id: String(req.params.id ?? ''), tenantId: req.tenantId! },
     });
     if (!sim) return res.status(404).json({ status: 'error', message: 'Simulación no encontrada' });
-    res.json({ status: 'ok', data: sim });
+    res.json({ status: 'ok', data: sim, disclaimer: GLOSA_DISCLAIMER });
   } catch (err) { next(err); }
 });
 
