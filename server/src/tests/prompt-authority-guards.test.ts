@@ -80,4 +80,10 @@ test('package.json conserva el script test:no-aduana-shopping (puerta de entrada
   );
 });
 
+test('package.json conserva las puertas de entrada de los guards de honestidad y 69-B', () => {
+  const pkg = JSON.parse(read('package.json'));
+  assert.equal(pkg.scripts['test:afirmaciones'], 'tsx src/tests/afirmaciones-comerciales.test.ts');
+  assert.equal(pkg.scripts['test:risk-69b'], 'tsx src/tests/risk-69b-disponibilidad.test.ts');
+});
+
 console.log(`\n${passed} passed, 0 failed\n`);

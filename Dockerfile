@@ -21,6 +21,15 @@ RUN npm run build
 # FALLA aquí — corre mientras /app/client todavía existe (se borra más abajo).
 RUN npx tsx src/tests/campo-numerico-clase.test.ts
 
+# Gate de honestidad comercial (24-ago-2026): si una afirmación prohibida por
+# la radiografía §11 (95%+, "15 segundos", "fracción exacta", "aplica las 6
+# RGI", "calibradas con la industria", etc.) reaparece en una superficie de
+# usuario fuera de la lista blanca con artefacto, el build FALLA.
+RUN npx tsx src/tests/afirmaciones-comerciales.test.ts
+
+# Gate del motor de riesgo 69-B (24-ago-2026): señal no disponible no puntúa.
+RUN npx tsx src/tests/risk-69b-disponibilidad.test.ts
+
 # Build client
 WORKDIR /app/client
 RUN npm ci
