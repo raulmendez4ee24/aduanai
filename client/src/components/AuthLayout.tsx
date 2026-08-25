@@ -95,7 +95,7 @@ export function AuthLayout({ children, title, subtitle }: AuthLayoutProps) {
           </div>
 
           <div className="mt-12 pt-8 border-t border-white/20">
-            <p className="text-white/50 text-xs">Compatible con SAT · VUCEM · T-MEC · DOF</p>
+            <p className="text-white/50 text-xs">Basado en fuentes oficiales (DOF · SAT · T-MEC) · Formatos alineados al Anexo 22</p>
           </div>
         </motion.div>
       </div>

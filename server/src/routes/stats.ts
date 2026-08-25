@@ -16,7 +16,7 @@ const publicStatsLimit = rateLimit({
 
 statsRouter.get('/public', publicStatsLimit, async (_req, res, next) => {
   try {
-    const [totalFractions, totalClassifications, feedbackStats] = await Promise.all([
+    const [totalFractions, totalClassifications, feedbackStats, corpusDocs, corpusFuentes] = await Promise.all([
       prisma.fraction.count({ where: { active: true } }),
       prisma.classification.count(),
       prisma.classification.groupBy({
@@ -24,6 +24,10 @@ statsRouter.get('/public', publicStatsLimit, async (_req, res, next) => {
         _count: true,
         where: { feedback: { not: null } },
       }),
+      // Contadores públicos EN VIVO (orden 25-ago): cada número de la página
+      // pública deriva de la base real, no de un snapshot hardcodeado.
+      prisma.legalDocument.count({ where: { isActive: true } }),
+      prisma.legalDocument.findMany({ where: { isActive: true }, select: { source: true }, distinct: ['source'] }),
     ]);
 
     const correct = feedbackStats.find(f => f.feedback === 'correct')?._count ?? 0;
@@ -37,6 +41,8 @@ statsRouter.get('/public', publicStatsLimit, async (_req, res, next) => {
       status: 'ok',
       data: {
         totalFractions,
+        corpusDocumentosActivos: corpusDocs,
+        corpusFuentes: corpusFuentes.length,
         totalClassifications,
         avgAccuracy,
       },

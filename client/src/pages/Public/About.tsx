@@ -1,12 +1,12 @@
 import { Link, useNavigate } from 'react-router-dom'
 import { useState } from 'react'
 import { api } from '../../lib/api'
-import { useTotalFractions } from '../../hooks/useTotalFractions'
+import { useStatsPublicos } from '../../hooks/useTotalFractions'
 import { FadeIn, SlideIn, CountUp, Expandable, motion, staggerContainer, staggerItem } from '../../lib/animations'
 import { DemoClassifier } from '../../components/DemoClassifier'
-import { METRICAS_CLASIFICADOR, CORPUS_LEGAL } from '../../lib/metricas-medidas'
+import { METRICAS_CLASIFICADOR } from '../../lib/metricas-medidas'
 import {
-  AlertTriangle, Files, Puzzle, PenLine, Cpu, FileCheck2, ArrowRight, Check, X as XIcon,
+  AlertTriangle, Files, Puzzle, PenLine, Cpu, FileCheck2, ArrowRight, Check,
   Boxes, Calculator, Bot, Warehouse, ShieldCheck, FileText,
   Truck, Megaphone, BarChart3, FolderOpen, RefreshCw, Package, Zap, Globe, Languages,
   Building2, Factory, Briefcase, Plane,
@@ -82,20 +82,21 @@ const EXTRA_MODULES = [
   { icon: Sparkles, title: 'API pública', desc: '114+ endpoints para integrar en tu ERP o TMS' },
 ]
 
-const COMPARATIVA = [
-  { f: 'Clasificación arancelaria', manual: 'Días', ajr: 'No tiene', aduanai: 'Minutos, con IA y fuentes', highlight: true },
-  { f: 'Módulos integrados', manual: '—', ajr: '7 separados', aduanai: '19 unificados', highlight: true },
-  { f: 'Inteligencia artificial', manual: <XIcon className="w-4 h-4 text-rose-400 inline" />, ajr: <XIcon className="w-4 h-4 text-rose-400 inline" />, aduanai: <span className="inline-flex items-center gap-1 text-emerald-600 font-medium"><Check className="w-4 h-4" /> En todo</span> },
-  { f: 'Soporte por WhatsApp', manual: <XIcon className="w-4 h-4 text-rose-400 inline" />, ajr: <XIcon className="w-4 h-4 text-rose-400 inline" />, aduanai: <span className="inline-flex items-center gap-1 text-emerald-600 font-medium"><Check className="w-4 h-4" /> 24/7</span> },
-  { f: 'Cambios de tarifa (DOF)', manual: 'Manual', ajr: 'Manual', aduanai: 'Alerta automática para cotejo' },
-  { f: 'Onboarding guiado', manual: <XIcon className="w-4 h-4 text-rose-400 inline" />, ajr: <XIcon className="w-4 h-4 text-rose-400 inline" />, aduanai: <span className="inline-flex items-center gap-1 text-emerald-600 font-medium"><Check className="w-4 h-4" /> 6 pasos</span> },
-  { f: 'Inversión mensual', manual: 'Consultores por hora', ajr: 'Millones al año', aduanai: 'Desde $2,999 MXN/mes', highlight: true },
+// Comparativa eliminada (orden 25-ago): nombraba a un competidor sin artefacto
+// por afirmación. Regla permanente: ningún tercero nombrado en páginas
+// públicas sin artefacto — vigilada por el guard de afirmaciones.
+const POSICIONAMIENTO = [
+  { icon: Boxes, title: 'Hipótesis con fuentes, no corazonadas', body: 'Cada clasificación llega con su razonamiento, alternativas descartadas y el estado de verificación de cada dato del catálogo.' },
+  { icon: Puzzle, title: '19 módulos en una sola plataforma', body: 'Clasificar, cotizar, prevalidar, inventario IMMEX, fiscal, MVE/COVE, origen y alertas comparten los mismos datos — sin exportar archivos entre sistemas.' },
+  { icon: RefreshCw, title: 'Vigilancia de cambios del DOF', body: 'Los decretos de tarifa se detectan y se alertan para cotejo; el catálogo registra la fecha de cotejo de cada dato.' },
+  { icon: ShieldCheck, title: 'Trazabilidad verificable', body: 'Acciones en bitácora con cadena de hashes y expedientes con hash público verificable por terceros.' },
 ]
 
 const TRUST_PILLS = [
-  '8,183 fracciones TIGIE 2026',
+  '8,183 fracciones TIGIE activas',
   'Aranceles LIGIE actualizados',
-  'Compatible SAT • VUCEM • T-MEC',
+  'Basado en fuentes oficiales (DOF · SAT · T-MEC)',
+  'Formatos alineados al Anexo 22 (RGCE)',
   'Reforma aduanera 2026 incluida',
   'Datos cifrados en tránsito (HTTPS)',
 ]
@@ -146,7 +147,7 @@ const FAQ_ITEMS = [
   },
   {
     q: '¿Se conecta al SAT?',
-    a: 'Hoy generamos archivos listos para VUCEM y para los formatos del SAT (Anexo 24/30, COVE, MVE). Estamos trabajando la integración directa con VUCEM API para empresas con certificado de sello.',
+    a: 'Generamos archivos en los formatos del Anexo 24/30, COVE y MVE, alineados al Anexo 22 de las RGCE y basados en fuentes oficiales. La transmisión a VUCEM NO está incluida: se realiza por tus canales habituales (agente aduanal o portal).',
   },
   {
     q: '¿Funciona para empresas IMMEX?',
@@ -165,7 +166,7 @@ const FAQ_ITEMS = [
 // ── Components ────────────────────────────────────────────────────────────
 
 export function AboutPage() {
-  const { total, formatted } = useTotalFractions()
+  const { fracciones: total, documentos, fuentes, formatted } = useStatsPublicos()
   const [mobileOpen, setMobileOpen] = useState(false)
   const [showAllModules, setShowAllModules] = useState(false)
 
@@ -254,9 +255,9 @@ export function AboutPage() {
             >
               {[
                 { n: 19, l: 'Módulos', s: '' },
-                { n: total, l: 'Fracciones TIGIE', s: '' },
-                { n: CORPUS_LEGAL.documentos, l: `Documentos legales en corpus (al ${CORPUS_LEGAL.corte.slice(8,10)}-ago)`, s: '' },
-                { n: 26, l: 'Reglas reproducibles de riesgo', s: '' },
+                { n: total, l: 'Fracciones TIGIE activas', s: '' },
+                { n: documentos, l: 'Documentos legales activos', s: '' },
+                { n: fuentes, l: 'Fuentes oficiales en el corpus', s: '' },
               ].map((s, i) => (
                 <motion.div key={i} variants={staggerItem}>
                   <p className="text-3xl md:text-4xl font-bold text-[#1a1a1a] tracking-tight" style={{ fontFamily: "'Outfit', sans-serif" }}>
@@ -468,42 +469,26 @@ export function AboutPage() {
           </div>
         </FadeIn>
 
-        {/* ═══ COMPARATIVA ════════════════════════════════════════════════ */}
+        {/* ═══ POR QUÉ ADUANAI (posicionamiento propio, sin terceros) ═══ */}
         <FadeIn>
           <div id="comparativa" className="bg-white rounded-2xl md:rounded-3xl px-6 md:px-10 py-10 md:py-14">
             <div className="max-w-2xl mb-10">
               <p className="text-[11px] uppercase tracking-[0.15em] text-[#999] font-medium mb-3">/POR QUÉ ADUANAI</p>
               <h2 className="text-3xl md:text-[2.5rem] font-bold text-[#1a1a1a] tracking-tight leading-tight" style={{ fontFamily: "'Outfit', sans-serif" }}>
-                Lo que te ofrecemos vs lo que tienes hoy
+                Lo que te ofrecemos
               </h2>
             </div>
-
-            <div className="overflow-x-auto -mx-6 md:mx-0 px-6 md:px-0">
-              <table className="w-full min-w-[700px]">
-                <thead>
-                  <tr className="border-b border-[#eee]">
-                    <th className="text-left py-4 pr-3 text-[11px] text-[#999] uppercase tracking-wider font-medium w-1/4">Característica</th>
-                    <th className="text-left py-4 px-3 text-[11px] text-[#999] uppercase tracking-wider font-medium">Manual</th>
-                    <th className="text-left py-4 px-3 text-[11px] text-[#999] uppercase tracking-wider font-medium">Software legado (AJR)</th>
-                    <th className="text-left py-4 pl-3 text-[11px] text-emerald-700 uppercase tracking-wider font-semibold">ADUANAI</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {COMPARATIVA.map((row, i) => (
-                    <tr
-                      key={i}
-                      className={`border-b border-[#f5f5f5] last:border-b-0 ${row.highlight ? 'bg-emerald-50/30' : ''}`}
-                    >
-                      <td className="py-4 pr-3 text-[13px] font-medium text-[#1a1a1a]">{row.f}</td>
-                      <td className="py-4 px-3 text-[13px] text-[#888]">{row.manual}</td>
-                      <td className="py-4 px-3 text-[13px] text-[#888]">{row.ajr}</td>
-                      <td className="py-4 pl-3 text-[13px] text-[#1a1a1a]">{row.aduanai}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {POSICIONAMIENTO.map((c, i) => (
+                <div key={i} className="bg-[#f8f8f6] rounded-2xl p-7">
+                  <div className="w-10 h-10 rounded-xl bg-emerald-50 flex items-center justify-center mb-5">
+                    <c.icon className="w-5 h-5 text-emerald-600" />
+                  </div>
+                  <h3 className="text-[15px] font-semibold text-[#1a1a1a] mb-2">{c.title}</h3>
+                  <p className="text-[13px] text-[#666] leading-relaxed">{c.body}</p>
+                </div>
+              ))}
             </div>
-
             <div className="mt-8 bg-emerald-50 border border-emerald-100 rounded-2xl p-5 text-center">
               <p className="text-[13px] text-emerald-800">
                 <strong>Piloto gratuito de 30 días</strong> — sin tarjeta, sin contrato, acceso a los 19 módulos.
@@ -531,17 +516,8 @@ export function AboutPage() {
               ))}
             </div>
 
-            <div className="text-center">
-              <p className="text-[11px] uppercase tracking-[0.15em] text-[#ccc] font-medium mb-6">Empresas que confían en ADUANAI</p>
-              <div className="flex flex-wrap items-center justify-center gap-x-10 gap-y-4 opacity-40">
-                {[1, 2, 3, 4, 5].map(i => (
-                  <div key={i} className="w-24 h-10 bg-[#e8e8e4] rounded-lg flex items-center justify-center">
-                    <span className="text-[10px] text-[#999]">Logo {i}</span>
-                  </div>
-                ))}
-              </div>
-              <p className="text-[10px] text-[#ccc] mt-4">Logos se agregan conforme inician empresas piloto</p>
-            </div>
+            {/* Sección de logos eliminada (orden 25-ago): sin clientes públicos
+                verificables no se muestran placeholders de "empresas que confían". */}
           </div>
         </FadeIn>
 

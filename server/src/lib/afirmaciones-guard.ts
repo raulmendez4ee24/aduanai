@@ -22,6 +22,8 @@ export interface PatronProhibido {
   id: string;
   regex: RegExp;
   porQue: string;
+  /** Si se define, el patrón solo aplica a archivos bajo estos prefijos. */
+  soloEn?: string[];
 }
 
 export const PATRONES_PROHIBIDOS: PatronProhibido[] = [
@@ -41,6 +43,12 @@ export const PATRONES_PROHIBIDOS: PatronProhibido[] = [
   { id: 'lider', regex: /plataforma líder|l[ií]der del mercado|(el|la) m[aá]s (precis|avanzad|complet)\w* (de M[eé]xico|del mercado|del país)/i, porQue: 'Afirmación de liderazgo sin evidencia.' },
   { id: 'ia-que-aprende', regex: /(el motor|la IA|el sistema|el clasificador) aprende|IA predictiva/i, porQue: 'No hay loop de aprendizaje automático; el feedback se archiva para revisión.' },
   { id: 'instantaneo', regex: /clasifica(ci[oó]n)? instant[aá]ne|resultados instant[aá]neos/i, porQue: 'La clasificación tarda 1-3 minutos.' },
+  // Orden 25-ago (regla permanente): ningún tercero nombrado en páginas
+  // públicas sin artefacto por afirmación. Sensible a mayúsculas: son marcas.
+  { id: 'terceros-nombrados', regex: /\b(AJR|SICOMEX|CAAAREM|Camtom|CASA)\b/, porQue: 'Ningún tercero nombrado en páginas públicas sin artefacto por afirmación.', soloEn: ['client/src/pages/Public'] },
+  // "Compatible con" + sistema gubernamental = afirmación de integración.
+  // Solo con integración real demostrable (hoy no existe transmisión VUCEM).
+  { id: 'compatible-gubernamental', regex: /[Cc]ompatibl\w*[^.\n]{0,40}\b(VUCEM|SAT|ANAM|AGACE)\b/, porQue: 'Afirmar compatibilidad con un sistema gubernamental exige integración real demostrable; hoy solo se generan formatos alineados al Anexo 22.' },
 ];
 
 export interface ExcepcionPermitida {
@@ -121,6 +129,7 @@ export function barrerAfirmaciones(): Hallazgo[] {
   for (const file of listarArchivos()) {
     const contenido = stripComments(fs.readFileSync(path.join(REPO_ROOT, file), 'utf8'));
     for (const patron of PATRONES_PROHIBIDOS) {
+      if (patron.soloEn && !patron.soloEn.some(prefijo => file.startsWith(prefijo))) continue;
       const global = new RegExp(patron.regex.source, patron.regex.flags.includes('g') ? patron.regex.flags : patron.regex.flags + 'g');
       let m: RegExpExecArray | null;
       while ((m = global.exec(contenido))) {

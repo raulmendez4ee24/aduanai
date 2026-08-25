@@ -170,7 +170,7 @@ export function ThankYouPage() {
                         type="text"
                         value={form.currentSoftware}
                         onChange={e => setForm({ ...form, currentSoftware: e.target.value })}
-                        placeholder="AJR, Excel, SAP, otro..."
+                        placeholder="Tu sistema actual (ERP, hojas de cálculo, otro)…"
                         className={inputClass}
                       />
                     </div>

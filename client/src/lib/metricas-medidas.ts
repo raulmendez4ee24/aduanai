@@ -32,8 +32,18 @@ export const METRICAS_CLASIFICADOR = {
   duracionTipica: '1 a 3 minutos',
 } as const
 
-/** Corpus legal en producción — conteo real, no promesa. */
-export const CORPUS_LEGAL = {
-  documentos: 1174,
-  corte: '2026-08-24',
+/**
+ * Fallbacks de los contadores públicos — ÚNICA constante (orden 25-ago).
+ * Los números vivos llegan de GET /api/stats/public (derivados de filas
+ * ACTIVAS en la base); estos valores solo pintan el primer render y declaran
+ * su unidad y corte. Si producción cambia, el vivo manda.
+ */
+export const FALLBACK_STATS = {
+  /** Fracciones TIGIE con active=true (8,256 totales − 8544.42.01 retirada). */
+  fraccionesActivas: 8255,
+  /** legal_documents con isActive=true (1,174 totales − 3 inactivos). */
+  documentosLegalesActivos: 1171,
+  /** Fuentes maestras distintas (campo source) entre los documentos activos. */
+  fuentesLegales: 17,
+  corte: '2026-08-25',
 } as const
