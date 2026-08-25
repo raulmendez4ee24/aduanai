@@ -187,7 +187,7 @@ export function AboutPage() {
               <a href="#problema" className="text-[13px] text-[#666] hover:text-[#1a1a1a] transition-colors">Problema</a>
               <a href="#como" className="text-[13px] text-[#666] hover:text-[#1a1a1a] transition-colors">Cómo funciona</a>
               <a href="#modulos" className="text-[13px] text-[#666] hover:text-[#1a1a1a] transition-colors">Módulos</a>
-              <a href="#comparativa" className="text-[13px] text-[#666] hover:text-[#1a1a1a] transition-colors">Comparativa</a>
+              <a href="#comparativa" className="text-[13px] text-[#666] hover:text-[#1a1a1a] transition-colors">Por qué ADUANAI</a>
               <a href="#demo" className="text-[13px] text-[#666] hover:text-[#1a1a1a] transition-colors">Demo</a>
               <a href="#faq" className="text-[13px] text-[#666] hover:text-[#1a1a1a] transition-colors">FAQ</a>
             </div>
@@ -208,7 +208,7 @@ export function AboutPage() {
               <a href="#problema" onClick={() => setMobileOpen(false)} className="block text-sm text-[#666] py-2">Problema</a>
               <a href="#como" onClick={() => setMobileOpen(false)} className="block text-sm text-[#666] py-2">Cómo funciona</a>
               <a href="#modulos" onClick={() => setMobileOpen(false)} className="block text-sm text-[#666] py-2">Módulos</a>
-              <a href="#comparativa" onClick={() => setMobileOpen(false)} className="block text-sm text-[#666] py-2">Comparativa</a>
+              <a href="#comparativa" onClick={() => setMobileOpen(false)} className="block text-sm text-[#666] py-2">Por qué ADUANAI</a>
               <a href="#demo" onClick={() => setMobileOpen(false)} className="block text-sm text-[#666] py-2">Demo</a>
               <a href="#faq" onClick={() => setMobileOpen(false)} className="block text-sm text-[#666] py-2">FAQ</a>
               <Link to="/login" onClick={() => setMobileOpen(false)} className="block text-center text-sm text-[#1a1a1a] py-2.5 border border-[#e0e0e0] rounded-full mt-2">Iniciar sesión</Link>
@@ -665,7 +665,7 @@ export function AboutPage() {
               <p className="text-[12px] font-semibold text-[#1a1a1a] uppercase tracking-wider mb-4">Empresa</p>
               <div className="space-y-2.5">
                 <a href="#como" className="block text-[13px] text-[#888] hover:text-[#1a1a1a] transition-colors">Cómo funciona</a>
-                <a href="#comparativa" className="block text-[13px] text-[#888] hover:text-[#1a1a1a] transition-colors">Comparativa</a>
+                <a href="#comparativa" className="block text-[13px] text-[#888] hover:text-[#1a1a1a] transition-colors">Por qué ADUANAI</a>
                 <a href="#demo" className="block text-[13px] text-[#888] hover:text-[#1a1a1a] transition-colors">Contacto</a>
                 <span className="block text-[13px] text-[#ccc]">Blog (próximamente)</span>
               </div>

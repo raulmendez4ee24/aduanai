@@ -25,10 +25,14 @@ export function useStatsPublicos(): StatsPublicos & { formatted: string } {
       .then(j => {
         if (!alive) return
         const d = j?.data ?? {}
+        // Un CERO válido de la API es verdad y reemplaza el fallback — solo el
+        // campo ausente o mal tipado conserva el fallback (revisión 25-ago:
+        // publicar 8,255 con la base vacía sería una cifra falsa).
+        const num = (v: unknown, prev: number) => (typeof v === 'number' && v >= 0 ? v : prev)
         setStats(prev => ({
-          fracciones: typeof d.totalFractions === 'number' && d.totalFractions > 0 ? d.totalFractions : prev.fracciones,
-          documentos: typeof d.corpusDocumentosActivos === 'number' && d.corpusDocumentosActivos > 0 ? d.corpusDocumentosActivos : prev.documentos,
-          fuentes: typeof d.corpusFuentes === 'number' && d.corpusFuentes > 0 ? d.corpusFuentes : prev.fuentes,
+          fracciones: num(d.totalFractions, prev.fracciones),
+          documentos: num(d.corpusDocumentosActivos, prev.documentos),
+          fuentes: num(d.corpusFuentes, prev.fuentes),
         }))
       })
       .catch(() => {})

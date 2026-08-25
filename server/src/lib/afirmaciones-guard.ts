@@ -48,7 +48,7 @@ export const PATRONES_PROHIBIDOS: PatronProhibido[] = [
   { id: 'terceros-nombrados', regex: /\b(AJR|SICOMEX|CAAAREM|Camtom|CASA)\b/, porQue: 'Ningún tercero nombrado en páginas públicas sin artefacto por afirmación.', soloEn: ['client/src/pages/Public'] },
   // "Compatible con" + sistema gubernamental = afirmación de integración.
   // Solo con integración real demostrable (hoy no existe transmisión VUCEM).
-  { id: 'compatible-gubernamental', regex: /[Cc]ompatibl\w*[^.\n]{0,40}\b(VUCEM|SAT|ANAM|AGACE)\b/, porQue: 'Afirmar compatibilidad con un sistema gubernamental exige integración real demostrable; hoy solo se generan formatos alineados al Anexo 22.' },
+  { id: 'compatible-gubernamental', regex: /(?<![Nn]o )(?<![Ii]n)compatib(?:le\w*|ilidad)[^.\n]{0,40}\b(VUCEM|SAT|ANAM|AGACE)\b/i, porQue: 'Afirmar compatibilidad con un sistema gubernamental exige integración real demostrable; hoy solo se generan formatos alineados al Anexo 22.' },
 ];
 
 export interface ExcepcionPermitida {
@@ -104,7 +104,9 @@ function walk(dir: string, out: string[]): void {
   }
   for (const entry of entries) {
     if (entry.name === 'node_modules' || entry.name === 'dist') continue;
-    const rel = path.join(dir, entry.name);
+    // Rutas SIEMPRE con '/' (revisión 25-ago): en Windows path.join produce
+    // '\\' y el scoping soloEn/las listas blancas jamás matchearían.
+    const rel = `${dir}/${entry.name}`;
     if (entry.isDirectory()) { walk(rel, out); continue; }
     if (SCAN_EXTENSIONS.has(path.extname(entry.name)) && !/\.test\.tsx?$/.test(entry.name)) out.push(rel);
   }
