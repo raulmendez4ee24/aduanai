@@ -288,7 +288,7 @@ export async function sendPilot25DayEmail(to: string, name: string, companyName:
       <p style="margin:0;color:#92400e;font-size:13px;line-height:1.6;">Al vencer tu piloto sin contratar, la cuenta se suspende. Podrás recuperar el acceso al momento de contratar.</p>
     </div>
     <div style="text-align:center;margin:0 0 12px;">
-      <a href="https://wa.me/523326617755?text=Hola%2C%20quiero%20contratar%20ADUANAI" style="display:inline-block;background:#1a1a1a;color:#ffffff;font-size:15px;font-weight:600;padding:14px 32px;border-radius:6px;text-decoration:none;">Hablar con un asesor</a>
+      <a href="https://wa.me/523326617755?text=Hola%2C%20quiero%20contratar%20ADUANAI" style="display:inline-block;background:#1a1a1a;color:#ffffff;font-size:15px;font-weight:600;padding:14px 32px;border-radius:6px;text-decoration:none;">Hablar con el fundador</a>
     </div>
     <p style="margin:0;color:#888888;font-size:13px;text-align:center;">Responde este correo si prefieres que te contactemos por email.</p>
   `;

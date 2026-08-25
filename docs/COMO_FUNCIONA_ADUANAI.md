@@ -1,6 +1,6 @@
 # Cómo funciona ADUANAI — estado real del sistema
 
-**Corte técnico:** 25 de agosto de 2026 (misión honestidad comercial)
+**Corte técnico:** 25 de agosto de 2026 (reposicionamiento: del cronómetro al escudo)
 
 **Código revisado:** rama de honestidad sobre `b40d8d2` — commit `addce42` (About.tsx §11, disclaimers de runtime, motor 69‑B, guard de afirmaciones)
 
@@ -393,7 +393,7 @@ La vigencia E2 contempla la versión anticipada que extiende el plazo al 30‑09
 
 **Ingesta corregida:** el dedup por RFC prevalece la situación MÁS RECIENTE del proceso (presunto < definitivo < desvirtuado < sentencia favorable), no la más severa — un desvirtuado o sentencia favorable posterior ya no queda eclipsado (`src/lib/sat69b-dedup.ts`). Con el CSV real del SAT (corte 31‑12‑2025) y dedup por FECHA de publicación (100% de filas con fecha parseable, persistida en `fechaOficio`): 11,176 definitivos, 961 presuntos, 340 desvirtuados y 1,577 con sentencia favorable — la cronología real corrige en ambos sentidos frente al ranking por severidad Y frente a un ranking ingenuo por etapa.
 
-La lista sigue con corte 31‑12‑2025 (> 30 días): mientras no haya ingesta fresca, las reglas 69‑B correctamente no puntúan y aparecen `no_evaluado` con motivo.
+**Lista REVIVIDA (25‑ago‑2026):** el minisitio de Datos Abiertos del SAT sirve el corte **31‑jul‑2026** (la URL vieja de omawww quedó congelada en dic‑2025; la ingesta apunta a la nueva). Prod reingerido: **14,438 RFC únicos, 100% con fecha de publicación parseable** — 11,823 definitivos, 814 presuntos, 340 desvirtuados y 1,461 con sentencia favorable (252 descartes auditables: 237 filas redactadas por el propio SAT por declaratoria de nulidad + fragmentos multilínea; artefacto `src/tests/ingesta-69b-2026-08-25.json`). Con corte ≤30 días la señal está DISPONIBLE y las reglas 69‑B se evalúan.
 
 ### 7.4 Pesos
 
@@ -514,7 +514,7 @@ No debe llamarse probabilidad real de reconocimiento/glosa del SAT, revisión co
 
 > “Ejecuta 26 reglas reproducibles y separa exposición de escudo documental. Distingue señales verificadas, declaradas y no evaluadas.”
 
-No debe afirmarse que todas las señales están actuales mientras la lista 69‑B siga vencida; con lista vencida la señal queda `no_evaluado` y NO afecta el score (motor corregido 25‑ago).
+No debe afirmarse que todas las señales están actuales si la lista 69‑B vuelve a vencer; con lista vencida la señal queda `no_evaluado` y NO afecta el score (motor corregido 25‑ago). Posicionamiento vigente de la página pública (25‑ago): cumplimiento bajo la reforma 2026 — Art. 54 sin excluyentes PARA EL AGENTE/AGENCIA (sujeto siempre delimitado), expediente 59‑V, listado 69‑B con corte declarado; el clasificador se presenta como herramienta de apoyo con lenguaje de hipótesis. Prohibido por el guard: equivalencia con la revisión de la autoridad, inevitabilidad ("si te van a revisar"), y efectos hiperbólicos del 69‑B ("contamina la operación").
 
 ### Conflictos en la web pública: RESUELTOS (25‑ago‑2026)
 

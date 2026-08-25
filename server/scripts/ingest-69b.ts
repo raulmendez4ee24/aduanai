@@ -116,7 +116,14 @@ async function main() {
   }
   const conFecha = rows.filter(r => r.fecha).length;
   console.log(`Con fecha de publicación parseable: ${conFecha}/${rows.length}`);
-  console.log(`Filas válidas: ${rows.length} | descartadas: ${malas.length}`);
+  // Descartes auditables (revisión 25-ago): el SAT redacta filas por
+  // declaratoria de nulidad (RFC 'XXXX…') y las razones sociales con salto de
+  // línea generan fragmentos — se reporta el desglose, no solo el total.
+  const suprimidas = malas.filter(l => l.includes('XXXXXXXXXXXX')).length;
+  console.log(`Filas válidas: ${rows.length} | descartadas: ${malas.length} (suprimidas por SAT: ${suprimidas}, fragmentos/otros: ${malas.length - suprimidas})`);
+  if (malas.length - suprimidas > 100) {
+    console.warn('AVISO: descartes no-suprimidos inusualmente altos — muestras:', malas.slice(0, 5));
+  }
   if (rows.length < 5000) throw new Error(`Demasiado pocas filas (${rows.length}) — no reemplazo la tabla (falla cerrada)`);
 
   const finales = dedupPorRfc(rows);

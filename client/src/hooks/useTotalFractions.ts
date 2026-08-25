@@ -25,7 +25,7 @@ export function useStatsPublicos(): StatsPublicos & { formatted: string } {
   useEffect(() => {
     let alive = true
     fetch('/api/stats/public')
-      .then(r => r.json())
+      .then(r => { if (!r.ok) throw new Error(String(r.status)); return r.json() })
       .then(j => {
         if (!alive) return
         const d = j?.data ?? {}

@@ -26,7 +26,7 @@ const PROBLEMS = [
   {
     icon: AlertTriangle,
     title: 'El Art. 54 ya no tiene excluyentes de responsabilidad',
-    body: 'La reforma (DOF 19-11-2025) eliminó las causales que te liberaban. Tu defensa ya no es una excepción legal: es la evidencia documental de cada operación.',
+    body: 'La reforma (DOF 19-11-2025) eliminó las causales que liberaban al agente y a la agencia aduanal. La defensa ya no es una excepción legal: es la evidencia documental de cada operación.',
   },
   {
     icon: Files,
@@ -36,7 +36,7 @@ const PROBLEMS = [
   {
     icon: Puzzle,
     title: '¿Sabes si tu cliente está en el 69-B hoy?',
-    body: 'Operar con un RFC listado como definitivo contamina la operación completa. La lista cambia con cada publicación del SAT — revisarla una vez al año no te protege.',
+    body: 'Con un RFC listado como definitivo, los comprobantes de esas operaciones se presumen inexistentes y la carga de acreditar la materialidad recae en quien los recibió. La lista cambia con cada publicación del SAT — revisarla una vez al año no alcanza.',
   },
 ]
 
@@ -227,7 +227,7 @@ export function AboutPage() {
               </FadeIn>
               <FadeIn delay={0.1}>
                 <h1 className="text-[clamp(2rem,5.5vw,4rem)] font-bold text-[#1a1a1a] leading-[1.05] tracking-tight" style={{ fontFamily: "'Outfit', sans-serif" }}>
-                  Desde 2026 respondes sin excluyentes. Entérate dónde quedas expuesto — antes de transmitir.
+                  Desde 2026 el agente aduanal responde sin excluyentes. Entérate dónde queda expuesta tu operación — antes de transmitir.
                 </h1>
               </FadeIn>
               <FadeIn delay={0.2}>
@@ -375,7 +375,7 @@ export function AboutPage() {
 
             <div className="mt-10 text-center max-w-2xl mx-auto">
               <p className="text-[15px] text-[#666] leading-relaxed">
-                La pregunta ya no es si te van a revisar, sino <strong className="text-[#1a1a1a]">qué van a encontrar</strong>. ADUANAI te lo dice antes que ellos.
+                Si llega una revisión, la diferencia la hace <strong className="text-[#1a1a1a]">el expediente que ya tienes</strong>. ADUANAI te muestra hoy qué te falta y con qué fundamento.
               </p>
             </div>
           </div>
@@ -387,7 +387,7 @@ export function AboutPage() {
             <div className="max-w-2xl mb-10">
               <p className="text-[11px] uppercase tracking-[0.15em] text-[#999] font-medium mb-3">/CÓMO TE REVISA</p>
               <h2 className="text-3xl md:text-[2.5rem] font-bold text-[#1a1a1a] tracking-tight leading-tight" style={{ fontFamily: "'Outfit', sans-serif" }}>
-                La misma revisión que te harían — pero antes de transmitir
+                Tu exposición, revisada con reglas reproducibles — antes de transmitir
               </h2>
             </div>
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">

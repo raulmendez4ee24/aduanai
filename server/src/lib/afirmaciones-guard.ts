@@ -43,6 +43,10 @@ export const PATRONES_PROHIBIDOS: PatronProhibido[] = [
   { id: 'lider', regex: /plataforma líder|l[ií]der del mercado|(el|la) m[aá]s (precis|avanzad|complet)\w* (de M[eé]xico|del mercado|del país)/i, porQue: 'Afirmación de liderazgo sin evidencia.' },
   { id: 'ia-que-aprende', regex: /(el motor|la IA|el sistema|el clasificador) aprende|IA predictiva/i, porQue: 'No hay loop de aprendizaje automático; el feedback se archiva para revisión.' },
   { id: 'instantaneo', regex: /clasifica(ci[oó]n)? instant[aá]ne|resultados instant[aá]neos/i, porQue: 'La clasificación tarda 1-3 minutos.' },
+  // Reposicionamiento 25-ago: nada de equivalencia con la autoridad,
+  // inevitabilidad de revisión ni efectos jurídicos hiperbólicos del 69-B.
+  { id: 'equivalencia-autoridad', regex: /la misma revisi[oó]n que (te har|les? har|hace|realiza)|te lo dice antes que (ellos|el SAT|la autoridad)|no es si te van a revisar|si te van a revisar, sino/i, porQue: 'No hay comparación contra la revisión real de SAT/ANAM; el checklist no es una revisión completa (§11).' },
+  { id: 'contaminacion-69b', regex: /contamina (la|toda la) operaci[oó]n/i, porQue: 'El 69-B presume inexistencia de los comprobantes amparados y admite acreditar materialidad — no "contamina" automáticamente la operación completa.' },
   // Orden 25-ago (regla permanente): ningún tercero nombrado en páginas
   // públicas sin artefacto por afirmación. Sensible a mayúsculas: son marcas.
   { id: 'terceros-nombrados', regex: /\b(AJR|SICOMEX|CAAAREM|Camtom|CASA|iAudita|SLAM)\b/, porQue: 'Ningún tercero nombrado en páginas públicas sin artefacto por afirmación.', soloEn: ['client/src/pages/Public'] },

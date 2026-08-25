@@ -1,0 +1,18 @@
+{
+  "descripcion": "Artefacto de la reingesta del listado 69-B CFF (censo reproducible)",
+  "fuente": "https://wu1agsprosta001.blob.core.windows.net/agsc-publicaciones/Datos_abiertos/Documents_AGAFF/Listado_completo_69-B.csv (minisitio Datos Abiertos del SAT)",
+  "corteDeclaradoPorElCSV": "2026-07-31",
+  "fechaIngesta": "2026-08-25",
+  "pipeline": "scripts/ingest-69b.ts (RULES_VERSION v1.3.0 — dedup por fecha de publicación, fechaOficio persistida)",
+  "filasValidas": 14522,
+  "fechasParseables": "14522/14522 (100%)",
+  "rfcUnicos": 14438,
+  "porSituacion": { "DEFINITIVO": 11823, "PRESUNTO": 814, "DESVIRTUADO": 340, "SENTENCIA_FAVORABLE": 1461 },
+  "descartadas": 252,
+  "desgloseDescartes": {
+    "rfcSuprimidoPorSAT": "237 filas con RFC 'XXXXXXXXXXXX' — 'Información suprimida en cumplimiento a la declaratoria de nulidad' (el propio SAT las redacta; sin RFC no hay match posible)",
+    "fragmentosMultilinea": "~15 fragmentos de razones sociales con salto de línea dentro de comillas (el renglón completo ya fue contado)"
+  },
+  "censoAnterior": { "corte": "2025-12-31", "rfcUnicos": 14054, "porSituacion": { "DEFINITIVO": 11176, "PRESUNTO": 961, "DESVIRTUADO": 340, "SENTENCIA_FAVORABLE": 1577 } },
+  "prodReingerido": "2026-08-25T17:07Z — ANTES del deploy del contador (el fallback nunca publica un corte no ingerido)"
+}
