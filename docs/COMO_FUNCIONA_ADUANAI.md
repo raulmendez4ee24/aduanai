@@ -4,7 +4,7 @@
 
 **Código revisado:** rama de honestidad sobre `b40d8d2` — commit `addce42` (About.tsx §11, disclaimers de runtime, motor 69‑B, guard de afirmaciones)
 
-**Producción observada:** Railway `kanaduana` — el deploy de esta tanda se verifica al cierre de la misión (bundle servido + evaluación Risk real)
+**Producción observada:** Railway `kanaduana`, deploy `SUCCESS` (25‑ago). Verificado contra lo SERVIDO: bundle público sin las frases retiradas (17/17 en cero), disclaimer nuevo en dist, y evaluación Risk real con lista 69‑B vencida (237 días) → `no_evaluado`, 0 puntos, sin bandera. Tabla 69‑B re‑ingerida con dedup por fecha real (14,054 RFC, 100% con fecha parseable).
 
 **Alcance:** `client/`, `server/`, Prisma, migraciones, seeds, pruebas, Docker/Railway y consultas de solo lectura a producción.
 
@@ -391,7 +391,7 @@ La vigencia E2 contempla la versión anticipada que extiende el plazo al 30‑09
 
 **Motor corregido:** `engine.ts` consulta la disponibilidad ANTES de puntuar. Una señal con `senalDisponible=false` (lista vencida >30 días o sin ingesta) produce 0 puntos, no activa bandera y la regla queda `no_evaluado` con `motivo` explícito que viaja a persistencia y UI (tooltip). El fix es general para toda regla con `senalDisponible`, no solo 69‑B. Regresión: `risk-69b-disponibilidad.test.ts` (7 casos: lista vencida → 0 pts/no_evaluado/sin bandera; lista vigente → intacto; RFC limpio con lista vigente → verificado) y gate en el Dockerfile.
 
-**Ingesta corregida:** el dedup por RFC prevalece la situación MÁS RECIENTE del proceso (presunto < definitivo < desvirtuado < sentencia favorable), no la más severa — un desvirtuado o sentencia favorable posterior ya no queda eclipsado (`src/lib/sat69b-dedup.ts`). Con el CSV real del SAT (corte 31‑12‑2025), 92 RFC recuperan su situación favorable: 11,138 definitivos, 959 presuntos, 340 desvirtuados y 1,617 con sentencia favorable.
+**Ingesta corregida:** el dedup por RFC prevalece la situación MÁS RECIENTE del proceso (presunto < definitivo < desvirtuado < sentencia favorable), no la más severa — un desvirtuado o sentencia favorable posterior ya no queda eclipsado (`src/lib/sat69b-dedup.ts`). Con el CSV real del SAT (corte 31‑12‑2025) y dedup por FECHA de publicación (100% de filas con fecha parseable, persistida en `fechaOficio`): 11,176 definitivos, 961 presuntos, 340 desvirtuados y 1,577 con sentencia favorable — la cronología real corrige en ambos sentidos frente al ranking por severidad Y frente a un ranking ingenuo por etapa.
 
 La lista sigue con corte 31‑12‑2025 (> 30 días): mientras no haya ingesta fresca, las reglas 69‑B correctamente no puntúan y aparecen `no_evaluado` con motivo.
 
