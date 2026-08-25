@@ -52,7 +52,7 @@ function formatBreakdownKey(key: string): string {
     hasIMMEX: 'Programa IMMEX',
     highVolume: 'Alto volumen',
     mediumVolume: 'Volumen medio',
-    usesAJR: 'Usa AJR',
+    usesAJR: 'Sistema legado declarado',
     manualProcess: 'Proceso manual',
     maquiladora: 'Maquiladora',
     tradeIndustry: 'Sector comex',

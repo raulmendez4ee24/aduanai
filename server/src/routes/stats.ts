@@ -30,12 +30,12 @@ statsRouter.get('/public', publicStatsLimit, async (_req, res, next) => {
       prisma.legalDocument.findMany({ where: { isActive: true }, select: { source: true }, distinct: ['source'] }),
     ]);
 
-    const correct = feedbackStats.find(f => f.feedback === 'correct')?._count ?? 0;
-    const partial = feedbackStats.find(f => f.feedback === 'partial')?._count ?? 0;
-    const totalWithFeedback = feedbackStats.reduce((sum, f) => sum + f._count, 0);
-    const avgAccuracy = totalWithFeedback > 0
-      ? Math.round(((correct + partial * 0.5) / totalWithFeedback) * 100)
-      : 94; // default mientras no hay suficiente feedback
+    // avgAccuracy ELIMINADA del endpoint público (25-ago): era el % de
+    // clasificaciones marcadas "correctas" entre las que RECIBIERON feedback
+    // (métrica sesgada) y, sin feedback, un 94 INVENTADO — servido como
+    // "accuracy" a cualquiera. La métrica real y reproducible vive en
+    // metricas-medidas.ts (61.6% top-1 / 81.8% capítulo, 99 casos).
+    void feedbackStats;
 
     res.json({
       status: 'ok',
@@ -44,7 +44,6 @@ statsRouter.get('/public', publicStatsLimit, async (_req, res, next) => {
         corpusDocumentosActivos: corpusDocs,
         corpusFuentes: corpusFuentes.length,
         totalClassifications,
-        avgAccuracy,
       },
     });
   } catch (err) {

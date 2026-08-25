@@ -50,7 +50,7 @@ interface Mensaje {
 // (una sola respuesta POST): los tiempos reflejan el pipeline real
 // (candidatos → IA/GRI → verificación de catálogo), no son un adorno.
 const ETAPAS = [
-  'Buscando candidatos en la TIGIE (8,256 fracciones)…',
+  'Buscando candidatos en el catálogo TIGIE…',
   'Aplicando Reglas Generales de Interpretación…',
   'Verificando fracción, cuotas y regulaciones…',
 ]
