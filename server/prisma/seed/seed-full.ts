@@ -4,6 +4,7 @@ import dotenv from 'dotenv';
 import path from 'node:path';
 import bcrypt from 'bcryptjs';
 import { generateDemoAlerts } from '../../src/services/dof-alerts';
+import { activeParaSeed } from '../../src/lib/retiradas-tigie';
 
 dotenv.config({ path: path.join(__dirname, '..', '..', '.env') });
 
@@ -253,12 +254,13 @@ async function main() {
         subheadingMap.set(frac.subheading, subheadingId);
       }
 
-      // Fraction
+      // Fraction — una retirada por migración jamás renace activa (25-ago-2026)
       await prisma.fraction.create({
         data: {
           code: frac.code,
           codeFormatted: frac.formatted,
           description: frac.description,
+          active: activeParaSeed(frac.code),
           unit: frac.unit || 'Kg',
           tariffNMF: frac.tariffNMF,
           tariffTMEC: frac.tariffTMEC ?? null,
@@ -286,10 +288,14 @@ async function main() {
   // 5. Usuario demo
   console.log('👤 Creando usuario demo...');
   const hashedPassword = await bcrypt.hash('demo1234', 12);
+  // D10 (misión 25-ago-2026): misma identidad demo en TODOS los caminos de
+  // seed — antes este script creaba "Empresa Demo" sin RFC mientras el seed
+  // principal creaba "Maquiladora Ejemplo SA de CV" sobre el mismo tenant.
   await prisma.tenant.create({
     data: {
       id: 'demo-tenant',
-      name: 'Empresa Demo',
+      name: 'Maquiladora Ejemplo SA de CV',
+      rfc: 'MEJ010203AB1',
       plan: 'STARTER',
       users: {
         create: {

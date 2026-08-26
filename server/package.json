@@ -31,6 +31,8 @@
     "test:tenant-guard": "tsx src/tests/tenant-guard.test.ts",
     "test:xtenant": "tsx src/tests/cross-tenant-isolation.test.ts",
     "test:glosa": "tsx src/tests/glosa-fail-closed.test.ts",
+    "test:glosa-capturadas": "tsx src/tests/glosa-reglas-capturadas.test.ts",
+    "test:seed-retiradas": "tsx src/tests/seed-retiradas.test.ts",
     "test:frontera": "tsx src/tests/frontera-canonica.test.ts",
     "test:copilot-citas": "tsx src/tests/copilot-cita-estricta.test.ts",
     "test:corpus": "tsx src/tests/corpus-integro.test.ts",

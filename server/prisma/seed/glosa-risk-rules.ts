@@ -20,7 +20,7 @@ interface RuleSeed {
   legalBasis?: string;
 }
 
-const RULES: RuleSeed[] = [
+export const RULES: RuleSeed[] = [
   // ── Valoración ──
   {
     ruleCode: 'VAL_001',
@@ -89,8 +89,12 @@ const RULES: RuleSeed[] = [
     ruleCode: 'CLA_001',
     category: 'classification',
     name: 'Fracción con histórico alto de reclasificación',
-    description: 'Fracción ha sido reclasificada por el SAT en >15% de los pedimentos del sector en el último año.',
-    detectionLogic: { type: 'reclassification_history', thresholdPct: 15 },
+    // Misión cierre 25-ago-2026: la señal es INTERNA y por tenant — ≥15% de
+    // las clasificaciones propias de la fracción marcadas incorrectas en 12
+    // meses (mínimo 5 para evaluar; menos = no_evaluado). La redacción
+    // anterior prometía datos del SAT que la plataforma no tiene.
+    description: 'Más del 15% de tus clasificaciones de esta fracción en los últimos 12 meses fueron marcadas como incorrectas en la plataforma (señal interna; mínimo 5 clasificaciones para evaluar).',
+    detectionLogic: { type: 'reclassification_history', thresholdPct: 15, minSample: 5, windowDays: 365, scope: 'tenant' },
     weight: 25, severity: 'medium',
     recommendation: 'Asegurar dictamen técnico de clasificación firmado. Considerar consulta de clasificación arancelaria.',
     legalBasis: 'Art. 47 LA',
@@ -119,11 +123,15 @@ const RULES: RuleSeed[] = [
     ruleCode: 'REG_001',
     category: 'regime',
     name: 'IMMEX sin certificación IVA-IEPS importando temporal',
-    description: 'Importación temporal A4 sin certificación IVA-IEPS implica pago efectivo de IVA en lugar de diferimiento.',
-    detectionLogic: { type: 'immex_no_certification', regime: 'A4' },
+    // Fase 4.2 + misión cierre 25-ago-2026: las claves temporales IMMEX son
+    // IN/AF (A4 es depósito fiscal, Apéndice 2 Anexo 22); sin certificación el
+    // IVA causado se PAGA O GARANTIZA en el despacho (Art. 28-A LIVA) — no hay
+    // "diferimiento" que perder. El texto anterior decía "A4/diferir IVA".
+    description: 'Importación temporal IMMEX (claves IN/AF) sin certificación IVA-IEPS: el IVA causado se paga o se garantiza en el despacho (Art. 28-A LIVA).',
+    detectionLogic: { type: 'immex_no_certification', regimes: ['IN', 'AF'] },
     weight: 20, severity: 'medium',
-    recommendation: 'Considerar obtener certificación IVA-IEPS (Anexo 31 RGCE) para diferir el IVA.',
-    legalBasis: 'Anexo 31 RGCE',
+    recommendation: 'Considerar obtener la certificación IVA-IEPS (Anexo 31 RGCE) para aplicar el crédito fiscal del Art. 28-A LIVA, o garantizar el IVA en el despacho.',
+    legalBasis: 'Art. 28-A LIVA · Anexo 31 RGCE',
   },
   {
     ruleCode: 'REG_002',

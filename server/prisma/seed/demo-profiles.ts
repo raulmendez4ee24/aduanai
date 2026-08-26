@@ -43,9 +43,13 @@ export const DEMO_PROFILES: DemoProfileSeed[] = [
     industryCode: 'automotive',
     industryName: 'Maquiladora Automotriz',
     description: 'Tier 1/2 que importa insumos para ensamble vehicular bajo IMMEX',
-    longDescription: 'Importa tornillería específica, arneses, sensores y plásticos OEM. Programa IMMEX modalidad maquila con certificación IVA/IEPS. Aduanas: Nuevo Laredo, Ciudad Juárez.',
-    companyName: 'Maquiladora Automotriz Ejemplo SA de CV',
-    rfc: 'MAE241015A1B',
+    // D10 (misión 25-ago-2026): misma identidad y misma aduana que el dataset
+    // que realmente se carga (DEMO_COMPANY + pedimentos aduana 47 AICM) — un
+    // tenant, una historia. Antes decía Nuevo Laredo/Cd. Juárez y otra razón
+    // social, contradiciendo los pedimentos sembrados.
+    longDescription: 'Importa tornillería específica, arneses, sensores y plásticos OEM. Programa IMMEX modalidad maquila con certificación IVA/IEPS modalidad AA. Aduana: AICM (47).',
+    companyName: 'Maquiladora Ejemplo SA de CV',
+    rfc: 'MEJ010203AB1',
     primarySector: 'Automotriz',
     immexModality: 'maquila',
     certifications: ['IVA-IEPS-AA'],

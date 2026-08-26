@@ -139,10 +139,9 @@ interface ImportFixture {
   notes?: string;
 }
 
-function buildImports(): ImportFixture[] {
+function buildImports(fxRate: number): ImportFixture[] {
   const rng = seedRng(42);
   const out: ImportFixture[] = [];
-  const fxRate = 17.85;
   const certMonths = 36; // modalidad AA
 
   // Distribuir 495 importaciones a lo largo de 12 meses
@@ -600,7 +599,7 @@ interface CoveFixture {
   validationDate?: string;
 }
 
-function buildMVE(): { mves: MVEFixture[]; coves: CoveFixture[] } {
+function buildMVE(fxRate: number): { mves: MVEFixture[]; coves: CoveFixture[] } {
   const rng = seedRng(56);
   const mves: MVEFixture[] = [];
   const coves: CoveFixture[] = [];
@@ -623,7 +622,7 @@ function buildMVE(): { mves: MVEFixture[]; coves: CoveFixture[] } {
       invoiceDate,
       incoterm: pick(['CIF', 'FOB', 'EXW', 'DAP']),
       currency: 'USD',
-      exchangeRate: 17.85,
+      exchangeRate: fxRate,
       invoiceValue,
       freightValue: freight,
       insuranceValue: insurance,
@@ -749,7 +748,9 @@ function buildLoadPlans(): LoadPlanFixture[] {
     }
 
     out.push({
-      name: `Embarque ${pick(['NL', 'TJ', 'JU', 'PV'])}-${100 + i}`,
+      // D10: la historia demo entra toda por la aduana 47 (AICM) — las
+      // etiquetas NL/TJ/JU/PV no eran claves del Apéndice 1 ni parte de ella.
+      name: `Embarque AICM-${100 + i}`,
       containerType: c.type,
       containerLength: c.l,
       containerWidth: c.w,
@@ -918,10 +919,16 @@ function buildProductsAndBOM(): {
 // EXPORT: dataset completo
 // ──────────────────────────────────────────────────────────────────────────
 
-export function buildDemoDataset() {
-  const imports = buildImports();
+/** TC de respaldo SOLO para cuando el sistema no tiene ninguna fila de
+ *  ExchangeRate (DB recién creada sin seed de TC). El camino normal es que el
+ *  loader pase el TC real del sistema (getOfficialRate → Banxico/histórico):
+ *  el demo debe contar la MISMA historia cambiaria que el resto de la app. */
+export const DEMO_FX_RESPALDO = 17.85;
+
+export function buildDemoDataset(fxRate: number = DEMO_FX_RESPALDO) {
+  const imports = buildImports(fxRate);
   const discharges = buildDischarges(imports);
-  const { mves, coves } = buildMVE();
+  const { mves, coves } = buildMVE(fxRate);
   const bomBundle = buildProductsAndBOM();
 
   return {

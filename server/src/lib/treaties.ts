@@ -65,6 +65,21 @@ export const TLCUEM_COUNTRIES: string[] = [
   'DE','FR','IT','ES','NL','BE','PT','PL','AT','SE','DK','FI','IE','GR','CZ','HU','RO','BG','HR','SI','SK','LT','LV','EE','LU','CY','MT','UE','EU','ALEMANIA','FRANCIA','ITALIA','ESPAÑA','HOLANDA','BELGICA','BÉLGICA','PORTUGAL',
 ];
 
+/** Partes del T-MEC (fuente única — misión cierre 25-ago-2026): la lista que
+ *  usa el Cotizador multi-partida y que la Pre-Glosa importa para validar la
+ *  membresía cuando el usuario declara `appliesTMEC`. Incluye variantes de
+ *  captura histórica (ISO-2, ISO-3 y nombres). NUNCA copiar esta lista: se
+ *  importa. Nota conocida: quoter.ts (getPreferentialRates) conserva una
+ *  variante sin MX por semántica de importación — divergencia reportada. */
+export const TMEC_PAISES: string[] = [
+  'US','USA','ESTADOS UNIDOS','EE.UU.','CA','CAN','CANADA','CANADÁ','MX','MEX','MÉXICO','MEXICO',
+];
+
+/** ¿El país declarado (ISO-2/ISO-3/nombre) es parte del T-MEC? */
+export function esMiembroTMEC(pais: string): boolean {
+  return TMEC_PAISES.includes(pais.trim().toUpperCase());
+}
+
 export function tlcuemNota(): string {
   return 'Preferencia calculada bajo el TLCUEM en vigor desde 2000 (Decisión 2/2000). El Acuerdo Global Modernizado (firmado 22-may-2026) y el acuerdo interino aún no entran en vigor (cotejo 2026-07-19).';
 }

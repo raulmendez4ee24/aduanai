@@ -21,6 +21,7 @@ import { lookupEstimatedPrice } from './price-validator';
 import { checkAntidumpingDuty } from './antidumping';
 import { checkRequiredPadrones } from './padron-checker';
 import { validateFraction, FRACTION_UNVERIFIED_MESSAGE } from './fraction-validator';
+import { esMiembroTMEC } from '../lib/treaties';
 import { getOfficialRate, type OfficialRate } from './exchange-rate';
 import { logger } from '../lib/logger';
 import {
@@ -96,6 +97,11 @@ export interface RevisionGlosa {
   dominios: Record<DominioGlosa, 'revisado' | 'no_revisado' | 'no_aplica'>;
   completa: boolean; // todos 'revisado' | 'no_aplica'
   noRevisados: { dominio: DominioGlosa; motivo: string }[];
+  /** Misión cierre 25-ago-2026: una regla cuyo dato de entrada NO fue
+   *  capturado (o es insuficiente) queda `no_evaluado` con motivo visible —
+   *  JAMÁS dispara por defecto ni finge haberse revisado. Distinto de
+   *  `noRevisados` (fallo de consulta externa). */
+  reglasNoEvaluadas: { ruleCode: string; motivo: string }[];
 }
 
 export interface GlosaSimulationResult {
@@ -128,7 +134,9 @@ export interface GlosaFuentes {
   historicoValores: (tenantId: string, fractionCode: string) => Promise<number[]>;
   historicoRA: (tenantId: string) => Promise<{ raRate: number; total: number }>;
   nomsRequeridas: (cleanedFraction: string) => Promise<string[]>;
-  reclasificaciones: (fractionCode: string) => Promise<number>;
+  /** Reclasificaciones REALES del tenant en ventana de 12 meses: total de
+   *  clasificaciones de la fracción y cuántas fueron marcadas incorrectas. */
+  reclasificaciones: (tenantId: string, fractionCode: string) => Promise<{ total: number; reclasificadas: number }>;
   tipoCambio: () => Promise<OfficialRate>;
 }
 
@@ -239,10 +247,20 @@ async function nomsRequeridasReal(cleaned: string): Promise<string[]> {
     .map(n => n.code);
 }
 
-async function reclasificacionesReal(fractionCode: string): Promise<number> {
-  return prisma.classification.count({
-    where: { fractionCode, useBasedAnalysis: { not: undefined } },
-  });
+/** CLA_001 (misión cierre 25-ago-2026): la señal REAL de reclasificación que
+ *  existe en la plataforma es el feedback `incorrect` sobre clasificaciones
+ *  DEL TENANT, en ventana de 12 meses. La versión anterior contaba TODAS las
+ *  clasificaciones de la fracción, de todos los tenants, sin ventana (el
+ *  filtro `{ not: undefined }` es inerte en Prisma) — disparaba por volumen
+ *  de uso, no por reclasificación. */
+async function reclasificacionesReal(tenantId: string, fractionCode: string): Promise<{ total: number; reclasificadas: number }> {
+  const desde = new Date(Date.now() - 365 * 24 * 60 * 60 * 1000);
+  const where = { tenantId, fractionCode, createdAt: { gte: desde } };
+  const [total, reclasificadas] = await Promise.all([
+    prisma.classification.count({ where }),
+    prisma.classification.count({ where: { ...where, feedback: 'incorrect' } }),
+  ]);
+  return { total, reclasificadas };
 }
 
 const FUENTES_REALES: GlosaFuentes = {
@@ -298,6 +316,13 @@ export async function simulateGlosa(
     if (!r) return;
     flags.push(buildFlag(r, reason));
     riskScore += r.weight;
+  };
+  // Regla sin dato de entrada capturado o suficiente → no_evaluado con motivo.
+  // JAMÁS disparo por defecto (misión cierre 25-ago-2026).
+  const reglasNoEvaluadas: RevisionGlosa['reglasNoEvaluadas'] = [];
+  const noEvaluada = (ruleCode: string, motivo: string) => {
+    if (!rules.has(ruleCode)) return;
+    reglasNoEvaluadas.push({ ruleCode, motivo });
   };
 
   // ── Registro fail-closed por dominio (§5.1). Cero catch silenciosos. ──
@@ -372,9 +397,26 @@ export async function simulateGlosa(
     addFlag('ORI_001', `Origen declarado ${input.countryOrigin} pero embarque desde ${input.countryProvider} para fracción típicamente china.`);
   }
 
-  // ── 5. TMEC sin análisis de regla ── (determinista)
-  if (input.appliesTMEC && input.hasTMECCertificate && !input.documents?.originCertificate) {
-    addFlag('ORI_002', 'Aplica TMEC pero el certificado de origen no está vinculado al pedimento.');
+  // ── 5. TMEC: membresía + certificado vinculado ── (determinista)
+  // La membresía se valida IMPORTANDO la lista del Cotizador (lib/treaties
+  // TMEC_PAISES vía esMiembroTMEC), nunca con una copia local. Una preferencia
+  // declarada con origen fuera del tratado deja las reglas T-MEC no_evaluado
+  // con el motivo visible — no tiene sentido evaluar certificados de una
+  // preferencia inaplicable.
+  const tmecMiembro = esMiembroTMEC(input.countryOrigin);
+  const tmecInaplicable = Boolean(input.appliesTMEC) && !tmecMiembro;
+  if (tmecInaplicable) {
+    const motivoTMEC = `Se declaró preferencia T-MEC con origen ${input.countryOrigin.toUpperCase()}, que no es parte del tratado (lista del Cotizador). Corrige el origen o retira la preferencia.`;
+    noEvaluada('ORI_002', motivoTMEC);
+    noEvaluada('DOC_001', motivoTMEC);
+  } else if (input.appliesTMEC && input.hasTMECCertificate) {
+    if (input.documents?.originCertificate === undefined) {
+      // El dato "certificado vinculado al pedimento" no fue capturado: sin él
+      // esta regla disparaba SIEMPRE que se marcaran los dos checkboxes T-MEC.
+      noEvaluada('ORI_002', 'El formulario no capturó si el certificado de origen está vinculado al pedimento.');
+    } else if (!input.documents.originCertificate) {
+      addFlag('ORI_002', 'Aplica TMEC pero el certificado de origen no está vinculado al pedimento.');
+    }
   }
 
   // ── 6. Cuota compensatoria activa no declarada ── (dominio: cuotas_compensatorias)
@@ -393,8 +435,8 @@ export async function simulateGlosa(
     addFlag('PAD_001', `Padrón requerido no inscrito: ${missing}.`);
   }
 
-  // ── 8. TMEC sin certificado ── (determinista)
-  if (input.appliesTMEC && !input.hasTMECCertificate) {
+  // ── 8. TMEC sin certificado ── (determinista; gateado por membresía arriba)
+  if (!tmecInaplicable && input.appliesTMEC && !input.hasTMECCertificate) {
     addFlag('DOC_001', 'Se declara preferencia TMEC pero no hay certificado de origen vinculado.');
   }
 
@@ -410,16 +452,27 @@ export async function simulateGlosa(
     addFlag('DOC_002', `Fracción requiere NOM(s) ${list} pero no se declaró cumplimiento.`);
   }
 
-  // ── 10. Reclasificación histórica ── (dominio: reclasificacion_historica)
-  const reclassified = await revisar('reclasificacion_historica', () =>
-    fuentes.reclasificaciones(input.fractionCode));
-  if (reclassified !== null && reclassified > 5) {
-    addFlag('CLA_001', `${reclassified} clasificaciones revisadas o reclasificadas para esta fracción en plataforma.`);
+  // ── 10. Reclasificación histórica REAL ── (dominio: reclasificacion_historica)
+  // Señal: clasificaciones DEL TENANT de esta fracción marcadas incorrectas en
+  // los últimos 12 meses. Con historial insuficiente (<5) la regla queda
+  // no_evaluado — antes disparaba por simple volumen de uso cross-tenant.
+  const reclas = await revisar('reclasificacion_historica', () =>
+    fuentes.reclasificaciones(tenantId, input.fractionCode));
+  if (reclas !== null) {
+    if (reclas.total < 5) {
+      noEvaluada('CLA_001', `Historial insuficiente: ${reclas.total} clasificaciones de esta fracción para este tenant en 12 meses (mínimo 5 para evaluar reclasificación).`);
+    } else if (reclas.reclasificadas / reclas.total >= 0.15) {
+      addFlag('CLA_001', `${reclas.reclasificadas} de ${reclas.total} clasificaciones de esta fracción fueron marcadas como incorrectas en los últimos 12 meses (≥15%).`);
+    }
   }
 
-  // ── 11. Descripción genérica ── (determinista)
-  if (descriptionIsGeneric(input.productDescription)) {
-    addFlag('CLA_002', `Descripción del producto demasiado breve o genérica${input.productDescription ? ` ("${input.productDescription.slice(0, 60)}")` : ''}.`);
+  // ── 11. Descripción genérica ── (determinista; exige captura real)
+  if (!input.productDescription || !input.productDescription.trim()) {
+    // Sin el dato la regla disparaba SIEMPRE — toda simulación de la UI la
+    // arrastraba porque el formulario no capturaba la descripción.
+    noEvaluada('CLA_002', 'El formulario no capturó la descripción del producto en factura.');
+  } else if (descriptionIsGeneric(input.productDescription)) {
+    addFlag('CLA_002', `Descripción del producto demasiado breve o genérica ("${input.productDescription.slice(0, 60)}").`);
   }
 
   // ── 12. Fracción "los demás" .99.99 ── (determinista)
@@ -459,6 +512,7 @@ export async function simulateGlosa(
     dominios,
     completa: noRevisados.length === 0,
     noRevisados,
+    reglasNoEvaluadas,
   };
   const riskLevelPresentacion: GlosaSimulationResult['riskLevelPresentacion'] =
     revision.completa ? riskLevel : 'indeterminado';

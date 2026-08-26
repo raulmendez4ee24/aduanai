@@ -24,9 +24,19 @@ const CUERPOS: Record<string, string> = {
   'tmec': 'TMEC', 't-mec': 'TMEC', 'tlcuem': 'TLCUEM', 'cptpp': 'CPTPP',
 };
 
+// "de la Ley", "del Reglamento", etc. no identifican un cuerpo: tratarlos como
+// literal ("LEY") producía fantasmas falsos — "Art. 49 de la Ley" nunca cruzaba
+// con el doc "Art. 49 LFD". Un genérico equivale a no declarar cuerpo, y la
+// ambigüedad la resuelve cruzarCitas (único candidato o nada).
+const CUERPOS_GENERICOS = new Set([
+  'ley', 'la ley', 'reglamento', 'el reglamento', 'código', 'codigo',
+  'decreto', 'el decreto', 'ordenamiento', 'misma ley', 'la misma ley',
+]);
+
 function normalizarCuerpo(raw: string | null | undefined): string | null {
   if (!raw) return null;
   const limpio = raw.trim().toLowerCase().replace(/\s+/g, ' ').replace(/^del?\s+/, '');
+  if (CUERPOS_GENERICOS.has(limpio)) return null;
   if (CUERPOS[limpio]) return CUERPOS[limpio];
   // "RGCE 2026" etc. — quita año
   const sinAnio = limpio.replace(/\s*(19|20)\d{2}$/, '');
@@ -85,30 +95,73 @@ export function parseReferencia(texto: string): ClaveCita | null {
   return null;
 }
 
+// Sufijo de artículo (28-A, 137-BIS-1, 88 bis…), compartido por el patrón
+// simple y el de listas.
+const SUFIJO_ART =
+  String.raw`(?:-(?:[A-ZÑ]{1,2}(?![a-zñ])|(?:[Bb]is|BIS|[Tt]er|TER|[Qq]u[aá]ter|QU[AÁ]TER|[Qq]uintus|QUINTUS)))?(?:\s+(?:[Bb]is|BIS|[Tt]er|TER|[Qq]u[aá]ter|QU[AÁ]TER|[Qq]uintus|QUINTUS)(?:\s+\d+)?)?`;
+const CUERPO_OPCIONAL = String.raw`(?:\s+(?:de\s+la\s+|del\s+)?[A-Z][A-Za-z-]{1,10})?`;
+
+/** "Arts. 54 y 162 LA" / "Artículos 36, 54 y 162 de la LA": lista de artículos
+ *  que comparten cuerpo. El patrón simple perdía todo ("Arts." no matchea) o
+ *  perdía la cola ("Art. 54 y 162 LA" → solo "Art. 54"). */
+const PATRON_LISTA_ARTS = new RegExp(
+  String.raw`Art(?:s\.|\.|ículos?)?\s*\d+(?:\.\d+)*${SUFIJO_ART}(?:\s*(?:,|\s[ye])\s*\d+(?:\.\d+)*${SUFIJO_ART})+(?:\s+(?:de\s+la\s+|del\s+)?[A-Z][A-Za-z-]{1,10})?`,
+  'g'
+);
+
 /** Extrae las citas del texto de una respuesta (mismas familias que antes,
- *  pero cada una parseada a clave). */
+ *  pero cada una parseada a clave). Las listas de artículos se expanden a una
+ *  cita por número, todas con el cuerpo declarado al final de la lista. */
 export function extraerCitas(answer: string): { texto: string; clave: ClaveCita }[] {
   const patrones = [
-    /Art(?:ículo|\.)?\s*\d+(?:\.\d+)*(?:-(?:[A-ZÑ]{1,2}(?![a-zñ])|(?:[Bb]is|BIS|[Tt]er|TER|[Qq]u[aá]ter|QU[AÁ]TER|[Qq]uintus|QUINTUS)))?(?:\s+(?:[Bb]is|BIS|[Tt]er|TER|[Qq]u[aá]ter|QU[AÁ]TER|[Qq]uintus|QUINTUS)(?:\s+\d+)?)?(?:\s+(?:de\s+la\s+|del\s+)?[A-Z][A-Za-z-]{1,10})?/g,
+    new RegExp(String.raw`Art(?:ículo|\.)?\s*\d+(?:\.\d+)*${SUFIJO_ART}${CUERPO_OPCIONAL}`, 'g'),
     /Transitorios?\s+(?:del\s+Decreto\s+)?(?:DOF|VA-SAT)\s+\d{2}-\d{2}-\d{4}(?:\s+[A-Z][A-Za-z-]{1,10})?/g,
     /Glosario(?:\s*,?\s*apartado\s+[IVX]+)?\s+(?:de\s+las?\s+)?RGCE(?:\s+\d{4})?/g,
     /Regla\s+General\s+\d+\s*(?:[a-f]\))?\s*(?:\(RGI\))?/g,
     /Regla\s+\d+(?:\.\d+)+(?:\s+RGCE(?:\s+\d{4})?)?/g,
     /Anexo\s+\d+(?:\.\d+)*(?:-[A-Z])?(?:\s+RGCE(?:\s+\d{4})?)?/g,
+    // Ambos órdenes: "TMEC Cap. 5" y "Capítulo 5 del T-MEC" — el segundo era
+    // invisible para el extractor (forma conocida de falso negativo).
     /(?:TMEC|T-MEC)\s+Cap(?:ítulo|\.)?\s*\d+/g,
+    /Cap(?:ítulo|\.)?\s*\d+\s+(?:del\s+)?(?:TMEC|T-MEC)/g,
   ];
   const vistas = new Set<string>();
   const out: { texto: string; clave: ClaveCita }[] = [];
+  // Tramos ya reclamados por la expansión de listas: el patrón simple no debe
+  // re-matchear "Art. 54" dentro de "Arts. 54 y 162 LA" (crearía una clave
+  // espuria sin cuerpo).
+  const reclamados: Array<[number, number]> = [];
+  const agregar = (texto: string, clave: ClaveCita | null) => {
+    if (!clave) return;
+    const k = `${clave.tipo}|${clave.numero}|${clave.cuerpo ?? '*'}`;
+    if (vistas.has(k)) return;
+    vistas.add(k);
+    out.push({ texto, clave });
+  };
+
+  let m: RegExpExecArray | null;
+  while ((m = PATRON_LISTA_ARTS.exec(answer)) !== null) {
+    const texto = m[0].trim();
+    // Cuerpo: lo que sigue al último número (mayúscula inicial = sigla/cuerpo)
+    const cuerpoM = /(?:de\s+la\s+|del\s+)?([A-Z][A-Za-z-]{1,10})\s*$/.exec(texto);
+    const cuerpoRaw = cuerpoM ? cuerpoM[1]! : '';
+    const esPlural = /^Art(?:s\.|ículos)/.test(texto);
+    // Solo expandir con señal fuerte de lista (plural o cuerpo al final):
+    // "Art. 54 y 30 días" NO debe inventar un "Art. 30".
+    if (!esPlural && !cuerpoRaw) continue;
+    reclamados.push([m.index, m.index + m[0].length]);
+    const numeros = texto.match(new RegExp(String.raw`\d+(?:\.\d+)*${SUFIJO_ART}`, 'g')) ?? [];
+    for (const num of numeros) {
+      agregar(texto, parseReferencia(`Art. ${num}${cuerpoRaw ? ` ${cuerpoRaw}` : ''}`));
+    }
+  }
+
   for (const pat of patrones) {
-    let m: RegExpExecArray | null;
     while ((m = pat.exec(answer)) !== null) {
+      const inicio = m.index;
+      if (reclamados.some(([a, b]) => inicio >= a && inicio < b)) continue;
       const texto = m[0].trim();
-      const clave = parseReferencia(texto);
-      if (!clave) continue;
-      const k = `${clave.tipo}|${clave.numero}|${clave.cuerpo ?? '*'}`;
-      if (vistas.has(k)) continue;
-      vistas.add(k);
-      out.push({ texto, clave });
+      agregar(texto, parseReferencia(texto));
     }
   }
   return out;

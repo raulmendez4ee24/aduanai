@@ -325,7 +325,10 @@ export const ESTIMATED_PRICES: EstimatedPriceSeed[] = [
   { fractionCode: '85423901', estimatedValue: 4.80, unit: 'USD/pieza', notes: 'Otros circuitos integrados', ...I() },
   { fractionCode: '85443001', countryOfOrigin: 'CN', estimatedValue: 12.50, unit: 'USD/kg', notes: 'Juegos cables encendido vehículos', ...I() },
   { fractionCode: '85443099', estimatedValue: 13.50, unit: 'USD/kg', notes: 'Arneses cables automotriz', ...I('2024-01-01') },
-  { fractionCode: '85444201', estimatedValue: 8.40, unit: 'USD/kg', notes: 'Otros cables conductores aislados', ...I() },
+  // 8544.42.01 retirada de la TIGIE 2026 (migración 20260824234500): el
+  // precio se siembra sobre la residual sobreviviente 8544.42.99, igual que
+  // el reapunte que la migración aplicó en prod.
+  { fractionCode: '85444299', estimatedValue: 8.40, unit: 'USD/kg', notes: 'Otros cables conductores aislados', ...I() },
 
   // ════════════════════════════════════════════════════════════════════
   // CAPÍTULO 87 — Vehículos y partes

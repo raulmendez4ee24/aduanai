@@ -13,6 +13,7 @@ import {
   preferenciaAplicable,
   TLCUEM_COUNTRIES,
   TLCUEM_VIGENCIA,
+  TMEC_PAISES,
   tlcuemNota,
 } from '../lib/treaties';
 import { getOfficialRate, getHistoricalRateInfo, getMonthlyAverageRateInfo } from './exchange-rate';
@@ -268,7 +269,7 @@ export async function calculateMultiQuote(input: MultiQuoteInput): Promise<Multi
     const hasCert = it.hasCertificadoOrigen ?? false;
     const country = it.countryOfOrigin.toUpperCase();
     const TREATY_COUNTRIES: Record<string, string[]> = {
-      TMEC:   ['US','USA','ESTADOS UNIDOS','EE.UU.','CA','CAN','CANADA','CANADÁ','MX','MEX','MÉXICO','MEXICO'],
+      TMEC:   TMEC_PAISES,
       TLCUEM: TLCUEM_COUNTRIES,
       CPTPP:  ['JP','JAPÓN','JAPON','AU','AUSTRALIA','VN','VIETNAM','CL','CHILE','PE','PERU','PERÚ','SG','SINGAPUR','MY','MALASIA','NZ','NUEVA ZELANDA','BN','BRUNEI','CA','CAN'],
     };

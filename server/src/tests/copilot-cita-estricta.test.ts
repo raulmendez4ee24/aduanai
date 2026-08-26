@@ -118,6 +118,42 @@ async function main() {
     assert.equal(ambiguo.noRespaldadas.length, 1, 'ambigüedad = no respaldada');
   });
 
+  // Formas conocidas de falso positivo del matcher (misión cierre 25-ago-2026):
+  // corregidas ANTES de encender COPILOT_CITA_ESTRICTA=estricta en prod.
+  await test('matcher: cuerpo genérico "de la Ley" no es un cuerpo — cruza como sin-cuerpo', () => {
+    // Caso real de prod (cmt7i7r81…): "Art. 49 de la Ley" con doc "Art. 49 LFD"
+    // quedaba fantasma porque "Ley" se normalizaba al cuerpo literal "LEY".
+    const fp = cruzarCitas('La tasa del DTA la fija el Art. 49 de la Ley.', ['Art. 49 LFD']);
+    assert.equal(fp.noRespaldadas.length, 0, 'genérico + único candidato = respaldada');
+    // La ambigüedad sigue fail-closed:
+    const amb = cruzarCitas('La tasa la fija el Art. 49 de la Ley.', ['Art. 49 LFD', 'Art. 49 LA']);
+    assert.equal(amb.noRespaldadas.length, 1, 'genérico + 2 candidatos = no respaldada');
+  });
+
+  await test('matcher: "Capítulo 5 del T-MEC" se extrae en ambos órdenes', () => {
+    const inverso = cruzarCitas('Conforme al Capítulo 5 del T-MEC procede la certificación.', ['TMEC Cap. 5']);
+    assert.equal(inverso.citadas.length, 1, 'el orden "Capítulo N del T-MEC" debe extraerse');
+    assert.equal(inverso.noRespaldadas.length, 0);
+    const directo = cruzarCitas('Conforme al TMEC Cap. 5 procede.', ['Capítulo 5 del T-MEC']);
+    assert.equal(directo.noRespaldadas.length, 0);
+    // Sin respaldo sigue siendo fantasma:
+    const sin = cruzarCitas('Conforme al Capítulo 7 T-MEC.', ['TMEC Cap. 5']);
+    assert.equal(sin.noRespaldadas.length, 1);
+  });
+
+  await test('matcher: "Arts. 54 y 162 LA" expande la lista con el cuerpo compartido', () => {
+    const r = cruzarCitas('Según los Arts. 54 y 162 LA responde el agente.', ['Art. 54 LA', 'Art. 162 LA']);
+    assert.equal(r.citadas.length, 2, 'la lista debe producir una clave por artículo');
+    assert.equal(r.noRespaldadas.length, 0);
+    const parcial = cruzarCitas('Según los Arts. 54 y 162 LA responde el agente.', ['Art. 54 LA']);
+    assert.equal(parcial.noRespaldadas.length, 1, 'el 162 sin doc sigue fantasma');
+    const conDeLa = cruzarCitas('Los Artículos 36, 54 y 162 de la LA obligan.', ['Art. 36 LA', 'Art. 54 LA', 'Art. 162 LA']);
+    assert.equal(conDeLa.noRespaldadas.length, 0);
+    // Un número suelto tras "y" SIN plural ni cuerpo no inventa citas:
+    const suelto = cruzarCitas('El Art. 54 y 30 días de plazo.', ['Art. 54 LA']);
+    assert.deepEqual(suelto.citadas.map(c => c.clave.numero), ['54']);
+  });
+
   // ── 2. Política estricta ──
   const RESPUESTA_MALA = 'Aplica multa conforme al Art. 199 LFT y el Art. 54 LA. ⚖️ Verifica en DOF.';
   const RESPUESTA_BUENA = 'Procede conforme al Art. 54 LA. ⚖️ Verifica en DOF.';

@@ -29,7 +29,7 @@ import {
 } from 'lucide-react'
 import { api } from '../lib/api'
 import type { GlosaSimulationInput, GlosaSimulationResult, GlosaRiskFlag, DominioGlosa, Anexo22Catalogs } from '../lib/api'
-import { Button, Card, Badge, Input, Select, SelloVerificacion, useCampoNumerico, type EstadoSello } from '../components/ui'
+import { Button, Card, Badge, Input, Select, Textarea, SelloVerificacion, useCampoNumerico, type EstadoSello } from '../components/ui'
 
 // ── Mapa flag.category → dato del pedimento (solo lo que mapea de verdad) ──
 // Homenaje honesto a la estructura del pedimento: mostramos el NOMBRE del dato
@@ -168,10 +168,14 @@ export function GlosaSimulatorPage() {
   const [catalogos, setCatalogos] = useState<Anexo22Catalogs | null>(null)
   const [form, setForm] = useState<GlosaSimulationInput>({
     fractionCode: params.get('fraccion') ?? '',
+    productDescription: '',
     countryOrigin: '', countryProvider: '', customsCode: '', regimenCode: 'IMD',
     unitValueUSD: 0, weightKg: 0, totalValueUSD: 0,
     declaresAntidumping: false, appliesTMEC: false, hasTMECCertificate: false,
     declaresNOMs: false, hasIVAIEPSCertification: false, declaresLink: false,
+    // Captura real (misión 25-ago): sin este dato ORI_002 disparaba siempre
+    // que se marcaran los dos checkboxes T-MEC.
+    documents: { originCertificate: false },
   })
   const [estado, setEstado] = useState<'form' | 'generando' | 'listo' | 'error'>('form')
   const [paso, setPaso] = useState(0)
@@ -180,6 +184,17 @@ export function GlosaSimulatorPage() {
   const [generadoEn, setGeneradoEn] = useState<Date | null>(null)
 
   useEffect(() => { api.catalogsAnexo22().then(r => setCatalogos(r.data)).catch(() => {}) }, [])
+
+  // D10 (misión 25-ago-2026): Pre-Glosa y Fiscal cuentan la misma historia —
+  // si el tenant tiene certificación IVA/IEPS ACTIVA registrada en Fiscal, el
+  // checkbox arranca prellenado (el usuario puede corregirlo).
+  useEffect(() => {
+    api.fiscalCertification()
+      .then(r => {
+        if (r.data?.status === 'ACTIVE') setForm(f => ({ ...f, hasIVAIEPSCertification: true }))
+      })
+      .catch(() => {})
+  }, [])
 
   useEffect(() => {
     if (estado !== 'generando') return
@@ -243,6 +258,15 @@ export function GlosaSimulatorPage() {
             <Input label="Valor total de la operación (USD)" mono placeholder="0.00" {...campoTotalValue} />
           </div>
 
+          <div className="mt-4">
+            <Textarea label="Descripción del producto en factura" rows={2}
+              placeholder="Ej. Tornillos de acero inoxidable A2, rosca métrica M8×40, cabeza hexagonal, para ensamble de maquinaria"
+              value={form.productDescription ?? ''} onChange={e => set('productDescription', e.target.value)} />
+            <p className="text-xs text-tinta-suave mt-1">
+              La regla de descripción genérica (CLA_002) se evalúa sobre este texto; sin él queda «no evaluada».
+            </p>
+          </div>
+
           <div className="mt-5 pt-4 border-t border-linea">
             <p className="text-sm text-tinta-suave mb-3">Declaraciones de la operación</p>
             <div className="grid sm:grid-cols-2 gap-2">
@@ -260,6 +284,12 @@ export function GlosaSimulatorPage() {
                   {label}
                 </label>
               ))}
+              <label className="flex items-center gap-2 text-sm text-tinta cursor-pointer py-1">
+                <input type="checkbox" className="accent-petroleo w-4 h-4"
+                  checked={!!form.documents?.originCertificate}
+                  onChange={e => set('documents', { ...form.documents, originCertificate: e.target.checked })} />
+                Certificado de origen vinculado al pedimento
+              </label>
             </div>
           </div>
         </Card>
@@ -380,6 +410,29 @@ export function GlosaSimulatorPage() {
                   El score y los índices heurísticos de este reporte se calcularon SOLO sobre los dominios revisados.
                   Un dominio sin revisar puede esconder exactamente el hallazgo que falta — este resultado no puede
                   presentarse como riesgo bajo.
+                </p>
+              </div>
+            </section>
+          )}
+
+          {/* Reglas no evaluadas — dato no capturado o insuficiente (misión 25-ago):
+              distinto de un dominio sin revisar; la regla NO dispara por defecto. */}
+          {(result.revision?.reglasNoEvaluadas?.length ?? 0) > 0 && (
+            <section className="mt-6 doc-evitar-corte">
+              <div className="rounded-sello border border-ambar/40 bg-ambar-suave p-5">
+                <p className="font-sello-display text-16 text-tinta">
+                  Reglas no evaluadas — sin dato suficiente ({result.revision!.reglasNoEvaluadas!.length})
+                </p>
+                <ul className="mt-2 space-y-1.5">
+                  {result.revision!.reglasNoEvaluadas!.map(r => (
+                    <li key={r.ruleCode} className="flex items-start gap-2 text-sm text-tinta">
+                      <span className="font-sello-mono text-tinta-suave shrink-0">{r.ruleCode}</span>
+                      <span>{r.motivo}</span>
+                    </li>
+                  ))}
+                </ul>
+                <p className="text-xs text-tinta-suave leading-relaxed mt-2">
+                  Una regla sin dato no dispara ni cuenta como revisada: captura el dato faltante para evaluarla.
                 </p>
               </div>
             </section>

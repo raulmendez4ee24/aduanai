@@ -5,7 +5,8 @@
  */
 
 import { PrismaClient, Prisma } from '@prisma/client';
-import { buildDemoDataset, DemoDataset } from './demo-fixtures';
+import { buildDemoDataset, DemoDataset, DEMO_FX_RESPALDO } from './demo-fixtures';
+import { getOfficialRate } from './exchange-rate';
 
 export const DEMO_TENANT_ID = 'demo-tenant';
 
@@ -18,7 +19,7 @@ export const DEMO_TENANT_ID = 'demo-tenant';
  * Idempotente: borra y reescribe.
  */
 export async function seedDemoFixtures(prisma: PrismaClient | Prisma.TransactionClient): Promise<void> {
-  const dataset = buildDemoDataset();
+  const dataset = buildDemoDataset(await demoFxRate());
 
   await prisma.demoData.deleteMany({});
 
@@ -646,10 +647,22 @@ export async function resetDemoTenant(prisma: PrismaClient): Promise<{ tenantId:
 // Helpers
 // ──────────────────────────────────────────────────────────────────────────
 
+/** TC del sistema para el dataset demo (D10, misión 25-ago-2026): el demo
+ *  cuenta la MISMA historia cambiaria que el resto de la app. Solo si el
+ *  sistema no tiene ningún TC se usa el respaldo documentado del fixture. */
+async function demoFxRate(): Promise<number> {
+  try {
+    const oficial = await getOfficialRate();
+    return oficial.rate;
+  } catch {
+    return DEMO_FX_RESPALDO;
+  }
+}
+
 async function readOrBuildDataset(prisma: PrismaClient | Prisma.TransactionClient): Promise<DemoDataset> {
   const rows = await prisma.demoData.findMany({ where: { active: true } });
   if (rows.length === 0) {
-    return buildDemoDataset();
+    return buildDemoDataset(await demoFxRate());
   }
   const byCat = new Map<string, unknown>(rows.map(r => [r.category, r.data as unknown]));
   const get = <T>(key: string, fallback: T): T => (byCat.get(key) as T | undefined) ?? fallback;

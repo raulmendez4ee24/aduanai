@@ -229,7 +229,7 @@ El retry también ocurre después de vaciar precedentes no verificados; puede re
 
 La lectura base de `Fraction` y de versiones activas no está protegida por el wrapper campo‑por‑campo: si falla, el job completo termina en error, no en un resultado parcial `no_revisado`.
 
-La migración actual retiró `8544.42.01`, pero el seed legacy `server/prisma/seed/tigie-data.ts` todavía la contiene. En una base nueva donde la migración corra antes del seed, éste puede crearla activa otra vez. La fuente del seed debe corregirse, y la propia migración documenta otras fracciones legacy aún pendientes de cotejo.
+La migración actual retiró `8544.42.01`. Corregido (misión cierre 25‑ago): `src/lib/retiradas-tigie.ts` es la fuente única de retiradas cotejadas y todo camino de seed que crea fracciones (`seed/index.ts`, `seed-full.ts`) fija `active` vía `activeParaSeed` en create Y update — una DB limpia ya no la resucita, y el precio estimado del seed se reapuntó a `8544.42.99` como hizo la migración en prod. Regresión: `seed-retiradas.test.ts`. La migración documenta otras 12 fracciones legacy aún pendientes de cotejo (siguen activas hasta cotejarse; al retirarse por migración se agregan a la lista en el mismo commit).
 
 ### 4.6 Medición vigente
 
@@ -288,9 +288,9 @@ Producción está en el default `sombra`. De 78 consultas, 20 fueron medidas en 
 El matcher mejoró respecto del token matching anterior, pero no garantiza respaldo semántico:
 
 - una cita sin cuerpo exige mismo tipo+número y un único documento candidato; si el cruce es ambiguo, queda no respaldada;
-- no detecta bien formas como `Capítulo 5 TMEC` o `Arts. 54 y 162 LA`;
-- puede interpretar `Artículo 54 de la Ley Aduanera` como cuerpo `LEY`;
-- comprueba identidad sintáctica mediante una clave normalizada, no que la frase concreta esté sostenida por el pasaje.
+- corregido (misión cierre 25‑ago): `Capítulo 5 TMEC` / `Capítulo 5 del T‑MEC` se extraen en ambos órdenes; `Arts. 54 y 162 LA` expande la lista (una clave por artículo, cuerpo compartido); un cuerpo genérico (`de la Ley`, `del Reglamento`) ya no se toma como cuerpo literal `LEY` — cruza como cita sin cuerpo (caso real: `Art. 49 de la Ley` vs doc `Art. 49 LFD`). Regresión en `copilot-cita-estricta.test.ts`;
+- comprueba identidad sintáctica mediante una clave normalizada, no que la frase concreta esté sostenida por el pasaje;
+- forma conocida restante: `Art. 59-II` (fracción en romano pegada al número) se trata como artículo distinto de `Art. 59` — fail-closed (produce no-respaldada de más, nunca respaldo falso).
 
 El fallback automático top‑3 fue eliminado: una respuesta puede tener `citations=[]`, y los documentos recuperados no citados viajan aparte. El prompt, sin embargo, todavía contiene reglas legales hardcodeadas y `injectIMMEXCertificationNote()` puede añadir contenido fuera del corpus recuperado.
 
@@ -334,12 +334,9 @@ Cuando el usuario no declara `totalValueMXN`, Glosa usa el servicio central de t
 ### 6.3 Problemas vigentes
 
 - Las 15 reglas activas tienen 0 fuentes estructuradas completas; sus fundamentos se muestran `sin_verificar`. El panel admin actual no permite llenar esos campos.
-- La consulta de reclasificación histórica usa `useBasedAnalysis: {not: undefined}`: el predicado consideró elegibles las 224 clasificaciones globales aunque sólo 9 tienen el campo no nulo. En runtime cuenta todas las clasificaciones de la fracción solicitada, no reclasificaciones reales; tampoco filtra tenant, fecha, resolución SAT ni feedback. Puede disparar `CLA_001` sin representar “>15% del sector en el último año”.
-- `REG_001` se ejecuta para claves `IN/AF`, pero seed/producción aún describen `A4` y recomiendan diferir IVA.
-- La UI no envía `productDescription`; `descriptionIsGeneric(undefined)` dispara `CLA_002` sistemáticamente.
-- La UI no captura `documents.originCertificate`, aunque `ORI_002` depende de él.
+- Corregidos (misión cierre 25‑ago, cinco bugs de regla; regresión en `glosa-reglas-capturadas.test.ts`): una regla sin dato capturado o suficiente queda `no_evaluado` con motivo en `revision.reglasNoEvaluadas` (visible en UI), jamás dispara por defecto. `CLA_001` cuenta reclasificaciones REALES (feedback `incorrect` del tenant, ventana 12 meses, mínimo 5; texto de la regla migrado — ya no promete datos del SAT). `CLA_002` exige `productDescription`, que la UI ahora captura. `ORI_002` exige captura real de `documents.originCertificate` (checkbox nuevo). `REG_001` migrado a IN/AF con "el IVA se paga o garantiza" (murió "A4/diferir IVA" — migración `20260826031500`). `appliesTMEC` valida membresía importando `TMEC_PAISES` de `lib/treaties` (la lista que usa el Cotizador multi-partida); preferencia declarada con origen no miembro deja las reglas T‑MEC `no_evaluado` con motivo. La UI de Pre‑Glosa además prellena la certificación IVA/IEPS desde el perfil Fiscal del tenant (D10).
 - El formulario inicia `regimenCode='IMD'`, mientras su selector usa claves de pedimento.
-- `appliesTMEC` acepta cualquier país de origen de dos caracteres; no valida que sea miembro T‑MEC.
+- Divergencia conocida: `quoter.ts` (`getPreferentialRates`) conserva una lista T‑MEC propia sin MX; `quoter-multi.ts` y Pre‑Glosa ya comparten `TMEC_PAISES`.
 - Las cinco aduanas de “alto riesgo” y los prefijos de fracciones “típicamente chinas” son listas hardcodeadas sin dataset estadístico citable.
 - Aun con revisión incompleta, el backend devuelve y persiste el `riskLevel` y los porcentajes crudos; sólo `riskLevelPresentacion` pasa a `indeterminado`. Todo consumidor debe atender `revision` y el nivel de presentación.
 - El disclaimer del backend fue corregido (25‑ago, commit de la misión honestidad): ahora declara checklist heurístico preventivo con índices heurísticos no calibrados; la UI etiqueta las tres cifras como “Índice … (heurístico)”. El guard de afirmaciones vigila la reincidencia.
@@ -542,3 +539,43 @@ Al cambiar un flujo central o desplegar una nueva fase:
 4. distinguir siempre `implementado`, `activo`, `verificado` y `calibrado`;
 5. actualizar la sección vigente en lugar de añadir otro Addendum;
 6. no elevar una métrica o fuente sin artefacto reproducible.
+
+---
+
+## Pendientes — libro de estado (Misión CIERRE TOTAL PRE-VALIDACIÓN)
+
+**Censo:** 25-ago-2026 contra `main` (`23c2c95`) y prod servido (deploy SUCCESS 25-ago 11:15, bundle `index-C9wR085f.js`, DB viva vía ssh). Esta tabla es el punto de reanudación de la misión: se actualiza al cierre de cada bloque. Estados: ABIERTO / EN CURSO / CERRADO+commit / BLOQUEADO+causa.
+
+| Ítem | Bloque | Estado | Evidencia |
+|---|---|---|---|
+| Cuatro números de la sombra Copilot | 1 | CERRADO (censo) | Prod 25-ago: 78 consultas (58 sin modo, 20 sombra); 8 con citas no respaldadas (0 regeneradas, 0 degradadas); top fantasma: Art. 59-II ×3, Art. 59 ×2, y 5 únicas (Art. 49 de la Ley, Anexo 1 RGCE 2026, Art. 303, Anexo 1, Art. 303 TMEC, Art. 24); falsos positivos del matcher: ver ítem siguiente |
+| Clasificación de las 8 marcadas (fantasma real vs FP) | 1 | ABIERTO | pendiente cotejo contra corpus |
+| Matcher: formas conocidas (Capítulo N TMEC, Arts. plural, cuerpo nulo) | 1 | ABIERTO | los 3 FP confirmados vivos en `citas-legales.ts` (extractor no captura "Capítulo 5 TMEC" ni "Arts."; cita sin cuerpo cruza con cualquier cuerpo) |
+| COPILOT_CITA_ESTRICTA=estricta en prod + evidencia | 1 | ABIERTO | env var ausente en Railway (default sombra) |
+| CLA_001 solo con reclasificaciones reales | 1 | ABIERTO | `glosa-simulator.ts:242-246`: `{not: undefined}` inerte, sin tenant, sin ventana |
+| CLA_002 exige productDescription desde UI | 1 | ABIERTO | UI no captura el campo; sin descripción ⇒ dispara siempre |
+| REG_001 coherente IN/AF (muere "A4/diferir IVA") | 1 | ABIERTO | código corregido; seed `glosa-risk-rules.ts:119-127` conserva A4/diferir |
+| ORI_002 con captura real de originCertificate | 1 | ABIERTO | UI nunca envía `documents`; dispara con los 2 checkboxes |
+| appliesTMEC valida membresía importando lista del Cotizador | 1 | ABIERTO | no valida; lista T-MEC duplicada en quoter.ts/quoter-multi.ts |
+| Test transversal: 15 reglas vs campos capturados | 1 | ABIERTO | no existe |
+| Seed DB limpia no resucita retiradas + test | 1 | ABIERTO | `tigie-data.ts:169` recrea 85444201 activa; sin test |
+| Censo legacy restantes documentadas | 1 | CERRADO (censo) | 12 legacy activas por cotejar (migración 20260824234500) + 13 subpartidas pre-HS2022 (migración 20260813193051) |
+| D10: una empresa demo, una historia | 1 | ABIERTO | 3 identidades demo divergentes; Pre-Glosa no lee CertificationProfile ni tiene datos demo; TC fijo 17.85; narrativa aduanas incoherente; Analytics ya deriva del historial (OK) |
+| Hero (eyebrow/H1/sub/CTA/WhatsApp) | 2 | CERRADO `23c2c95` | H1 en 3ª persona ("el agente aduanal responde sin excluyentes") por precisión legal de la revisión adversarial — Art. 54 LA aplica al agente; no se revierte a la redacción en 2ª persona pedida por la misión (sería afirmación imprecisa sin artefacto). Resto del hero conforme |
+| Orden narrativo + "en minutos" fuera de sección | 2 | ABIERTO | `/CÓMO FUNCIONA` (pasos del clasificador) precede a `/CÓMO TE REVISA`; "en minutos" ×3 fuera de sección |
+| Muere "19 módulos" | 2 | ABIERTO | ×5 en About.tsx (94,123,162,507,681) |
+| Contadores de constante única con unidad | 2 | CERRADO `dba111b` | FALLBACK_STATS + /api/stats/public desde DB viva; nota: fuentes reales = 17 (la misión decía 44 = conteo de docs `resumen`, no de fuentes; se publica el real) |
+| Refresh 69-B con CSV vigente + pipeline v1.3.0 | 2 | CERRADO `dba111b` | reingesta 25-ago 17:07Z ANTES del deploy: corte CSV 31-jul-2026, 14,522 filas válidas → 14,438 RFC únicos (dedup por fecha); prod: DEFINITIVO 11,823 · SENTENCIA_FAVORABLE 1,461 · PRESUNTO 814 · DESVIRTUADO 340; artefacto `ingesta-69b-2026-08-25.json`; falta evidencia Risk real → factor EVALUADO (EN CURSO) |
+| Comparativa fuera + VUCEM + logos | 2 | CERRADO `223badd`/`c3f9d56` | residuo menor: ancla `#comparativa` y "en minutos"/TIGIE en strings (ver ítems abiertos) |
+| Guard extendido (terceros + compatible-gubernamental) | 2 | CERRADO `23c2c95` | 18 patrones, `soloEn` público, gate en Dockerfile |
+| Email de lead dice "asesores" | 2 | ABIERTO | `email.ts:354`; contradice CTA fundador; email.ts fuera de SCAN_ROOTS del guard |
+| Biblioteca Legal: login intencional + qué ve demo | 2 | ABIERTO (reporte) | ruta protegida en App.tsx:240 |
+| consultHash por tenant (hash+unicidad+upsert+feedback+test) | 3 | ABIERTO | `@unique` simple; hash sin tenant; feedback cross-tenant sin scope |
+| Tenant guard a estricto (censo modelos + incidentes + flag) | 3 | ABIERTO | falta ClassificationJob; `sinGuardaDeTenant` sin uso; incidentes solo console.error; TENANT_GUARD_STRICT ausente en prod |
+| ClassificationKnowledge sin contaminación entre tenants | 3 | ABIERTO | feedback crea filas globales no verificadas que el retrieval consume (rama chapterCode sin `verified`) |
+| Solo-reporte: RLS, refresh token, fuentes Glosa+panel | 3 | ABIERTO (reporte) | censo listo; va en reporte final |
+| D4 input decimal Pre-Glosa como clase | 4 | CERRADO `d00191c`+`4bcd451` | CampoNumerico canónico en Pre-Glosa/Origen; 0 restantes del patrón roto; gate en Dockerfile |
+| CampoNumerico: veredicto en navegador real (0.02/.02) | 4 | ABIERTO | no existe Playwright ni test de comportamiento |
+| Radar Fase A: 3 compromisos + /radar/:loteId en rama | 4 | CERRADO (censo `752935d`) | 422 línea×línea+layoutVersion; 413 constante+límite+partidas+salida; sin "cumple" (OrigenBadge compartido); GET persistido con tenant |
+| Radar: rebase+Codex+merge+deploy+verificación prod | 4 | ABIERTO | 2 conflictos previstos: RiskScorer.tsx (portar `motivo` a OrigenBadge) y package.json (unión 4+2 scripts) |
+| Radar: gating (flag prod + visibilidad) | 4 | ABIERTO (reporte) | server flag `PEDIMENTO_READER_ENABLED` (ausente en prod = apagado); cliente sin gate: nav visible a todos, 403 sin manejar |

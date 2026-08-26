@@ -1760,6 +1760,9 @@ export interface RevisionGlosa {
   dominios: Record<DominioGlosa, 'revisado' | 'no_revisado' | 'no_aplica'>;
   completa: boolean;
   noRevisados: { dominio: DominioGlosa; motivo: string }[];
+  /** Reglas cuyo dato de entrada no fue capturado o es insuficiente: no
+   *  disparan ni cuentan como revisadas — quedan visibles con motivo. */
+  reglasNoEvaluadas?: { ruleCode: string; motivo: string }[];
 }
 
 export interface GlosaRiskFlag {

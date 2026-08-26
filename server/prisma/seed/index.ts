@@ -3,6 +3,7 @@ import { PrismaPg } from '@prisma/adapter-pg';
 import dotenv from 'dotenv';
 import path from 'node:path';
 import { SECTIONS, CHAPTERS, FRACTIONS } from './tigie-data';
+import { activeParaSeed } from '../../src/lib/retiradas-tigie';
 import { KNOWLEDGE_BASE } from './knowledge-base';
 import { seedDemoFixtures, loadDemoIntoTenant, clearDemoFromTenant, DEMO_TENANT_ID } from '../../src/services/demo-loader';
 import { seedRegulations } from './regulations';
@@ -113,11 +114,14 @@ async function main() {
     }
 
     // Crear fracción
+    // Una fracción retirada por migración JAMÁS renace activa desde el seed
+    // (misión 25-ago-2026): `active` se fija explícito en create Y update.
     await prisma.fraction.upsert({
       where: { code: frac.code },
       update: {
         description: frac.description,
         codeFormatted: frac.formatted,
+        active: activeParaSeed(frac.code),
         unit: frac.unit,
         tariffNMF: frac.tariffNMF,
         tariffTMEC: frac.tariffTMEC ?? null,
@@ -133,6 +137,7 @@ async function main() {
         code: frac.code,
         codeFormatted: frac.formatted,
         description: frac.description,
+        active: activeParaSeed(frac.code),
         unit: frac.unit,
         tariffNMF: frac.tariffNMF,
         tariffTMEC: frac.tariffTMEC ?? null,

@@ -58,7 +58,7 @@ function fuentesOK(): GlosaFuentes {
     historicoValores: async () => [],
     historicoRA: async () => ({ raRate: 0, total: 0 }),
     nomsRequeridas: async () => [],
-    reclasificaciones: async () => 0,
+    reclasificaciones: async () => ({ total: 0, reclasificadas: 0 }),
     tipoCambio: async () => ({
       rate: 18.5,
       source: 'banxico' as const,
