@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { Fragment, useEffect, useState } from 'react'
 import { Shield, CheckCircle2, AlertTriangle, Anchor, Search, ExternalLink, ChevronDown, ChevronUp } from 'lucide-react'
 import { api } from '../lib/api'
 import type { AuditLogRecord } from '../lib/api'
@@ -90,8 +90,8 @@ export function AuditTrailPage() {
                 const ts = tsByLog.get(l.id)
                 const isAnchored = ANCHORED_ACTIONS.has(l.action)
                 return (
-                  <>
-                    <tr key={l.id} className="border-b border-slate-100/50 hover:bg-slate-50/50">
+                  <Fragment key={l.id}>
+                    <tr className="border-b border-slate-100/50 hover:bg-slate-50/50">
                       <td className="py-2 font-mono text-slate-500">{new Date(l.createdAt).toLocaleString('es-MX', { dateStyle: 'short', timeStyle: 'medium' })}</td>
                       <td className="py-2">{l.user?.email ?? '—'}</td>
                       <td className="py-2">
@@ -152,7 +152,7 @@ export function AuditTrailPage() {
                         </td>
                       </tr>
                     )}
-                  </>
+                  </Fragment>
                 )
               })}
               {logs.length === 0 && <tr><td colSpan={6} className="py-8 text-center text-slate-400 italic">Sin eventos registrados</td></tr>}
