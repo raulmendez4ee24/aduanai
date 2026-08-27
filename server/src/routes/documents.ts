@@ -11,6 +11,7 @@ import { prisma } from '../lib/prisma';
 import { Prisma } from '@prisma/client';
 import { processUpload, autoLinkToOperation, suggestGroups } from '../services/document-extractor';
 import { runCrossAudit } from '../services/cross-audit';
+import { clienteIdDe, filtroCliente, validarClienteDelTenant } from '../lib/cliente-contexto';
 
 export const documentsRouter = Router();
 
@@ -35,6 +36,7 @@ documentsRouter.post('/upload-batch', authenticate, async (req: AuthRequest, res
       try {
         const r = await processUpload({
           tenantId: req.tenantId!,
+          clienteId: await validarClienteDelTenant(req.tenantId!, clienteIdDe(req)),
           fileName: f.name,
           mimeType: f.mimeType,
           base64: f.base64,
@@ -57,7 +59,7 @@ documentsRouter.get('/', authenticate, async (req: AuthRequest, res, next) => {
     const docType = req.query.docType ? String(req.query.docType) : undefined;
     const unlinked = req.query.unlinked === 'true';
 
-    const where: Record<string, unknown> = { tenantId: req.tenantId! };
+    const where: Record<string, unknown> = { tenantId: req.tenantId!, ...filtroCliente(req) };
     if (operationId) where.operationId = operationId;
     if (docType) where.docType = docType;
     if (unlinked) where.operationId = null;

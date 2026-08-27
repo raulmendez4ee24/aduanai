@@ -9,6 +9,7 @@ import { reconciliarClasificacion } from '../services/clasificador-reconciliacio
 import { createClassificationJob, JOB_RUNNING_TIMEOUT_MS, type ClassificationJobInputs } from '../services/classification-job-runner';
 import { prisma } from '../lib/prisma';
 import { sinGuardaDeTenant } from '../lib/tenant-guard';
+import { clienteIdDe, filtroCliente, validarClienteDelTenant } from '../lib/cliente-contexto';
 
 export const classifyRouter = Router();
 export const classifyVerifyRouter = Router();
@@ -134,6 +135,7 @@ classifyRouter.post('/', authenticate, requirePermission('classifier', 'create')
       tenantId: req.tenantId!,
       userId: req.userId!,
       inputs,
+      clienteId: await validarClienteDelTenant(req.tenantId!, clienteIdDe(req)),
     });
 
     // Si se reutilizó un job activo, `description` trae la descripción de ESE
@@ -208,7 +210,7 @@ classifyRouter.get('/history', authenticate, async (req: AuthRequest, res, next)
     const limit = String(req.query.limit || '20');
     const skip = (Number(page) - 1) * Number(limit);
 
-    const where: Record<string, unknown> = { tenantId: req.tenantId! };
+    const where: Record<string, unknown> = { tenantId: req.tenantId!, ...filtroCliente(req) };
     if (search) {
       where.OR = [
         { inputDescription: { contains: search, mode: 'insensitive' } },

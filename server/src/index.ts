@@ -73,6 +73,9 @@ import { permissionsRouter } from './routes/permissions';
 import { statusRouter } from './routes/status';
 import { performBackup, cleanupExpiredBackups } from './services/backup';
 import { seedAllTenantsRoles, migrateTenantsWithoutAdmin } from './services/permissions';
+// ── OPERACIÓN 2026-08 ── imports nuevos (una línea por módulo)
+import { clientesRouter } from './routes/clientes';
+import { aprobacionesRouter } from './routes/aprobaciones';
 import { backfillAntidumpingDates } from './services/antidumping-backfill';
 import { recoverInterruptedClassificationJobs } from './services/classification-job-runner';
 // ── OPERACIÓN 2026-08 ── imports nuevos (una línea por módulo)
@@ -232,6 +235,8 @@ app.use('/api/documents/clasificacion', clasificacionAdjuntosRouter); // mismo r
 app.use('/api/classify', solicitarDictamenRouter);
 app.use('/api/dictamenes', dictamenesRouter);
 void reanudarLotesInterrumpidos().catch(() => {}); // lotes que quedaron en vuelo en el proceso anterior
+app.use('/api/clientes', clientesRouter);
+app.use('/api/aprobaciones', aprobacionesRouter);
 
 // ── SPA fallback ──
 app.use((req, res, next) => {

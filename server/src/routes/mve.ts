@@ -9,6 +9,7 @@ import {
   getMVEDashboard,
   generateE2Text,
 } from '../services/auto-mve';
+import { clienteIdDe, filtroCliente, validarClienteDelTenant } from '../lib/cliente-contexto';
 
 export const mveRouter = Router();
 
@@ -88,6 +89,7 @@ mveRouter.post('/', authenticate, requirePermission('autoMVE', 'create'), async 
     const mve = await prisma.manifestacionValor.create({
       data: {
         ...mveData,
+        clienteId: await validarClienteDelTenant(req.tenantId!, clienteIdDe(req)),
         formatoE2: formatoE2 as object,
       },
     });
@@ -105,7 +107,7 @@ mveRouter.get('/', authenticate, async (req: AuthRequest, res, next) => {
     const page = Math.max(1, Number(req.query.page) || 1);
     const limit = Math.min(100, Math.max(1, Number(req.query.limit) || 20));
 
-    const where: Record<string, unknown> = { tenantId: req.tenantId! };
+    const where: Record<string, unknown> = { tenantId: req.tenantId!, ...filtroCliente(req) };
     if (status && ['DRAFT', 'VALIDATED', 'SIGNED', 'TRANSMITTED', 'ERROR'].includes(status)) {
       where.status = status;
     }

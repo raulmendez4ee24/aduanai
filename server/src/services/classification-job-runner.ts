@@ -65,6 +65,7 @@ export async function createClassificationJob(params: {
   tenantId: string;
   userId: string;
   inputs: ClassificationJobInputs;
+  clienteId?: string | null;
 }): Promise<{ jobId: string; reused: boolean; description?: string }> {
   const { tenantId, userId, inputs } = params;
 
@@ -87,7 +88,7 @@ export async function createClassificationJob(params: {
   let job: { id: string };
   try {
     job = await prisma.classificationJob.create({
-      data: { tenantId, userId, inputs: inputs as unknown as object },
+      data: { tenantId, userId, inputs: inputs as unknown as object, clienteId: params.clienteId ?? null },
       select: { id: true },
     });
   } catch (err) {
@@ -226,6 +227,7 @@ export async function runClassificationJob(jobId: string): Promise<void> {
         status,
         approvedAt: canApprove ? new Date() : null,
         approvedById: canApprove ? job.userId : null,
+        clienteId: job.clienteId ?? null,
       },
     });
 

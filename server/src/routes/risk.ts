@@ -12,6 +12,7 @@ import { buildVerifiedSignals, normalizarOperacion } from '../services/risk-scor
 import { DEFAULT_WEIGHTS, RULES_VERSION } from '../services/risk-scorer/rules';
 import { listaCriterios } from '../services/risk-scorer/criterios';
 import type { Signals } from '../services/risk-scorer/types';
+import { clienteIdDe, filtroCliente, validarClienteDelTenant } from '../lib/cliente-contexto';
 
 const router = Router();
 router.use(authenticate);
@@ -90,6 +91,7 @@ router.post('/assess', async (req: AuthRequest, res: Response) => {
     data: {
       tenantId: req.tenantId!,
       userId: req.userId!,
+      clienteId: await validarClienteDelTenant(req.tenantId!, clienteIdDe(req)),
       input: JSON.parse(JSON.stringify(signals)),
       exposicion: resultado.exposicion,
       escudoPct: resultado.escudoPct,
@@ -110,12 +112,12 @@ router.get('/assessments', async (req: AuthRequest, res: Response) => {
   const take = 20;
   const [rows, total] = await Promise.all([
     prisma.riskAssessment.findMany({
-      where: { tenantId: req.tenantId! },
+      where: { tenantId: req.tenantId!, ...filtroCliente(req) },
       orderBy: { createdAt: 'desc' },
       select: { id: true, exposicion: true, escudoPct: true, banda: true, rulesVersion: true, createdAt: true },
       skip: (page - 1) * take, take,
     }),
-    prisma.riskAssessment.count({ where: { tenantId: req.tenantId! } }),
+    prisma.riskAssessment.count({ where: { tenantId: req.tenantId!, ...filtroCliente(req) } }),
   ]);
   res.json({ status: 'ok', data: rows, total, page });
 });

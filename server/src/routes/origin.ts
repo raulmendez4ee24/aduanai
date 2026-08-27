@@ -18,6 +18,7 @@ import {
   type PreferenceCriterion,
   type OriginCountry,
 } from '../services/origin-certificate';
+import { clienteIdDe, filtroCliente, validarClienteDelTenant } from '../lib/cliente-contexto';
 
 export const originRouter = Router();
 
@@ -83,6 +84,7 @@ originRouter.post('/analyze', authenticate, async (req: AuthRequest, res, next) 
         data: {
           tenantId: req.tenantId!,
           userId: req.userId!,
+          clienteId: await validarClienteDelTenant(req.tenantId!, clienteIdDe(req)),
           fractionCode: input.fractionCode,
           productDescription: input.productDescription,
           agreement: input.agreement!,
@@ -131,7 +133,7 @@ originRouter.get('/history', authenticate, async (req: AuthRequest, res, next) =
   try {
     const limit = Math.min(100, Math.max(1, Number(req.query.limit) || 20));
     const items = await prisma.originAnalysis.findMany({
-      where: { tenantId: req.tenantId! },
+      where: { tenantId: req.tenantId!, ...filtroCliente(req) },
       orderBy: { createdAt: 'desc' },
       take: limit,
     });

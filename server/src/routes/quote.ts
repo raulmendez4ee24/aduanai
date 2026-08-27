@@ -6,6 +6,7 @@ import { calculateQuote } from '../services/quoter';
 import { calculateMultiQuote, compareScenarios, type MultiQuoteInput, type ScenarioVariant } from '../services/quoter-multi';
 import { getRecentRates, seedSyntheticHistory, getOfficialRate, refreshOfficialRate } from '../services/exchange-rate';
 import { prisma } from '../lib/prisma';
+import { clienteIdDe, filtroCliente, validarClienteDelTenant } from '../lib/cliente-contexto';
 
 export const quoteRouter = Router();
 
@@ -57,6 +58,7 @@ quoteRouter.post('/', authenticate, requirePermission('quoter', 'create'), async
         status,
         approvedAt: canApprove ? new Date() : null,
         approvedById: canApprove ? req.userId! : null,
+        clienteId: await validarClienteDelTenant(req.tenantId!, clienteIdDe(req)),
       },
     });
 
@@ -156,6 +158,7 @@ quoteRouter.post('/multi', authenticate, async (req: AuthRequest, res, next) => 
         status: statusMulti,
         approvedAt: canApproveMulti ? new Date() : null,
         approvedById: canApproveMulti ? req.userId! : null,
+        clienteId: await validarClienteDelTenant(req.tenantId!, clienteIdDe(req)),
         name: input.name,
         client: input.client,
         destination: input.destination,
