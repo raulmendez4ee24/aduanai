@@ -64,7 +64,7 @@ Estas cifras cambian con el uso y deben leerse con el corte indicado arriba.
 Configuración operativa relevante:
 
 - `COPILOT_CITA_ESTRICTA` está sin definir; el default efectivo es `sombra`.
-- `TENANT_GUARD_STRICT` está sin definir; la guarda opera en modo advertencia, no bloqueo.
+- `TENANT_GUARD_STRICT` está sin definir en prod; la guarda opera en modo advertencia (incidentes al logger/SystemLog desde Bloque 3). Pendiente de operación: fijar `TENANT_GUARD_STRICT=1` en Railway — el censo de cruces legítimos ya está declarado con `sinGuardaDeTenant()` (Bloque 3, 26-ago-2026).
 - `TIGIE_APPLY_ENABLED` está sin definir; la aplicación automática de batches TIGIE está deshabilitada.
 - `TARIFA_VIGILANTE_HORAS` está sin definir; el vigilante usa su intervalo default de 24 horas.
 - El catálogo tarifario declara Base Única SNICE 30‑03‑2026 más el cotejo/aplicación de Tarifa 15, DOF 23‑04‑2026; `cotejoDate=2026-08-19`.
@@ -111,8 +111,9 @@ La barrera principal sigue siendo el scope explícito `tenantId` en cada consult
 
 - intercepta `findUnique`, `findUniqueOrThrow`, `findFirst` y `findFirstOrThrow` para una lista de modelos multi‑tenant;
 - con `TENANT_GUARD_STRICT=1` lanza si falta `tenantId`;
-- sin el flag registra el incidente y deja pasar;
-- los cruces legítimos usan `sinGuardaDeTenant()`.
+- sin el flag registra el incidente (reporte inyectado desde `index.ts` → `logger.error` → `SystemLog`, con contador `contadorDeIncidentes()`) y deja pasar;
+- los cruces legítimos usan `sinGuardaDeTenant()` — hoy 9 declarados: verificación pública por hash (classify, audit, traceability, verifyConsult), por número de certificado (origin), por token de invitación (auth), DemoAccount en admin SUPERADMIN, runner de jobs de clasificación y extractor de documentos;
+- censo (test `tenant-guard`): todo modelo del schema con `tenantId` obligatorio está en la lista; los de `tenantId` opcional (ClassificationKnowledge: filas globales de staff) se scopean en el servicio.
 
 No hay Row Level Security de PostgreSQL. La guarda no cubre todos los modelos —por diseño excluye `User`, y hoy tampoco lista `ClassificationJob`—, ni `findMany`, escrituras o SQL crudo. Por ello es defensa parcial, no aislamiento universal de base de datos.
 
@@ -571,9 +572,9 @@ Al cambiar un flujo central o desplegar una nueva fase:
 | Login por aduanaia.lat/www (P0 26-ago) | — | CERRADO `e193691` | CORS rechazaba Origin del dominio propio (500); same-origin siempre permitido + CLIENT_URL/APP_URL en Railway; verificado 401/200 por www y apex |
 | Email de lead dice "asesores" | 2 | CERRADO (Bloque 2) | `email.ts:354` → "El fundador"; `server/src/lib` añadido a SCAN_ROOTS del guard (3/3 verde); AuthLayout + TRUST_PILLS incluyen TIGIE en fuentes |
 | Biblioteca Legal: login intencional + qué ve demo | 2 | ABIERTO (reporte) | ruta protegida en App.tsx:240 |
-| consultHash por tenant (hash+unicidad+upsert+feedback+test) | 3 | ABIERTO | `@unique` simple; hash sin tenant; feedback cross-tenant sin scope |
-| Tenant guard a estricto (censo modelos + incidentes + flag) | 3 | ABIERTO | falta ClassificationJob; `sinGuardaDeTenant` sin uso; incidentes solo console.error; TENANT_GUARD_STRICT ausente en prod |
-| ClassificationKnowledge sin contaminación entre tenants | 3 | ABIERTO | feedback crea filas globales no verificadas que el retrieval consume (rama chapterCode sin `verified`) |
+| consultHash por tenant (hash+unicidad+upsert+feedback+test) | 3 | CERRADO (rama `feat/bloque-3-tenant`) | `calcularConsultHash` incluye tenantId; `@@unique([tenantId, consultHash])` + migración `20260827050000` idempotente; upsert por `tenantId_consultHash`; feedback `updateMany {tenantId, consultHash}` → 404 si ajeno; `test:consult-hash` 7/7 |
+| Tenant guard a estricto (censo modelos + incidentes + flag) | 3 | CERRADO en código (rama `feat/bloque-3-tenant`); flag prod = operación al deploy | ClassificationJob en la lista + test de censo contra el schema; incidentes → logger/SystemLog con contador; `sinGuardaDeTenant` usado en 9 cruces deliberados; 2 fixes de scope real (operations doc, traceability); censo de findUnique/findFirst sin tenant = 0; `test:tenant-guard` 14/14, `test:xtenant` 4/4. Falta: `TENANT_GUARD_STRICT=1` en Railway al deployar |
+| ClassificationKnowledge sin contaminación entre tenants | 3 | CERRADO (rama `feat/bloque-3-tenant`) | `tenantId String?` + migración `20260827051000`; feedback crea la fila con su tenant; `construirFiltroConocimiento`: OR[verified, AND[tenantId, chapterCode in]]; demo pública solo verificado; filas legadas sin verificar dejan de entrar al prompt; runner pasa tenantId; `test:knowledge-tenant` 9/9 |
 | Solo-reporte: RLS, refresh token, fuentes Glosa+panel | 3 | ABIERTO (reporte) | censo listo; va en reporte final |
 | D4 input decimal Pre-Glosa como clase | 4 | CERRADO `d00191c`+`4bcd451` | CampoNumerico canónico en Pre-Glosa/Origen; 0 restantes del patrón roto; gate en Dockerfile |
 | CampoNumerico: veredicto en navegador real (0.02/.02) | 4 | CERRADO (26-ago) | Chrome real contra prod (/simulador-glosa, tenant demo): Valor unitario "0.02"→0.02; Peso ".02"→0.02; segunda ".02" concatena a 0.0202 (composición decimal sobrevive). Sin Playwright: evidencia manual registrada aquí |
