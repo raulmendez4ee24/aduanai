@@ -7,7 +7,9 @@
 import { strict as assert } from 'node:assert';
 import { prisma } from '../lib/prisma';
 import { computeQuoteAmounts } from '../services/quoter';
-import { calcularCambioRegimen, crearExpediente, actualizarExpediente, obtenerExpediente, DOCUMENTOS_REQUERIDOS, folioDe, type CalculoExpediente } from '../services/cambio-regimen';
+import { calcularCambioRegimen, crearExpediente, actualizarExpediente, obtenerExpediente, listarExpedientes, listarCandidatas, DOCUMENTOS_REQUERIDOS, folioDe, type CalculoExpediente } from '../services/cambio-regimen';
+import { clienteIdDe, filtroCliente, enAlcance, validarClienteEnAlcance } from '../lib/cliente-contexto';
+import type { Request } from 'express';
 
 let pasadas = 0, falladas = 0;
 async function prueba(nombre: string, fn: () => void | Promise<void>) {
@@ -31,6 +33,7 @@ const SUFIJO = `cr-${Date.now()}`;
   const limpiar = async () => {
     await prisma.cambioRegimenExpediente.deleteMany({ where: { tenantId: { in: [tenant.id, otro.id] } } });
     await prisma.temporaryImport.deleteMany({ where: { tenantId: { in: [tenant.id, otro.id] } } });
+    await prisma.cliente.deleteMany({ where: { tenantId: { in: [tenant.id, otro.id] } } });
     await prisma.user.deleteMany({ where: { tenantId: { in: [tenant.id, otro.id] } } });
     await prisma.tenant.deleteMany({ where: { id: { in: [tenant.id, otro.id] } } });
   };
@@ -108,6 +111,28 @@ const SUFIJO = `cr-${Date.now()}`;
       assert.equal(c2.total, Math.round((calc.subtotales.contribuciones + 500) * 100) / 100);
       assert.equal(await obtenerExpediente(otro.id, exp.id), null, 'otro tenant no lo ve');
       assert.equal(await actualizarExpediente(otro.id, exp.id, { estado: 'presentado' }), null);
+    });
+    await prueba('alcance por cliente (revisión B): restringido a [A,B] → candidatas (incluso con ids), lista y detalle excluyen al cliente C', async () => {
+      const cA = await prisma.cliente.create({ data: { tenantId: tenant.id, rfc: `CRA${SUFIJO}`.slice(0, 13).toUpperCase(), razonSocial: 'Cliente A' } });
+      const cB = await prisma.cliente.create({ data: { tenantId: tenant.id, rfc: `CRB${SUFIJO}`.slice(0, 13).toUpperCase(), razonSocial: 'Cliente B' } });
+      const cC = await prisma.cliente.create({ data: { tenantId: tenant.id, rfc: `CRC${SUFIJO}`.slice(0, 13).toUpperCase(), razonSocial: 'Cliente C' } });
+      const tB = await prisma.temporaryImport.create({ data: { ...base, tenantId: tenant.id, userId: user.id, clienteId: cB.id, pedimento: '26 47 3461 4000011', quantity: 100, customsValue: 1000 } });
+      const tC = await prisma.temporaryImport.create({ data: { ...base, tenantId: tenant.id, userId: user.id, clienteId: cC.id, pedimento: '26 47 3461 4000012', quantity: 100, customsValue: 1000 } });
+      const req = { headers: {}, query: {}, clienteIdsPermitidos: [cA.id, cB.id] } as unknown as Request;
+      assert.equal(clienteIdDe(req), null, 'con 2 permitidos clienteIdDe es null (el bug original dejaba candidatas/lista sin filtro)');
+      const cand = await listarCandidatas(tenant.id, { clienteId: filtroCliente(req).clienteId });
+      assert.ok(cand.some(r => r.id === tB.id) && !cand.some(r => r.id === tC.id), 'candidatas sin ids: B sí, C no');
+      const porIds = await listarCandidatas(tenant.id, { ids: [tB.id, tC.id], clienteId: filtroCliente(req).clienteId });
+      assert.deepEqual(porIds.map(r => r.id), [tB.id], 'candidatas?ids= NO salta el filtro de cliente');
+      const sinRestriccion = await listarCandidatas(tenant.id, { ids: [tB.id, tC.id] });
+      assert.equal(sinRestriccion.length, 2, 'sin restricción los ids prellenan ambas');
+      const eB = await crearExpediente({ tenantId: tenant.id, userId: user.id, clienteId: cB.id, ids: [tB.id], opts: { tipo: 'F4', tc: 18.5 } });
+      const eC = await crearExpediente({ tenantId: tenant.id, userId: user.id, clienteId: cC.id, ids: [tC.id], opts: { tipo: 'F4', tc: 18.5 } });
+      const lista = await listarExpedientes(tenant.id, filtroCliente(req).clienteId);
+      assert.ok(lista.some(e => e.id === eB.id) && !lista.some(e => e.id === eC.id), 'listarExpedientes con { in } excluye C');
+      assert.equal(enAlcance(req, eB.clienteId), true);
+      assert.equal(enAlcance(req, eC.clienteId), false, 'detalle/imprimible de C fuera de alcance → la ruta responde 404');
+      await assert.rejects(() => validarClienteEnAlcance(req, tenant.id, cC.id), (e: unknown) => (e as { statusCode?: number }).statusCode === 403, 'clienteId del body fuera del alcance → 403');
     });
   } finally {
     await limpiar();

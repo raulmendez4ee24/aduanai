@@ -14,10 +14,10 @@ import { Router } from 'express';
 import { authenticate, AuthRequest } from '../middlewares/auth';
 import { requirePermission } from '../middlewares/requirePermission';
 import { prisma } from '../lib/prisma';
-import { clienteIdDe, validarClienteDelTenant } from '../lib/cliente-contexto';
+import { clienteIdDe, enAlcance, filtroCliente, validarClienteEnAlcance } from '../lib/cliente-contexto';
 import {
   TIPOS_CAMBIO, DOCUMENTOS_REQUERIDOS, DESCRIPCION_TIPO, calcularCambioRegimen, crearExpediente,
-  listarExpedientes, obtenerExpediente, actualizarExpediente, type TipoCambio, type CalculoExpediente,
+  listarCandidatas, listarExpedientes, obtenerExpediente, actualizarExpediente, type TipoCambio, type CalculoExpediente,
 } from '../services/cambio-regimen';
 
 export const cambioRegimenRouter = Router();
@@ -29,23 +29,21 @@ cambioRegimenRouter.get('/tipos', (_req, res) => {
   res.json({ status: 'ok', data: TIPOS_CAMBIO.map(t => ({ tipo: t, descripcion: DESCRIPCION_TIPO[t], documentos: DOCUMENTOS_REQUERIDOS[t] })) });
 });
 
-cambioRegimenRouter.get('/candidatas', async (req: AuthRequest, res, next) => {
+/** Expediente del tenant que además cae en el alcance de cliente del usuario; null ⇒ 404 (no revela existencia). */
+async function expedienteEnAlcance(req: AuthRequest) {
+  const exp = await obtenerExpediente(req.tenantId!, String(req.params.id));
+  return exp && enAlcance(req, exp.clienteId) ? exp : null;
+}
+
+cambioRegimenRouter.get('/candidatas', requirePermission('inventory', 'view'), async (req: AuthRequest, res, next) => {
   try {
     const ids = typeof req.query.ids === 'string' ? req.query.ids.split(',').map(s => s.trim()).filter(Boolean) : [];
-    const clienteId = clienteIdDe(req);
-    const rows = await prisma.temporaryImport.findMany({
-      where: {
-        tenantId: req.tenantId!,
-        ...(ids.length > 0 ? { id: { in: ids } } : { status: { in: ['ACTIVE', 'PARTIALLY_DISCHARGED', 'EXPIRED'] }, ...(clienteId ? { clienteId } : {}) }),
-      },
-      orderBy: { expirationDate: 'asc' }, take: 200,
-      select: { id: true, pedimento: true, fractionCode: true, description: true, quantity: true, quantityDischarged: true, unit: true, customsValue: true, expirationDate: true, status: true, tipo: true, clienteId: true },
-    });
-    res.json({ status: 'ok', data: rows.map(r => ({ ...r, saldo: Math.max(0, r.quantity - r.quantityDischarged) })) });
+    const rows = await listarCandidatas(req.tenantId!, { ids, clienteId: filtroCliente(req).clienteId });
+    res.json({ status: 'ok', data: rows });
   } catch (err) { next(err); }
 });
 
-cambioRegimenRouter.post('/calcular', async (req: AuthRequest, res, next) => {
+cambioRegimenRouter.post('/calcular', requirePermission('inventory', 'view'), async (req: AuthRequest, res, next) => {
   try {
     const ids = Array.isArray(req.body?.temporaryImportIds) ? req.body.temporaryImportIds.map(String) : [];
     const calculo = await calcularCambioRegimen(req.tenantId!, ids, {
@@ -60,7 +58,7 @@ cambioRegimenRouter.post('/calcular', async (req: AuthRequest, res, next) => {
 cambioRegimenRouter.post('/', requirePermission('inventory', 'adjust'), async (req: AuthRequest, res, next) => {
   try {
     const ids = Array.isArray(req.body?.temporaryImportIds) ? req.body.temporaryImportIds.map(String) : [];
-    const clienteId = await validarClienteDelTenant(req.tenantId!, req.body?.clienteId ?? clienteIdDe(req));
+    const clienteId = await validarClienteEnAlcance(req, req.tenantId!, req.body?.clienteId ?? clienteIdDe(req));
     const exp = await crearExpediente({
       tenantId: req.tenantId!, userId: req.userId!, clienteId, ids,
       opts: {
@@ -74,13 +72,13 @@ cambioRegimenRouter.post('/', requirePermission('inventory', 'adjust'), async (r
   } catch (err) { next(err); }
 });
 
-cambioRegimenRouter.get('/', async (req: AuthRequest, res, next) => {
-  try { res.json({ status: 'ok', data: await listarExpedientes(req.tenantId!, clienteIdDe(req)) }); } catch (err) { next(err); }
+cambioRegimenRouter.get('/', requirePermission('inventory', 'view'), async (req: AuthRequest, res, next) => {
+  try { res.json({ status: 'ok', data: await listarExpedientes(req.tenantId!, filtroCliente(req).clienteId) }); } catch (err) { next(err); }
 });
 
-cambioRegimenRouter.get('/:id', async (req: AuthRequest, res, next) => {
+cambioRegimenRouter.get('/:id', requirePermission('inventory', 'view'), async (req: AuthRequest, res, next) => {
   try {
-    const exp = await obtenerExpediente(req.tenantId!, String(req.params.id));
+    const exp = await expedienteEnAlcance(req);
     if (!exp) return res.status(404).json({ status: 'error', message: 'Expediente no encontrado' });
     res.json({ status: 'ok', data: exp });
   } catch (err) { next(err); }
@@ -88,6 +86,7 @@ cambioRegimenRouter.get('/:id', async (req: AuthRequest, res, next) => {
 
 cambioRegimenRouter.patch('/:id', requirePermission('inventory', 'adjust'), async (req: AuthRequest, res, next) => {
   try {
+    if (!(await expedienteEnAlcance(req))) return res.status(404).json({ status: 'error', message: 'Expediente no encontrado' });
     const exp = await actualizarExpediente(req.tenantId!, String(req.params.id), {
       estado: typeof req.body?.estado === 'string' ? req.body.estado : undefined,
       notas: req.body?.notas === undefined ? undefined : (req.body.notas === null ? null : String(req.body.notas)),
@@ -101,9 +100,9 @@ cambioRegimenRouter.patch('/:id', requirePermission('inventory', 'adjust'), asyn
 const esc = (s: unknown): string => String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
 const mxn = (n: number): string => `$${n.toLocaleString('es-MX', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 
-cambioRegimenRouter.get('/:id/imprimible', async (req: AuthRequest, res, next) => {
+cambioRegimenRouter.get('/:id/imprimible', requirePermission('inventory', 'view'), async (req: AuthRequest, res, next) => {
   try {
-    const exp = await obtenerExpediente(req.tenantId!, String(req.params.id));
+    const exp = await expedienteEnAlcance(req);
     if (!exp) return res.status(404).json({ status: 'error', message: 'Expediente no encontrado' });
     const c = exp.calculo as unknown as CalculoExpediente & { folio?: string };
     const tenant = await prisma.tenant.findUnique({ where: { id: req.tenantId! }, select: { name: true, rfc: true } });

@@ -243,7 +243,27 @@ export async function crearExpediente(args: { tenantId: string; userId: string; 
   return prisma.cambioRegimenExpediente.update({ where: { id: exp.id }, data: { calculo: { ...calculo, folio } as unknown as object } });
 }
 
-export async function listarExpedientes(tenantId: string, clienteId?: string | null) {
+/** Alcance por cliente listo para el where: id concreto o `{ in: [...] }` (usuario restringido a varios). */
+export type FiltroClienteId = string | { in: string[] } | null | undefined;
+
+/** Temporales con saldo del tenant (para seleccionar). `ids` prellena; el filtro
+ *  de cliente aplica SIEMPRE — también con ids — para que un usuario restringido
+ *  no cargue partidas de otro cliente pidiéndolas por id. */
+export async function listarCandidatas(tenantId: string, f: { ids?: string[]; clienteId?: FiltroClienteId } = {}) {
+  const ids = (f.ids ?? []).filter(Boolean);
+  const rows = await prisma.temporaryImport.findMany({
+    where: {
+      tenantId,
+      ...(f.clienteId ? { clienteId: f.clienteId } : {}),
+      ...(ids.length > 0 ? { id: { in: ids } } : { status: { in: ['ACTIVE', 'PARTIALLY_DISCHARGED', 'EXPIRED'] } }),
+    },
+    orderBy: { expirationDate: 'asc' }, take: 200,
+    select: { id: true, pedimento: true, fractionCode: true, description: true, quantity: true, quantityDischarged: true, unit: true, customsValue: true, expirationDate: true, status: true, tipo: true, clienteId: true },
+  });
+  return rows.map(r => ({ ...r, saldo: Math.max(0, r.quantity - r.quantityDischarged) }));
+}
+
+export async function listarExpedientes(tenantId: string, clienteId?: FiltroClienteId) {
   return prisma.cambioRegimenExpediente.findMany({ where: { tenantId, ...(clienteId ? { clienteId } : {}) }, orderBy: { createdAt: 'desc' }, take: 100 });
 }
 
