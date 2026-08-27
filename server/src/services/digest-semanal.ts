@@ -16,10 +16,12 @@
  */
 
 import { prisma } from '../lib/prisma';
+import { enLotes } from '../lib/lotes';
 import { logger } from '../lib/logger';
 import { emailConfigurado, sendDigestSemanalEmail } from '../lib/email';
 import { whatsappConfigurado, sendWhatsAppMessage } from './whatsapp';
 import { normalizarAccion, rutaDeAccion } from './alert-acciones';
+import { resolverClientesPermitidos } from '../middlewares/clienteScope';
 
 export const CANALES_DIGEST = ['email', 'whatsapp', 'ambos'] as const;
 export type CanalDigest = (typeof CANALES_DIGEST)[number];
@@ -167,6 +169,19 @@ const semanaISO = (d: Date): string => {
   return `${t.getUTCFullYear()}-W${String(Math.ceil((((t.getTime() - y0.getTime()) / 86400000) + 1) / 7)).padStart(2, '0')}`;
 };
 
+type UsuarioDigest = { id: string; email: string; phone: string | null; emailVerified: boolean; role: string };
+
+/** Filtra a admins y a usuarios cuyo alcance por cliente NO está restringido. */
+export async function destinatariosSinRestriccion<T extends UsuarioDigest>(tenantId: string, usuarios: T[]): Promise<T[]> {
+  const out: T[] = [];
+  for (const u of usuarios) {
+    if (u.role === 'ADMIN' || u.role === 'SUPERADMIN') { out.push(u); continue; }
+    const permitidos = await resolverClientesPermitidos(u.id, tenantId, u.role);
+    if (permitidos === null) out.push(u);
+  }
+  return out;
+}
+
 /**
  * Envía (o guarda) el digest del tenant. `forzar` ignora el candado de
  * "ya enviado esta semana" (botón "enviar ahora").
@@ -189,7 +204,10 @@ export async function enviarDigest(tenantId: string, opts: { ahora?: Date; trans
   } else {
     const quiereEmail = canal === 'email' || canal === 'ambos';
     const quiereWA = canal === 'whatsapp' || canal === 'ambos';
-    const usuarios = await prisma.user.findMany({ where: { tenantId, active: true }, select: { email: true, phone: true, emailVerified: true, role: true } });
+    const todos = await prisma.user.findMany({ where: { tenantId, active: true }, select: { id: true, email: true, phone: true, emailVerified: true, role: true } });
+    // Revisión C: el digest abarca TODO el tenant → solo admins o usuarios sin
+    // restricción de alcance por cliente (resolverClientesPermitidos === null).
+    const usuarios = await destinatariosSinRestriccion(tenantId, todos);
     const admins = usuarios.filter(u => u.role === 'ADMIN' || u.role === 'SUPERADMIN');
     const base = admins.length > 0 ? admins : usuarios;
 
@@ -257,9 +275,15 @@ export async function enviarDigestsPendientes(ahora = new Date()): Promise<{ ten
     select: { id: true },
   });
   let enviados = 0;
-  for (const t of tenants) {
-    const r = await enviarDigest(t.id, { ahora }).catch(() => null);
-    if (r?.enviado) enviados++;
+  // Revisión C: tenants en lotes de 50; un tenant que falla se loguea y no tumba el tick.
+  for (const lote of enLotes(tenants)) {
+    for (const t of lote) {
+      const r = await enviarDigest(t.id, { ahora }).catch(err => {
+        logger.error('Digest semanal: envío falló', { action: 'digest_semanal_fail', tenantId: t.id, errorMessage: err instanceof Error ? err.message : String(err) });
+        return null;
+      });
+      if (r?.enviado) enviados++;
+    }
   }
   return { tenants: tenants.length, enviados };
 }

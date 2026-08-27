@@ -326,8 +326,13 @@ alertsRouter.get('/severidad/reglas', authenticate, (_req, res) => {
   res.json({ status: 'ok', data: REGLAS_SEVERIDAD });
 });
 
-alertsRouter.get('/digest/preview', authenticate, async (req: AuthRequest, res, next) => {
+// Revisión C: el preview es el digest de TODO el tenant → mismo guard que
+// enviar-ahora, y un usuario restringido por cliente no lo ve (403).
+alertsRouter.get('/digest/preview', authenticate, requirePermission('classifier', 'settings'), async (req: AuthRequest, res, next) => {
   try {
+    if (Array.isArray(req.clienteIdsPermitidos)) {
+      return res.status(403).json({ status: 'error', message: 'El resumen semanal abarca toda la empresa; tu acceso está restringido por cliente' });
+    }
     const [digest, tenant] = await Promise.all([
       armarDigest(req.tenantId!),
       prisma.tenant.findUnique({ where: { id: req.tenantId! }, select: { digestSemanalCanal: true, digestUltimoEnvioAt: true } }),
