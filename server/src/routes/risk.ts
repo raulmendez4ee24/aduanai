@@ -12,7 +12,7 @@ import { buildVerifiedSignals, normalizarOperacion } from '../services/risk-scor
 import { DEFAULT_WEIGHTS, RULES_VERSION } from '../services/risk-scorer/rules';
 import { listaCriterios } from '../services/risk-scorer/criterios';
 import type { Signals } from '../services/risk-scorer/types';
-import { clienteIdDe, filtroCliente, validarClienteDelTenant } from '../lib/cliente-contexto';
+import { clienteIdDe, enAlcance, filtroCliente, validarClienteDelTenant, whereConAlcance } from '../lib/cliente-contexto';
 import crypto from 'crypto';
 import { DISCLAIMER } from '../services/risk-scorer/engine';
 import {
@@ -84,7 +84,7 @@ router.post('/assess', async (req: AuthRequest, res: Response) => {
     return res.status(400).json({ status: 'error', message: 'El cliente activo no existe o no pertenece a tu empresa' });
   }
   if (operationId) {
-    const op = await prisma.operation.findFirst({ where: { id: operationId, tenantId: req.tenantId! }, select: { id: true } });
+    const op = await prisma.operation.findFirst({ where: whereConAlcance(req, { id: operationId, tenantId: req.tenantId! }), select: { id: true } });
     if (!op) return res.status(404).json({ status: 'error', message: 'Operación no encontrada' });
   }
   const tieneIdentificador = [operacion.fraccion, operacion.importadorRfc, operacion.numeroPedimento]
@@ -132,6 +132,8 @@ router.post('/assess', async (req: AuthRequest, res: Response) => {
 // ── Ola 2: historial por cliente (score vivo = último + serie) ──────────
 router.get('/clientes/:clienteId/historial', async (req: AuthRequest, res: Response) => {
   const clienteId = String(req.params.clienteId);
+  // Revisión C: el clienteId viene del path — debe caer en el alcance del usuario.
+  if (!enAlcance(req, clienteId)) return res.status(403).json({ status: 'error', message: 'Cliente fuera de tu alcance' });
   const cliente = await prisma.cliente.findFirst({ where: { id: clienteId, tenantId: req.tenantId! }, select: { id: true, rfc: true, razonSocial: true } });
   if (!cliente) return res.status(404).json({ status: 'error', message: 'Cliente no encontrado' });
   const serie = await prisma.riskAssessment.findMany({
@@ -160,7 +162,7 @@ router.post('/:id/factores/:factorId/evidencia', async (req: AuthRequest, res: R
   if (!body.fileName || !body.mimeType || !body.base64) {
     return res.status(400).json({ status: 'error', message: 'fileName, mimeType y base64 requeridos' });
   }
-  const row = await prisma.riskAssessment.findFirst({ where: { id, tenantId: req.tenantId! } });
+  const row = await prisma.riskAssessment.findFirst({ where: whereConAlcance(req, { id, tenantId: req.tenantId! }) });
   if (!row) return res.status(404).json({ status: 'error', message: 'Evaluación no encontrada' });
   const base = resultadoDesdeFila(row);
   if (!idsEvidenciables(base).has(factorId)) {
@@ -203,8 +205,8 @@ router.post('/:id/factores/:factorId/evidencia', async (req: AuthRequest, res: R
 });
 
 // ── Ola 2: dictamen imprimible con folio + hash ─────────────────────────
-async function cargarDictamen(tenantId: string, id: string) {
-  const row = await prisma.riskAssessment.findFirst({ where: { id, tenantId } });
+async function cargarDictamen(req: AuthRequest, tenantId: string, id: string) {
+  const row = await prisma.riskAssessment.findFirst({ where: whereConAlcance(req, { id, tenantId }) });
   if (!row) return null;
   const [tenant, cliente, operacion] = await Promise.all([
     prisma.tenant.findUnique({ where: { id: tenantId }, select: { name: true } }),
@@ -222,7 +224,7 @@ async function cargarDictamen(tenantId: string, id: string) {
 }
 
 router.get('/:id/dictamen.html', async (req: AuthRequest, res: Response) => {
-  const d = await cargarDictamen(req.tenantId!, String(req.params.id));
+  const d = await cargarDictamen(req, req.tenantId!, String(req.params.id));
   if (!d) return res.status(404).json({ status: 'error', message: 'Evaluación no encontrada' });
   res.setHeader('Content-Type', 'text/html; charset=utf-8');
   res.send(d.html);
@@ -232,11 +234,11 @@ router.get('/:id/dictamen.html', async (req: AuthRequest, res: Response) => {
 router.post('/:id/archivar', async (req: AuthRequest, res: Response) => {
   const id = String(req.params.id);
   const body = (req.body ?? {}) as { operationId?: string };
-  const d = await cargarDictamen(req.tenantId!, id);
+  const d = await cargarDictamen(req, req.tenantId!, id);
   if (!d) return res.status(404).json({ status: 'error', message: 'Evaluación no encontrada' });
   const operationId = body.operationId ?? d.row.operationId;
   if (!operationId) return res.status(400).json({ status: 'error', message: 'operationId requerido: la evaluación no está ligada a una operación' });
-  const op = await prisma.operation.findFirst({ where: { id: operationId, tenantId: req.tenantId! }, select: { id: true, reference: true } });
+  const op = await prisma.operation.findFirst({ where: whereConAlcance(req, { id: operationId, tenantId: req.tenantId! }), select: { id: true, reference: true } });
   if (!op) return res.status(404).json({ status: 'error', message: 'Operación no encontrada' });
   if (!d.row.operationId) await prisma.riskAssessment.update({ where: { id }, data: { operationId: op.id } });
   const buf = Buffer.from(d.html, 'utf8');
@@ -274,7 +276,7 @@ router.get('/assessments', async (req: AuthRequest, res: Response) => {
 
 router.get('/assessments/:id', async (req: AuthRequest, res: Response) => {
   const row = await prisma.riskAssessment.findFirst({
-    where: { id: String(req.params.id), tenantId: req.tenantId! },
+    where: whereConAlcance(req, { id: String(req.params.id), tenantId: req.tenantId! }),
   });
   if (!row) return res.status(404).json({ status: 'error', message: 'Evaluación no encontrada' });
   res.json({ status: 'ok', data: row });

@@ -18,6 +18,12 @@ import {
   aplicarEvidencia, resultadoDesdeFila, idsEvidenciables, ordenarCartera, tendenciaDe,
   hashAssessment, siguienteFolio, formatearFolio, construirCartera, renderDictamenHTML, type FilaCartera,
 } from '../services/risk-scorer/operativo';
+import { enAlcance, whereConAlcance } from '../lib/cliente-contexto';
+import type { Request } from 'express';
+
+/** Simula la petición de un usuario restringido a ciertos clientes (lo que deja clienteScope). */
+const reqRestringida = (clienteIds: string[] | null): Request =>
+  ({ headers: {}, query: {}, clienteIdsPermitidos: clienteIds } as unknown as Request);
 
 const SUFIJO = `ola2rs${Date.now().toString(36)}`;
 let pasadas = 0, falladas = 0;
@@ -139,6 +145,33 @@ async function parteDB() {
     await prueba('cartera del otro tenant solo ve lo suyo', async () => {
       const filas = await construirCartera(otro.id, null);
       assert.equal(filas.length, 1); assert.equal(filas[0]!.exposicion, 90);
+    });
+    console.log('— alcance por cliente (usuario restringido a A) —');
+    await prueba('historial: enAlcance deja pasar a A y rechaza B (→ 403 en la ruta); sin restricción ve todo', async () => {
+      const req = reqRestringida([cA.id]);
+      assert.equal(enAlcance(req, cA.id), true);
+      assert.equal(enAlcance(req, cB.id), false);
+      assert.equal(enAlcance(reqRestringida(null), cB.id), true);
+    });
+    await prueba('assessment por id con whereConAlcance: el de B no aparece para el restringido a A; el de A sí', async () => {
+      const req = reqRestringida([cA.id]);
+      const deB = await prisma.riskAssessment.findFirst({ where: { tenantId: tenant.id, clienteId: cB.id }, select: { id: true } });
+      const deA = await prisma.riskAssessment.findFirst({ where: { tenantId: tenant.id, clienteId: cA.id }, select: { id: true } });
+      assert.ok(deB && deA);
+      assert.equal(await prisma.riskAssessment.findFirst({ where: whereConAlcance(req, { id: deB!.id, tenantId: tenant.id }) }), null, 'la evaluación de B no es visible');
+      assert.ok(await prisma.riskAssessment.findFirst({ where: whereConAlcance(req, { id: deA!.id, tenantId: tenant.id }) }), 'la de A sí');
+      assert.ok(await prisma.riskAssessment.findFirst({ where: whereConAlcance(reqRestringida(null), { id: deB!.id, tenantId: tenant.id }) }), 'sin restricción ve la de B');
+    });
+    await prueba('operación destino (archivar/assess): la de B no se resuelve para el restringido a A; la compartida (sin cliente) sí', async () => {
+      const req = reqRestringida([cA.id]);
+      const opB = await prisma.operation.create({ data: { tenantId: tenant.id, userId: user.id, clienteId: cB.id, reference: `OPB-${SUFIJO}`, type: 'IMPORT' } });
+      const opShared = await prisma.operation.create({ data: { tenantId: tenant.id, userId: user.id, clienteId: null, reference: `OPS-${SUFIJO}`, type: 'IMPORT' } });
+      try {
+        assert.equal(await prisma.operation.findFirst({ where: whereConAlcance(req, { id: opB.id, tenantId: tenant.id }), select: { id: true } }), null);
+        assert.ok(await prisma.operation.findFirst({ where: whereConAlcance(req, { id: opShared.id, tenantId: tenant.id }), select: { id: true } }));
+      } finally {
+        await prisma.operation.deleteMany({ where: { id: { in: [opB.id, opShared.id] } } });
+      }
     });
   } finally { await limpiar(); }
 }
