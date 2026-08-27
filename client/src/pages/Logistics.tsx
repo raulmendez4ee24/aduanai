@@ -1,12 +1,43 @@
 import { DemoTag } from '../components/DemoBanner'
 import { useState, useEffect } from 'react'
+import { Link } from 'react-router-dom'
 import { api } from '../lib/api'
 import type { ContainerSpec, LoadPlanRecord, CubicageResult, LoadOptimization, CostAnalysis } from '../lib/api'
 import { Truck, Plus, Calculator, Sparkles, DollarSign, Trash2 } from 'lucide-react'
 
 const GLASS = 'bg-white/70 backdrop-blur-xl border border-white/50 shadow-[0_8px_30px_rgb(0,0,0,0.04)]'
 
+/**
+ * Ola 3 (27-ago-2026): Logística sale del menú. La ruta /logistics sigue
+ * existiendo y el módulo legacy (cubicaje/planes de carga) se conserva abajo
+ * como `LogisticsPageLegacy`, sin borrar código. La página muestra un aviso
+ * honesto hasta que se integre al despacho o se retire.
+ */
+export const GUIA_MODULO = {
+  titulo: 'Logística',
+  pasos: ['Módulo fuera del alcance actual: se integrará al despacho (ETA vs cita de cruce, demoras vs almacenajes) o se retirará.', 'Para costos de despacho usa el Cotizador.'],
+}
+
 export function LogisticsPage() {
+  return (
+    <div className="max-w-3xl mx-auto">
+      <div className={`${GLASS} rounded-[2rem] p-8`}>
+        <div className="flex items-center gap-2 mb-2">
+          <Truck className="w-5 h-5 text-slate-500" />
+          <h1 className="text-xl font-bold text-slate-900">Logística</h1>
+        </div>
+        <p className="text-[13px] text-slate-700">
+          <strong>Módulo fuera del alcance actual:</strong> se integrará al despacho (ETA vs cita de cruce, demoras vs almacenajes) o se retirará.
+        </p>
+        <p className="text-[12px] text-slate-500 mt-2">Los planes de carga y el cubicaje que existían aquí no se han borrado; simplemente no forman parte del flujo operativo de hoy. Los costos de despacho (honorarios, almacenaje, maniobras) viven en el Cotizador.</p>
+        <Link to="/cotizador" className="inline-block mt-4 text-[13px] font-medium bg-emerald-500 hover:bg-emerald-600 text-white px-4 py-2 rounded-xl">Ir al Cotizador →</Link>
+      </div>
+    </div>
+  )
+}
+
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
+export function LogisticsPageLegacy() {
   const [containers, setContainers] = useState<ContainerSpec[]>([])
   const [plans, setPlans] = useState<LoadPlanRecord[]>([])
   const [loading, setLoading] = useState(true)

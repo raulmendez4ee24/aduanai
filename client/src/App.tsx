@@ -58,6 +58,7 @@ import { ClasificadorLotePage } from './pages/ClasificadorLote'
 import { ClientesPage } from './pages/Clientes'
 import { AprobacionesPage } from './pages/Aprobaciones'
 import { CatalogoPage } from './pages/Catalogo'
+import { DefensaPage } from './pages/Defensa' // Ola 3
 import { StatusPage } from './pages/Public/Status'
 import { PrecedentsPage } from './pages/Precedents'
 import { AdminLeadsPage } from './pages/Admin/AdminLeads'
@@ -253,6 +254,7 @@ export function App() {
         <Route path="/clientes" element={<ClientesPage />} />
         <Route path="/aprobaciones" element={<AprobacionesPage />} />
         <Route path="/catalogo" element={<CatalogoPage />} />
+        <Route path="/defensa" element={<DefensaPage />} />{/* Ola 3 — Cumplimiento + Auditoría */}
         {/* Admin: mismo shell, guard adicional */}
         <Route element={<RequireSuperAdmin user={user}><Outlet /></RequireSuperAdmin>}>
           <Route path="/admin" element={<AdminDashboardPage />} />

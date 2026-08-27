@@ -1,7 +1,18 @@
 import { useEffect, useState } from 'react'
-import { BadgeCheck, AlertCircle, Clock, RefreshCw, FileText, ShieldCheck } from 'lucide-react'
+import { Link } from 'react-router-dom'
+import { BadgeCheck, AlertCircle, Clock, RefreshCw, FileText, ShieldCheck, Lock } from 'lucide-react'
 import { api } from '../lib/api'
 import type { UserVerificationRecord, ProfessionalType, PatenteLookup } from '../lib/api'
+import { confianza, type InfraInfo } from '../lib/api/ola3'
+
+export const GUIA_MODULO = {
+  titulo: 'Verificación profesional',
+  pasos: [
+    'Indica tu rol; si eres agente aduanal, captura la patente y verifícala contra el registro.',
+    'Sube las URLs de tus documentos (patente, CSF, RFC) y envía la solicitud; un administrador la revisa.',
+    '"Tus datos" explica dónde viven tus datos y qué protecciones están verificadas, pendientes o en evaluación.',
+  ],
+}
 
 const GLASS = 'bg-white/70 backdrop-blur-xl border border-white/50 shadow-[0_8px_30px_rgb(0,0,0,0.04)]'
 
@@ -171,6 +182,57 @@ export function VerificacionPage() {
           )}
         </div>
       </div>
+
+      <TusDatos />
+    </div>
+  )
+}
+
+/** Ola 3 — "Tus datos": dónde viven y cómo se protegen. Todo viene del server
+ *  (GET /api/verification/confianza); aquí no se afirma nada por cuenta propia. */
+function TusDatos() {
+  const [info, setInfo] = useState<InfraInfo | null>(null)
+  const [err, setErr] = useState('')
+  useEffect(() => { confianza().then(r => setInfo(r.data)).catch(e => setErr(e instanceof Error ? e.message : 'Error')) }, [])
+  const estilo: Record<InfraInfo['afirmaciones'][number]['estado'], { label: string; cls: string }> = {
+    verificado: { label: 'verificado', cls: 'bg-emerald-50 text-emerald-700 border-emerald-200' },
+    pendiente: { label: 'pendiente de confirmar', cls: 'bg-amber-50 text-amber-700 border-amber-200' },
+    no_integrado: { label: 'no integrado', cls: 'bg-slate-100 text-slate-600 border-slate-200' },
+    en_evaluacion: { label: 'en evaluación', cls: 'bg-blue-50 text-blue-700 border-blue-200' },
+  }
+  return (
+    <div className={`${GLASS} rounded-[2rem] p-6 md:p-8`}>
+      <div className="flex items-center gap-2 mb-1">
+        <Lock className="w-5 h-5 text-slate-700"/>
+        <h2 className="text-[15px] font-bold text-slate-900">Tus datos</h2>
+      </div>
+      <p className="text-[12px] text-slate-500 mb-4">Dónde viven y cómo se protegen. Solo afirmamos lo que podemos evidenciar; lo demás aparece como pendiente.</p>
+      {err && <p className="text-[12px] text-rose-700">{err}</p>}
+      {!info && !err && <p className="text-[12px] text-slate-400">Cargando…</p>}
+      {info && (
+        <div className="space-y-2">
+          <div className="rounded-xl border border-slate-100 bg-white/50 p-3 text-[12px]">
+            <p><span className="font-semibold text-slate-800">Proveedor:</span> {info.proveedor.nombre}</p>
+            <p><span className="font-semibold text-slate-800">Región:</span> {info.proveedor.region}</p>
+            <p className="text-[11px] text-slate-500 mt-1">Evidencia: {info.proveedor.evidencia}</p>
+          </div>
+          {info.afirmaciones.map(a => (
+            <div key={a.clave} className="rounded-xl border border-slate-100 bg-white/50 p-3">
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <p className="text-[12px] font-semibold text-slate-800">{a.titulo}</p>
+                <span className={`text-[10px] px-2 py-0.5 rounded-full border ${estilo[a.estado].cls}`}>{estilo[a.estado].label}</span>
+              </div>
+              <p className="text-[12px] text-slate-700 mt-1">{a.detalle}</p>
+              <p className="text-[10px] text-slate-500 mt-1">Evidencia: {a.evidencia}</p>
+            </div>
+          ))}
+          <div className="flex flex-wrap gap-3 text-[12px] pt-1">
+            <a href={info.enlaces.avisoPrivacidad} target="_blank" rel="noreferrer" className="text-emerald-700 hover:underline">Aviso de privacidad →</a>
+            <Link to={info.enlaces.auditoria} className="text-emerald-700 hover:underline">Audit trail con hash →</Link>
+            <Link to="/defensa" className="text-emerald-700 hover:underline">Certificado de integridad (Defensa) →</Link>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

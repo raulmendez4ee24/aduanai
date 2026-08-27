@@ -7,7 +7,7 @@ import type { ComponentType } from 'react'
 import {
   House, FileSearch, ClipboardCheck, Radar, Library, Settings,
   Calculator, Bot, Clock, FolderOpen, Sparkles, ShieldCheck, LineChart,
-  Warehouse, Landmark, FileText, Truck, Boxes, Globe, Scale, BadgeCheck,
+  Warehouse, Landmark, FileText, Boxes, Globe, Scale, BadgeCheck,
   Megaphone, ListChecks, Building2, Users, Gauge, Database, ScanSearch,
   Layers, // ── OPERACIÓN 2026-08 ──
 } from 'lucide-react'
@@ -45,7 +45,6 @@ export const NAV_HERRAMIENTAS: NavItem[] = [
   { label: 'Inventario IMMEX', path: '/inventario', icono: Warehouse },
   { label: 'Fiscal', path: '/fiscal', icono: Landmark },
   { label: 'Auto MVE', path: '/mve', icono: FileText },
-  { label: 'Logística', path: '/logistics', icono: Truck },
   { label: 'Fracciones', path: '/fracciones', icono: Boxes },
   { label: 'Origen T-MEC', path: '/origen-tmec', icono: Globe },
   { label: 'Precedentes', path: '/precedentes', icono: Scale },
@@ -59,6 +58,7 @@ export const NAV_HERRAMIENTAS: NavItem[] = [
   { label: 'Clientes', path: '/clientes', icono: Building2 },
   { label: 'Aprobaciones', path: '/aprobaciones', icono: BadgeCheck },
   { label: 'Catálogo de partes', path: '/catalogo', icono: Boxes },
+  { label: 'Defensa', path: '/defensa', icono: ShieldCheck },
 ]
 
 /** Admin (solo SUPERADMIN; grupo colapsable). */
