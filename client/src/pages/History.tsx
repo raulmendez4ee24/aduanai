@@ -7,6 +7,7 @@
  * calculado del feedback real. Sistema Sello.
  */
 import { useCallback, useEffect, useState } from 'react'
+import { useEstadoPersistente } from '../hooks/useEstadoPersistente'
 import { Link } from 'react-router-dom'
 import { Clock, Download, ChevronLeft, ChevronRight, ChevronDown, ChevronUp, ShieldCheck, Boxes, AlertTriangle, CheckCircle2, X } from 'lucide-react'
 import { DemoTag } from '../components/DemoBanner'
@@ -46,7 +47,7 @@ export function HistoryPage() {
   const puedePromover = can('catalogo', 'create')
 
   // Filtros en UN objeto (Ola 3 → useEstadoPersistente('/historial', inicial)).
-  const [form, setForm] = useState<FiltrosHistorial>({ search: '', fractionCode: '', capitulo: '', desde: '', hasta: '', confianzaMin: '', confianzaMax: '', feedback: '', page: 1 })
+  const [form, setForm] = useEstadoPersistente<FiltrosHistorial>('historial-filtros', { search: '', fractionCode: '', capitulo: '', desde: '', hasta: '', confianzaMin: '', confianzaMax: '', feedback: '', page: 1 })
   const [grupos, setGrupos] = useState<GrupoHistorial[]>([])
   const [total, setTotal] = useState(0)
   const [truncado, setTruncado] = useState(false)

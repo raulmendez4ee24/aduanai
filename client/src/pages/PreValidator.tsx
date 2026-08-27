@@ -10,6 +10,7 @@
  * no trae queda «no evaluado» con motivo — nunca un error fabricado.
  */
 import { useEffect, useState } from 'react'
+import { useEstadoPersistente } from '../hooks/useEstadoPersistente'
 import { api } from '../lib/api'
 import type { Anexo22Catalogs, PedimentoPartidaInputV2, PedimentoValidationResult } from '../lib/api'
 import { ShieldCheck, AlertTriangle, AlertCircle, CheckCircle2, Plus, Trash2, ChevronLeft, ChevronRight, Sparkles, FileText, Archive, FileUp } from 'lucide-react'
@@ -64,8 +65,8 @@ const STEPS = [
 type Validacion = PedimentoValidationResult & { reglasNoEvaluadas?: { rule: string; partida?: number; motivo: string }[] }
 
 export function PreValidatorPage() {
-  const [step, setStep] = useState(1)
-  const [ped, setPed] = useState<Pedimento>(emptyPedimento())
+  const [step, setStep] = useEstadoPersistente<number>('prevalidador-paso', 1)
+  const [ped, setPed] = useEstadoPersistente<Pedimento>('prevalidador', emptyPedimento())
   const [validation, setValidation] = useState<Validacion | null>(null)
   const [loading, setLoading] = useState(false)
   const [aiCheck, setAiCheck] = useState(true)

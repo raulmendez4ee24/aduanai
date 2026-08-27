@@ -5,6 +5,7 @@
  * los bloques vacíos dicen qué fuente falta.
  */
 import { useEffect, useState, type ReactNode } from 'react'
+import { useEstadoPersistente } from '../hooks/useEstadoPersistente'
 import { Search, Package, Bell, ChevronRight, ChevronDown, AlertCircle } from 'lucide-react'
 import { api } from '../lib/api'
 import type { FractionSearchResult } from '../lib/api'
@@ -27,7 +28,7 @@ const NIVEL_LABEL: Record<NodoArbol['nivel'], string> = { seccion: 'Sección', c
 
 export function FractionsPage() {
   const { formatted } = useTotalFractions()
-  const [query, setQuery] = useState('')
+  const [query, setQuery] = useEstadoPersistente<string>('fracciones-busqueda', '')
   const [results, setResults] = useState<FractionSearchResult[]>([])
   const [buscando, setBuscando] = useState(false)
   const [code, setCode] = useState<string>(() => new URLSearchParams(window.location.search).get('code') ?? '')

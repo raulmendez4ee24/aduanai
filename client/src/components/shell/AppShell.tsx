@@ -21,6 +21,8 @@ import { NAV_PRINCIPAL, NAV_HERRAMIENTAS, NAV_ADMIN, labelDeRuta, filtrarPorFlag
 import { useRadarHabilitado } from '../../hooks/useRadarHabilitado'
 // ── OPERACIÓN 2026-08 ── selector global de cliente + badge de aprobaciones
 import { ClienteSelector } from './ClienteSelector'
+import { BotonAyudaModulo } from './AyudaModulo'
+import { limpiarEstadosPersistentes } from '../../hooks/useEstadoPersistente'
 import { usePendientesAprobacion } from '../../hooks/usePendientesAprobacion'
 
 // ── Acciones contextuales del topbar ─────────────────────────────────────
@@ -170,7 +172,7 @@ export function AppShell({ onLogout, userRole, userName, userEmail, tenantName }
         {tenantName && <p className="text-13 text-tinta-suave font-sello-ui truncate">{tenantName}</p>}
         <button
           type="button"
-          onClick={() => { onLogout(); navigate('/login') }}
+          onClick={() => { limpiarEstadosPersistentes(); onLogout(); navigate('/login') }}
           className="mt-2 inline-flex items-center gap-1.5 text-sm text-tinta-suave hover:text-carmin font-sello-ui transition-colors duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-petroleo focus-visible:ring-offset-2 focus-visible:ring-offset-papel-2 rounded-sello-sm"
         >
           <LogOut className="w-4 h-4" strokeWidth={1.5} aria-hidden />
@@ -233,6 +235,7 @@ export function AppShell({ onLogout, userRole, userName, userEmail, tenantName }
               <div className="ml-auto flex items-center gap-2">
                 <ClienteSelector />
                 {acciones}
+                <BotonAyudaModulo />
                 <button
                   type="button"
                   onClick={() => setPaletteAbierto(true)}

@@ -23,6 +23,7 @@
  * números de campo del Anexo 22 (no cotejados). La estructura dice la verdad.
  */
 import { Fragment, useEffect, useState } from 'react'
+import { useEstadoPersistente } from '../hooks/useEstadoPersistente'
 import { useSearchParams } from 'react-router-dom'
 import {
   Printer, RotateCcw, CheckCircle2, AlertTriangle, ShieldAlert, ClipboardCheck, FileUp, Archive, ChevronDown, ChevronUp,
@@ -213,7 +214,7 @@ function folioDe(simulationId: string, fecha: Date): string {
 export function GlosaSimulatorPage() {
   const [params] = useSearchParams()
   const [catalogos, setCatalogos] = useState<Anexo22Catalogs | null>(null)
-  const [form, setForm] = useState<GlosaSimulationInput>({
+  const [form, setForm] = useEstadoPersistente<GlosaSimulationInput>('preglosa', {
     fractionCode: params.get('fraccion') ?? '',
     productDescription: '',
     countryOrigin: '', countryProvider: '', customsCode: '', regimenCode: 'IMD',

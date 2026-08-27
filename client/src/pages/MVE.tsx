@@ -7,6 +7,7 @@
  * "lista para transmitir" o "transmitida por el usuario" (folio + fecha).
  */
 import { DemoTag } from '../components/DemoBanner'
+import { useEstadoPersistente } from '../hooks/useEstadoPersistente'
 import { useState, useEffect, useCallback } from 'react'
 import { api } from '../lib/api'
 import type { MVEDashboard } from '../lib/api'
@@ -84,7 +85,7 @@ export function MVEPage() {
   const [catalogos, setCatalogos] = useState<CatalogosE2 | null>(null)
   const [step, setStep] = useState<Step>('paste')
   const [invoiceText, setInvoiceText] = useState('')
-  const [form, setForm] = useState<FormE2>(FORM_INICIAL)
+  const [form, setForm] = useEstadoPersistente<FormE2>('mve', FORM_INICIAL)
   const [items, setItems] = useState<ExtraccionE2['items']>([])
   const [plantillaAplicada, setPlantillaAplicada] = useState<PlantillaAplicada | null>(null)
   const [loading, setLoading] = useState(false)

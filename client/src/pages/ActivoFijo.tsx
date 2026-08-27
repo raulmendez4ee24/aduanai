@@ -5,6 +5,7 @@
  * más alta manual mínima. NO toca Inventory.tsx (Anexo 24).
  */
 import { useEffect, useState } from 'react'
+import { useEstadoPersistente } from '../hooks/useEstadoPersistente'
 import { useNavigate } from 'react-router-dom'
 import { Factory, Plus, ArrowRight, AlertTriangle } from 'lucide-react'
 import { Button, Card, Badge, Input, EmptyState } from '../components/ui'
@@ -29,7 +30,7 @@ export function ActivoFijoPage() {
   const [cargando, setCargando] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [mostrarForm, setMostrarForm] = useState(false)
-  const [form, setForm] = useState<AltaActivoFijo>(FORM_INICIAL)
+  const [form, setForm] = useEstadoPersistente<AltaActivoFijo>('activo-fijo', FORM_INICIAL)
   const [guardando, setGuardando] = useState(false)
 
   async function cargar() {

@@ -5,6 +5,7 @@
  * Datos reales del tenant/cliente activo; sin datos falsos; errores visibles.
  */
 import { useEffect, useMemo, useState } from 'react'
+import { useEstadoPersistente } from '../hooks/useEstadoPersistente'
 import { useNavigate, useParams } from 'react-router-dom'
 import { CalendarCheck, ChevronLeft, ChevronRight, Download, Plus, Sprout, CheckCircle2, AlertTriangle, ArrowLeft, Trash2, RefreshCw } from 'lucide-react'
 import { Button, Card, Badge, Input, Select, Textarea, EmptyState } from '../components/ui'
@@ -48,7 +49,7 @@ function TableroCalendario() {
   const [mes, setMes] = useState(() => { const d = new Date(); return { y: d.getFullYear(), m: d.getMonth() } })
   const [filtroEstado, setFiltroEstado] = useState('')
   const [mostrarForm, setMostrarForm] = useState(false)
-  const [form, setForm] = useState<EntradaObligacion>(FORM_INICIAL)
+  const [form, setForm] = useEstadoPersistente<EntradaObligacion>('calendario', FORM_INICIAL)
   const [guardando, setGuardando] = useState(false)
 
   async function cargar() {
