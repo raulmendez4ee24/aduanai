@@ -15,7 +15,9 @@ import {
   lookupPrecedents,
   hasActiveLitigation,
   PRECEDENT_CORPUS_VERIFIED,
+  precedentesPorFraccion,
   type PrecedentMatch,
+  type PrecedentesPorFraccion,
 } from './precedent-lookup';
 
 export interface ClassificationResult {
@@ -83,6 +85,8 @@ export interface ClassificationResult {
   /** Precedentes legales relevantes (TFJA, SCJN, criterios SAT) y alerta de litigio. */
   precedents?: PrecedentMatch[];
   litigationAlert?: { active: boolean; cases: PrecedentMatch[] } | null;
+  /** Ola 2: conteo honesto de criterios/tesis por fracción (con flag apagado: 0 + mensaje). */
+  precedentes?: PrecedentesPorFraccion;
 }
 
 export const INDUSTRIAL_SECTORS = [
@@ -951,6 +955,8 @@ Responde en JSON válido.`;
   });
   const litigation = await hasActiveLitigation(finalFraction);
   result.litigationAlert = litigation.has ? { active: true, cases: litigation.precedents } : null;
+  // Ola 2: panel "esta fracción tiene N criterios y M tesis" — estado honesto.
+  try { result.precedentes = await precedentesPorFraccion(finalFraction); } catch { /* el panel se omite */ }
 
   // Mejora #4: Second verification with Haiku
   const suggestedCode = result.fraction.code;

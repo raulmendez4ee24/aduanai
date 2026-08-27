@@ -16,6 +16,7 @@ import path from 'path';
 import { authenticate, AuthRequest, requireRole } from '../middlewares/auth';
 import { prisma } from '../lib/prisma';
 import { generateEmbedding, assertCorpusEmbedding } from '../lib/embeddings';
+import { importarLegalDocs, parsearArchivoImportacion, plantillaXlsx, MATERIAL_PENDIENTE_LICENCIA } from '../services/corpus-importador';
 
 export const legalDocsRouter = Router();
 const adminOnly = [authenticate, requireRole('SUPERADMIN')];
@@ -321,6 +322,36 @@ legalDocsRouter.post('/', adminOnly, async (req: AuthRequest, res: Response, nex
       : await prisma.legalDocument.create({ data });
     res.status(existing ? 200 : 201).json({ status: 'ok', data: { id: result.id, contentHash } });
   } catch (err) { next(err); }
+});
+
+// ── Ola 2 (27-ago-2026): pipeline de carga del corpus ────────────────────
+// POST /api/admin/legal-docs/importar  body: { fileName, base64 } | { filas: [...] }
+// Valida reference (clave parseable), exige fechaCotejo+officialUrl para
+// verificado, dedupea por contentHash y respeta el guard de dims del embedding.
+legalDocsRouter.post('/importar', ...adminOnly, async (req: AuthRequest, res: Response, next: NextFunction) => {
+  try {
+    const body = req.body as { fileName?: string; base64?: string; filas?: unknown };
+    let filas: Record<string, unknown>[];
+    if (Array.isArray(body.filas)) filas = body.filas as Record<string, unknown>[];
+    else if (body.base64 && body.fileName) filas = parsearArchivoImportacion(body.base64, body.fileName);
+    else return res.status(400).json({ status: 'error', message: 'Envía { fileName, base64 } (xlsx/csv/json) o { filas: [...] }' });
+    if (filas.length === 0) return res.status(400).json({ status: 'error', message: 'El archivo no tiene filas' });
+    if (filas.length > 500) return res.status(400).json({ status: 'error', message: 'Máximo 500 filas por importación' });
+    const r = await importarLegalDocs(filas);
+    res.json({ status: 'ok', data: r, materialPendiente: MATERIAL_PENDIENTE_LICENCIA });
+  } catch (err) {
+    if (err instanceof Error && /leer el archivo|JSON inválido|no tiene hojas/.test(err.message)) {
+      return res.status(400).json({ status: 'error', message: err.message });
+    }
+    next(err);
+  }
+});
+
+// GET /api/admin/legal-docs/plantilla.xlsx — columnas documentadas + hoja "pendiente_fuente_oficial".
+legalDocsRouter.get('/plantilla.xlsx', ...adminOnly, (_req: AuthRequest, res: Response) => {
+  res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+  res.setHeader('Content-Disposition', 'attachment; filename="plantilla-corpus-legal.xlsx"');
+  res.send(plantillaXlsx('legal-docs'));
 });
 
 legalDocsRouter.delete('/:id', adminOnly, async (req: AuthRequest, res: Response, next: NextFunction) => {

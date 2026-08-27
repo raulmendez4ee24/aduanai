@@ -16,6 +16,10 @@ import { smartRetrieval, type RetrievedDoc } from './rag-search';
 import { cruzarCitas, clavesDeReferencia, parseReferencia, clavesIguales } from './citas-legales';
 import { prisma } from '../lib/prisma';
 import { logger } from '../lib/logger';
+import {
+  construirContextoOperativo, renderizarBloqueContexto, INSTRUCCION_CONTEXTO_OPERATIVO,
+  type ContextoOperativo,
+} from './copilot-contexto';
 
 /** Frase canónica de abstención — la respuesta degradada ES esta frase. */
 export const ABSTENCION_CANONICA =
@@ -169,6 +173,8 @@ export interface CopilotRAGResult {
     degradada: boolean;
     noRespaldadas: string[];
   };
+  /** Ola 2: resumen del contexto operativo inyectado (null = sin bloque). */
+  contextoOperativo: { temporalesConSaldo: number; clienteRfc: string | null; generadoAt: string } | null;
 }
 
 function buildContextBlock(docs: RetrievedDoc[]): string {
@@ -282,6 +288,8 @@ export interface AskCopilotInput {
   question: string;
   tenantId: string;
   userId: string;
+  /** Cliente/RFC activo (selector global) — acota el contexto operativo. */
+  clienteId?: string | null;
   history?: { role: 'user' | 'assistant'; content: string }[];
 }
 
@@ -325,12 +333,33 @@ export async function askCopilotWithRAG(
   input: AskCopilotInput,
   // SOLO tests: inyectar generador/retrieval para simular respuestas con
   // citas no respaldadas sin gastar LLM real ni depender del corpus vivo.
-  depsOverride: { generar?: typeof llmGenerateWithMeta; recuperar?: typeof smartRetrieval; buscarPorCita?: typeof buscarDocsPorCita } = {},
+  depsOverride: {
+    generar?: typeof llmGenerateWithMeta;
+    recuperar?: typeof smartRetrieval;
+    buscarPorCita?: typeof buscarDocsPorCita;
+    /** Contexto operativo del tenant/cliente (Ola 2). Inyectable en tests. */
+    contexto?: (tenantId: string, clienteId: string | null) => Promise<ContextoOperativo | null>;
+  } = {},
 ): Promise<CopilotRAGResult> {
   const generar = depsOverride.generar ?? llmGenerateWithMeta;
   const recuperar = depsOverride.recuperar ?? smartRetrieval;
   const buscarPorCita = depsOverride.buscarPorCita ?? buscarDocsPorCita;
+  const contexto = depsOverride.contexto ?? construirContextoOperativo;
   const t0 = Date.now();
+
+  // 0. Contexto OPERATIVO (datos reales del tenant/cliente, etiquetados; nunca
+  // fuente legal). Falla suave: si la lectura truena, el Copilot responde sin él.
+  let contextoOperativo: ContextoOperativo | null = null;
+  try {
+    contextoOperativo = await contexto(input.tenantId, input.clienteId ?? null);
+  } catch (err) {
+    logger.warn('Copilot: no se pudo construir el contexto operativo', {
+      action: 'copilot_contexto_operativo_error', tenantId: input.tenantId, userId: input.userId,
+      errorMessage: err instanceof Error ? err.message : String(err),
+    });
+  }
+  const bloqueOperativo = renderizarBloqueContexto(contextoOperativo);
+  const systemPrompt = bloqueOperativo ? `${RAG_SYSTEM_PROMPT}\n${INSTRUCCION_CONTEXTO_OPERATIVO}` : RAG_SYSTEM_PROMPT;
 
   // 1. Smart retrieval: topic filter + híbrido + Haiku reranker. Gate
   // shouldRespond cuando hay <2 docs relevantes para que el modelo no
@@ -363,13 +392,13 @@ export async function askCopilotWithRAG(
   const noInfoDirective = retrieval.shouldRespond
     ? ''
     : '\n[INSTRUCCIÓN OBLIGATORIA] No hay documentos suficientemente relevantes para responder esta pregunta con confianza. Responde EXACTAMENTE: "No tengo información verificada al respecto en mi base de documentos legales. Te sugiero consultar el portal del SAT o a un agente aduanal certificado." NO intentes contestar de memoria. NO inventes citas.\n';
-  let userMsg = `${input.question}\n${contextBlock}${noInfoDirective}`;
+  let userMsg = `${input.question}\n${contextBlock}${bloqueOperativo}${noInfoDirective}`;
 
   // 3. Generar respuesta
   const generation = await generar({
     model: 'fast',
     maxTokens: 1500,
-    system: RAG_SYSTEM_PROMPT,
+    system: systemPrompt,
     user: userMsg,
     log: { operation: 'copilot', tenantId: input.tenantId, userId: input.userId },
   });
@@ -401,7 +430,7 @@ export async function askCopilotWithRAG(
       if (porCita.length > 0) {
         docs = [...docs, ...porCita];
         contextBlock = buildContextBlock(docs);
-        userMsg = `${input.question}\n${contextBlock}${noInfoDirective}`;
+        userMsg = `${input.question}\n${contextBlock}${bloqueOperativo}${noInfoDirective}`;
         cruce = cruzarCitas(answer, docs.map(d => d.reference));
         logger.info(`Copilot recuperó ${porCita.length} doc(s) por cita: ${porCita.map(d => d.reference).join('; ')}`, {
           action: 'copilot_retrieval_por_cita', tenantId: input.tenantId, userId: input.userId,
@@ -414,7 +443,7 @@ export async function askCopilotWithRAG(
       const reintento = await generar({
         model: 'fast',
         maxTokens: 1500,
-        system: RAG_SYSTEM_PROMPT,
+        system: systemPrompt,
         user: `${userMsg}${correccion}`,
         log: { operation: 'copilot_regeneracion', tenantId: input.tenantId, userId: input.userId },
       });
@@ -508,6 +537,13 @@ export async function askCopilotWithRAG(
     hallucinatedReferences: cruce.noRespaldadas,
     retrievedDocsCount: docs.length,
     citaEstricta: { modo, regenerada, degradada, noRespaldadas: cruce.noRespaldadas },
+    contextoOperativo: contextoOperativo
+      ? {
+          temporalesConSaldo: contextoOperativo.temporales.reduce((a, t) => a + t.pedimentos, 0),
+          clienteRfc: contextoOperativo.cliente?.rfc ?? null,
+          generadoAt: contextoOperativo.generadoAt,
+        }
+      : null,
   };
 }
 

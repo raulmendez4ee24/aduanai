@@ -162,3 +162,75 @@ export async function hasActiveLitigation(fractionCode: string): Promise<{ has: 
 
   return { has: precedents.length > 0, precedents };
 }
+
+// ─────────────────────────────────────────────────────────────────────
+// Ola 2 (27-ago-2026): precedentes POR FRACCIÓN para el Clasificador.
+// "Esta fracción tiene N criterios y M tesis — léelos antes de firmar".
+// ─────────────────────────────────────────────────────────────────────
+
+export interface PrecedentesPorFraccion {
+  fraccion: string;
+  /** Precedentes servibles: con fuente oficial (URL) Y corpus verificado. */
+  verificados: number;
+  criterios: number; // CRITERIO_SAT + CONSULTA_SAT
+  tesis: number;     // TFJA + SCJN
+  otros: number;
+  items: PrecedentMatch[];
+  /** Filas cargadas en BD para la fracción/capítulo pero NO servibles (sin fuente o flag apagado). */
+  cargadosSinVerificar: number;
+  corpusVerificado: boolean;
+  mensaje: string;
+}
+
+const TIPOS_CRITERIO = new Set(['CRITERIO_SAT', 'CONSULTA_SAT']);
+const TIPOS_TESIS = new Set(['TFJA', 'SCJN']);
+
+/** Un precedente solo es citable con URL de fuente oficial (http/https). */
+export function precedenteTieneFuente(p: { source: string | null }): boolean {
+  return typeof p.source === 'string' && /^https?:\/\//i.test(p.source.trim());
+}
+
+export async function precedentesPorFraccion(code: string): Promise<PrecedentesPorFraccion> {
+  const fraccion = code.replace(/[^0-9]/g, '');
+  const vacio = (mensaje: string, cargados = 0): PrecedentesPorFraccion => ({
+    fraccion, verificados: 0, criterios: 0, tesis: 0, otros: 0, items: [],
+    cargadosSinVerificar: cargados, corpusVerificado: PRECEDENT_CORPUS_VERIFIED, mensaje,
+  });
+  if (fraccion.length !== 8) return vacio('Fracción inválida: se requieren 8 dígitos.');
+
+  const where = {
+    isVigente: true,
+    OR: [{ fractionCodes: { has: fraccion } }, { chapterCodes: { has: fraccion.slice(0, 2) } }],
+  };
+  const cargados = await prisma.legalPrecedent.count({ where });
+
+  if (!PRECEDENT_CORPUS_VERIFIED) {
+    return vacio(
+      cargados > 0
+        ? `Sin precedentes verificados cargados para esta fracción: hay ${cargados} fila(s) en cotejo contra TFJA/SAT que no se muestran hasta tener fuente oficial.`
+        : 'Sin precedentes verificados cargados para esta fracción (corpus en cotejo contra TFJA/SAT).',
+      cargados,
+    );
+  }
+
+  const rows = await prisma.legalPrecedent.findMany({ where, orderBy: [{ yearPublished: 'desc' }], take: 50 });
+  const conFuente = rows.filter(precedenteTieneFuente);
+  const items: PrecedentMatch[] = conFuente.map(p => ({
+    id: p.id, type: p.type, reference: p.reference, title: p.title, topic: p.topic,
+    summary: p.summary, ruling: p.ruling, reasoning: p.reasoning, applicability: p.applicability,
+    yearPublished: p.yearPublished, litigated: p.litigated, isVigente: p.isVigente, source: p.source,
+    fractionCodes: p.fractionCodes, chapterCodes: p.chapterCodes,
+    relevanceScore: (p.fractionCodes.includes(fraccion) ? 100 : 30) + Math.max(0, p.yearPublished - 2020) * 3,
+  })).sort((a, b) => b.relevanceScore - a.relevanceScore);
+  const criterios = items.filter(i => TIPOS_CRITERIO.has(i.type)).length;
+  const tesis = items.filter(i => TIPOS_TESIS.has(i.type)).length;
+  const otros = items.length - criterios - tesis;
+  return {
+    fraccion, verificados: items.length, criterios, tesis, otros, items,
+    cargadosSinVerificar: rows.length - conFuente.length,
+    corpusVerificado: true,
+    mensaje: items.length === 0
+      ? 'Sin precedentes verificados cargados para esta fracción.'
+      : `Esta fracción tiene ${criterios} criterio(s) y ${tesis} tesis con fuente oficial — léelos antes de firmar.`,
+  };
+}

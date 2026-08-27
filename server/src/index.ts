@@ -97,6 +97,7 @@ import { calendarioRouter } from './routes/calendario';
 import { cambioRegimenRouter } from './routes/cambio-regimen';
 import { activoFijoRouter } from './routes/activo-fijo';
 import { originPortalRouter } from './routes/origin'; // Ola 2 origen-cuotas: portal público de proveedores
+import { precedentsAdminRouter } from './routes/precedents-admin'; // ola2/copilot-risk-expedientes
 
 // Incidentes de la guarda de tenant → logger (SystemLog), no solo stdout.
 establecerReporteDeIncidentes(inc => {
@@ -252,6 +253,7 @@ app.use('/api/calendario', calendarioRouter);
 app.use('/api/cambio-regimen', cambioRegimenRouter);
 app.use('/api/inventory/activo-fijo', activoFijoRouter);
 app.use('/api/origin/portal', publicLimiter, originPortalRouter); // Ola 2 origen-cuotas: sin auth, solo por token
+app.use('/api/admin/precedents', precedentsAdminRouter); // ola2/copilot-risk-expedientes
 
 // ── SPA fallback ──
 app.use((req, res, next) => {

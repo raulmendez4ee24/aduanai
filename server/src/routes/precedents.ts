@@ -1,7 +1,7 @@
 import { Router } from 'express';
 import { authenticate, AuthRequest } from '../middlewares/auth';
 import { prisma } from '../lib/prisma';
-import { lookupPrecedents, hasActiveLitigation, PRECEDENT_CORPUS_VERIFIED } from '../services/precedent-lookup';
+import { lookupPrecedents, hasActiveLitigation, PRECEDENT_CORPUS_VERIFIED, precedentesPorFraccion } from '../services/precedent-lookup';
 
 export const precedentsRouter = Router();
 
@@ -60,6 +60,15 @@ precedentsRouter.get('/', authenticate, async (req: AuthRequest, res, next) => {
     ]);
 
     res.json({ status: 'ok', data: items, pagination: { page, limit, total } });
+  } catch (err) { next(err); }
+});
+
+// GET /api/precedents/por-fraccion/:code — Ola 2: "esta fracción tiene N
+// criterios y M tesis". Solo precedentes con fuente oficial y corpus
+// verificado; con el flag apagado devuelve { verificados: 0, mensaje } honesto.
+precedentsRouter.get('/por-fraccion/:code', authenticate, async (req, res, next) => {
+  try {
+    res.json({ status: 'ok', data: await precedentesPorFraccion(String(req.params.code)) });
   } catch (err) { next(err); }
 });
 

@@ -3,6 +3,7 @@ import crypto from 'crypto';
 import { authenticate, AuthRequest } from '../middlewares/auth';
 import { askCopilotWithRAG } from '../services/copilot';
 import { prisma } from '../lib/prisma';
+import { clienteIdDe, validarClienteDelTenant } from '../lib/cliente-contexto';
 
 export const copilotRouter = Router();
 
@@ -19,6 +20,7 @@ copilotRouter.post('/', authenticate, async (req: AuthRequest, res, next) => {
       question: message,
       tenantId: req.tenantId!,
       userId: req.userId!,
+      clienteId: await validarClienteDelTenant(req.tenantId!, clienteIdDe(req)),
     });
 
     const convId = conversationId || crypto.randomUUID();
@@ -42,6 +44,7 @@ copilotRouter.post('/', authenticate, async (req: AuthRequest, res, next) => {
         confidence: result.confidence,
         consultHash: result.consultHash,
         retrievedDocsCount: result.retrievedDocsCount,
+        contextoOperativo: result.contextoOperativo,
         // Con respuesta degradada (modo estricta) ya no hay citas fantasma que
         // advertir; el warning queda para modo sombra/off.
         hallucinationWarning: result.hallucinatedReferences.length > 0 && !result.citaEstricta.degradada
