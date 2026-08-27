@@ -15,7 +15,6 @@ import {
   catalogosE2,
   type ExtrasE2,
 } from '../services/auto-mve';
-import { clienteIdDe, filtroCliente, validarClienteDelTenant } from '../lib/cliente-contexto';
 import {
   construirDatosMVE, crearMVE, rfcDeContexto, buscarPlantilla, aplicarPlantillaAExtraccion, listarPlantillas,
   vigenciasPorProveedor, marcarTransmitidaPorUsuario, procesarLote, LOTE_MAX,
