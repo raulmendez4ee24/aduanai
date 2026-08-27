@@ -14,6 +14,8 @@ import { spawn } from 'child_process';
 import path from 'path';
 import { authenticate, AuthRequest, requireRole } from '../middlewares/auth';
 import { prisma } from '../lib/prisma';
+import { requirePermission } from '../middlewares/requirePermission';
+import { adminLimiter } from '../middlewares/rateLimit';
 import { checkAntidumpingDuty, calculateExposure, buscarCuotaAplicable, coberturaCuotas } from '../services/antidumping';
 import { importarUPCI, plantillaUPCIXlsx, COLUMNAS_UPCI } from '../services/antidumping-importar';
 import { detectarElusion } from '../services/antidumping-elusion';
@@ -229,7 +231,7 @@ antidumpingRouter.get('/cobertura', authenticate, async (_req: AuthRequest, res:
 });
 
 // POST /api/antidumping/elusion/detectar — corre la regla para el tenant (manual)
-antidumpingRouter.post('/elusion/detectar', authenticate, async (req: AuthRequest, res: Response, next: NextFunction) => {
+antidumpingRouter.post('/elusion/detectar', authenticate, requirePermission('classifier', 'settings'), adminLimiter, async (req: AuthRequest, res: Response, next: NextFunction) => {
   try { res.json({ status: 'ok', data: await detectarElusion(req.tenantId!) }); } catch (err) { next(err); }
 });
 

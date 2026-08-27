@@ -19,7 +19,9 @@ import {
   type PreferenceCriterion,
   type OriginCountry,
 } from '../services/origin-certificate';
-import { clienteIdDe, filtroCliente, validarClienteDelTenant } from '../lib/cliente-contexto';
+import { clienteIdDe, filtroCliente, validarClienteDelTenant, validarClienteEnAlcance, alcanceDe } from '../lib/cliente-contexto';
+import { requirePermission } from '../middlewares/requirePermission';
+import { adminLimiter } from '../middlewares/rateLimit';
 // Ola 2 (origen-cuotas)
 import { prellenarCertificado, type TipoCertificador } from '../services/origin-certificate';
 import {
@@ -28,7 +30,7 @@ import {
 } from '../services/origin-reglas';
 import {
   listar as listarCertProv, crear as crearCertProv, actualizar as actualizarCertProv, eliminar as eliminarCertProv,
-  solicitar as solicitarCertProv, portalVer, portalSubir, procesarVencimientosCertificados, ProveedorError,
+  solicitar as solicitarCertProv, revocarToken as revocarTokenCertProv, portalVer, portalSubir, procesarVencimientosCertificados, ProveedorError,
   type EntradaCertProveedor, type EstadoCert,
 } from '../services/origin-proveedores';
 
@@ -251,7 +253,7 @@ export async function verifyCertificate(certNumber: string): Promise<{ found: bo
 const adminOnly = [authenticate, requireRole('SUPERADMIN')];
 const errProveedor = (res: Response, err: unknown, next: NextFunction) => {
   if (err instanceof ProveedorError) {
-    const code = err.code === 'NO_ENCONTRADO' || err.code === 'TOKEN_INVALIDO' ? 404 : 400;
+    const code = err.code === 'NO_ENCONTRADO' || err.code === 'TOKEN_INVALIDO' ? 404 : err.code === 'ESTADO_INVALIDO' ? 409 : 400;
     return res.status(code).json({ status: 'error', code: err.code, message: err.message });
   }
   return next(err);
@@ -368,14 +370,17 @@ originRouter.post('/proveedores/certificados', authenticate, async (req: AuthReq
 
 originRouter.patch('/proveedores/certificados/:id', authenticate, async (req: AuthRequest, res, next) => {
   try {
-    const c = await actualizarCertProv(req.tenantId!, String(req.params.id), req.body as Partial<EntradaCertProveedor> & { estado?: EstadoCert });
+    const b = req.body as Partial<EntradaCertProveedor> & { estado?: EstadoCert };
+    // clienteId del body: debe ser del tenant y estar en el alcance del usuario (403/400 si no).
+    if (b.clienteId !== undefined && b.clienteId !== null) b.clienteId = await validarClienteEnAlcance(req, req.tenantId!, String(b.clienteId));
+    const c = await actualizarCertProv(req.tenantId!, String(req.params.id), b, alcanceDe(req));
     res.json({ status: 'ok', data: c });
   } catch (err) { errProveedor(res, err, next); }
 });
 
 originRouter.delete('/proveedores/certificados/:id', authenticate, async (req: AuthRequest, res, next) => {
   try {
-    await eliminarCertProv(req.tenantId!, String(req.params.id));
+    await eliminarCertProv(req.tenantId!, String(req.params.id), alcanceDe(req));
     res.json({ status: 'ok' });
   } catch (err) { errProveedor(res, err, next); }
 });
@@ -385,13 +390,20 @@ originRouter.post('/proveedores/certificados/:id/solicitar', authenticate, async
   try {
     const baseUrl = process.env.APP_URL || `${req.protocol}://${req.get('host')}`;
     const tenant = await prisma.tenant.findUnique({ where: { id: req.tenantId! }, select: { name: true } });
-    const r = await solicitarCertProv(req.tenantId!, String(req.params.id), { baseUrl, remitente: tenant?.name });
+    const r = await solicitarCertProv(req.tenantId!, String(req.params.id), { baseUrl, remitente: tenant?.name }, alcanceDe(req));
     res.json({ status: 'ok', data: r });
   } catch (err) { errProveedor(res, err, next); }
 });
 
+// POST /api/origin/proveedores/certificados/:id/revocar-token — invalida el enlace del portal
+originRouter.post('/proveedores/certificados/:id/revocar-token', authenticate, async (req: AuthRequest, res, next) => {
+  try {
+    res.json({ status: 'ok', data: await revocarTokenCertProv(req.tenantId!, String(req.params.id), alcanceDe(req)) });
+  } catch (err) { errProveedor(res, err, next); }
+});
+
 // POST /api/origin/proveedores/vencimientos/procesar — corre el job para el tenant (manual)
-originRouter.post('/proveedores/vencimientos/procesar', authenticate, async (req: AuthRequest, res, next) => {
+originRouter.post('/proveedores/vencimientos/procesar', authenticate, requirePermission('classifier', 'settings'), adminLimiter, async (req: AuthRequest, res, next) => {
   try { res.json({ status: 'ok', data: await procesarVencimientosCertificados(req.tenantId!) }); } catch (err) { next(err); }
 });
 

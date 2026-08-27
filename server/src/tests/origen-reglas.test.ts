@@ -13,7 +13,7 @@ import {
   type MaterialBOM, type ReglaMinima,
 } from '../services/origin-reglas';
 import { prellenarCertificado, createCertificate, renderCertificateHTML, decodificarCertificador, criterioDeMetodo, NOMBRES_ELEMENTOS } from '../services/origin-certificate';
-import { crear, solicitar, portalVer, portalSubir, procesarVencimientosCertificados, ProveedorError, validarEntrada } from '../services/origin-proveedores';
+import { crear, solicitar, portalVer, portalSubir, procesarVencimientosCertificados, ProveedorError, validarEntrada, actualizar, eliminar, revocarToken, tokenExpirado, TOKEN_VIGENCIA_DIAS } from '../services/origin-proveedores';
 import { rutaDeAccion, normalizarAccion, accionVerCertificadoProveedor } from '../services/alert-acciones';
 
 let pasadas = 0, falladas = 0;
@@ -298,6 +298,56 @@ const mat = (fractionCode: string | null, paisOrigen: string | null, valorUSD?: 
       assert.equal(rutaDeAccion(accionVerCertificadoProveedor(cert.id)), `/origen-tmec?tab=proveedores&certificadoId=${cert.id}`);
       assert.equal((await prisma.certificadoOrigenProveedor.findFirst({ where: { id: cert.id, tenantId: tenant.id } }))!.estado, 'vencido');
       assert.equal((await prisma.alert.count({ where: { tenantId: otro.id } })), 0);
+    });
+    await prueba('portal (revisión A): al recibir se consume el token; re-solicitar rota estado a solicitado y reemplaza el Document anterior', async () => {
+      const f = await prisma.certificadoOrigenProveedor.findFirst({ where: { id: cert.id, tenantId: tenant.id } });
+      assert.equal(f!.tokenSolicitud, null, 'token null tras recibir');
+      const docAnterior = f!.documentId!;
+      const key = process.env.RESEND_API_KEY; delete process.env.RESEND_API_KEY;
+      let r; try { r = await solicitar(tenant.id, cert.id, { baseUrl: 'https://app.test' }); } finally { if (key) process.env.RESEND_API_KEY = key; }
+      const f2 = await prisma.certificadoOrigenProveedor.findFirst({ where: { id: cert.id, tenantId: tenant.id } });
+      assert.equal(f2!.estado, 'solicitado'); assert.equal(f2!.tokenSolicitud, r.token);
+      const v = await portalSubir(r.token, { archivoBase64: Buffer.from('%PDF-1.4 v2').toString('base64'), mimeType: 'application/pdf', vigenciaHasta: '2028-07-31' });
+      assert.equal(v.estado, 'recibido');
+      assert.equal(await prisma.document.count({ where: { id: docAnterior, tenantId: tenant.id } }), 0, 'el Document anterior se borró');
+      assert.equal(await prisma.document.count({ where: { tenantId: tenant.id, type: 'certificado_origen_proveedor' } }), 1);
+      await assert.rejects(portalVer(r.token), (e: unknown) => e instanceof ProveedorError && e.code === 'TOKEN_INVALIDO');
+    });
+    await prueba('portal (revisión A): token expira a los 30 días desde solicitadoAt; portalSubir en estado recibido/rechazado se rechaza; revocar-token invalida el enlace', async () => {
+      assert.equal(tokenExpirado(new Date('2026-08-01T00:00:00Z'), new Date('2026-08-30T00:00:00Z')), false);
+      assert.equal(tokenExpirado(new Date('2026-08-01T00:00:00Z'), new Date('2026-09-01T00:00:01Z')), true);
+      assert.equal(tokenExpirado(null), true);
+      const key = process.env.RESEND_API_KEY; delete process.env.RESEND_API_KEY;
+      let r; try { r = await solicitar(tenant.id, cert.id, { baseUrl: 'https://app.test' }); } finally { if (key) process.env.RESEND_API_KEY = key; }
+      const dentro = new Date(Date.now() + (TOKEN_VIGENCIA_DIAS - 1) * 86400000);
+      const fuera = new Date(Date.now() + (TOKEN_VIGENCIA_DIAS + 1) * 86400000);
+      assert.equal((await portalVer(r.token, dentro)).id, cert.id);
+      await assert.rejects(portalVer(r.token, fuera), (e: unknown) => e instanceof ProveedorError && e.code === 'TOKEN_INVALIDO');
+      await assert.rejects(portalSubir(r.token, { archivoBase64: 'QUJD', vigenciaHasta: '2028-01-01' }, fuera), (e: unknown) => e instanceof ProveedorError && e.code === 'TOKEN_INVALIDO');
+      // Estado no 'solicitado' (token aún vivo, p. ej. cerrado a mano por DB): no acepta documentos.
+      await prisma.certificadoOrigenProveedor.update({ where: { id: cert.id }, data: { estado: 'recibido' } });
+      await assert.rejects(portalSubir(r.token, { archivoBase64: 'QUJD', vigenciaHasta: '2028-01-01' }), (e: unknown) => e instanceof ProveedorError && e.code === 'ESTADO_INVALIDO');
+      // Al pasar a rechazado por PATCH el token se limpia.
+      await actualizar(tenant.id, cert.id, { estado: 'rechazado' });
+      assert.equal((await prisma.certificadoOrigenProveedor.findFirst({ where: { id: cert.id, tenantId: tenant.id } }))!.tokenSolicitud, null);
+      await assert.rejects(portalVer(r.token), (e: unknown) => e instanceof ProveedorError && e.code === 'TOKEN_INVALIDO');
+      // Revocación explícita.
+      try { delete process.env.RESEND_API_KEY; r = await solicitar(tenant.id, cert.id, { baseUrl: 'https://app.test' }); } finally { if (key) process.env.RESEND_API_KEY = key; }
+      assert.equal((await portalVer(r.token)).id, cert.id);
+      assert.deepEqual(await revocarToken(tenant.id, cert.id), { id: cert.id, revocado: true });
+      assert.deepEqual(await revocarToken(tenant.id, cert.id), { id: cert.id, revocado: false });
+      await assert.rejects(portalVer(r.token), (e: unknown) => e instanceof ProveedorError && e.code === 'TOKEN_INVALIDO');
+    });
+    await prueba('alcance por cliente (revisión A): restringido a otro cliente no actualiza/elimina/solicita/revoca el certificado; {in} sí', async () => {
+      const otroCliente = await prisma.cliente.create({ data: { tenantId: tenant.id, rfc: 'OTR010101AA1', razonSocial: 'Otro Cliente' } });
+      const esNoEncontrado = (e: unknown) => e instanceof ProveedorError && e.code === 'NO_ENCONTRADO';
+      await assert.rejects(actualizar(tenant.id, cert.id, { notas: 'x' }, otroCliente.id), esNoEncontrado);
+      await assert.rejects(eliminar(tenant.id, cert.id, otroCliente.id), esNoEncontrado);
+      await assert.rejects(solicitar(tenant.id, cert.id, { baseUrl: 'https://app.test' }, otroCliente.id), esNoEncontrado);
+      await assert.rejects(revocarToken(tenant.id, cert.id, otroCliente.id), esNoEncontrado);
+      const ok = await actualizar(tenant.id, cert.id, { notas: 'visible' }, { in: [otroCliente.id, cliente.id] });
+      assert.equal(ok.notas, 'visible');
+      assert.equal((await prisma.certificadoOrigenProveedor.findFirst({ where: { id: cert.id, tenantId: tenant.id } }))!.id, cert.id, 'sigue existiendo');
     });
   } finally {
     await limpiar();

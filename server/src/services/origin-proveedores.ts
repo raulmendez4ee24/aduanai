@@ -22,6 +22,8 @@ import crypto from 'crypto';
 import { prisma } from '../lib/prisma';
 import { logger } from '../lib/logger';
 import { sinGuardaDeTenant } from '../lib/tenant-guard';
+import { conCandadoJob } from '../lib/candado-job';
+import { whereIdConAlcance, type AlcanceCliente } from '../lib/cliente-contexto';
 import { emailConfigurado, sendEmail } from '../lib/email';
 import { severidadPorImpacto } from './alert-severity';
 import { accionVerCertificadoProveedor } from './alert-acciones';
@@ -30,9 +32,11 @@ export const ESTADOS_CERT = ['solicitado', 'recibido', 'vencido', 'rechazado'] a
 export type EstadoCert = (typeof ESTADOS_CERT)[number];
 export const UMBRALES_VENCIMIENTO_DIAS = [60, 30, 7] as const;
 const MAX_ARCHIVO_BYTES = 5 * 1024 * 1024;
+/** Vigencia del enlace del portal: 30 días desde `solicitadoAt` (sin columna nueva; se compara en `porToken`). */
+export const TOKEN_VIGENCIA_DIAS = 30;
 
 export class ProveedorError extends Error {
-  constructor(public code: 'NO_ENCONTRADO' | 'DATOS_INVALIDOS' | 'TOKEN_INVALIDO' | 'ARCHIVO_INVALIDO', message: string) { super(message); }
+  constructor(public code: 'NO_ENCONTRADO' | 'DATOS_INVALIDOS' | 'TOKEN_INVALIDO' | 'ARCHIVO_INVALIDO' | 'ESTADO_INVALIDO', message: string) { super(message); }
 }
 
 export interface EntradaCertProveedor {
@@ -100,8 +104,8 @@ export async function crear(tenantId: string, e: EntradaCertProveedor) {
   });
 }
 
-export async function actualizar(tenantId: string, id: string, e: Partial<EntradaCertProveedor> & { estado?: EstadoCert }) {
-  const existente = await prisma.certificadoOrigenProveedor.findFirst({ where: { id, tenantId } });
+export async function actualizar(tenantId: string, id: string, e: Partial<EntradaCertProveedor> & { estado?: EstadoCert }, alcance: AlcanceCliente = null) {
+  const existente = await prisma.certificadoOrigenProveedor.findFirst({ where: whereIdConAlcance(alcance, { id, tenantId }) });
   if (!existente) throw new ProveedorError('NO_ENCONTRADO', 'Certificado no encontrado');
   const merged = { ...existente, ...e, proveedorNombre: e.proveedorNombre ?? existente.proveedorNombre, proveedorPais: e.proveedorPais ?? existente.proveedorPais };
   const err = validarEntrada({ ...merged, vigenciaDesde: e.vigenciaDesde ?? undefined, vigenciaHasta: e.vigenciaHasta ?? undefined, proveedorEmail: e.proveedorEmail ?? undefined, fractionCode: e.fractionCode ?? undefined });
@@ -119,13 +123,15 @@ export async function actualizar(tenantId: string, id: string, e: Partial<Entrad
       ...(e.vigenciaHasta !== undefined ? { vigenciaHasta: fecha(e.vigenciaHasta) } : {}),
       ...(e.notas !== undefined ? { notas: e.notas } : {}),
       ...(e.estado ? { estado: e.estado } : {}),
+      // Al cerrar el ciclo (recibido/rechazado) el enlace del portal deja de servir.
+      ...(e.estado === 'recibido' || e.estado === 'rechazado' ? { tokenSolicitud: null } : {}),
       ...(e.clienteId !== undefined ? { clienteId: e.clienteId } : {}),
     },
   });
 }
 
-export async function eliminar(tenantId: string, id: string): Promise<void> {
-  const r = await prisma.certificadoOrigenProveedor.deleteMany({ where: { id, tenantId } });
+export async function eliminar(tenantId: string, id: string, alcance: AlcanceCliente = null): Promise<void> {
+  const r = await prisma.certificadoOrigenProveedor.deleteMany({ where: whereIdConAlcance(alcance, { id, tenantId }) });
   if (r.count === 0) throw new ProveedorError('NO_ENCONTRADO', 'Certificado no encontrado');
 }
 
@@ -142,13 +148,15 @@ export interface ResultadoSolicitud {
   motivo: string | null;
 }
 
-export async function solicitar(tenantId: string, id: string, opts: { baseUrl: string; remitente?: string | null }): Promise<ResultadoSolicitud> {
-  const c = await prisma.certificadoOrigenProveedor.findFirst({ where: { id, tenantId } });
+export async function solicitar(tenantId: string, id: string, opts: { baseUrl: string; remitente?: string | null }, alcance: AlcanceCliente = null): Promise<ResultadoSolicitud> {
+  const c = await prisma.certificadoOrigenProveedor.findFirst({ where: whereIdConAlcance(alcance, { id, tenantId }) });
   if (!c) throw new ProveedorError('NO_ENCONTRADO', 'Certificado no encontrado');
+  // Reintento: reutiliza el token vigente (renueva su vigencia); si no hay (revocado/recibido) genera otro.
   const token = c.tokenSolicitud ?? generarToken();
+  // Volver a solicitar = pedir (re)certificación: el portal solo acepta subida en 'solicitado'.
   await prisma.certificadoOrigenProveedor.update({
     where: { id },
-    data: { tokenSolicitud: token, estado: c.estado === 'recibido' ? 'recibido' : 'solicitado', solicitadoAt: new Date() },
+    data: { tokenSolicitud: token, estado: 'solicitado', solicitadoAt: new Date() },
   });
   const portalPath = `/proveedor/${token}`;
   const portalUrl = `${opts.baseUrl.replace(/\/$/, '')}${portalPath}`;
@@ -177,6 +185,16 @@ export async function solicitar(tenantId: string, id: string, opts: { baseUrl: s
   return { id, token, portalPath, portalUrl, correoEnviado, motivo };
 }
 
+/** Revoca el enlace del portal (el proveedor ya no puede ver ni subir con él). */
+export async function revocarToken(tenantId: string, id: string, alcance: AlcanceCliente = null): Promise<{ id: string; revocado: boolean }> {
+  const c = await prisma.certificadoOrigenProveedor.findFirst({ where: whereIdConAlcance(alcance, { id, tenantId }), select: { id: true, tokenSolicitud: true } });
+  if (!c) throw new ProveedorError('NO_ENCONTRADO', 'Certificado no encontrado');
+  if (!c.tokenSolicitud) return { id, revocado: false };
+  await prisma.certificadoOrigenProveedor.update({ where: { id }, data: { tokenSolicitud: null } });
+  logger.info('Portal proveedores: token revocado', { action: 'cert_proveedor_token_revocado', tenantId, metadata: { id } });
+  return { id, revocado: true };
+}
+
 // ── Portal público por token ──────────────────────────────────────────────
 
 export interface VistaPortal {
@@ -193,15 +211,24 @@ export interface VistaPortal {
   solicitante: string;
 }
 
-async function porToken(token: string) {
+async function porToken(token: string, ahora = new Date()) {
   if (!token || !/^[a-f0-9]{48}$/.test(token)) throw new ProveedorError('TOKEN_INVALIDO', 'Enlace inválido o vencido');
   const c = await sinGuardaDeTenant(() => prisma.certificadoOrigenProveedor.findUnique({ where: { tokenSolicitud: token } }));
   if (!c) throw new ProveedorError('TOKEN_INVALIDO', 'Enlace inválido o vencido');
+  if (tokenExpirado(c.solicitadoAt, ahora)) throw new ProveedorError('TOKEN_INVALIDO', 'Enlace vencido: pide al solicitante un enlace nuevo');
   return c;
 }
 
-export async function portalVer(token: string): Promise<VistaPortal> {
-  const c = await porToken(token);
+export function tokenExpirado(solicitadoAt: Date | null | undefined, ahora = new Date()): boolean {
+  if (!solicitadoAt) return true;
+  return ahora.getTime() - solicitadoAt.getTime() > TOKEN_VIGENCIA_DIAS * 86400000;
+}
+
+export async function portalVer(token: string, ahora = new Date()): Promise<VistaPortal> {
+  return vistaDe(await porToken(token, ahora));
+}
+
+async function vistaDe(c: NonNullable<Awaited<ReturnType<typeof porToken>>>): Promise<VistaPortal> {
   const [producto, tenant] = await Promise.all([
     c.productId ? prisma.product.findFirst({ where: { id: c.productId, tenantId: c.tenantId }, select: { productCode: true, description: true } }) : null,
     prisma.tenant.findUnique({ where: { id: c.tenantId }, select: { name: true } }),
@@ -213,8 +240,9 @@ export async function portalVer(token: string): Promise<VistaPortal> {
   };
 }
 
-export async function portalSubir(token: string, d: { archivoBase64: string; mimeType?: string; nombreArchivo?: string; vigenciaDesde?: string | null; vigenciaHasta?: string | null; numeroCertificado?: string | null }): Promise<VistaPortal> {
-  const c = await porToken(token);
+export async function portalSubir(token: string, d: { archivoBase64: string; mimeType?: string; nombreArchivo?: string; vigenciaDesde?: string | null; vigenciaHasta?: string | null; numeroCertificado?: string | null }, ahora = new Date()): Promise<VistaPortal> {
+  const c = await porToken(token, ahora);
+  if (c.estado !== 'solicitado') throw new ProveedorError('ESTADO_INVALIDO', 'Esta solicitud ya no acepta documentos (estado: ' + c.estado + ')');
   if (!d.archivoBase64 || typeof d.archivoBase64 !== 'string') throw new ProveedorError('ARCHIVO_INVALIDO', 'archivoBase64 es obligatorio');
   const mime = (d.mimeType ?? 'application/pdf').toLowerCase();
   if (!['application/pdf', 'image/jpeg', 'image/png'].includes(mime)) throw new ProveedorError('ARCHIVO_INVALIDO', 'Solo PDF, JPG o PNG');
@@ -237,12 +265,17 @@ export async function portalSubir(token: string, d: { archivoBase64: string; mim
       notes: `Subido por el proveedor vía portal${d.numeroCertificado ? ` · certificado ${d.numeroCertificado}` : ''}`,
     },
   });
-  await prisma.certificadoOrigenProveedor.update({
+  const actualizado = await prisma.certificadoOrigenProveedor.update({
     where: { id: c.id },
-    data: { documentId: doc.id, vigenciaDesde: desde ?? c.vigenciaDesde, vigenciaHasta: hasta, estado: hasta.getTime() < Date.now() ? 'vencido' : 'recibido', recibidoAt: new Date(), notas: d.numeroCertificado ? `${c.notas ? c.notas + ' | ' : ''}No. certificado: ${d.numeroCertificado}` : c.notas },
+    // Recibido ⇒ el enlace se consume (tokenSolicitud null): no hay segunda subida con el mismo token.
+    data: { documentId: doc.id, tokenSolicitud: null, vigenciaDesde: desde ?? c.vigenciaDesde, vigenciaHasta: hasta, estado: hasta.getTime() < ahora.getTime() ? 'vencido' : 'recibido', recibidoAt: ahora, notas: d.numeroCertificado ? `${c.notas ? c.notas + ' | ' : ''}No. certificado: ${d.numeroCertificado}` : c.notas },
   });
-  logger.info('Portal proveedores: certificado recibido', { action: 'cert_proveedor_recibido', tenantId: c.tenantId, metadata: { id: c.id, documentId: doc.id } });
-  return portalVer(token);
+  if (c.documentId && c.documentId !== doc.id) {
+    // Documento anterior (re-solicitud): se reemplaza, no se acumula.
+    await prisma.document.deleteMany({ where: { id: c.documentId, tenantId: c.tenantId } });
+  }
+  logger.info('Portal proveedores: certificado recibido', { action: 'cert_proveedor_recibido', tenantId: c.tenantId, metadata: { id: c.id, documentId: doc.id, documentoAnterior: c.documentId } });
+  return vistaDe(actualizado);
 }
 
 // ── Vencimientos → alertas (job diario) ───────────────────────────────────
@@ -283,6 +316,12 @@ export async function procesarVencimientosCertificados(tenantId: string, ahora =
 }
 
 export async function procesarVencimientosCertificadosTodos(ahora = new Date()): Promise<{ tenants: number; vencidos: number; alertas: number }> {
+  // Candado distribuido: con >1 réplica solo una corre el tick; las demás devuelven ceros.
+  const r = await conCandadoJob('origen_vencimientos_certificados', () => procesarVencimientosCertificadosTodosSinCandado(ahora));
+  return r ?? { tenants: 0, vencidos: 0, alertas: 0 };
+}
+
+async function procesarVencimientosCertificadosTodosSinCandado(ahora: Date): Promise<{ tenants: number; vencidos: number; alertas: number }> {
   const tenants = await prisma.tenant.findMany({ where: { status: { in: ['ACTIVE', 'PILOT', 'TRIAL'] } }, select: { id: true } });
   let vencidos = 0, alertas = 0;
   for (const t of tenants) {

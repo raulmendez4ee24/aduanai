@@ -14,6 +14,7 @@
  */
 
 import { prisma } from '../lib/prisma';
+import { conCandadoJob } from '../lib/candado-job';
 import { logger } from '../lib/logger';
 import { normalizeCountry } from './compliance-lookup';
 import { severidadPorImpacto } from './alert-severity';
@@ -107,6 +108,12 @@ export async function detectarElusion(tenantId: string, opts: { ahora?: Date; ti
 }
 
 export async function detectarElusionTodos(ahora = new Date()): Promise<{ tenants: number; alertas: number }> {
+  // Candado distribuido: con >1 réplica solo una corre el tick; las demás devuelven ceros.
+  const r = await conCandadoJob('antidumping_elusion', () => detectarElusionTodosSinCandado(ahora));
+  return r ?? { tenants: 0, alertas: 0 };
+}
+
+async function detectarElusionTodosSinCandado(ahora: Date): Promise<{ tenants: number; alertas: number }> {
   const tenants = await prisma.tenant.findMany({ where: { status: { in: ['ACTIVE', 'PILOT', 'TRIAL'] } }, select: { id: true } });
   let alertas = 0;
   for (const t of tenants) {

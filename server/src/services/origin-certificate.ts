@@ -7,6 +7,7 @@
 
 import crypto from 'crypto';
 import { prisma } from '../lib/prisma';
+import { AppError } from '../middlewares/error';
 
 export type PreferenceCriterion = 'A' | 'B' | 'C' | 'D' | 'E';
 export type OriginCountry = 'MX' | 'US' | 'CA';
@@ -83,6 +84,11 @@ function generateCertNumber(): string {
 }
 
 export async function createCertificate(input: CertificateInput): Promise<{ id: string; certificateNumber: string; contentHash: string }> {
+  if (input.originAnalysisId) {
+    // El análisis referenciado debe ser del tenant (no se enlaza un análisis ajeno).
+    const oa = await prisma.originAnalysis.findFirst({ where: { id: input.originAnalysisId, tenantId: input.tenantId }, select: { id: true } });
+    if (!oa) throw new AppError('originAnalysisId no pertenece a tu empresa', 400);
+  }
   const certificateNumber = generateCertNumber();
   const signedDate = new Date();
 
