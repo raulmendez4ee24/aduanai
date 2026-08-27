@@ -82,6 +82,15 @@ model Tenant {
   pedimentos           Pedimento[]
   originAnalyses       OriginAnalysis[]
 
+  // Fase 0: digest semanal de alertas y catálogo de clientes.
+  digestSemanalCanal    String?   // 'email' | 'whatsapp' | 'ambos'
+  digestUltimoEnvioAt   DateTime?
+  clientes              Cliente[]
+  obligaciones          ObligacionCalendario[]
+  cierres               CierrePeriodo[]
+  ubicaciones           Ubicacion[]
+  lotesClasificacion    ClassificationBatch[]
+
   @@index([plan])
   @@index([status])
   @@index([pilotEndsAt])
@@ -388,6 +397,10 @@ model Classification {
   userId   String
   user     User   @relation(fields: [userId], references: [id])
 
+  // Fase 0 (27-ago-2026): dimensión cliente/RFC — una agencia opera N importadores.
+  clienteId String?
+  @@index([clienteId])
+
   @@index([tenantId])
   @@index([userId])
   @@index([fractionCode])
@@ -432,6 +445,10 @@ model ClassificationJob {
   createdAt  DateTime  @default(now())
   startedAt  DateTime?
   finishedAt DateTime?
+
+  // Fase 0 (27-ago-2026): dimensión cliente/RFC — una agencia opera N importadores.
+  clienteId String?
+  @@index([clienteId])
 
   @@index([tenantId, createdAt])
   @@index([tenantId, userId, status])
@@ -487,6 +504,19 @@ model Quote {
   user     User   @relation(fields: [userId], references: [id])
 
   items QuoteItem[]
+
+  // Fase 0 (27-ago-2026): dimensión cliente/RFC — una agencia opera N importadores.
+  clienteId String?
+  // Fase 0: cotización como herramienta de venta — guardar, duplicar, versionar por cliente.
+  version       Int       @default(1)
+  parentQuoteId String?
+  vigenciaHasta DateTime?
+  notas         String?
+  escenarios    Json?
+  tcFechaDOF    DateTime?
+  tabuladorId   String?
+
+  @@index([clienteId])
 
   @@index([tenantId])
   @@index([createdAt])
@@ -604,6 +634,16 @@ model Pedimento {
 
   partidas PedimentoPartida[]
 
+  // Fase 0 (27-ago-2026): dimensión cliente/RFC — una agencia opera N importadores.
+  clienteId String?
+  // Fase 0: entrada real = archivo M3 / Data Stage, no recaptura.
+  origenArchivo String?  // 'M3' | 'DATASTAGE' | 'MANUAL'
+  layoutVersion String?
+  archivoHash   String?
+  @@index([archivoHash])
+
+  @@index([clienteId])
+
   @@index([tenantId])
   @@index([status])
   @@index([numero])
@@ -644,6 +684,9 @@ model PedimentoPartida {
   vinculacionDesc String?
 
   createdAt DateTime @default(now())
+
+  nico      String?
+  productId String?
 
   @@index([pedimentoId])
   @@index([fraccion])
@@ -732,6 +775,10 @@ model Alert {
   fingerprint String?
 
   updatedAt DateTime @default(now()) @updatedAt
+
+  // Fase 0 (27-ago-2026): dimensión cliente/RFC — una agencia opera N importadores.
+  clienteId String?
+  @@index([clienteId])
 
   @@unique([tenantId, fingerprint])
   @@index([tenantId])
@@ -822,6 +869,16 @@ model Operation {
 
   documents Document[]
 
+  // Fase 0 (27-ago-2026): dimensión cliente/RFC — una agencia opera N importadores.
+  clienteId String?
+  // Fase 0: expediente electrónico 59-V/162-VII + glosa documental.
+  pedimentoId      String?
+  glosaDocumental  Json?
+  retencionHasta   DateTime?
+  checklist        Json?
+
+  @@index([clienteId])
+
   @@index([tenantId])
   @@index([reference])
   @@index([status])
@@ -869,6 +926,16 @@ model Document {
 
   operationId String?
   operation   Operation? @relation(fields: [operationId], references: [id], onDelete: SetNull)
+
+  // Fase 0 (27-ago-2026): dimensión cliente/RFC — una agencia opera N importadores.
+  clienteId String?
+  // Fase 0: adjuntos de clasificación (ficha técnica, foto, hoja de seguridad) y de parte.
+  productId        String?
+  classificationId String?
+  @@index([productId])
+  @@index([classificationId])
+
+  @@index([clienteId])
 
   @@index([tenantId])
   @@index([operationId])
@@ -920,6 +987,22 @@ model TemporaryImport {
 
   discharges Discharge[]
 
+  // Fase 0 (27-ago-2026): dimensión cliente/RFC — una agencia opera N importadores.
+  clienteId String?
+  // Fase 0 — Anexo 24 real: control por pedimento-partida y número de parte.
+  pedimentoPartidaId String?
+  productId          String?
+  product            Product? @relation(fields: [productId], references: [id])
+  tipo               String   @default("INSUMO") // 'INSUMO' | 'ACTIVO_FIJO'
+  claveDocumento     String?  // IN | AF | BA …
+  vidaUtilMeses      Int?     // activo fijo
+  ubicacionId        String?
+  ubicacion          Ubicacion? @relation(fields: [ubicacionId], references: [id])
+  @@index([productId])
+  @@index([ubicacionId])
+
+  @@index([clienteId])
+
   @@index([tenantId])
   @@index([fractionCode])
   @@index([pedimento])
@@ -964,6 +1047,12 @@ model Discharge {
   tenant   Tenant @relation(fields: [tenantId], references: [id])
   userId   String
   user     User   @relation(fields: [userId], references: [id])
+
+  // Fase 0: descargo ligado al retorno/transferencia real.
+  constanciaTransferencia String?
+  pedimentoPartidaId      String?
+  assemblyId              String?
+  clienteId               String?
 
   @@index([tenantId])
   @@index([temporaryImportId])
@@ -1084,6 +1173,10 @@ model TaxCredit {
   tenant   Tenant @relation(fields: [tenantId], references: [id])
 
   usages CreditUsage[]
+
+  // Fase 0 (27-ago-2026): dimensión cliente/RFC — una agencia opera N importadores.
+  clienteId String?
+  @@index([clienteId])
 
   @@index([tenantId])
   @@index([status])
@@ -1215,6 +1308,21 @@ model ManifestacionValor {
   tenant   Tenant @relation(fields: [tenantId], references: [id])
 
   coves COVE[]
+
+  // Fase 0 (27-ago-2026): dimensión cliente/RFC — una agencia opera N importadores.
+  clienteId String?
+  // Fase 0: resto del formato E2 y flujo por proveedor.
+  metodoValoracion   String?
+  incrementables     Json?
+  decrementables     Json?
+  formaPago          String?
+  rfcImportador      String?
+  pesoBrutoKg        Float?
+  plantillaId        String?
+  estadoTransmision  String   @default("lista_para_transmitir") // honestidad: sin VUCEM no hay 'transmitida'
+  vigenciaHasta      DateTime?
+
+  @@index([clienteId])
 
   @@index([tenantId])
   @@index([status])
@@ -1489,6 +1597,20 @@ model Product {
   usedIn     ProductComponent[] @relation("ComponentOfBOM")
   assemblies Assembly[]
 
+  // Fase 0 (27-ago-2026): dimensión cliente/RFC — una agencia opera N importadores.
+  clienteId String?
+  // Fase 0: la PARTE como objeto central — expediente de clasificación versionado.
+  nico             String?
+  noms             Json?    // [{ nom, aplica, excepcion? }]
+  usoDestino       String?  // 'INSUMO_IMMEX' | 'VENTA_DIRECTA' | 'ACTIVO_FIJO'
+  paisOrigen       String?
+  versionVigente   Int      @default(0)
+  versiones        ProductClassificationVersion[]
+  temporaryImports TemporaryImport[]
+  solicitudesDictamen SolicitudDictamen[]
+
+  @@index([clienteId])
+
   @@unique([tenantId, productCode])
   @@index([tenantId])
   @@index([isFinished])
@@ -1598,6 +1720,13 @@ model AntidumpingDuty {
   active    Boolean  @default(true)
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+
+  // Fase 0: resoluciones reales = tasas por exportador/productor + vigencias.
+  exportadorTasas   Json?     // [{ empresa, tasa, rateUnit }]
+  examenSunsetFecha DateTime?
+  fuenteUrl         String?
+  cotejadoAt        DateTime?
+  esAntielusion     Boolean   @default(false)
 
   @@index([fractionCode, countryOfOrigin, status])
   @@index([fractionCode])
@@ -2409,6 +2538,10 @@ model OriginAnalysis {
 
   certificates OriginCertificate[]
 
+  // Fase 0 (27-ago-2026): dimensión cliente/RFC — una agencia opera N importadores.
+  clienteId String?
+  @@index([clienteId])
+
   @@index([tenantId])
   @@index([fractionCode])
   @@index([agreement])
@@ -2686,6 +2819,10 @@ model GlosaSimulation {
 
   createdAt DateTime @default(now())
 
+  // Fase 0 (27-ago-2026): dimensión cliente/RFC — una agencia opera N importadores.
+  clienteId String?
+  @@index([clienteId])
+
   @@index([tenantId, createdAt])
   @@index([fractionCode])
   @@index([riskLevel])
@@ -2773,6 +2910,16 @@ model RiskAssessment {
   pesosSnapshot Json
   createdAt     DateTime @default(now())
 
+  // Fase 0 (27-ago-2026): dimensión cliente/RFC — una agencia opera N importadores.
+  clienteId String?
+  // Fase 0: score vivo por cliente, evidencia documental y folio.
+  folio        String?
+  evidencia    Json?   // { factorId: { documentId, verificadoAt, verificadoPor } }
+  operationId  String?
+  @@index([folio])
+
+  @@index([clienteId])
+
   @@index([tenantId, createdAt])
   @@map("risk_assessments")
 }
@@ -2786,4 +2933,268 @@ model Sat69B {
 
   @@index([situacion])
   @@map("sat_69b")
+}
+
+
+// ═══════════════════════════════════════════════════════════════════════
+// FASE 0 (27-ago-2026) — Cimientos de operación: cliente/RFC, parte
+// versionada, lote, Anexo 24 por pedimento-partida, cierre mensual,
+// calendario de obligaciones, certificados de proveedor, plantillas MVE,
+// cambios de régimen, dictamen humano. Ver docs/PLAN_OPERACION_2026-08.md.
+// ═══════════════════════════════════════════════════════════════════════
+
+/// Importador/RFC operado por el tenant (una agencia opera N clientes).
+model Cliente {
+  id                   String   @id @default(cuid())
+  tenantId             String
+  tenant               Tenant   @relation(fields: [tenantId], references: [id])
+  rfc                  String
+  razonSocial          String
+  programaIMMEX        String?
+  certificacionIVAIEPS String?  // 'A' | 'AA' | 'AAA'
+  padronImportadores   Boolean  @default(false)
+  padronesSectoriales  String[]
+  contactoNombre       String?
+  contactoEmail        String?
+  notas                String?
+  activo               Boolean  @default(true)
+  isDemoData           Boolean  @default(false)
+  createdAt            DateTime @default(now())
+  updatedAt            DateTime @updatedAt
+
+  @@unique([tenantId, rfc])
+  @@index([tenantId])
+  @@map("clientes")
+}
+
+/// Expediente de clasificación versionado de una parte (SKU).
+model ProductClassificationVersion {
+  id               String   @id @default(cuid())
+  productId        String
+  product          Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+  version          Int
+  fractionCode     String
+  nico             String?
+  justificacion    String?
+  fuente           String   // 'clasificador' | 'historial' | 'manual' | 'lote'
+  classificationId String?
+  estado           String   @default("propuesta") // 'propuesta' | 'vigente' | 'reemplazada' | 'rechazada'
+  propuestoPor     String
+  aprobadoPor      String?
+  aprobadoAt       DateTime?
+  tigieVersion     String?
+  createdAt        DateTime @default(now())
+
+  @@unique([productId, version])
+  @@index([productId])
+  @@index([fractionCode])
+  @@map("product_classification_versions")
+}
+
+/// Clasificación en lote (Excel entra, Excel sale).
+model ClassificationBatch {
+  id            String   @id @default(cuid())
+  tenantId      String
+  tenant        Tenant   @relation(fields: [tenantId], references: [id])
+  clienteId     String?
+  userId        String
+  nombreArchivo String
+  totalFilas    Int
+  verdes        Int      @default(0)
+  ambar         Int      @default(0)
+  rojas         Int      @default(0)
+  procesadas    Int      @default(0)
+  status        String   @default("queued") // 'queued' | 'running' | 'done' | 'failed'
+  errorMsg      String?
+  createdAt     DateTime @default(now())
+  startedAt     DateTime?
+  finishedAt    DateTime?
+  filas         ClassificationBatchRow[]
+
+  @@index([tenantId])
+  @@index([tenantId, status])
+  @@map("classification_batches")
+}
+
+model ClassificationBatchRow {
+  id               String   @id @default(cuid())
+  batchId          String
+  batch            ClassificationBatch @relation(fields: [batchId], references: [id], onDelete: Cascade)
+  numeroFila       Int
+  productCode      String?
+  descripcion      String
+  contexto         String?
+  paisOrigen       String?
+  valorUSD         Float?
+  usoDestino       String?
+  semaforo         String?  // 'verde' | 'ambar' | 'rojo'
+  fractionCode     String?
+  confidence       Float?
+  coincideCatalogo Boolean?
+  fraccionCatalogo String?
+  classificationId String?
+  jobId            String?
+  productId        String?
+  error            String?
+  revisado         Boolean  @default(false)
+  createdAt        DateTime @default(now())
+
+  @@index([batchId])
+  @@map("classification_batch_rows")
+}
+
+/// Planta o submaquila (domicilio de terceros) para control de inventario.
+model Ubicacion {
+  id             String   @id @default(cuid())
+  tenantId       String
+  tenant         Tenant   @relation(fields: [tenantId], references: [id])
+  clienteId      String?
+  nombre         String
+  tipo           String   @default("PLANTA") // 'PLANTA' | 'SUBMAQUILA'
+  domicilio      String?
+  rfcTercero     String?
+  avisoSubmaquila String? // folio del aviso ante la SE
+  activo         Boolean  @default(true)
+  createdAt      DateTime @default(now())
+  temporaryImports TemporaryImport[]
+
+  @@index([tenantId])
+  @@map("ubicaciones")
+}
+
+/// Cierre mensual con candado: nadie mueve saldos de un periodo cerrado.
+model CierrePeriodo {
+  id         String   @id @default(cuid())
+  tenantId   String
+  tenant     Tenant   @relation(fields: [tenantId], references: [id])
+  clienteId  String?
+  periodo    String   // 'YYYY-MM'
+  cerradoPor String
+  cerradoAt  DateTime @default(now())
+  hash       String?  // hash del estado de saldos al cierre
+  resumen    Json?
+  notas      String?
+
+  @@unique([tenantId, periodo])
+  @@index([tenantId])
+  @@map("cierres_periodo")
+}
+
+/// Calendario de obligaciones (SE, SAT, certificación, padrones, avisos IMMEX).
+model ObligacionCalendario {
+  id                String    @id @default(cuid())
+  tenantId          String
+  tenant            Tenant    @relation(fields: [tenantId], references: [id])
+  clienteId         String?
+  tipo              String    // 'REPORTE_ANUAL_SE' | 'AVISO_IMMEX' | 'PADRON' | 'OPINION_32D' | 'CERT_IVA_IEPS' | 'ANEXO_24' | 'ANEXO_30' | 'OTRA'
+  titulo            String
+  descripcion       String?
+  fundamento        String?
+  fechaLimite       DateTime
+  recurrencia       String?   // 'ANUAL' | 'MENSUAL' | 'UNICA'
+  responsableUserId String?
+  estado            String    @default("pendiente") // 'pendiente' | 'en_curso' | 'cumplida' | 'vencida'
+  cumplidaAt        DateTime?
+  evidenciaDocumentId String?
+  consecuencia      String?   // qué pasa si no se cumple
+  isDemoData        Boolean   @default(false)
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+
+  @@index([tenantId, fechaLimite])
+  @@index([tenantId, estado])
+  @@map("obligaciones_calendario")
+}
+
+/// Portal de certificados de origen de proveedores con vigencias.
+model CertificadoOrigenProveedor {
+  id              String    @id @default(cuid())
+  tenantId        String
+  clienteId       String?
+  proveedorNombre String
+  proveedorPais   String
+  proveedorEmail  String?
+  productId       String?
+  fractionCode    String?
+  tratado         String    @default("TMEC")
+  vigenciaDesde   DateTime?
+  vigenciaHasta   DateTime?
+  estado          String    @default("solicitado") // 'solicitado' | 'recibido' | 'vencido' | 'rechazado'
+  documentId      String?
+  tokenSolicitud  String?   @unique
+  solicitadoAt    DateTime  @default(now())
+  recibidoAt      DateTime?
+  notas           String?
+  isDemoData      Boolean   @default(false)
+
+  @@index([tenantId])
+  @@index([tenantId, vigenciaHasta])
+  @@map("certificados_origen_proveedor")
+}
+
+/// Plantilla por proveedor para la MVE: la segunda vez es automática.
+model MVEPlantillaProveedor {
+  id              String   @id @default(cuid())
+  tenantId        String
+  proveedorNombre String
+  proveedorPais   String?
+  campos          Json     // valores por defecto (incoterm, moneda, incrementables, vinculación, forma de pago…)
+  usos            Int      @default(0)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@unique([tenantId, proveedorNombre])
+  @@map("mve_plantillas_proveedor")
+}
+
+/// Asistente de cambio de régimen / regularización (F4, F5, A3, RT).
+model CambioRegimenExpediente {
+  id                 String   @id @default(cuid())
+  tenantId           String
+  clienteId          String?
+  userId             String
+  tipo               String   // 'F4' | 'F5' | 'A3' | 'RT'
+  temporaryImportIds String[]
+  calculo            Json     // impuestos por partida (vía Cotizador) + fundamento
+  quoteId            String?
+  estado             String   @default("borrador") // 'borrador' | 'listo' | 'presentado'
+  notas              String?
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+
+  @@index([tenantId])
+  @@map("cambios_regimen")
+}
+
+/// Solicitud de dictamen humano sobre una clasificación o parte.
+model SolicitudDictamen {
+  id               String    @id @default(cuid())
+  tenantId         String
+  classificationId String?
+  productId        String?
+  product          Product?  @relation(fields: [productId], references: [id])
+  solicitadoPor    String
+  asignadoA        String?
+  motivo           String?
+  estado           String    @default("abierta") // 'abierta' | 'en_revision' | 'dictaminada' | 'rechazada'
+  dictamen         Json?     // { fractionCode, nico?, fundamento, dictaminadoPor, fecha }
+  createdAt        DateTime  @default(now())
+  resueltaAt       DateTime?
+
+  @@index([tenantId, estado])
+  @@map("solicitudes_dictamen")
+}
+
+/// Tabulador de honorarios del despacho para el Cotizador.
+model TabuladorHonorarios {
+  id        String   @id @default(cuid())
+  tenantId  String
+  nombre    String
+  reglas    Json     // [{ tipoOperacion, base:'fijo'|'porcentaje'|'millar', valor, minimo?, maximo? }]
+  activo    Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([tenantId])
+  @@map("tabuladores_honorarios")
 }

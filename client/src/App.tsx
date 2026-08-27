@@ -243,6 +243,7 @@ export function App() {
         <Route path="/biblioteca-legal" element={<BibliotecaLegalPage />} />
         <Route path="/cuotas-activas" element={<CuotasActivasPage />} />
         <Route path="/cumplimiento" element={<CumplimientoPage />} />
+        {/* ── OPERACIÓN 2026-08 ── rutas nuevas (una línea por módulo) */}
         {/* Admin: mismo shell, guard adicional */}
         <Route element={<RequireSuperAdmin user={user}><Outlet /></RequireSuperAdmin>}>
           <Route path="/admin" element={<AdminDashboardPage />} />

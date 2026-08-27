@@ -41,6 +41,9 @@ export const MODELOS_MULTITENANT = new Set<string>([
   'PadronCheck', 'Pedimento', 'PermissionAuditLog', 'Product', 'Proposal', 'Quote',
   'RiskAssessment', 'SystemLog', 'TaxCredit', 'TemporaryImport', 'TenantPadronStatus',
   'TenantRole', 'UpdateNotification', 'UserTenantRole',
+  // Fase 0 (27-ago-2026)
+  'Cliente', 'ClassificationBatch', 'Ubicacion', 'CierrePeriodo', 'ObligacionCalendario',
+  'CertificadoOrigenProveedor', 'MVEPlantillaProveedor', 'CambioRegimenExpediente', 'SolicitudDictamen', 'TabuladorHonorarios',
 ]);
 
 const almacenBypass = new AsyncLocalStorage<boolean>();

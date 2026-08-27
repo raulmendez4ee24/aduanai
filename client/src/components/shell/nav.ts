@@ -53,6 +53,7 @@ export const NAV_HERRAMIENTAS: NavItem[] = [
   { label: 'Auditoría', path: '/audit', icono: ShieldCheck },
   { label: 'Verificación', path: '/verificacion', icono: BadgeCheck },
   { label: 'Novedades', path: '/updates', icono: Megaphone },
+  // ── OPERACIÓN 2026-08 ── entradas nuevas (una línea por módulo)
 ]
 
 /** Admin (solo SUPERADMIN; grupo colapsable). */

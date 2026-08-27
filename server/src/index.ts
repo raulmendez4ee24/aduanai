@@ -220,6 +220,7 @@ app.use('/api/admin/glosa', glosaAdminRouter);
 // los subrouters específicos que tienen guards propios.
 app.use('/api/admin', adminLimiter, adminRouter);
 app.use('/api/status', statusRouter);
+// ── OPERACIÓN 2026-08 ── montajes nuevos (una línea por módulo)
 
 // ── SPA fallback ──
 app.use((req, res, next) => {
