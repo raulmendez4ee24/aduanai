@@ -7,12 +7,23 @@ import { calculateMultiQuote, compareScenarios, type MultiQuoteInput, type Scena
 import { getRecentRates, seedSyntheticHistory, getOfficialRate, refreshOfficialRate } from '../services/exchange-rate';
 import { prisma } from '../lib/prisma';
 import { clienteIdDe, filtroCliente, validarClienteDelTenant } from '../lib/cliente-contexto';
+// ── OPERACIÓN 2026-08 (Ola 2 cotizador) ──
+import type { Prisma } from '@prisma/client';
+import { esTipoOperacionDTA } from '../lib/dta';
+import { catalogoDTARespaldado } from '../services/cotizador-dta';
+import {
+  listarTabuladores, obtenerTabulador, crearTabulador, actualizarTabulador, eliminarTabulador, type ReglaHonorarios,
+} from '../services/tabulador-honorarios';
+import {
+  listarCotizaciones, obtenerCotizacion, duplicarCotizacion, actualizarCotizacion, exportarCotizacionXlsx,
+  resumirEscenarios, validarVariantes, ESCENARIOS_VENTA, folioDe,
+} from '../services/cotizaciones';
 
 export const quoteRouter = Router();
 
 quoteRouter.post('/', authenticate, requirePermission('quoter', 'create'), async (req: AuthRequest, res, next) => {
   try {
-    const { fractionCode, customsValue, origin, incoterm, currency, exchangeRate, igiRateOverride, quantity, weightKg, unit } = req.body;
+    const { fractionCode, customsValue, origin, incoterm, currency, exchangeRate, igiRateOverride, quantity, weightKg, unit, tipoOperacion, exportador } = req.body;
 
     if (!fractionCode || !customsValue || !origin) {
       return res.status(400).json({
@@ -39,6 +50,8 @@ quoteRouter.post('/', authenticate, requirePermission('quoter', 'create'), async
       quantity: quantity != null ? Number(quantity) : undefined,
       weightKg: weightKg != null ? Number(weightKg) : undefined,
       unit: typeof unit === 'string' ? unit : undefined,
+      tipoOperacion: esTipoOperacionDTA(tipoOperacion) ? tipoOperacion : undefined,
+      exportador: typeof exportador === 'string' && exportador.trim() ? exportador.trim().slice(0, 160) : undefined,
     });
 
     const perms = await getUserPermissions(req.userId!, req.tenantId!, req.userRole);
@@ -59,13 +72,16 @@ quoteRouter.post('/', authenticate, requirePermission('quoter', 'create'), async
         approvedAt: canApprove ? new Date() : null,
         approvedById: canApprove ? req.userId! : null,
         clienteId: await validarClienteDelTenant(req.tenantId!, clienteIdDe(req)),
+        exchangeRate: result.exchangeRate,
+        exchangeRateDate: new Date(result.exchangeRateDate),
+        tcFechaDOF: result.tcFechaDOF ? new Date(result.tcFechaDOF) : null,
       },
     });
 
     const { checkRequiredPadrones } = await import('../services/padron-checker');
     const padronCheck = await checkRequiredPadrones(req.tenantId!, fractionCode, 'quote', created.id);
 
-    res.json({ status: 'ok', data: { ...result, padronCheck } });
+    res.json({ status: 'ok', data: { ...result, padronCheck, quoteId: created.id } });
   } catch (err) {
     next(err);
   }
@@ -80,7 +96,7 @@ const MAX_PARTIDA_USD = 1_000_000_000;
 /** Rango del cotizador simple (POST /api/quote). Prod 27-ago: una cotización
  *  con customsValue=1e23 (prueba manual) reventó Analytics (total 1e+23 USD).
  *  Mismo tope que las partidas del multi. Exportada para test. */
-export function validarRangosQuoteSimple(b: { customsValue?: unknown; exchangeRate?: unknown; igiRateOverride?: unknown; quantity?: unknown; weightKg?: unknown }): string | null {
+export function validarRangosQuoteSimple(b: { customsValue?: unknown; exchangeRate?: unknown; igiRateOverride?: unknown; quantity?: unknown; weightKg?: unknown; tipoOperacion?: unknown; exportador?: unknown }): string | null {
   const v = Number(b.customsValue);
   if (!(Number.isFinite(v) && v > 0 && v <= MAX_PARTIDA_USD)) {
     return 'Valor en aduana fuera de rango: debe ser mayor a 0 y a lo sumo $1,000,000,000 USD.';
@@ -95,10 +111,13 @@ export function validarRangosQuoteSimple(b: { customsValue?: unknown; exchangeRa
     const x = b[k];
     if (x != null && !(Number.isFinite(Number(x)) && Number(x) >= 0 && Number(x) <= MAX_PARTIDA_USD)) return `${lbl} fuera de rango (0 a 1,000,000,000).`;
   }
+  // Ola 2: tipo de operación del catálogo DTA; exportador texto acotado.
+  if (b.tipoOperacion != null && b.tipoOperacion !== '' && !esTipoOperacionDTA(b.tipoOperacion)) return 'Tipo de operación inválido (usa el catálogo DTA).';
+  if (b.exportador != null && (typeof b.exportador !== 'string' || b.exportador.length > 160)) return 'Exportador inválido (texto, máximo 160 caracteres).';
   return null;
 }
 
-function validarRangosMultiQuote(input: MultiQuoteInput): string | null {
+export function validarRangosMultiQuote(input: MultiQuoteInput): string | null {
   const noNegativo = (v: number | undefined) => v === undefined || (Number.isFinite(v) && v >= 0 && v <= MAX_PARTIDA_USD);
   for (let i = 0; i < input.items.length; i++) {
     const it = input.items[i];
@@ -113,6 +132,16 @@ function validarRangosMultiQuote(input: MultiQuoteInput): string | null {
     if (it.igiRateOverride !== undefined && !(Number.isFinite(it.igiRateOverride) && it.igiRateOverride >= 0 && it.igiRateOverride <= 100)) {
       return `Override de IGI fuera de rango en la partida ${i + 1} (0-100%).`;
     }
+    if (it.exportador != null && (typeof it.exportador !== 'string' || it.exportador.length > 160)) {
+      return `Exportador inválido en la partida ${i + 1} (texto, máximo 160 caracteres).`;
+    }
+  }
+  // Ola 2: tipo de operación (DTA), tabulador y honorarios.
+  if (input.tipoOperacion != null && (input.tipoOperacion as string) !== '' && !esTipoOperacionDTA(input.tipoOperacion)) {
+    return 'Tipo de operación inválido (usa el catálogo DTA).';
+  }
+  if (input.tabuladorId != null && (typeof input.tabuladorId !== 'string' || input.tabuladorId.length > 64)) {
+    return 'tabuladorId inválido.';
   }
   if (input.exchangeRate !== undefined && !(Number.isFinite(input.exchangeRate) && input.exchangeRate > 0 && input.exchangeRate <= 100)) {
     return 'Tipo de cambio manual fuera de rango (debe ser mayor a 0 y a lo sumo 100 MXN/USD).';
@@ -137,7 +166,16 @@ quoteRouter.post('/multi', authenticate, async (req: AuthRequest, res, next) => 
     if (rangoInvalido) {
       return res.status(422).json({ status: 'error', message: rangoInvalido });
     }
+    if (!input.tipoOperacion) input.tipoOperacion = 'general';
+    // Ola 2: tabulador del tenant (nunca de otro) → reglas al cálculo.
+    input.tabulador = null;
+    if (input.tabuladorId) {
+      const t = await prisma.tabuladorHonorarios.findFirst({ where: { id: input.tabuladorId, tenantId: req.tenantId!, activo: true } });
+      if (!t) return res.status(422).json({ status: 'error', message: 'Tabulador de honorarios no encontrado o inactivo' });
+      input.tabulador = { id: t.id, nombre: t.nombre, reglas: (Array.isArray(t.reglas) ? t.reglas : []) as unknown as ReglaHonorarios[] };
+    }
     const result = await calculateMultiQuote(input);
+    const { tabulador: _tab, ...inputPersistible } = input;
 
     const permsMulti = await getUserPermissions(req.userId!, req.tenantId!, req.userRole);
     const canApproveMulti = hasPermission(permsMulti, 'quoter', 'approve');
@@ -154,7 +192,7 @@ quoteRouter.post('/multi', authenticate, async (req: AuthRequest, res, next) => 
         origin: input.origin ?? firstItem.countryOfOrigin ?? '',
         incoterm: input.incoterm ?? 'CIF',
         currency: input.currency ?? 'USD',
-        result: JSON.stringify(result),
+        result: JSON.stringify({ ...result, input: inputPersistible }),
         status: statusMulti,
         approvedAt: canApproveMulti ? new Date() : null,
         approvedById: canApproveMulti ? req.userId! : null,
@@ -173,6 +211,10 @@ quoteRouter.post('/multi', authenticate, async (req: AuthRequest, res, next) => 
         totalLandedCost: result.totals.totalLandedCost,
         totalDispatch: result.totals.totalDispatch,
         totalAll: result.totals.totalAll,
+        tcFechaDOF: result.tcFechaDOF ? new Date(result.tcFechaDOF) : null,
+        tabuladorId: input.tabulador?.id ?? null,
+        vigenciaHasta: typeof req.body?.vigenciaHasta === 'string' && !isNaN(Date.parse(req.body.vigenciaHasta)) ? new Date(req.body.vigenciaHasta) : null,
+        notas: typeof req.body?.notas === 'string' ? String(req.body.notas).slice(0, 4000) : null,
         items: {
           create: result.items.map(it => ({
             numeroPartida: it.numeroPartida,
@@ -223,13 +265,16 @@ quoteRouter.post('/scenarios', authenticate, async (req: AuthRequest, res, next)
     if (!Array.isArray(variants) || variants.length === 0) {
       return res.status(400).json({ status: 'error', message: 'variants[] requerido' });
     }
+    const vv = validarVariantes(variants);
+    if (vv.error) return res.status(422).json({ status: 'error', message: vv.error });
     // BUG-4: los escenarios usan el mismo tope — sin esto era una vía de
     // bypass directa (cotizar bien, editar a un valor absurdo y "Comparar").
     const rangoInvalidoBase = validarRangosMultiQuote(base);
     if (rangoInvalidoBase) {
       return res.status(422).json({ status: 'error', message: rangoInvalidoBase });
     }
-    const data = await compareScenarios(base, variants);
+    base.tabulador = null;
+    const data = await compareScenarios(base, vv.variants);
     res.json({ status: 'ok', data });
   } catch (err) {
     next(err);
@@ -279,6 +324,114 @@ quoteRouter.post('/exchange-rate/seed-history', authenticate, async (req: AuthRe
   } catch (err) {
     next(err);
   }
+});
+
+// ══════════════════════════════════════════════════════════════════════════
+// OPERACIÓN 2026-08 — Ola 2: cotizador como herramienta de venta
+// (rutas fijas ANTES de /:id para que no las capture el parámetro)
+// ══════════════════════════════════════════════════════════════════════════
+
+// GET /api/quote/catalogos/dta — catálogo DTA con cotejo contra el corpus
+quoteRouter.get('/catalogos/dta', authenticate, async (_req: AuthRequest, res, next) => {
+  try {
+    const { catalogo, fuente } = await catalogoDTARespaldado();
+    res.json({ status: 'ok', data: { catalogo, fuente } });
+  } catch (err) { next(err); }
+});
+
+// GET /api/quote/escenarios/plantilla — escenarios de venta por defecto
+quoteRouter.get('/escenarios/plantilla', authenticate, (_req: AuthRequest, res) => {
+  res.json({ status: 'ok', data: ESCENARIOS_VENTA });
+});
+
+// Tabuladores de honorarios — CRUD por tenant
+quoteRouter.get('/tabuladores', authenticate, requirePermission('quoter', 'view'), async (req: AuthRequest, res, next) => {
+  try { res.json({ status: 'ok', data: await listarTabuladores(req.tenantId!) }); } catch (err) { next(err); }
+});
+quoteRouter.post('/tabuladores', authenticate, requirePermission('quoter', 'create'), async (req: AuthRequest, res, next) => {
+  try { res.status(201).json({ status: 'ok', data: await crearTabulador(req.tenantId!, req.body ?? {}) }); } catch (err) { next(err); }
+});
+quoteRouter.get('/tabuladores/:id', authenticate, requirePermission('quoter', 'view'), async (req: AuthRequest, res, next) => {
+  try { res.json({ status: 'ok', data: await obtenerTabulador(req.tenantId!, String(req.params.id)) }); } catch (err) { next(err); }
+});
+quoteRouter.patch('/tabuladores/:id', authenticate, requirePermission('quoter', 'create'), async (req: AuthRequest, res, next) => {
+  try { res.json({ status: 'ok', data: await actualizarTabulador(req.tenantId!, String(req.params.id), req.body ?? {}) }); } catch (err) { next(err); }
+});
+quoteRouter.delete('/tabuladores/:id', authenticate, requirePermission('quoter', 'create'), async (req: AuthRequest, res, next) => {
+  try { await eliminarTabulador(req.tenantId!, String(req.params.id)); res.json({ status: 'ok' }); } catch (err) { next(err); }
+});
+
+// GET /api/quote — lista por tenant (+ cliente activo) con filtros y paginación
+quoteRouter.get('/', authenticate, requirePermission('quoter', 'view'), async (req: AuthRequest, res, next) => {
+  try {
+    const q = (k: string) => (typeof req.query[k] === 'string' ? String(req.query[k]).trim() : undefined);
+    const data = await listarCotizaciones(req.tenantId!, {
+      ...filtroCliente(req),
+      nombre: q('nombre'), cliente: q('cliente'), desde: q('desde'), hasta: q('hasta'), estado: q('estado'),
+      vigentes: q('vigentes') === '1' || q('vigentes') === 'true',
+      page: Number(q('page')) || 1, pageSize: Number(q('pageSize')) || 25,
+    });
+    res.json({ status: 'ok', data });
+  } catch (err) { next(err); }
+});
+
+// GET /api/quote/:id — cotización completa (resultado + entrada + versiones + folio)
+quoteRouter.get('/:id', authenticate, requirePermission('quoter', 'view'), async (req: AuthRequest, res, next) => {
+  try { res.json({ status: 'ok', data: await obtenerCotizacion(req.tenantId!, String(req.params.id)) }); } catch (err) { next(err); }
+});
+
+// GET /api/quote/:id/export.xlsx
+quoteRouter.get('/:id/export.xlsx', authenticate, requirePermission('quoter', 'view'), async (req: AuthRequest, res, next) => {
+  try {
+    const { buffer, folio } = await exportarCotizacionXlsx(req.tenantId!, String(req.params.id));
+    res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+    res.setHeader('Content-Disposition', `attachment; filename="cotizacion-${folio}.xlsx"`);
+    res.send(buffer);
+  } catch (err) { next(err); }
+});
+
+// POST /api/quote/:id/duplicar — nueva versión encadenada (version+1, parentQuoteId)
+quoteRouter.post('/:id/duplicar', authenticate, requirePermission('quoter', 'create'), async (req: AuthRequest, res, next) => {
+  try {
+    const perms = await getUserPermissions(req.userId!, req.tenantId!, req.userRole);
+    const nueva = await duplicarCotizacion(req.tenantId!, String(req.params.id), req.userId!, {
+      puedeAprobar: hasPermission(perms, 'quoter', 'approve'),
+      nombre: typeof req.body?.nombre === 'string' ? req.body.nombre.slice(0, 160) : null,
+    });
+    res.status(201).json({ status: 'ok', data: { id: nueva.id, version: nueva.version, parentQuoteId: nueva.parentQuoteId, folio: await folioDe(nueva), status: nueva.status } });
+  } catch (err) { next(err); }
+});
+
+// PATCH /api/quote/:id — nombre, notas, vigenciaHasta, escenarios, clienteId (NO toca status)
+quoteRouter.patch('/:id', authenticate, requirePermission('quoter', 'create'), async (req: AuthRequest, res, next) => {
+  try {
+    const b = req.body ?? {};
+    if ('status' in b || 'approvedAt' in b || 'approvedById' in b) {
+      return res.status(422).json({ status: 'error', message: 'El estado de aprobación se cambia con /approve o en Aprobaciones, no con PATCH.' });
+    }
+    res.json({ status: 'ok', data: await actualizarCotizacion(req.tenantId!, String(req.params.id), b) });
+  } catch (err) { next(err); }
+});
+
+// POST /api/quote/:id/escenarios — recalcula escenarios sobre la entrada guardada y los persiste
+quoteRouter.post('/:id/escenarios', authenticate, requirePermission('quoter', 'create'), async (req: AuthRequest, res, next) => {
+  try {
+    const c = await obtenerCotizacion(req.tenantId!, String(req.params.id));
+    const variantesRaw = Array.isArray(req.body?.variants) && req.body.variants.length ? req.body.variants : ESCENARIOS_VENTA;
+    const vv = validarVariantes(variantesRaw);
+    if (vv.error) return res.status(422).json({ status: 'error', message: vv.error });
+    const base: MultiQuoteInput = { ...c.input, tabulador: null };
+    if (c.tabuladorId) {
+      const t = await prisma.tabuladorHonorarios.findFirst({ where: { id: c.tabuladorId, tenantId: req.tenantId!, activo: true } });
+      if (t) base.tabulador = { id: t.id, nombre: t.nombre, reglas: (Array.isArray(t.reglas) ? t.reglas : []) as unknown as ReglaHonorarios[] };
+    }
+    const rango = validarRangosMultiQuote(base);
+    if (rango) return res.status(422).json({ status: 'error', message: rango });
+    const cmp = await compareScenarios(base, vv.variants);
+    const resumen = resumirEscenarios(cmp, vv.variants);
+    await prisma.quote.updateMany({ where: { id: c.id, tenantId: req.tenantId! }, data: { escenarios: resumen as unknown as Prisma.InputJsonValue } });
+    res.json({ status: 'ok', data: { escenarios: resumen, comparacion: cmp } });
+  } catch (err) { next(err); }
 });
 
 // POST /api/quote/:id/approve — VALIDATOR aprueba cotización creada por CLASSIFIER/CLASSIFIER

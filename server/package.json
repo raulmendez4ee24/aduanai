@@ -60,7 +60,8 @@
     "test:glosa-multipartida": "tsx src/tests/glosa-multipartida.test.ts",
     "test:regulatorio": "tsx src/tests/regulatorio.test.ts",
     "test:calendario": "tsx src/tests/calendario.test.ts",
-    "test:cambio-regimen": "tsx src/tests/cambio-regimen.test.ts"
+    "test:cambio-regimen": "tsx src/tests/cambio-regimen.test.ts",
+    "test:cotizador": "tsx src/tests/cotizador-operacion.test.ts"
   },
   "license": "UNLICENSED",
   "private": true,

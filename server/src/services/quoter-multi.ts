@@ -20,7 +20,12 @@ import { getOfficialRate, getHistoricalRateInfo, getMonthlyAverageRateInfo } fro
 import { computeQuoteAmounts, requireQuotableFraction, resolveCuotaCompensatoria } from './quoter';
 import { lookupCompliance } from './compliance-lookup';
 import { validateDeclaredPrice, type PriceCheckResult } from './price-validator';
-import { checkPROSEC, checkRegla8va, checkIEPS, calculateISAN } from './regimes-programs';
+import { checkPROSEC, checkRegla8va, calculateISAN } from './regimes-programs';
+import { resolverIEPS } from './cotizador-ieps';
+import { resolverCuotaAutomatica } from './cotizador-cuotas';
+import { resolverDTAConCorpus } from './cotizador-dta';
+import { entradaDTA, type DTAResuelto, type TipoOperacionDTA } from '../lib/dta';
+import { calcularHonorarios, type ReglaHonorarios } from './tabulador-honorarios';
 
 export interface MultiQuoteItemInput {
   fractionCode: string;
@@ -50,6 +55,8 @@ export interface MultiQuoteItemInput {
   isVehicle?: boolean;
   vehiclePriceMXN?: number;
   isElectric?: boolean;
+  /** Ola 2: exportador/productor — habilita la tasa por empresa de la cuota compensatoria. */
+  exportador?: string;
 }
 
 export interface DispatchCosts {
@@ -74,6 +81,14 @@ export interface MultiQuoteInput {
   exchangeRate?: number;
   items: MultiQuoteItemInput[];
   dispatch?: DispatchCosts;
+  /** Ola 2: tipo de operación → DTA por Art. 49 LFD. Default 'general'. */
+  tipoOperacion?: TipoOperacionDTA;
+  /** Ola 2: tabulador de honorarios elegido (id). La ruta carga las reglas en `tabulador`. */
+  tabuladorId?: string;
+  /** Interno (lo llena la ruta): reglas del tabulador del tenant. */
+  tabulador?: { id: string; nombre: string; reglas: ReglaHonorarios[] } | null;
+  /** Si true, los honorarios del tabulador sustituyen a dispatch.honorariosAgente aunque venga capturado. */
+  usarTabulador?: boolean;
 }
 
 export interface ItemBreakdown {
@@ -124,7 +139,19 @@ export interface ItemBreakdown {
     needsWeight: boolean;
     /** Multa potencial Art. 178 LA: 130-150% de contribuciones omitidas. */
     potentialPenaltyMXN: number;
+    // Ola 2 — cuota automática
+    /** 'exportador' = tasa de la empresa capturada; 'general' = hay lista pero no coincide; 'general_sin_lista'. */
+    origenTasa: 'exportador' | 'general' | 'general_sin_lista';
+    empresa: string | null;
+    esAntielusion: boolean;
+    vigencia: string;
+    resolutionType: string;
+    advertencias: string[];
   } | null;
+  /** Ola 2: exportador capturado en la partida (para la tasa por empresa). */
+  exportador: string | null;
+  /** Ola 2: nota del DTA cuando la cuota fija se carga en esta partida. */
+  dtaNota: string | null;
   alertas: string[];
   priceCheck: PriceCheckResult | null;
   /** Tratado aplicado y arancel resultante (NMF si no califica / sin certificado) */
@@ -144,7 +171,7 @@ export interface ItemBreakdown {
   programs: {
     prosec: { eligible: boolean; applied: boolean; sector: string | null; prosecRate: number | null; savingsMXN: number; verificacion: import('../lib/dato-legal').DatoLegal<number> | null };
     regla8va: { eligible: boolean; applied: boolean; vehicleFraction: string | null; preferentialRate: number | null };
-    ieps: { applies: boolean; category: string | null; rate: number; rateType: string; amountMXN: number; calculation: string };
+    ieps: { applies: boolean; category: string | null; rate: number; rateType: string; amountMXN: number; calculation: string; cotejo: 'verificado' | 'sin_verificar' | 'sin_tasa'; nota: string; fundamento: string | null };
     isan: { applies: boolean; exempt: boolean; amountMXN: number; calculation: string; tier: { fixedAmount: number; marginalRate: number } | null };
   };
 }
@@ -180,6 +207,18 @@ export interface MultiQuoteResult {
     totalAll: number;               // landed + despacho
   };
   alertas: string[];                // alertas globales (deduplicadas)
+  // Ola 2
+  /** Fecha del dato de TC (DOF/Banxico) aplicado; null si TC manual o moneda MXN. */
+  tcFechaDOF: string | null;
+  tipoOperacion: TipoOperacionDTA;
+  dta: DTAResuelto;
+  honorarios: {
+    origen: 'tabulador' | 'manual';
+    tabuladorId: string | null;
+    tabuladorNombre: string | null;
+    detalle: string | null;
+    monto: number;
+  };
 }
 
 const round2 = (v: number) => Math.round((v + Number.EPSILON) * 100) / 100;
@@ -251,6 +290,20 @@ export async function calculateMultiQuote(input: MultiQuoteInput): Promise<Multi
   const itemsBreakdown: ItemBreakdown[] = [];
   const globalAlertas: string[] = [];
   if (rateInfo.warning) globalAlertas.push(rateInfo.warning);
+
+  // ── Ola 2: DTA por tipo de operación (Art. 49 LFD) ──
+  // Cuota fija = una por operación (pedimento): se carga en la partida 1.
+  // Último párrafo Art. 49: si el resultado al millar (fracc. I y II) es menor
+  // a la cuota de la fracc. III, se paga esta última — se decide ANTES del
+  // loop porque el DTA forma parte de la base del IVA de la partida.
+  const dtaInfo = await resolverDTAConCorpus(input.tipoOperacion);
+  const cuotaMinimaDTA = entradaDTA('temporal_immex').valor;
+  const valorMXNTotalEstimado = input.items.reduce((s, it) => s + (round2(it.quantity * it.unitValueUSD) + (it.freightUSD ?? 0) + (it.insuranceUSD ?? 0)) * effectiveRate, 0);
+  const dtaMillarTotal = valorMXNTotalEstimado * dtaInfo.dtaPct / 100;
+  const aplicaMinimoDTA = dtaInfo.base === 'millar' && (dtaInfo.tipo === 'general' || dtaInfo.tipo === 'activo_fijo_immex') && dtaMillarTotal < cuotaMinimaDTA;
+  const dtaFijoOperacion = dtaInfo.base === 'fija' ? dtaInfo.montoFijoMXN : aplicaMinimoDTA ? cuotaMinimaDTA : null;
+  if (dtaInfo.aviso) globalAlertas.push(dtaInfo.aviso);
+  if (aplicaMinimoDTA) globalAlertas.push(`DTA: el ${dtaInfo.etiqueta} al millar ($${round2(dtaMillarTotal).toFixed(2)}) es menor a la cuota mínima de la fracc. III ($${cuotaMinimaDTA.toFixed(2)}); se aplica esta última (Art. 49 LFD, último párrafo).`);
 
   for (let i = 0; i < input.items.length; i++) {
     const it = input.items[i];
@@ -328,15 +381,20 @@ export async function calculateMultiQuote(input: MultiQuoteInput): Promise<Multi
     const prosecSavingsBaseRate = (prosecApplied || regla8vaApplied) ? appliedRate - postProsecRate : 0;
 
     const igiRate = finalIgiRate;
-    const iepsRateDB = fraction?.iepsRate ?? 0;
-    const iepsRate = iepsRateDB; // alias para mantener uso legacy abajo
+    // Ola 2: IEPS por categoría desde IEPSRate; fallback al legacy Fraction.iepsRate
+    // solo si no hay fila; sin tasa → 0 + nota (nunca se inventa).
+    const iepsInfo = await resolverIEPS({ fractionCode: it.fractionCode, quantity: it.quantity, unit: it.unit ?? fraction?.unit ?? null });
+    const iepsRate = iepsInfo.aplica ? iepsInfo.pct : (fraction?.iepsRate ?? 0);
 
     const compliance = await lookupCompliance(it.fractionCode, it.countryOfOrigin);
+    // Ola 2: cuota compensatoria automática con tasa por exportador (servicio antidumping.ts).
+    const cuotaAuto = await resolverCuotaAutomatica({ fractionCode: it.fractionCode, countryOfOrigin: it.countryOfOrigin, exportador: it.exportador });
+    const antidumpingAplicable = cuotaAuto?.match ?? compliance.antidumping;
     // Cuota compensatoria por rateType — la lógica vive en `resolveCuotaCompensatoria`
     // (quoter.ts) para que single-item y multi-partida no diverjan.
     // Spec: RES-29/2024 $2.07 USD/kg sobre 1500 kg → $3,105 USD = $52,785 MXN.
     const cuota = resolveCuotaCompensatoria({
-      antidumping: compliance.antidumping,
+      antidumping: antidumpingAplicable,
       quantity: it.quantity,
       weightKg: it.weightKg,
       unit: it.unit,
@@ -355,11 +413,19 @@ export async function calculateMultiQuote(input: MultiQuoteInput): Promise<Multi
       exchangeRate: effectiveRate,
       rates: {
         igiPct: igiRate,
+        dtaPct: dtaInfo.dtaPct,
+        dtaAbsoluteMXN: dtaFijoOperacion != null ? (i === 0 ? dtaFijoOperacion : 0) : undefined,
         iepsPct: iepsRate,
+        iepsAbsoluteMXN: iepsInfo.montoEspecificoMXN > 0 ? iepsInfo.montoEspecificoMXN : undefined,
         countervailingPct: cvPct,
         countervailingAbsoluteMXN: cvAbsoluteMXN > 0 ? cvAbsoluteMXN : undefined,
       },
     });
+    const dtaNota = dtaFijoOperacion != null
+      ? (i === 0
+        ? `DTA cuota fija $${dtaFijoOperacion.toFixed(2)} MXN por operación (${dtaInfo.fundamento}${aplicaMinimoDTA ? ', último párrafo' : `, fracc. ${dtaInfo.fraccionArt49}`}) cargada en la partida 1.`
+        : 'DTA cuota fija cargada en la partida 1 (una por operación).')
+      : null;
 
     // Validación de precio estimado SAT (Art. 84-A LA)
     const priceCheck = await validateDeclaredPrice({
@@ -393,7 +459,7 @@ export async function calculateMultiQuote(input: MultiQuoteInput): Promise<Multi
       customsValueUSD,
       customsValueMXN: amounts.valueMXN,
       igiRate,
-      dtaRate: 0.8,
+      dtaRate: dtaFijoOperacion != null ? 0 : dtaInfo.dtaPct,
       ivaRate: 16,
       iepsRate,
       countervailingRate: cvRate,
@@ -406,24 +472,32 @@ export async function calculateMultiQuote(input: MultiQuoteInput): Promise<Multi
       isan: isanMXN,
       totalCost: round2(amounts.totalLandedCost + isanMXN),
       hasAntidumping: amounts.countervailingDuty > 0,
-      antidumpingDecree: compliance.antidumping?.decree ?? null,
-      antidumping: compliance.antidumping ? {
-        rate: compliance.antidumping.rate,
-        rateType: compliance.antidumping.rateType,
-        rateUnit: compliance.antidumping.rateUnit,
-        resolutionNumber: compliance.antidumping.resolutionNumber,
-        expedienteUPCI: compliance.antidumping.expedienteUPCI,
-        productDesc: compliance.antidumping.productDesc,
-        dofUrl: compliance.antidumping.dofUrl,
-        effectiveDate: compliance.antidumping.effectiveDate,
-        expiryDate: compliance.antidumping.expiryDate,
-        matchType: compliance.antidumping.matchType ?? 'exact',
-        matchedFraction: compliance.antidumping.matchedFraction ?? null,
+      antidumpingDecree: antidumpingAplicable?.decree ?? null,
+      antidumping: antidumpingAplicable ? {
+        rate: antidumpingAplicable.rate,
+        rateType: antidumpingAplicable.rateType,
+        rateUnit: antidumpingAplicable.rateUnit,
+        resolutionNumber: antidumpingAplicable.resolutionNumber,
+        expedienteUPCI: antidumpingAplicable.expedienteUPCI,
+        productDesc: antidumpingAplicable.productDesc,
+        dofUrl: antidumpingAplicable.dofUrl,
+        effectiveDate: antidumpingAplicable.effectiveDate,
+        expiryDate: antidumpingAplicable.expiryDate,
+        matchType: antidumpingAplicable.matchType ?? 'exact',
+        matchedFraction: antidumpingAplicable.matchedFraction ?? null,
         calculation: cvCalculationLabel,
         needsWeight: cvNeedsWeight,
         potentialPenaltyMXN: round2(amounts.countervailingDuty * 1.4),
+        origenTasa: cuotaAuto?.tasa.origen ?? 'general_sin_lista',
+        empresa: cuotaAuto?.tasa.empresa ?? null,
+        esAntielusion: cuotaAuto?.esAntielusion ?? false,
+        vigencia: cuotaAuto?.vigencia ?? `vigente desde ${antidumpingAplicable.effectiveDate?.slice(0, 10) ?? 's/f'}`,
+        resolutionType: antidumpingAplicable.resolutionType,
+        advertencias: cuotaAuto?.advertencias ?? [],
       } : null,
-      alertas: compliance.alertas,
+      exportador: it.exportador ?? null,
+      dtaNota,
+      alertas: [...compliance.alertas, ...(iepsInfo.aplica ? [iepsInfo.nota] : []), ...(cuotaAuto?.advertencias ?? [])],
       priceCheck,
       treaty: {
         requested: treatyRequested,
@@ -438,13 +512,7 @@ export async function calculateMultiQuote(input: MultiQuoteInput): Promise<Multi
         note: treatyNote,
       },
       ...(appliedTreaty === 'TLCUEM' ? { treatyNote: tlcuemNota() } : {}),
-      programs: await (async () => {
-        // IEPS dinámico
-        const iepsCheck = await checkIEPS({
-          fractionCode: it.fractionCode,
-          baseMXN: amounts.preIVABase,
-          quantity: it.quantity,
-        });
+      programs: (() => {
         // ISAN: reutiliza isanCheck ya calculado arriba (misma fuente, sin recálculo).
         return {
           prosec: {
@@ -464,12 +532,15 @@ export async function calculateMultiQuote(input: MultiQuoteInput): Promise<Multi
             preferentialRate: regla8vaCheck.preferentialRate,
           },
           ieps: {
-            applies: iepsCheck.applies,
-            category: iepsCheck.category,
-            rate: iepsCheck.rate,
-            rateType: iepsCheck.rateType,
-            amountMXN: iepsCheck.amountMXN ?? 0,
-            calculation: iepsCheck.calculation,
+            applies: iepsInfo.aplica,
+            category: iepsInfo.categoria,
+            rate: iepsInfo.tasa,
+            rateType: iepsInfo.tipoTasa ?? 'ad_valorem',
+            amountMXN: amounts.ieps,
+            calculation: iepsInfo.aplica ? iepsInfo.nota : '',
+            cotejo: iepsInfo.cotejo,
+            nota: iepsInfo.nota,
+            fundamento: iepsInfo.fundamento,
           },
           isan: {
             applies: isanCheck.applies,
@@ -485,17 +556,25 @@ export async function calculateMultiQuote(input: MultiQuoteInput): Promise<Multi
     for (const a of compliance.alertas) {
       if (!globalAlertas.includes(a)) globalAlertas.push(a);
     }
+    for (const a of cuotaAuto?.advertencias ?? []) {
+      const tag = `Partida ${i + 1}: ${a}`;
+      if (!globalAlertas.includes(tag)) globalAlertas.push(tag);
+    }
+    if (iepsInfo.aplica) {
+      const tag = `Partida ${i + 1}: ${iepsInfo.nota}`;
+      if (!globalAlertas.includes(tag)) globalAlertas.push(tag);
+    }
     // Banner global para cuota compensatoria — siempre prominente
-    if (compliance.antidumping && amounts.countervailingDuty > 0) {
-      const ad = compliance.antidumping;
+    if (antidumpingAplicable && amounts.countervailingDuty > 0) {
+      const ad = antidumpingAplicable;
       const resLabel = ad.resolutionNumber ?? ad.decree ?? 's/n';
       const matchWarn = ad.matchType && ad.matchType !== 'exact'
         ? ` [⚠️ match por ${ad.matchType === 'subheading' ? 'subpartida' : 'partida'} ${ad.matchedFraction} — verifica que ${it.fractionCode} esté cubierta]`
         : '';
       const tag = `🚨 Partida ${i + 1}: cuota compensatoria ${resLabel} aplicable (${cvCalculationLabel ?? `${ad.rate}${ad.rateUnit}`}) — omitirla = multa 130-150% Art. 178 LA${matchWarn}`;
       if (!globalAlertas.includes(tag)) globalAlertas.push(tag);
-    } else if (compliance.antidumping && cvNeedsWeight) {
-      const tag = `⚠️ Partida ${i + 1}: cuota compensatoria ${compliance.antidumping.resolutionNumber ?? compliance.antidumping.decree ?? 's/n'} requiere weightKg (USD/kg). Declara peso bruto para cálculo exacto.`;
+    } else if (antidumpingAplicable && cvNeedsWeight) {
+      const tag = `⚠️ Partida ${i + 1}: cuota compensatoria ${antidumpingAplicable.resolutionNumber ?? antidumpingAplicable.decree ?? 's/n'} requiere weightKg (USD/kg). Declara peso bruto para cálculo exacto.`;
       if (!globalAlertas.includes(tag)) globalAlertas.push(tag);
     }
     if (priceCheck.severity === 'critical' && priceCheck.message) {
@@ -508,8 +587,17 @@ export async function calculateMultiQuote(input: MultiQuoteInput): Promise<Multi
     }
   }
 
+  // ── Ola 2: honorarios desde tabulador (si se eligió y no se capturaron a mano, o se forzó) ──
+  const valorMXNOperacion = round2(itemsBreakdown.reduce((s, i) => s + i.customsValueMXN, 0));
+  let honorarios: MultiQuoteResult['honorarios'] = { origen: 'manual', tabuladorId: null, tabuladorNombre: null, detalle: null, monto: round2(input.dispatch?.honorariosAgente ?? 0) };
+  if (input.tabulador && (input.usarTabulador || input.dispatch?.honorariosAgente == null)) {
+    const calc = calcularHonorarios(input.tabulador.reglas, { tipoOperacion: dtaInfo.tipo, valorMXN: valorMXNOperacion });
+    honorarios = { origen: calc.regla ? 'tabulador' : 'manual', tabuladorId: input.tabulador.id, tabuladorNombre: input.tabulador.nombre, detalle: calc.detalle, monto: calc.regla ? calc.monto : honorarios.monto };
+    if (!calc.regla) globalAlertas.push(`Honorarios: ${calc.detalle}`);
+  }
+
   const dispatch = {
-    honorariosAgente: round2(input.dispatch?.honorariosAgente ?? 0),
+    honorariosAgente: honorarios.monto,
     prevalidacion: round2(input.dispatch?.prevalidacion ?? 321),
     almacenaje: round2(input.dispatch?.almacenaje ?? 0),
     estiba: round2(input.dispatch?.estiba ?? 0),
@@ -550,6 +638,10 @@ export async function calculateMultiQuote(input: MultiQuoteInput): Promise<Multi
     dispatch,
     totals,
     alertas: globalAlertas,
+    tcFechaDOF: isMXN || rateInfo.source === 'manual' ? null : exchangeRateDate.toISOString(),
+    tipoOperacion: dtaInfo.tipo,
+    dta: dtaInfo,
+    honorarios,
   };
 }
 
@@ -565,6 +657,12 @@ export interface ScenarioVariant {
   exchangeRateOverride?: number;       // TC fijo para este escenario
   /** Cambio de país (hace que se evalúe otra cuota compensatoria) */
   countryOverride?: string;
+  // Ola 2 — escenarios de venta (China definitivo vs T-MEC vs PROSEC)
+  /** Tratado a aplicar en todas las partidas (null = quitar tratado → NMF). */
+  treatyOverride?: 'TMEC' | 'TLCUEM' | 'CPTPP' | null;
+  hasCertificadoOrigen?: boolean;
+  applyPROSEC?: boolean;
+  tipoOperacionOverride?: TipoOperacionDTA;
 }
 
 export interface ScenarioComparison {
@@ -580,11 +678,15 @@ export async function compareScenarios(base: MultiQuoteInput, variants: Scenario
     const variantInput: MultiQuoteInput = {
       ...base,
       exchangeRate: v.exchangeRateOverride ?? base.exchangeRate,
+      tipoOperacion: v.tipoOperacionOverride ?? base.tipoOperacion,
       items: base.items.map(it => ({
         ...it,
         quantity: it.quantity * (v.weightMultiplier ?? 1),
         freightUSD: (it.freightUSD ?? 0) * (v.freightMultiplier ?? 1),
         countryOfOrigin: v.countryOverride ?? it.countryOfOrigin,
+        ...(v.treatyOverride !== undefined ? { applyTreaty: v.treatyOverride ?? undefined } : {}),
+        ...(v.hasCertificadoOrigen !== undefined ? { hasCertificadoOrigen: v.hasCertificadoOrigen } : {}),
+        ...(v.applyPROSEC !== undefined ? { applyPROSEC: v.applyPROSEC } : {}),
       })),
     };
     const r = await calculateMultiQuote(variantInput);

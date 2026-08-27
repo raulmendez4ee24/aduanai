@@ -3,6 +3,10 @@ import { preferenciaAplicable, TLCUEM_COUNTRIES, TLCUEM_VIGENCIA } from '../lib/
 import { getOfficialRate } from './exchange-rate';
 import { lookupCompliance, type AntidumpingMatch, type RegulationMatch } from './compliance-lookup';
 import { AppError } from '../middlewares/error';
+import { resolverIEPS, type IEPSResuelto } from './cotizador-ieps';
+import { resolverCuotaAutomatica, type CuotaAutomatica } from './cotizador-cuotas';
+import { resolverDTAConCorpus } from './cotizador-dta';
+import type { DTAResuelto, TipoOperacionDTA } from '../lib/dta';
 
 // ──────────────────────────────────────────────────────────────────────────
 // Pure quote calculation (testeable, sin DB ni red)
@@ -19,6 +23,12 @@ export interface QuoteRates {
    * specific_USD_unit ya convertido a MXN), se usa este valor en lugar
    * de countervailingPct. Forma parte de la base del IVA (Art. 27 LIVA). */
   countervailingAbsoluteMXN?: number;
+  /** Ola 2: DTA cuota fija (Art. 49 LFD fracc. III/IV/V/VII) en MXN. Si se
+   * pasa (>= 0) sustituye a dtaPct. */
+  dtaAbsoluteMXN?: number;
+  /** Ola 2: IEPS específico (MXN/L, MXN/kg…) ya calculado en MXN. Si se pasa
+   * (> 0) sustituye a iepsPct. Forma parte de la base del IVA. */
+  iepsAbsoluteMXN?: number;
 }
 
 export interface QuoteAmounts {
@@ -72,15 +82,21 @@ export function computeQuoteAmounts(args: {
   const iepsPct = args.rates.iepsPct ?? 0;
   const cvPct = args.rates.countervailingPct ?? 0;
   const cvAbsolute = args.rates.countervailingAbsoluteMXN;
+  const dtaAbsolute = args.rates.dtaAbsoluteMXN;
+  const iepsAbsolute = args.rates.iepsAbsoluteMXN;
 
   const valueMXNRaw = valueUSD * exchangeRate;
   const igiRaw = valueMXNRaw * (igiPct / 100);
-  const dtaRaw = valueMXNRaw * (dtaPct / 100);
+  const dtaRaw = dtaAbsolute != null && dtaAbsolute >= 0
+    ? dtaAbsolute
+    : valueMXNRaw * (dtaPct / 100);
   const cvRaw = cvAbsolute != null && cvAbsolute > 0
     ? cvAbsolute
     : valueMXNRaw * (cvPct / 100);
   const preIVARaw = valueMXNRaw + igiRaw + dtaRaw + cvRaw;
-  const iepsRaw = preIVARaw * (iepsPct / 100);
+  const iepsRaw = iepsAbsolute != null && iepsAbsolute > 0
+    ? iepsAbsolute
+    : preIVARaw * (iepsPct / 100);
   const baseIVARaw = preIVARaw + iepsRaw;
   const ivaRaw = baseIVARaw * (ivaPct / 100);
 
@@ -215,6 +231,10 @@ interface QuoteInput {
   weightKg?: number;
   /** Unidad declarada (kg, piezas, litro…) — habilita fallback kg ↔ quantity. */
   unit?: string;
+  /** Ola 2: tipo de operación para el DTA (Art. 49 LFD). Default 'general'. */
+  tipoOperacion?: TipoOperacionDTA;
+  /** Ola 2: exportador/productor — habilita la tasa por empresa de la cuota. */
+  exportador?: string;
 }
 
 interface QuoteResult {
@@ -253,6 +273,13 @@ interface QuoteResult {
   compensatorias: AntidumpingMatch | null;
   regulaciones: RegulationMatch[];
   alertas: string[];
+  // Ola 2 — cotizador como herramienta de venta
+  /** Fecha del dato de TC (DOF/Banxico) realmente aplicado; null si manual/identidad. */
+  tcFechaDOF: string | null;
+  tipoOperacion: TipoOperacionDTA;
+  dtaInfo: DTAResuelto;
+  iepsInfo: IEPSResuelto;
+  cuotaAuto: (Omit<CuotaAutomatica, 'match'> & { rate: number; rateUnit: string }) | null;
 }
 
 const PREVALIDATION_FEE_MXN = 321;
@@ -286,7 +313,11 @@ export async function calculateQuote(input: QuoteInput): Promise<QuoteResult> {
 
   // Tasas — siempre desde fracción verificada o override explícito; nunca default.
   const igiRate = input.igiRateOverride ?? fraction.tariffNMF!;
-  const iepsRate = fraction.iepsRate ?? 0;
+  // Ola 2: IEPS por categoría desde IEPSRate (0 + nota si no hay tasa cargada).
+  // Fallback al campo legacy Fraction.iepsRate solo si IEPSRate no tiene fila.
+  const iepsInfo = await resolverIEPS({ fractionCode, quantity: input.quantity, unit: input.unit });
+  const iepsRate = iepsInfo.aplica ? iepsInfo.pct : (fraction.iepsRate ?? 0);
+  const dtaInfo = await resolverDTAConCorpus(input.tipoOperacion);
 
   // Tipo de cambio con procedencia y fecha reales. Si no hay DB/proveedor,
   // getOfficialRate falla explícitamente; nunca cae a un escalar inventado.
@@ -308,11 +339,14 @@ export async function calculateQuote(input: QuoteInput): Promise<QuoteResult> {
   // lookupCompliance falla cerrado: si el DB no responde, lanza error en
   // lugar de devolver null silenciosamente. La ruta debe devolver 5xx.
   const compliance = await lookupCompliance(fractionCode, origin);
+  // Ola 2: cuota automática (tasa por exportador si la resolución la trae).
+  const cuotaAuto = await resolverCuotaAutomatica({ fractionCode, countryOfOrigin: origin, exportador: input.exportador });
+  const antidumpingAplicable = cuotaAuto?.match ?? compliance.antidumping;
 
   // Branching por rateType — fix CRITICAL del bug que trataba $X USD/kg
   // como X% sobre valor en aduana. Helper compartido con quoter-multi.
   const cuota = resolveCuotaCompensatoria({
-    antidumping: compliance.antidumping,
+    antidumping: antidumpingAplicable,
     quantity: input.quantity,
     weightKg: input.weightKg,
     unit: input.unit,
@@ -325,7 +359,10 @@ export async function calculateQuote(input: QuoteInput): Promise<QuoteResult> {
     exchangeRate,
     rates: {
       igiPct: igiRate,
+      dtaPct: dtaInfo.dtaPct,
+      dtaAbsoluteMXN: dtaInfo.base === 'fija' ? dtaInfo.montoFijoMXN : undefined,
       iepsPct: iepsRate,
+      iepsAbsoluteMXN: iepsInfo.montoEspecificoMXN > 0 ? iepsInfo.montoEspecificoMXN : undefined,
       countervailingPct: cuota.cvPct,
       countervailingAbsoluteMXN: cuota.cvAbsoluteMXN > 0 ? cuota.cvAbsoluteMXN : undefined,
     },
@@ -338,8 +375,11 @@ export async function calculateQuote(input: QuoteInput): Promise<QuoteResult> {
   for (const pref of preferential ?? []) {
     if (!pref.available && pref.note && !alertas.includes(pref.note)) alertas.push(pref.note);
   }
-  if (cuota.cvNeedsWeight && compliance.antidumping) {
-    const ad = compliance.antidumping;
+  if (dtaInfo.aviso) alertas.push(dtaInfo.aviso);
+  if (iepsInfo.aplica) alertas.push(iepsInfo.nota);
+  for (const a of cuotaAuto?.advertencias ?? []) if (!alertas.includes(a)) alertas.push(a);
+  if (cuota.cvNeedsWeight && antidumpingAplicable) {
+    const ad = antidumpingAplicable;
     const dataLabel = ad.rateType === 'specific_USD_kg' ? 'weightKg (peso bruto en kg)' : 'quantity (unidades)';
     alertas.push(
       `🚨 CÁLCULO INCOMPLETO: cuota ${ad.rateType} aplicable (${cuota.cvCalculationLabel ?? ''}) — declara ${dataLabel} antes de presentar pedimento. Declarar con cuota=0 expone a multa 130-150% Art. 178 LA.`,
@@ -360,12 +400,12 @@ export async function calculateQuote(input: QuoteInput): Promise<QuoteResult> {
     valueMXN: amounts.valueMXN,
     breakdown: {
       igi: { rate: igiRate, base: amounts.valueMXN, amount: amounts.igi },
-      dta: { rate: 0.8, base: amounts.valueMXN, amount: amounts.dta },
+      dta: { rate: dtaInfo.dtaPct, base: amounts.valueMXN, amount: amounts.dta },
       countervailingDuty: amounts.countervailingDuty > 0
-        ? { rate: compliance.antidumping?.rate ?? cuota.cvPct, base: amounts.valueMXN, amount: amounts.countervailingDuty }
+        ? { rate: antidumpingAplicable?.rate ?? cuota.cvPct, base: amounts.valueMXN, amount: amounts.countervailingDuty }
         : null,
-      ieps: iepsRate > 0
-        ? { rate: iepsRate, base: amounts.preIVABase, amount: amounts.ieps }
+      ieps: amounts.ieps > 0
+        ? { rate: iepsInfo.aplica ? iepsInfo.tasa : iepsRate, base: amounts.preIVABase, amount: amounts.ieps }
         : null,
       iva: { rate: 16, base: amounts.baseIVA, amount: amounts.iva },
       preIVABase: amounts.preIVABase,
@@ -376,9 +416,14 @@ export async function calculateQuote(input: QuoteInput): Promise<QuoteResult> {
     totalWithDispatch,
     totalLandedCostUSD: round2(amounts.totalLandedCost / exchangeRate),
     preferential,
-    compensatorias: compliance.antidumping,
+    compensatorias: antidumpingAplicable,
     regulaciones: compliance.regulations,
     alertas,
+    tcFechaDOF: currency === 'MXN' || rateInfo.source === 'manual' ? null : exchangeRateDate,
+    tipoOperacion: dtaInfo.tipo,
+    dtaInfo,
+    iepsInfo,
+    cuotaAuto: cuotaAuto ? (({ match, ...resto }) => ({ ...resto, rate: match.rate, rateUnit: match.rateUnit }))(cuotaAuto) : null,
   };
 }
 
