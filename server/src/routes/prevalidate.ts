@@ -7,6 +7,7 @@ import { prisma } from '../lib/prisma';
 import { REGLAS_PREVALIDADOR, PREVALIDADOR_REGLAS_NOTA } from '../services/prevalidador-reglas';
 import { cargarPedimento, pedimentoAInputPrevalidador, datosArchivoDe } from '../services/pedimento-importer';
 import { ANEXO22_APENDICES_PENDIENTES } from '../lib/anexo22';
+import { clienteIdDe, validarClienteDelTenant, whereConAlcance } from '../lib/cliente-contexto';
 
 export const prevalidateRouter = Router();
 
@@ -139,11 +140,14 @@ prevalidateRouter.post('/pedimento', authenticate, requirePermission('expediente
     const validation = await validatePedimento(pedimento, { aiCheck: !!aiCheck });
 
     const status = validation.errorsCount > 0 ? 'WITH_ERRORS' : 'VALIDATED';
+    // Operación 2026-08: el pedimento queda ligado al cliente/RFC activo (validado contra el tenant).
+    const clienteId = await validarClienteDelTenant(req.tenantId!, clienteIdDe(req));
 
     const created = await prisma.pedimento.create({
       data: {
         tenantId: req.tenantId!,
         userId: req.userId!,
+        clienteId,
         numero: pedimento.numero,
         clave: pedimento.clave,
         aduana: pedimento.aduana,
@@ -207,7 +211,7 @@ prevalidateRouter.post('/pedimento', authenticate, requirePermission('expediente
 prevalidateRouter.get('/pedimento', authenticate, async (req: AuthRequest, res, next) => {
   try {
     const status = String(req.query.status || '');
-    const where: Record<string, unknown> = { tenantId: req.tenantId! };
+    const where: Record<string, unknown> = whereConAlcance(req, { tenantId: req.tenantId! });
     if (status) where.status = status;
     const data = await prisma.pedimento.findMany({
       where,
@@ -228,7 +232,7 @@ prevalidateRouter.get('/pedimento', authenticate, async (req: AuthRequest, res, 
 prevalidateRouter.get('/pedimento/:id', authenticate, async (req: AuthRequest, res, next) => {
   try {
     const ped = await prisma.pedimento.findFirst({
-      where: { id: String(req.params.id), tenantId: req.tenantId! },
+      where: whereConAlcance(req, { id: String(req.params.id), tenantId: req.tenantId! }),
       include: { partidas: { orderBy: { numeroPartida: 'asc' } } },
     });
     if (!ped) return res.status(404).json({ status: 'error', message: 'Pedimento no encontrado' });
@@ -242,7 +246,7 @@ prevalidateRouter.get('/pedimento/:id', authenticate, async (req: AuthRequest, r
 prevalidateRouter.delete('/pedimento/:id', authenticate, requirePermission('expedientes', 'delete'), async (req: AuthRequest, res, next) => {
   try {
     const ped = await prisma.pedimento.findFirst({
-      where: { id: String(req.params.id), tenantId: req.tenantId! },
+      where: whereConAlcance(req, { id: String(req.params.id), tenantId: req.tenantId! }),
     });
     if (!ped) return res.status(404).json({ status: 'error', message: 'Pedimento no encontrado' });
     await prisma.pedimento.delete({ where: { id: ped.id } });

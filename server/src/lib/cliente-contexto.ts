@@ -67,9 +67,33 @@ export async function validarClienteEnAlcance(req: Request, tenantId: string, cl
 /** Where por id CON alcance de cliente: `{ id, tenantId, ...filtroCliente(req) }`.
  *  Las filas con clienteId null (compartidas del tenant) siguen visibles cuando hay restricción. */
 export function whereConAlcance<T extends Record<string, unknown>>(req: Request, base: T): T & { OR?: Array<Record<string, unknown>> } {
-  const f = filtroCliente(req);
-  if (!('clienteId' in f)) return base;
-  return { ...base, OR: [{ clienteId: f.clienteId }, { clienteId: null }] };
+  return { ...base, ...whereAlcance(filtroCliente(req)) };
+}
+
+// ── Alcance sin Request (para servicios) ─────────────────────────────────
+/** Lo que devuelve `filtroCliente(req)`: `{}` sin restricción; `{ clienteId }` o `{ clienteId: { in } }` con ella. */
+export type AlcanceCliente = ReturnType<typeof filtroCliente>;
+
+/** Ids del alcance: `null` = sin restricción (ve todo el tenant). */
+export function idsDeAlcance(alcance?: AlcanceCliente | null): string[] | null {
+  const c = alcance?.clienteId;
+  if (c === undefined) return null;
+  return typeof c === 'string' ? [c] : c.in;
+}
+
+/** ¿La fila (por su clienteId) cae dentro del alcance? null = compartida del tenant ⇒ visible. */
+export function filaEnAlcance(alcance: AlcanceCliente | null | undefined, clienteId: string | null | undefined): boolean {
+  const ids = idsDeAlcance(alcance);
+  if (!ids) return true;
+  if (clienteId == null) return true;
+  return ids.includes(clienteId);
+}
+
+/** Fragmento `where` para servicios: `{}` sin restricción; con ella, cliente(s) del alcance O fila compartida
+ *  (clienteId null). Se spreadea junto al resto del where: `{ tenantId, ...whereAlcance(alcance) }`. */
+export function whereAlcance(alcance?: AlcanceCliente | null): { OR?: Array<{ clienteId: string | { in: string[] } | null }> } {
+  if (!alcance || alcance.clienteId === undefined) return {};
+  return { OR: [{ clienteId: alcance.clienteId }, { clienteId: null }] };
 }
 /** Alcance de cliente para pasar a servicios: un cliente, varios (`{ in }`) o sin restricción (null). */
 export type AlcanceCliente = string | { in: string[] } | null;

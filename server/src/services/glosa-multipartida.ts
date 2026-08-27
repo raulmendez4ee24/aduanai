@@ -203,7 +203,7 @@ export async function simulateGlosaPedimento(
   for (const input of inputs) {
     const p = ped.partidas.find(x => x.numeroPartida === input.numeroPartida)!;
     try {
-      const resultado = await simulateGlosa(tenantId, userId, input, fuentesOverride);
+      const resultado = await simulateGlosa(tenantId, userId, input, fuentesOverride, ped.clienteId ?? null);
       partidas.push({ numeroPartida: p.numeroPartida, fraccion: p.fraccion, descripcion: p.descripcion, input, resultado, error: null });
     } catch (err) {
       partidas.push({ numeroPartida: p.numeroPartida, fraccion: p.fraccion, descripcion: p.descripcion, input, resultado: null, error: err instanceof Error ? err.message : String(err) });

@@ -14,7 +14,7 @@ import { recordAssembly, traceImport } from '../services/bom-service';
 import { validateFraction, FRACTION_UNVERIFIED_MESSAGE } from '../services/fraction-validator';
 import { createDischargeAtomic, deleteDischargeAtomic } from '../services/inventory-ledger';
 import { assertPeriodoAbierto } from '../services/anexo24-cierre';
-import { clienteIdDe, filtroCliente, validarClienteDelTenant } from '../lib/cliente-contexto';
+import { clienteIdDe, filtroCliente, validarClienteDelTenant, whereConAlcance } from '../lib/cliente-contexto';
 import { plazoMeses, fechaVencimiento } from '../lib/plazos-immex';
 import { certificacionAplicable } from '../services/anexo24-alta';
 
@@ -64,6 +64,18 @@ inventoryRouter.post('/imports', authenticate, requirePermission('inventory', 'a
       ? (() => { const d = new Date(entry); d.setMonth(d.getMonth() + months); return d; })()
       : fechaVencimiento(entry, plazo);
 
+    // Candado: productId / ubicacionId del body deben existir en ESTE tenant (y en el alcance del usuario).
+    const productId = typeof req.body.productId === 'string' && req.body.productId ? req.body.productId : null;
+    if (productId) {
+      const p = await prisma.product.findFirst({ where: whereConAlcance(req, { id: productId, tenantId: req.tenantId! }), select: { id: true } });
+      if (!p) return res.status(400).json({ status: 'error', message: 'Producto (número de parte) no encontrado' });
+    }
+    const ubicacionId = typeof req.body.ubicacionId === 'string' && req.body.ubicacionId ? req.body.ubicacionId : null;
+    if (ubicacionId) {
+      const u = await prisma.ubicacion.findFirst({ where: whereConAlcance(req, { id: ubicacionId, tenantId: req.tenantId! }), select: { id: true } });
+      if (!u) return res.status(400).json({ status: 'error', message: 'Ubicación no encontrada' });
+    }
+
     const imp = await prisma.temporaryImport.create({
       data: {
         pedimento,
@@ -85,8 +97,8 @@ inventoryRouter.post('/imports', authenticate, requirePermission('inventory', 'a
         tipo,
         claveDocumento: tipo === 'ACTIVO_FIJO' ? 'AF' : 'IN',
         vidaUtilMeses: tipo === 'ACTIVO_FIJO' && req.body.vidaUtilMeses ? Number(req.body.vidaUtilMeses) : null,
-        productId: typeof req.body.productId === 'string' && req.body.productId ? req.body.productId : null,
-        ubicacionId: typeof req.body.ubicacionId === 'string' && req.body.ubicacionId ? req.body.ubicacionId : null,
+        productId,
+        ubicacionId,
       },
     });
 
@@ -410,7 +422,7 @@ inventoryRouter.get('/annex30-account', authenticate, async (req: AuthRequest, r
 // Listar productos (con BOM expandido)
 inventoryRouter.get('/products', authenticate, async (req: AuthRequest, res, next) => {
   try {
-    const where: { tenantId: string; isFinished?: boolean } = { tenantId: req.tenantId! };
+    const where: { tenantId: string; isFinished?: boolean; OR?: Array<Record<string, unknown>> } = whereConAlcance(req, { tenantId: req.tenantId! });
     if (req.query.finished === 'true') where.isFinished = true;
     if (req.query.finished === 'false') where.isFinished = false;
 

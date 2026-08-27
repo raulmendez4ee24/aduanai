@@ -195,6 +195,15 @@ async function main() {
       assert.equal(r.resumen.riskLevelPresentacion, 'indeterminado');
     });
 
+    await test('multipartida persiste clienteId del pedimento en cada GlosaSimulation (Revisión D)', async () => {
+      const ped = { ...pedimentoFake(), clienteId: 'cli-glosa-test' } as PedimentoConPartidas;
+      const antes = await prisma.glosaSimulation.count({ where: { tenantId: TEST_TENANT, clienteId: 'cli-glosa-test' } });
+      const r = await simulateGlosaPedimento(TEST_TENANT, TEST_USER, ped, {}, fuentesOK());
+      assert.equal(r.resumen.partidasEvaluadas, 2);
+      const despues = await prisma.glosaSimulation.count({ where: { tenantId: TEST_TENANT, clienteId: 'cli-glosa-test' } });
+      assert.equal(despues - antes, 2, 'una simulación por partida, ambas ligadas al cliente del pedimento');
+    });
+
     await test('resumirPedimento puro: riesgo máximo = partida con mayor score', () => {
       const mk = (n: number, score: number, level: 'low' | 'high'): PartidaGlosa => ({ numeroPartida: n, fraccion: 'x', descripcion: '', input: {} as never, error: null, resultado: { riskScore: score, riskLevel: level, riskLevelPresentacion: level, flags: [], cruces: [], revision: { completa: true, noRevisados: [], reglasNoEvaluadas: [], dominios: {} as never } } as never });
       const r = resumirPedimento([mk(1, 10, 'low'), mk(2, 70, 'high')]);
