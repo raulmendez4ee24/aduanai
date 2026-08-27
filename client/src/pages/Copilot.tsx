@@ -137,7 +137,7 @@ export function CopilotPage() {
               <p className="text-[14px] font-semibold text-slate-700">¿En qué puedo ayudarte?</p>
               <p className="text-[12px] text-slate-500 mt-1 max-w-sm mx-auto">Puedo responder sobre regulaciones, NOM, RRNA, tratados comerciales, fracciones arancelarias y más.</p>
               <div className="mt-6 flex flex-wrap justify-center gap-2">
-                {['¿Qué NOM aplica para alimentos?', '¿Necesito permiso para importar textiles?', 'Explica la GRI 3'].map((q, i) => (
+                {['¿Qué excepciones al cumplimiento de NOMs aplican en el punto de entrada?', '¿Necesito permiso para importar textiles?', 'Explica la GRI 3'].map((q, i) => (
                   <button key={i} onClick={() => { setInput(q); }} className="text-[11px] text-slate-600 bg-white/60 border border-slate-200/50 px-3 py-2 rounded-xl hover:bg-white/80 transition-colors">
                     {q}
                   </button>

@@ -10,7 +10,7 @@ import { prisma } from '../lib/prisma';
 import { smartRetrieval } from '../services/rag-search';
 
 const QUESTIONS = [
-  { query: '¿Qué NOM aplica para alimentos?' },
+  { query: '¿Qué excepciones al cumplimiento de NOMs aplican en el punto de entrada?', expectedReference: /NOM/i },
   { query: '¿Necesito permiso para importar textiles?' },
   { query: 'Explica la GRI 3', expectedReference: /GRI/i },
 ];
