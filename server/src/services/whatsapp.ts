@@ -254,6 +254,8 @@ export async function sendWhatsAppMessage(to: string, body: string): Promise<voi
 
   await fetch('https://api.ycloud.com/v2/whatsapp/messages', {
     method: 'POST',
+    // Un socket colgado no debe bloquear el digest de los demás tenants.
+    signal: AbortSignal.timeout(15000),
     headers: {
       'Content-Type': 'application/json',
       'X-API-Key': YCLOUD_API_KEY,

@@ -319,7 +319,11 @@ export async function buscarDocsPorCita(citas: string[], excluirIds: string[]): 
     .map(r => r.id)
     .slice(0, 4); // tope: no inflar el contexto (prod trajo 7 por "Art. 106")
   if (ids.length === 0) return [];
-  const filas = await prisma.legalDocument.findMany({ where: { id: { in: ids } } });
+  const filas = await prisma.legalDocument.findMany({
+    where: { id: { in: ids } },
+    // Sin `embedding` (vector de 1024 floats por doc): solo lo que se usa abajo.
+    select: { id: true, type: true, claseTexto: true, source: true, title: true, reference: true, content: true, officialUrl: true, effectiveDate: true, version: true, topics: true, keywords: true, fractionRefs: true },
+  });
   return filas.map(d => ({
     id: d.id, type: d.type, claseTexto: d.claseTexto, source: d.source, title: d.title, reference: d.reference,
     content: d.content, excerpt: d.content.slice(0, 300), officialUrl: d.officialUrl,

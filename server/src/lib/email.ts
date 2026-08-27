@@ -1,10 +1,20 @@
 import { Resend } from 'resend';
 import type { Digest } from '../services/digest-semanal';
 
+/** Tope por llamada a Resend: el SDK usa fetch sin señal; un socket colgado bloqueaba jobs enteros (digest). */
+const EMAIL_TIMEOUT_MS = 15000;
+
 let resend: Resend | null = null;
 function getResend(): Resend | null {
   if (!process.env.RESEND_API_KEY) return null;
-  if (!resend) resend = new Resend(process.env.RESEND_API_KEY);
+  if (!resend) {
+    resend = new Resend(process.env.RESEND_API_KEY);
+    // Todas las llamadas del SDK pasan por fetchRequest(path, options) → fetch(url, options):
+    // se inyecta AbortSignal.timeout en cada request.
+    const original = resend.fetchRequest.bind(resend);
+    resend.fetchRequest = <T>(path: string, options: Record<string, unknown> = {}) =>
+      original<T>(path, { ...options, signal: AbortSignal.timeout(EMAIL_TIMEOUT_MS) });
+  }
   return resend;
 }
 /** ¿Hay proveedor de email configurado? (el digest no promete envíos sin esto) */

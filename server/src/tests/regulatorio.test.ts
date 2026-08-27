@@ -258,6 +258,26 @@ function fetchFixture(): typeof fetch {
       const t = await prisma.tenant.findUnique({ where: { id: tenant.id } });
       assert.equal(t!.digestUltimoEnvioAt?.toISOString(), AHORA.toISOString());
     });
+    await prueba('digest parcial: falla el 2.º de 3 destinatarios → enviado=true, 1.º y 3.º reportados, error nombra al que falló, marca de envío se actualiza', async () => {
+      const a2 = await prisma.user.create({ data: { email: `a2-${SUFIJO}@test.local`, password: 'x', name: 'A2', tenantId: tenant.id, role: 'ADMIN', emailVerified: true } });
+      const a3 = await prisma.user.create({ data: { email: `a3-${SUFIJO}@test.local`, password: 'x', name: 'A3', tenantId: tenant.id, role: 'ADMIN', emailVerified: true } });
+      try {
+        const intentos: string[] = [];
+        const despues = new Date(AHORA.getTime() + 7 * 86400000);
+        const r = await enviarDigest(tenant.id, { ahora: despues, transportes: { email: async (to) => { intentos.push(to); if (intentos.length === 2) throw new Error('Resend 500'); }, configurado: { email: true } } });
+        assert.equal(intentos.length, 3, 'se intenta con los tres aunque falle uno');
+        assert.equal(r.enviado, true);
+        assert.deepEqual(r.email.destinatarios, [intentos[0], intentos[2]]);
+        assert.ok(r.email.error!.includes('falló 1 de 3') && r.email.error!.includes(intentos[1]!) && r.email.error!.includes('Resend 500'), r.email.error!);
+        assert.ok(r.motivo!.startsWith('envío parcial'));
+        const t = await prisma.tenant.findUnique({ where: { id: tenant.id } });
+        assert.equal(t!.digestUltimoEnvioAt?.toISOString(), despues.toISOString(), 'hubo envío real: no se reenvía a los que ya lo recibieron');
+        const guardado = await prisma.alert.findFirst({ where: { tenantId: tenant.id, type: 'weekly_summary' }, orderBy: { createdAt: 'desc' } });
+        assert.ok(guardado!.content.includes('envío parcial'));
+      } finally {
+        await prisma.user.deleteMany({ where: { id: { in: [a2.id, a3.id] } } });
+      }
+    });
     await prueba('digest: un usuario restringido a un cliente NO recibe el digest del tenant; el no restringido sí', async () => {
       const restringido = await prisma.user.create({ data: { email: `r-${SUFIJO}@test.local`, password: 'x', name: 'R', tenantId: tenant.id, role: 'USER', emailVerified: true } });
       const libre = await prisma.user.create({ data: { email: `l-${SUFIJO}@test.local`, password: 'x', name: 'L', tenantId: tenant.id, role: 'USER', emailVerified: true } });

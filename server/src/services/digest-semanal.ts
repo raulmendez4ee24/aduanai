@@ -218,10 +218,14 @@ export async function enviarDigest(tenantId: string, opts: { ahora?: Date; trans
       else if (tos.length === 0) res.email.error = 'sin destinatarios con email verificado';
       else {
         res.email.intentado = true;
-        try {
-          for (const to of tos) await (tr.email ?? sendDigestSemanalEmail)(to, digest);
-          res.email.destinatarios = tos;
-        } catch (err) { res.email.error = err instanceof Error ? err.message : String(err); }
+        // Por destinatario: si falla el 2.º de 3, el 1.º y el 3.º sí lo recibieron y
+        // así se reporta (antes: destinatarios=[] y reenvío al 1.º la semana siguiente).
+        const fallos: string[] = [];
+        for (const to of tos) {
+          try { await (tr.email ?? sendDigestSemanalEmail)(to, digest); res.email.destinatarios.push(to); }
+          catch (err) { fallos.push(`${to}: ${err instanceof Error ? err.message : String(err)}`); }
+        }
+        if (fallos.length > 0) res.email.error = `falló ${fallos.length} de ${tos.length}: ${fallos.join('; ')}`;
       }
     }
     if (quiereWA) {
@@ -231,22 +235,26 @@ export async function enviarDigest(tenantId: string, opts: { ahora?: Date; trans
       else if (tos.length === 0) res.whatsapp.error = 'sin destinatarios con teléfono';
       else {
         res.whatsapp.intentado = true;
-        try {
-          const texto = renderDigestTexto(digest);
-          for (const to of tos) await (tr.whatsapp ?? sendWhatsAppMessage)(to, texto);
-          res.whatsapp.destinatarios = tos;
-        } catch (err) { res.whatsapp.error = err instanceof Error ? err.message : String(err); }
+        const texto = renderDigestTexto(digest);
+        const fallos: string[] = [];
+        for (const to of tos) {
+          try { await (tr.whatsapp ?? sendWhatsAppMessage)(to, texto); res.whatsapp.destinatarios.push(to); }
+          catch (err) { fallos.push(`${to}: ${err instanceof Error ? err.message : String(err)}`); }
+        }
+        if (fallos.length > 0) res.whatsapp.error = `falló ${fallos.length} de ${tos.length}: ${fallos.join('; ')}`;
       }
     }
     res.enviado = res.email.destinatarios.length > 0 || res.whatsapp.destinatarios.length > 0;
-    if (!res.enviado) res.motivo = [res.email.error, res.whatsapp.error].filter(Boolean).join('; ') || 'sin destinatarios';
+    const errores = [res.email.error, res.whatsapp.error].filter(Boolean).join('; ');
+    if (!res.enviado) res.motivo = errores || 'sin destinatarios';
+    else if (errores) res.motivo = `envío parcial — ${errores}`;
   }
 
   // Registro persistente del digest (siempre), con marca honesta del canal.
   const fingerprint = `digest|${semanaISO(ahora)}${opts.forzar ? `|manual|${ahora.getTime()}` : ''}`;
   const existente = await prisma.alert.findFirst({ where: { tenantId, fingerprint }, select: { id: true } });
   const marca = res.enviado
-    ? `Enviado por ${[res.email.destinatarios.length ? 'email' : null, res.whatsapp.destinatarios.length ? 'WhatsApp' : null].filter(Boolean).join(' y ')}.`
+    ? `Enviado por ${[res.email.destinatarios.length ? 'email' : null, res.whatsapp.destinatarios.length ? 'WhatsApp' : null].filter(Boolean).join(' y ')}.${res.motivo ? ` ${res.motivo}.` : ''}`
     : `No enviado — ${res.motivo}. El resumen queda aquí.`;
   const contenido = `${marca}\n\n${renderDigestTexto(digest).replace(/\*/g, '')}`;
   if (existente) {
@@ -270,19 +278,35 @@ export async function enviarDigest(tenantId: string, opts: { ahora?: Date; trans
 /** Job semanal: tenants con canal configurado y sin envío en los últimos 6 días. */
 export async function enviarDigestsPendientes(ahora = new Date()): Promise<{ tenants: number; enviados: number }> {
   const hace6d = new Date(ahora.getTime() - 6 * 86400000);
+  const ventana = { OR: [{ digestUltimoEnvioAt: null }, { digestUltimoEnvioAt: { lt: hace6d } }] };
   const tenants = await prisma.tenant.findMany({
-    where: { status: { in: ['ACTIVE', 'PILOT', 'TRIAL'] }, digestSemanalCanal: { not: null }, OR: [{ digestUltimoEnvioAt: null }, { digestUltimoEnvioAt: { lt: hace6d } }] },
-    select: { id: true },
+    where: { status: { in: ['ACTIVE', 'PILOT', 'TRIAL'] }, digestSemanalCanal: { not: null }, ...ventana },
+    select: { id: true, digestUltimoEnvioAt: true },
   });
   let enviados = 0;
   // Revisión C: tenants en lotes de 50; un tenant que falla se loguea y no tumba el tick.
   for (const lote of enLotes(tenants)) {
     for (const t of lote) {
+      // Claim del tenant ANTES de enviar: updateMany condicional sobre digestUltimoEnvioAt.
+      // Con >1 réplica (o dos ticks) solo quien lo cambió (count===1) envía; el otro lo salta.
+      const claim = await prisma.tenant.updateMany({
+        where: { id: t.id, ...ventana },
+        data: { digestUltimoEnvioAt: ahora },
+      }).catch(err => {
+        logger.error('Digest semanal: claim del tenant falló', { action: 'digest_semanal_fail', tenantId: t.id, errorMessage: err instanceof Error ? err.message : String(err) });
+        return { count: 0 };
+      });
+      if (claim.count !== 1) continue;
       const r = await enviarDigest(t.id, { ahora }).catch(err => {
         logger.error('Digest semanal: envío falló', { action: 'digest_semanal_fail', tenantId: t.id, errorMessage: err instanceof Error ? err.message : String(err) });
         return null;
       });
       if (r?.enviado) enviados++;
+      else {
+        // No salió nada: se devuelve la marca anterior para que el siguiente tick lo reintente
+        // (solo si nadie la movió mientras tanto).
+        await prisma.tenant.updateMany({ where: { id: t.id, digestUltimoEnvioAt: ahora }, data: { digestUltimoEnvioAt: t.digestUltimoEnvioAt } }).catch(() => {});
+      }
     }
   }
   return { tenants: tenants.length, enviados };
