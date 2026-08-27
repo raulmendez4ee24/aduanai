@@ -95,7 +95,9 @@ prueba('TODO modelo del schema con columna tenantId está en MODELOS_MULTITENANT
   for (const m of schema.matchAll(/^model\s+(\w+)\s*\{([\s\S]*?)^\}/gm)) {
     const [, nombre, cuerpo] = m;
     if (nombre === 'User') continue;
-    if (/^\s+tenantId\s+String/m.test(cuerpo) && !MODELOS_MULTITENANT.has(nombre)) faltan.push(nombre);
+    // tenantId obligatorio → multi-tenant puro. `String?` = modelo con filas globales
+    // (ClassificationKnowledge: conocimiento verificado por staff) — se scopea en el servicio.
+    if (/^\s+tenantId\s+String(?!\?)/m.test(cuerpo) && !MODELOS_MULTITENANT.has(nombre)) faltan.push(nombre);
   }
   assert.deepEqual(faltan, [], `modelos multi-tenant fuera de la guarda: ${faltan.join(', ')}`);
 });

@@ -366,17 +366,27 @@ Responde SIEMPRE en formato JSON válido con esta estructura:
 // KNOWLEDGE BASE SEARCH
 // ============================================
 
-async function findRelevantKnowledge(description: string, probableChapters: string[] = []) {
+/**
+ * Filtro del retrieval de conocimiento (Bloque 3, sin contaminación entre
+ * tenants): se consume (a) lo VERIFICADO por staff, de cualquier origen, o
+ * (b) lo NO verificado del MISMO tenant en sus capítulos probables. Las filas
+ * de feedback de otros tenants (y las legadas globales sin verificar) jamás
+ * entran al prompt de otro tenant. Sin tenant (demo pública) → solo (a).
+ */
+export function construirFiltroConocimiento(probableChapters: string[], tenantId?: string): Record<string, unknown> {
+  const ramas: Record<string, unknown>[] = [{ verified: true }];
+  if (tenantId && probableChapters.length > 0) {
+    ramas.push({ AND: [{ tenantId }, { chapterCode: { in: probableChapters } }] });
+  }
+  return { OR: ramas };
+}
+
+async function findRelevantKnowledge(description: string, probableChapters: string[] = [], tenantId?: string) {
   const words = description.toLowerCase().split(/\s+/).filter(w => w.length > 3);
   if (words.length === 0 && probableChapters.length === 0) return [];
 
   const all = await prisma.classificationKnowledge.findMany({
-    where: {
-      OR: [
-        ...(probableChapters.length > 0 ? [{ chapterCode: { in: probableChapters } }] : []),
-        { verified: true },
-      ],
-    },
+    where: construirFiltroConocimiento(probableChapters, tenantId) as never,
     orderBy: [{ priority: 'desc' }, { createdAt: 'desc' }],
     take: 80,
   });
@@ -667,6 +677,8 @@ export interface ClassifyOptions {
   sector?: IndustrialSector;
   /** Tipo de importador (afecta peso de la dualidad material vs uso) */
   importerType?: ImporterType;
+  /** Tenant que clasifica: habilita su propio conocimiento no verificado (Bloque 3). */
+  tenantId?: string;
 }
 
 const SECTOR_LABELS: Record<IndustrialSector, string> = {
@@ -747,7 +759,7 @@ export async function classifyProduct(
   const { relatedFractions, chapterFractions, topChapters } = await findRelatedFractions(description);
 
   // Knowledge base lookup (casos reales, errores comunes, reglas de sector)
-  const knowledge = await findRelevantKnowledge(description, topChapters || []);
+  const knowledge = await findRelevantKnowledge(description, topChapters || [], options?.tenantId);
   const knowledgeContext = formatKnowledgeForPrompt(knowledge);
 
   // Precedentes legales para alimentar el prompt (TFJA, SCJN, criterios SAT)

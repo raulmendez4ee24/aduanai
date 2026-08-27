@@ -325,6 +325,10 @@ model ClassificationKnowledge {
   priority     Int           @default(5)
   verified     Boolean       @default(false)
   verifiedBy   String?
+  // Bloque 3: origen de la fila. null = conocimiento global (staff, seed).
+  // Las filas de feedback de usuarios llevan su tenant y SOLO ese tenant las
+  // consume mientras no estén verificadas (sin contaminación entre tenants).
+  tenantId     String?
   createdAt    DateTime      @default(now())
   updatedAt    DateTime      @updatedAt
 
@@ -333,6 +337,7 @@ model ClassificationKnowledge {
   @@index([chapterCode])
   @@index([priority])
   @@index([verified])
+  @@index([tenantId])
   @@map("classification_knowledge")
 }
 

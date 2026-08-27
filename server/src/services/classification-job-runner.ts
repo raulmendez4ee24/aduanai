@@ -137,7 +137,7 @@ export async function runClassificationJob(jobId: string): Promise<void> {
   const { description, context, countryOfOrigin, declaredValueUSD, declaredQuantity, useCase, sector, importerType, userRole } = inputs;
 
   try {
-    const bruto = await classifyProduct(description, context, { useCase, sector, importerType });
+    const bruto = await classifyProduct(description, context, { useCase, sector, importerType, tenantId: job.tenantId });
 
     // FRONTERA CANÓNICA §3: reconciliación tras el clasificador — ningún
     // camino interno puede esquivarla. NICO, tarifas, NOMs, RRNA y padrón

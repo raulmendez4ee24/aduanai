@@ -280,6 +280,8 @@ classifyRouter.patch('/:id/feedback', authenticate, async (req: AuthRequest, res
           keywords,
           priority: 7,
           verified: false,
+          // Bloque 3: la fila es del tenant; solo él la consume hasta que staff la verifique.
+          tenantId: req.tenantId!,
         },
       });
     }
