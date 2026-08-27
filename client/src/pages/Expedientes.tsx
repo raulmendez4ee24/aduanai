@@ -29,7 +29,7 @@ export const GUIA_MODULO = {
     'Crea la operación con su referencia/pedimento; el sistema abre los slots de documentos requeridos y el checklist de incisos a)–h) del Art. 59 fr. V LA.',
     'Sube cada documento (PDF/imagen/XML). La IA detecta el tipo y extrae los datos; el inciso correspondiente se marca completo automáticamente.',
     'Marca "no aplica" en los incisos condicionales (a) garantía, h) notas de crédito) cuando no existan para esa operación.',
-    'Corre la glosa documental: cruza factura vs pedimento vs BL vs packing con tolerancias explícitas (valor 1 %, peso 5 %, cantidades exactas).',
+    'Corre la glosa documental: cruza factura vs pedimento vs BL vs packing con tolerancias explícitas (valor 1 %, peso 5 %, cantidades exactas) — criterio operativo del producto, no una norma.',
     'Fija la retención de 5 años (crea el aviso en el Calendario) y descarga el paquete de auditoría ZIP con certificado de integridad.',
     'Los fundamentos marcados "pendiente de fuente oficial" aún no están cotejados en el corpus: verifica el texto en el DOF antes de citarlos.',
   ],
@@ -430,7 +430,7 @@ function TabGlosa({ detalle, onCambio, setError }: TabProps) {
             <span className="text-13 text-tinta-suave">· cruces: {g.cruces.length ? g.cruces.join(', ') : 'ninguno'}</span>
             <span className="text-13 text-tinta-suave ml-auto">{new Date(g.generadoAt).toLocaleString('es-MX')}</span>
           </div>
-          <p className="text-13 text-tinta-suave">Tolerancias: valor {g.tolerancias.valorPct * 100} % o ±{g.tolerancias.valorAbs} · peso {g.tolerancias.pesoPct * 100} % · cantidades ±{g.tolerancias.cantidadAbs} · bultos ±{g.tolerancias.bultosAbs}</p>
+          <p className="text-13 text-tinta-suave">Tolerancias (criterio operativo, sin fundamento legal): valor {g.tolerancias.valorPct * 100} % o ±{g.tolerancias.valorAbs} · peso {g.tolerancias.pesoPct * 100} % · cantidades ±{g.tolerancias.cantidadAbs} · bultos ±{g.tolerancias.bultosAbs}</p>
           {g.diferencias.length === 0 ? <p className="text-sm text-petroleo flex items-center gap-1"><CheckCircle2 className="w-4 h-4" /> Sin diferencias en los cruces realizados.</p> : (
             <div className="overflow-x-auto">
               <table className="w-full text-left">

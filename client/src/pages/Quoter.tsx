@@ -110,7 +110,8 @@ const FORM_INICIAL: FormCotizador = {
 type Pestana = 'cotizar' | 'mis' | 'tabuladores'
 
 export function QuoterPage() {
-  const [form, setForm, resetForm] = useEstadoPersistente<FormCotizador>('cotizador', FORM_INICIAL)
+  // tcDate NO se persiste (revisión 27-ago: se mandaba el TC del día que se abrió el módulo).
+  const [form, setForm, resetForm] = useEstadoPersistente<FormCotizador>('cotizador', FORM_INICIAL, { sobrescribir: { tcDate: new Date().toISOString().slice(0, 10) } as Partial<FormCotizador> })
   const { meta, items, dispatch } = form
   const setMeta = (m: FormCotizador['meta']) => setForm(f => ({ ...f, meta: m }))
   const setItems = (fn: (prev: MultiQuoteItemInputOla2[]) => MultiQuoteItemInputOla2[]) => setForm(f => ({ ...f, items: fn(f.items) }))
@@ -379,7 +380,7 @@ export function QuoterPage() {
             <TCRadio val="average30" cur={form.tcMode} onChange={v => setForm(f => ({ ...f, tcMode: v }))} label="Promedio últimos 30d" />
             <TCRadio val="historical" cur={form.tcMode} onChange={v => setForm(f => ({ ...f, tcMode: v }))} label="Fecha específica" />
             {form.tcMode === 'historical' && (
-              <input type="date" value={form.tcDate} onChange={e => setForm(f => ({ ...f, tcDate: e.target.value }))} className="text-[12px] border border-slate-200 rounded-lg px-2 py-1.5"/>
+              <input type="date" value={form.tcDate || new Date().toISOString().slice(0, 10)} onChange={e => setForm(f => ({ ...f, tcDate: e.target.value }))} className="text-[12px] border border-slate-200 rounded-lg px-2 py-1.5"/>
             )}
             <input type="number" min="0" step="0.0001" autoComplete="off" name="tc-override" onWheel={blurOnWheel} placeholder="Override manual TC" value={form.tcOverride} onChange={e => setForm(f => ({ ...f, tcOverride: e.target.value }))} onBlur={e => { const v = e.currentTarget.value; if (v !== '') { const n = Math.max(0, parseNum(v)); setForm(f => ({ ...f, tcOverride: n > 0 ? String(n) : '' })); e.currentTarget.value = n > 0 ? String(n) : '' } }} className="text-[12px] border border-slate-200 rounded-lg px-2 py-1.5 w-40 ml-auto"/>
           </div>

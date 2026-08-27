@@ -224,7 +224,7 @@ export function GlosaSimulatorPage() {
     // Captura real (misión 25-ago): sin este dato ORI_002 disparaba siempre
     // que se marcaran los dos checkboxes T-MEC.
     documents: { originCertificate: false },
-  })
+  }, { sobrescribir: { fractionCode: params.get('fraccion') ?? undefined } as Partial<GlosaSimulationInput> })
   const [estado, setEstado] = useState<'form' | 'generando' | 'listo' | 'listo-pedimento' | 'error'>('form')
   const [pedResultado, setPedResultado] = useState<GlosaPedimentoResultado | null>(null)
   const [partidaAbierta, setPartidaAbierta] = useState<number | null>(null)
@@ -753,7 +753,7 @@ function ReportePedimento({ r, generadoEn, archivado, archivando, partidaAbierta
               <div className="mt-4 pt-4 border-t border-linea flex items-center gap-2 flex-wrap">
                 <span className="text-sm text-tinta-suave">Base normativa usada:</span>
                 <span className="text-sm text-tinta">{r.versiones.tigie}</span>
-                <SelloVerificacion estado="verificado" fuenteNombre={r.versiones.fuenteNombre} fuenteUrl={r.versiones.fuenteUrl} fechaPublicacion={r.versiones.fechaPublicacion} fechaVerificacion={r.versiones.fechaVerificacion} metodo="manual" />
+                <SelloVerificacion estado={r.versiones.fechaVerificacion ? 'verificado' : 'sin_verificar'} fuenteNombre={r.versiones.fuenteNombre} fuenteUrl={r.versiones.fuenteUrl} fechaPublicacion={r.versiones.fechaPublicacion} fechaVerificacion={r.versiones.fechaVerificacion} metodo="manual" />
               </div>
             )}
           </header>

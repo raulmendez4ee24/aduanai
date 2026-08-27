@@ -66,7 +66,7 @@ export function ActivoFijoPage() {
           <Button className="ml-auto" variante="primario" tamano="sm" onClick={() => setMostrarForm(v => !v)}><Plus className="w-4 h-4" /> Alta manual</Button>
         </div>
       }>
-        <p className="text-sm text-tinta-suave">Bienes de activo fijo importados temporalmente (clave AF). Permanecen mientras el programa IMMEX esté vigente (Regla 4.3.1 RGCE 2026); su salida es retorno o cambio de régimen F5.</p>
+        <p className="text-sm text-tinta-suave">Bienes de activo fijo importados temporalmente (clave AF). Permanecen mientras el programa IMMEX esté vigente (fundamento: pendiente de cotejo contra RGCE/Decreto IMMEX vigentes); su salida es retorno o cambio de régimen F5.</p>
         {error && <p className="mt-3 text-sm text-carmin flex items-center gap-1"><AlertTriangle className="w-4 h-4" /> {error}</p>}
       </Card>
 

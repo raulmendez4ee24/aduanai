@@ -13,13 +13,14 @@
  * — misma firma que useState. `reset()` devuelve al inicial y borra la clave.
  */
 import { useCallback, useEffect, useRef, useState } from 'react'
+import { clienteActivo } from '../lib/api-core'
 
 const PREFIJO = 'aduanai_estado:'
 const TOPE_BYTES = 200 * 1024
 
-function claveDe(modulo: string): string {
-  return `${PREFIJO}${modulo}`
-}
+// Clave por módulo Y por cliente activo: cambiar de cliente no debe arrastrar
+// el formulario del anterior (revisión 27-ago: MVE mandaba el RFC de A con
+// X-Cliente-Id de B). Ver `clave` dentro del hook.
 
 function leer<T>(clave: string): T | undefined {
   try {
@@ -45,8 +46,15 @@ function escribir<T>(clave: string, dato: T): void {
 export function useEstadoPersistente<T>(
   modulo: string,
   inicial: T | (() => T),
+  opts: { /** Campos que deben GANAR a lo guardado (p. ej. los que vienen del querystring). */ sobrescribir?: Partial<T> } = {},
 ): [T, (v: T | ((prev: T) => T)) => void, () => void] {
-  const clave = claveDe(modulo)
+  const [cliente, setCliente] = useState<string | null>(() => clienteActivo())
+  useEffect(() => {
+    const onCliente = (e: Event) => setCliente((e as CustomEvent<string | null>).detail ?? null)
+    window.addEventListener('aduanai:cliente', onCliente)
+    return () => window.removeEventListener('aduanai:cliente', onCliente)
+  }, [])
+  const clave = `${PREFIJO}${modulo}:${cliente ?? '*'}`
   const inicialRef = useRef<T | null>(null)
   const [valor, setValorInterno] = useState<T>(() => {
     const base = typeof inicial === 'function' ? (inicial as () => T)() : inicial
@@ -54,13 +62,24 @@ export function useEstadoPersistente<T>(
     const guardado = leer<T>(clave)
     // Rehidratación superficial: campos nuevos del inicial que el guardado no
     // tenga (deploy con formulario ampliado) se completan con el inicial.
+    const sobre = opts.sobrescribir && Object.fromEntries(Object.entries(opts.sobrescribir).filter(([, v]) => v !== undefined && v !== null && v !== ''))
     if (guardado && typeof guardado === 'object' && base && typeof base === 'object' && !Array.isArray(base)) {
-      return { ...(base as object), ...(guardado as object) } as T
+      return { ...(base as object), ...(guardado as object), ...(sobre ?? {}) } as T
     }
     return guardado ?? base
   })
 
-  useEffect(() => { escribir(clave, valor) }, [clave, valor])
+  // Cambio de cliente activo → releer la clave nueva (o volver al inicial).
+  const claveRef = useRef(clave)
+  useEffect(() => {
+    if (claveRef.current === clave) return
+    claveRef.current = clave
+    const guardado = leer<T>(clave)
+    const base = inicialRef.current as T
+    setValorInterno(guardado && typeof guardado === 'object' && !Array.isArray(base) ? ({ ...(base as object), ...(guardado as object) } as T) : (guardado ?? base))
+  }, [clave])
+
+  useEffect(() => { if (claveRef.current === clave) escribir(clave, valor) }, [clave, valor])
 
   const setValor = useCallback((v: T | ((prev: T) => T)) => {
     setValorInterno(prev => (typeof v === 'function' ? (v as (p: T) => T)(prev) : v))
