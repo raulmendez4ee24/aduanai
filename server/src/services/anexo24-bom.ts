@@ -135,7 +135,13 @@ export async function retornoDesdeBom(input: RetornoDesdeBomInput): Promise<Reto
         assemblyId: assembly.id,
         notes: `Retorno desde BOM ${producto.productCode} × ${input.cantidad}: ${c.componentCode} neto ${c.quantityRequired} + merma ${c.merma} (${c.scrapPercent}%)`,
       };
-      const porParte = await tx.temporaryImport.count({ where: { tenantId: input.tenantId, productId: c.componentId, status: { in: ['ACTIVE', 'PARTIALLY_DISCHARGED'] } } });
+      // Mismo universo que `lotesDeLaParte` (PEPS): solo insumos abiertos, del
+      // cliente indicado o del alcance del usuario. Si no, el conteo vería lotes
+      // que el descargo no puede tocar y fallaría con "Sin saldo".
+      const porParte = await tx.temporaryImport.count({ where: {
+        tenantId: input.tenantId, productId: c.componentId, tipo: 'INSUMO', status: { in: ['ACTIVE', 'PARTIALLY_DISCHARGED'] },
+        ...(input.clienteId ? { clienteId: input.clienteId } : whereAlcance(input.alcance)),
+      } });
       if (porParte > 0) {
         descargo = await descargarPepsEnTx(tx, { ...base, productId: c.componentId });
       } else if (c.fractionCode) {
