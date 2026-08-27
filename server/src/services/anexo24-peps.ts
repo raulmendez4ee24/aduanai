@@ -18,6 +18,8 @@ import { assertPeriodoAbierto } from './anexo24-cierre';
 import { whereAlcance, type AlcanceFiltro } from '../lib/cliente-contexto';
 
 const EPSILON = 1e-9;
+/** Redondeo a 6 decimales: evita que 0.3 − 0.1 persista como 0.19999999999999998 en `Discharge.quantity`. */
+const r6 = (n: number) => Math.round(n * 1e6) / 1e6;
 const ABIERTAS = ['ACTIVE', 'PARTIALLY_DISCHARGED'] as const;
 
 /** Tipos de salida en lenguaje de operación → DischargeType. */
@@ -78,11 +80,11 @@ export function planificarPeps(lotes: LoteDisponible[], cantidad: number): PlanP
   let restante = cantidad;
   for (const lote of orden) {
     if (restante <= EPSILON) break;
-    const toma = Math.min(restante, lote.disponible);
+    const toma = r6(Math.min(restante, lote.disponible));
     asignaciones.push({ id: lote.id, pedimento: lote.pedimento, cantidad: toma, entryDate: lote.entryDate });
-    restante -= toma;
+    restante = r6(restante - toma);
   }
-  const disponibleTotal = orden.reduce((s, l) => s + l.disponible, 0);
+  const disponibleTotal = r6(orden.reduce((s, l) => s + l.disponible, 0));
   return { asignaciones, faltante: restante <= EPSILON ? 0 : restante, disponibleTotal };
 }
 

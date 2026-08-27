@@ -107,6 +107,16 @@ async function pura() {
   await prueba('rechaza cantidad ≤ 0', async () => {
     await esperaAppError(async () => planificarPeps(lotes, 0), 400);
   });
+  await prueba('sin residuo flotante: lotes 0.1 y 0.2, cantidad 0.3 → tomas 0.1 y 0.2 exactas, faltante 0', () => {
+    const p = planificarPeps([
+      { id: 'a', entryDate: new Date('2026-01-01'), disponible: 0.1, pedimento: 'P1', unit: 'kg' },
+      { id: 'b', entryDate: new Date('2026-02-01'), disponible: 0.2, pedimento: 'P2', unit: 'kg' },
+    ], 0.3);
+    assert.deepEqual(p.asignaciones.map(a => a.cantidad), [0.1, 0.2]);
+    assert.equal(p.faltante, 0); assert.equal(p.disponibleTotal, 0.3);
+    const q = planificarPeps([{ id: 'a', entryDate: new Date('2026-01-01'), disponible: 1, pedimento: 'P1', unit: 'kg' }], 0.7);
+    assert.equal(q.asignaciones[0].cantidad, 0.7);
+  });
 
   console.log('\n— BOM con merma —');
   await prueba('consumo = requerido × (1 + merma%) por componente', () => {
