@@ -568,6 +568,7 @@ Al cambiar un flujo central o desplegar una nueva fase:
 | Refresh 69-B con CSV vigente + pipeline v1.3.0 | 2 | CERRADO `dba111b` | reingesta 25-ago 17:07Z ANTES del deploy: corte CSV 31-jul-2026, 14,522 filas válidas → 14,438 RFC únicos (dedup por fecha); prod: DEFINITIVO 11,823 · SENTENCIA_FAVORABLE 1,461 · PRESUNTO 814 · DESVIRTUADO 340; artefacto `ingesta-69b-2026-08-25.json`; falta evidencia Risk real → factor EVALUADO (EN CURSO) |
 | Comparativa fuera + VUCEM + logos | 2 | CERRADO `223badd`/`c3f9d56` | residuo menor: ancla `#comparativa` y "en minutos"/TIGIE en strings (ver ítems abiertos) |
 | Guard extendido (terceros + compatible-gubernamental) | 2 | CERRADO `23c2c95` | 18 patrones, `soloEn` público, gate en Dockerfile |
+| Login por aduanaia.lat/www (P0 26-ago) | — | CERRADO `e193691` | CORS rechazaba Origin del dominio propio (500); same-origin siempre permitido + CLIENT_URL/APP_URL en Railway; verificado 401/200 por www y apex |
 | Email de lead dice "asesores" | 2 | CERRADO (Bloque 2) | `email.ts:354` → "El fundador"; `server/src/lib` añadido a SCAN_ROOTS del guard (3/3 verde); AuthLayout + TRUST_PILLS incluyen TIGIE en fuentes |
 | Biblioteca Legal: login intencional + qué ve demo | 2 | ABIERTO (reporte) | ruta protegida en App.tsx:240 |
 | consultHash por tenant (hash+unicidad+upsert+feedback+test) | 3 | ABIERTO | `@unique` simple; hash sin tenant; feedback cross-tenant sin scope |
@@ -575,7 +576,7 @@ Al cambiar un flujo central o desplegar una nueva fase:
 | ClassificationKnowledge sin contaminación entre tenants | 3 | ABIERTO | feedback crea filas globales no verificadas que el retrieval consume (rama chapterCode sin `verified`) |
 | Solo-reporte: RLS, refresh token, fuentes Glosa+panel | 3 | ABIERTO (reporte) | censo listo; va en reporte final |
 | D4 input decimal Pre-Glosa como clase | 4 | CERRADO `d00191c`+`4bcd451` | CampoNumerico canónico en Pre-Glosa/Origen; 0 restantes del patrón roto; gate en Dockerfile |
-| CampoNumerico: veredicto en navegador real (0.02/.02) | 4 | ABIERTO | no existe Playwright ni test de comportamiento |
+| CampoNumerico: veredicto en navegador real (0.02/.02) | 4 | CERRADO (26-ago) | Chrome real contra prod (/simulador-glosa, tenant demo): Valor unitario "0.02"→0.02; Peso ".02"→0.02; segunda ".02" concatena a 0.0202 (composición decimal sobrevive). Sin Playwright: evidencia manual registrada aquí |
 | Radar Fase A: 3 compromisos + /radar/:loteId en rama | 4 | CERRADO (censo `752935d`) | 422 línea×línea+layoutVersion; 413 constante+límite+partidas+salida; sin "cumple" (OrigenBadge compartido); GET persistido con tenant |
-| Radar: rebase+Codex+merge+deploy+verificación prod | 4 | ABIERTO | 2 conflictos previstos: RiskScorer.tsx (portar `motivo` a OrigenBadge) y package.json (unión 4+2 scripts) |
-| Radar: gating (flag prod + visibilidad) | 4 | ABIERTO (reporte) | server flag `PEDIMENTO_READER_ENABLED` (ausente en prod = apagado); cliente sin gate: nav visible a todos, 403 sin manejar |
+| Radar: rebase+Codex+merge+deploy+verificación prod | 4 | CERRADO (merge ff `11c3790`) | rebase sobre main: 2 conflictos resueltos como previsto (`motivo` portado a components/OrigenBadge.tsx; package.json unión de scripts); tsc client+server limpio; suites radar 14 / criterios 15 / glosa 15+16 verdes; deploy+verificación prod: ver cierre de misión |
+| Radar: gating (flag prod + visibilidad) | 4 | CERRADO (`11c3790`) | GET /api/pedimentos/radar/estado → {habilitado}; hook useRadarHabilitado (fail-closed) filtra sidebar y CommandPalette; 403 se muestra verbatim en ErrorRadar. Flag `PEDIMENTO_READER_ENABLED` sigue ausente en prod = beta apagado y oculto |
