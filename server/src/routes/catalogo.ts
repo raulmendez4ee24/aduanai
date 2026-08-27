@@ -90,8 +90,9 @@ catalogoRouter.post('/import', requirePermission('catalogo', 'create'), async (r
     if (typeof archivoBase64 !== 'string' || archivoBase64.length === 0) {
       return res.status(400).json({ status: 'error', message: 'archivoBase64 es obligatorio' });
     }
-    if (archivoBase64.length > 12 * 1024 * 1024) {
-      return res.status(413).json({ status: 'error', message: 'Archivo demasiado grande (máximo ~8 MB)' });
+    // El body JSON global es de 5 MB (index.ts): un archivo mayor a ~3.5 MB ya no llega aquí.
+    if (archivoBase64.length > 5 * 1024 * 1024) {
+      return res.status(413).json({ status: 'error', message: 'Archivo demasiado grande (máximo ~3.5 MB)' });
     }
     const rep = await importarPartes(req.tenantId!, req.userId!, {
       archivoBase64, nombreArchivo: typeof nombreArchivo === 'string' ? nombreArchivo : undefined,
