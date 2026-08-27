@@ -53,7 +53,7 @@ export function infraInfo(): InfraInfo {
         clave: 'backups',
         titulo: 'Backups cifrados',
         estado: 'pendiente',
-        detalle: 'El pipeline existe y es fail-closed (pg_dump → gzip → AES-256-GCM → SHA-256 → almacenamiento R2/S3); a la última verificación documentada (2026-07-11) no había variables BACKUP_* configuradas en producción ni backups administrados del volumen. No se afirma que hoy existan backups hasta que se configuren y se registre el primer BackupRecord exitoso.',
+        detalle: 'El pipeline existe y es fail-closed (pg_dump → gzip → cifrado simétrico autenticado (ver docs/BACKUPS.md) → SHA-256 → almacenamiento R2/S3); a la última verificación documentada (2026-07-11) no había variables BACKUP_* configuradas en producción ni backups administrados del volumen. No se afirma que hoy existan backups hasta que se configuren y se registre el primer BackupRecord exitoso.',
         evidencia: 'server/src/services/backup.ts; docs/BACKUPS.md ("Qué falta configurar en prod").',
       },
       {

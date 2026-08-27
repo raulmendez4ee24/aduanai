@@ -8,7 +8,7 @@ import { useEffect, useState } from 'react'
 import { useEstadoPersistente } from '../hooks/useEstadoPersistente'
 import { useNavigate } from 'react-router-dom'
 import { Factory, Plus, ArrowRight, AlertTriangle } from 'lucide-react'
-import { Button, Card, Badge, Input, EmptyState } from '../components/ui'
+import { Button, Card, Badge, Input, EmptyState, useCampoNumerico } from '../components/ui'
 import { activoFijoApi, type ActivoFijo, type AltaActivoFijo } from '../lib/api/cambio-regimen'
 
 export const GUIA_MODULO = {
@@ -31,6 +31,10 @@ export function ActivoFijoPage() {
   const [error, setError] = useState<string | null>(null)
   const [mostrarForm, setMostrarForm] = useState(false)
   const [form, setForm] = useEstadoPersistente<AltaActivoFijo>('activo-fijo', FORM_INICIAL)
+  // D4: campos numéricos con la clase sana (composición decimal sobrevive).
+  const campoCantidad = useCampoNumerico(form.quantity, n => setForm(f => ({ ...f, quantity: n })))
+  const campoValor = useCampoNumerico(form.customsValue, n => setForm(f => ({ ...f, customsValue: n })))
+  const campoVida = useCampoNumerico(form.vidaUtilMeses ?? 0, n => setForm(f => ({ ...f, vidaUtilMeses: n > 0 ? Math.round(n) : null })))
   const [guardando, setGuardando] = useState(false)
 
   async function cargar() {
@@ -72,11 +76,11 @@ export function ActivoFijoPage() {
             <Input label="Pedimento" requerido mono value={form.pedimento} onChange={e => setForm({ ...form, pedimento: e.target.value })} placeholder="26 47 3461 4000123" />
             <Input label="Fracción" requerido mono value={form.fractionCode} onChange={e => setForm({ ...form, fractionCode: e.target.value })} placeholder="8458.11.01" hint="Se valida contra el catálogo TIGIE." />
             <Input label="Descripción" value={form.description ?? ''} onChange={e => setForm({ ...form, description: e.target.value })} />
-            <Input label="Cantidad" requerido type="number" min={0} step="any" value={form.quantity} onChange={e => setForm({ ...form, quantity: Number(e.target.value) })} />
+            <Input label="Cantidad" requerido step="any" {...campoCantidad} />
             <Input label="Unidad" value={form.unit} onChange={e => setForm({ ...form, unit: e.target.value })} />
-            <Input label="Valor en aduana (USD)" requerido type="number" min={0} step="0.01" value={form.customsValue || ''} onChange={e => setForm({ ...form, customsValue: Number(e.target.value) })} />
+            <Input label="Valor en aduana (USD)" requerido step="0.01" {...campoValor} />
             <Input label="Fecha de entrada" requerido type="date" value={form.entryDate} onChange={e => setForm({ ...form, entryDate: e.target.value })} />
-            <Input label="Vida útil (meses)" type="number" min={1} value={form.vidaUtilMeses ?? ''} onChange={e => setForm({ ...form, vidaUtilMeses: e.target.value ? Number(e.target.value) : null })} hint="Opcional; sin valor se usa horizonte de 120 meses." />
+            <Input label="Vida útil (meses)" step="1" {...campoVida} hint="Opcional; sin valor se usa horizonte de 120 meses." />
             <Input label="Proveedor" value={form.supplier ?? ''} onChange={e => setForm({ ...form, supplier: e.target.value })} />
             <Input label="País de origen" value={form.originCountry ?? ''} onChange={e => setForm({ ...form, originCountry: e.target.value })} />
           </div>
