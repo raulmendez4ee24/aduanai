@@ -31,7 +31,7 @@ export function infraInfo(): InfraInfo {
       region: 'pendiente de confirmar con el proveedor',
       regionEstado: 'pendiente',
       evidencia: enRailway
-        ? `Variables RAILWAY_* presentes en el proceso (servicio ${process.env.RAILWAY_SERVICE_NAME ?? '?'}, entorno ${process.env.RAILWAY_ENVIRONMENT_NAME ?? '?'}); la región no se expone como variable y no consta en la documentación del repo.`
+        ? 'Variables RAILWAY_* presentes en el proceso (el nombre del servicio y del entorno no se exponen); la región no se expone como variable y no consta en la documentación del repo.'
         : 'Proceso fuera de Railway (entorno local/CI); en producción el despliegue vive en Railway (railway.toml, docs/BACKUPS.md).',
     },
     afirmaciones: [

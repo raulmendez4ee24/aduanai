@@ -186,7 +186,8 @@ export async function armarPaqueteDefensa(input: { tenantId: string; tipo: strin
 }
 
 /** Listado reciente para el selector de la vista Defensa (por cliente cuando aplica). */
-export async function listarEntidadesDefensa(tenantId: string, tipo: string, clienteId: string | undefined, limit = 20) {
+/** `clienteId` admite lo que produce `filtroCliente(req)`: id, `{ in }` (alcance restringido) o undefined. */
+export async function listarEntidadesDefensa(tenantId: string, tipo: string, clienteId: string | { in: string[] } | undefined, limit = 20) {
   const cli = clienteId ? { clienteId } : {};
   switch (tipo) {
     case 'classification':

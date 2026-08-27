@@ -17,6 +17,11 @@ import { prisma } from '../lib/prisma';
 import { recordAudit, verifyChain } from '../services/audit-service';
 import { armarPaqueteDefensa, hashPaquete, listarEntidadesDefensa, NOM151_LEYENDA } from '../services/defensa';
 import { infraInfo } from '../lib/infra-info';
+import { enAlcance, filtroCliente } from '../lib/cliente-contexto';
+import type { Request } from 'express';
+
+const reqRestringida = (clienteIds: string[] | null): Request =>
+  ({ headers: {}, query: {}, clienteIdsPermitidos: clienteIds } as unknown as Request);
 
 let pasan = 0, fallan = 0;
 async function caso(nombre: string, fn: () => void | Promise<void>) {
@@ -107,6 +112,40 @@ async function main() {
       const mios = await listarEntidadesDefensa(tenantId!, 'classification', undefined);
       assert.equal(mios.length, 1); assert.equal(mios[0]!.id, cls.id);
       assert.equal((await listarEntidadesDefensa(otroTenantId!, 'classification', undefined)).length, 0);
+    });
+    await caso('alcance: usuario restringido a A — listado acotado con {in}, paquete de B rechazado por enAlcance, compartido visible', async () => {
+      const cA = await prisma.cliente.create({ data: { tenantId: tenantId!, rfc: `DA${nonce.slice(-9)}A1`, razonSocial: 'Cliente A' } });
+      const cB = await prisma.cliente.create({ data: { tenantId: tenantId!, rfc: `DB${nonce.slice(-9)}B2`, razonSocial: 'Cliente B' } });
+      const qA = await prisma.quote.create({ data: { tenantId: tenantId!, userId: junior.id, clienteId: cA.id, fractionCode: '84713001', customsValue: 1, origin: 'US', result: '{}' } });
+      const qB = await prisma.quote.create({ data: { tenantId: tenantId!, userId: junior.id, clienteId: cB.id, fractionCode: '84713001', customsValue: 1, origin: 'US', result: '{}' } });
+      try {
+        const req = reqRestringida([cA.id]);
+        const lista = await listarEntidadesDefensa(tenantId!, 'quote', filtroCliente(req).clienteId);
+        assert.deepEqual(lista.map(x => x.id), [qA.id], 'solo la cotización de A');
+        const listaAB = await listarEntidadesDefensa(tenantId!, 'quote', filtroCliente(reqRestringida([cA.id, cB.id])).clienteId);
+        assert.equal(listaAB.length, 2);
+        const pB = await armarPaqueteDefensa({ tenantId: tenantId!, tipo: 'quote', id: qB.id, baseUrl: 'x' });
+        assert.ok(pB);
+        assert.equal(enAlcance(req, pB!.entidad.clienteId), false, 'la ruta responde 403');
+        const pA = await armarPaqueteDefensa({ tenantId: tenantId!, tipo: 'quote', id: qA.id, baseUrl: 'x' });
+        assert.equal(enAlcance(req, pA!.entidad.clienteId), true);
+        assert.equal(enAlcance(req, p!.entidad.clienteId), true, 'clasificación sin cliente (compartida) sigue visible');
+      } finally {
+        await prisma.quote.deleteMany({ where: { id: { in: [qA.id, qB.id] } } });
+        await prisma.cliente.deleteMany({ where: { id: { in: [cA.id, cB.id] } } });
+      }
+    });
+    await caso('infraInfo no expone nombre de servicio ni de entorno de Railway', () => {
+      const prev = { s: process.env.RAILWAY_SERVICE_NAME, e: process.env.RAILWAY_ENVIRONMENT_NAME };
+      process.env.RAILWAY_SERVICE_NAME = 'svc-secreto-xyz'; process.env.RAILWAY_ENVIRONMENT_NAME = 'env-secreto-xyz';
+      try {
+        const ev = infraInfo().proveedor.evidencia;
+        assert.doesNotMatch(ev, /secreto-xyz/);
+        assert.match(ev, /RAILWAY_\*/);
+      } finally {
+        if (prev.s === undefined) delete process.env.RAILWAY_SERVICE_NAME; else process.env.RAILWAY_SERVICE_NAME = prev.s;
+        if (prev.e === undefined) delete process.env.RAILWAY_ENVIRONMENT_NAME; else process.env.RAILWAY_ENVIRONMENT_NAME = prev.e;
+      }
     });
     await caso('infraInfo: tránsito verificado; reposo, región y backups pendientes; SOC 2 en evaluación; NOM-151 no integrada', () => {
       const i = infraInfo();

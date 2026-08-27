@@ -12,7 +12,7 @@ import { authenticate, AuthRequest } from '../middlewares/auth';
 import { prisma } from '../lib/prisma';
 import { verifyConsult, getActiveVersions } from '../services/traceability';
 import { armarPaqueteDefensa, listarEntidadesDefensa, TIPOS_DEFENSA, type PaqueteDefensa } from '../services/defensa';
-import { clienteIdDe } from '../lib/cliente-contexto';
+import { enAlcance, filtroCliente } from '../lib/cliente-contexto';
 
 export const verifyPublicRouter = Router();
 export const dictamenRouter = Router();
@@ -375,7 +375,8 @@ defensaRouter.get('/defensa', authenticate, async (req: AuthRequest, res, next) 
     const tipo = String(req.query.tipo ?? 'classification');
     if (!(TIPOS_DEFENSA as readonly string[]).includes(tipo)) return res.status(400).json({ status: 'error', message: `tipo inválido; usa ${TIPOS_DEFENSA.join('|')}` });
     const limit = Math.min(100, Math.max(1, Number(req.query.limit) || 20));
-    const data = await listarEntidadesDefensa(req.tenantId!, tipo, clienteIdDe(req) ?? undefined, limit);
+    // Revisión C: con usuario restringido y sin cliente activo, filtroCliente acota a `{ in: permitidos }`.
+    const data = await listarEntidadesDefensa(req.tenantId!, tipo, filtroCliente(req).clienteId, limit);
     res.json({ status: 'ok', data, tipos: TIPOS_DEFENSA });
   } catch (err) { next(err); }
 });
@@ -387,6 +388,7 @@ defensaRouter.get('/defensa/:tipo/:id', authenticate, async (req: AuthRequest, r
     const baseUrl = `${req.protocol}://${req.get('host')}`;
     const p = await armarPaqueteDefensa({ tenantId: req.tenantId!, tipo, id: String(req.params.id), baseUrl });
     if (!p) return res.status(404).json({ status: 'error', message: 'Entidad no encontrada en tu empresa' });
+    if (!enAlcance(req, p.entidad.clienteId)) return res.status(403).json({ status: 'error', message: 'Entidad fuera de tu alcance de clientes' });
     res.json({ status: 'ok', data: p });
   } catch (err) { next(err); }
 });
@@ -398,6 +400,7 @@ defensaRouter.get('/defensa/:tipo/:id/certificado.html', authenticate, async (re
     const baseUrl = `${req.protocol}://${req.get('host')}`;
     const p = await armarPaqueteDefensa({ tenantId: req.tenantId!, tipo, id: String(req.params.id), baseUrl });
     if (!p) return res.status(404).json({ status: 'error', message: 'Entidad no encontrada en tu empresa' });
+    if (!enAlcance(req, p.entidad.clienteId)) return res.status(403).json({ status: 'error', message: 'Entidad fuera de tu alcance de clientes' });
     const tenant = await prisma.tenant.findUnique({ where: { id: req.tenantId! }, select: { name: true, rfc: true } });
     res.setHeader('Content-Type', 'text/html; charset=utf-8');
     res.setHeader('Content-Disposition', `inline; filename="${p.certificado.folio}.html"`);
