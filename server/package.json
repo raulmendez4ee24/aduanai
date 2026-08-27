@@ -45,7 +45,8 @@
     "test:afirmaciones": "tsx src/tests/afirmaciones-comerciales.test.ts",
     "test:risk-69b": "tsx src/tests/risk-69b-disponibilidad.test.ts",
     "test:criterios": "tsx src/tests/criterios.test.ts",
-    "test:radar-fase-a": "tsx src/tests/radar-fase-a.test.ts"
+    "test:radar-fase-a": "tsx src/tests/radar-fase-a.test.ts",
+    "test:catalogo": "tsx src/tests/catalogo-partes.test.ts"
   },
   "license": "UNLICENSED",
   "private": true,

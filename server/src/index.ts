@@ -71,6 +71,8 @@ import { settingsRouter } from './routes/settings';
 import { glosaRouter, glosaAdminRouter } from './routes/glosa';
 import { permissionsRouter } from './routes/permissions';
 import { statusRouter } from './routes/status';
+// ── OPERACIÓN 2026-08 ── imports nuevos (una línea por módulo)
+import { catalogoRouter } from './routes/catalogo';
 import { performBackup, cleanupExpiredBackups } from './services/backup';
 import { seedAllTenantsRoles, migrateTenantsWithoutAdmin } from './services/permissions';
 import { backfillAntidumpingDates } from './services/antidumping-backfill';
@@ -221,6 +223,7 @@ app.use('/api/admin/glosa', glosaAdminRouter);
 app.use('/api/admin', adminLimiter, adminRouter);
 app.use('/api/status', statusRouter);
 // ── OPERACIÓN 2026-08 ── montajes nuevos (una línea por módulo)
+app.use('/api/catalogo', catalogoRouter);
 
 // ── SPA fallback ──
 app.use((req, res, next) => {

@@ -21,6 +21,8 @@ import { z } from 'zod';
 const MODULE_NAMES = [
   'classifier', 'quoter', 'autoMVE', 'inventory', 'expedientes',
   'fiscalGuardian', 'payment',
+  // ── OPERACIÓN 2026-08 ── catálogo maestro de partes (aprobar versión = classifier.approve)
+  'catalogo',
 ] as const;
 
 export type ModuleName = (typeof MODULE_NAMES)[number];
@@ -128,6 +130,7 @@ export const SYSTEM_ROLES: RoleSeed[] = [
         expedientes: { view: true, create: true, sign: true, archive: true },
         fiscalGuardian: { view: true, generateReport: true, acknowledgeAlert: true },
         payment: { view: true, authorize: true },
+        catalogo: { view: true, create: true, approve: true, delete: true },
       },
       features: { exportData: true, bulkOperations: true, apiAccess: true, auditTrail: true, settings: true },
     },
@@ -146,6 +149,7 @@ export const SYSTEM_ROLES: RoleSeed[] = [
         expedientes: { view: true, create: true, sign: false, archive: false },
         fiscalGuardian: { view: true, generateReport: false, acknowledgeAlert: false },
         payment: { view: false, authorize: false },
+        catalogo: { view: true, create: true, approve: false, delete: false },
       },
       features: { exportData: false, bulkOperations: false, apiAccess: false, auditTrail: true, settings: false },
     },
@@ -164,6 +168,7 @@ export const SYSTEM_ROLES: RoleSeed[] = [
         expedientes: { view: true, create: false, sign: true, archive: false },
         fiscalGuardian: { view: true, generateReport: false, acknowledgeAlert: true },
         payment: { view: false, authorize: false },
+        catalogo: { view: true, create: false, approve: true, delete: false },
       },
       features: { exportData: false, bulkOperations: false, apiAccess: false, auditTrail: true, settings: false },
     },
@@ -182,6 +187,7 @@ export const SYSTEM_ROLES: RoleSeed[] = [
         expedientes: { view: true, create: false, sign: false, archive: false },
         fiscalGuardian: { view: true, generateReport: true, acknowledgeAlert: false },
         payment: { view: true, authorize: true },
+        catalogo: { view: true, create: false, approve: false, delete: false },
       },
       features: { exportData: true, bulkOperations: false, apiAccess: false, auditTrail: true, settings: false },
     },
@@ -200,6 +206,7 @@ export const SYSTEM_ROLES: RoleSeed[] = [
         expedientes: { view: true, create: false, sign: false, archive: true },
         fiscalGuardian: { view: true, generateReport: true, acknowledgeAlert: false },
         payment: { view: true, authorize: false },
+        catalogo: { view: true, create: false, approve: false, delete: false },
       },
       features: { exportData: true, bulkOperations: false, apiAccess: false, auditTrail: true, settings: false },
     },
@@ -218,6 +225,7 @@ export const SYSTEM_ROLES: RoleSeed[] = [
         expedientes: { view: true, create: false, sign: false, archive: false },
         fiscalGuardian: { view: true, generateReport: false, acknowledgeAlert: false },
         payment: { view: false, authorize: false },
+        catalogo: { view: true, create: false, approve: false, delete: false },
       },
       features: { exportData: false, bulkOperations: false, apiAccess: false, auditTrail: false, settings: false },
     },

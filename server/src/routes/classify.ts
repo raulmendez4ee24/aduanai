@@ -9,6 +9,10 @@ import { reconciliarClasificacion } from '../services/clasificador-reconciliacio
 import { createClassificationJob, JOB_RUNNING_TIMEOUT_MS, type ClassificationJobInputs } from '../services/classification-job-runner';
 import { prisma } from '../lib/prisma';
 import { sinGuardaDeTenant } from '../lib/tenant-guard';
+// ── OPERACIÓN 2026-08 ── catálogo maestro: consultar antes de correr; historial agrupado
+import { clienteIdDe } from '../lib/cliente-contexto';
+import { consultarCatalogoParaClasificar } from '../services/catalogo-partes';
+import { agruparHistorial, exportarHistorialXlsx, aciertoPorCapitulo, whereHistorial, type FiltrosHistorial } from '../services/historial-clasificaciones';
 
 export const classifyRouter = Router();
 export const classifyVerifyRouter = Router();
@@ -99,7 +103,7 @@ classifyRouter.post('/demo', demoClassifyLimit, async (req, res, next) => {
 // (502) y el trabajo en vuelo sobrevive a la navegación.
 classifyRouter.post('/', authenticate, requirePermission('classifier', 'create'), async (req: AuthRequest, res, next) => {
   try {
-    const { description: rawDescription, context, countryOfOrigin, declaredValueUSD, declaredQuantity, useCase, sector, importerType } = (req.body ?? {}) as {
+    const { description: rawDescription, context, countryOfOrigin, declaredValueUSD, declaredQuantity, useCase, sector, importerType, productCode, forzar, justificacion } = (req.body ?? {}) as {
       description?: string;
       context?: string;
       countryOfOrigin?: string;
@@ -108,8 +112,42 @@ classifyRouter.post('/', authenticate, requirePermission('classifier', 'create')
       useCase?: string;
       sector?: IndustrialSector;
       importerType?: ImporterType;
+      productCode?: string;
+      forzar?: boolean;
+      justificacion?: string;
     };
     const description = typeof rawDescription === 'string' ? rawDescription : '';
+
+    // ── OPERACIÓN 2026-08 ── el catálogo maestro se consulta ANTES de correr
+    // el modelo. Un SKU con clasificación vigente se responde tal cual (misma
+    // fracción siempre = consistencia = defensa legal) — sin IA, sin job —
+    // salvo `forzar:true`, que exige `justificacion` y deja el resultado como
+    // versión PROPUESTA de esa parte (nunca pisa la vigente).
+    const clienteId = clienteIdDe(req);
+    const catalogo = await consultarCatalogoParaClasificar(req.tenantId!, {
+      productCode: typeof productCode === 'string' ? productCode : null,
+      description,
+      clienteId,
+    });
+    if (catalogo.reutilizar && forzar !== true) {
+      const h = catalogo.reutilizar;
+      return res.json({
+        status: 'ok',
+        reused: true,
+        catalogo: {
+          productId: h.productId, productCode: h.productCode, description: h.description,
+          fractionCode: h.fractionCode, nico: h.nico, version: h.version,
+          aprobadoAt: h.aprobadoAt?.toISOString() ?? null, aprobadoPorNombre: h.aprobadoPorNombre,
+        },
+        message: `Ya tienes clasificada la parte ${h.productCode} (v${h.version}${h.aprobadoAt ? `, aprobada el ${h.aprobadoAt.toISOString().slice(0, 10)}` : ''}). Para reclasificarla manda forzar:true con justificación.`,
+      });
+    }
+    if (catalogo.reutilizar && forzar === true && !(typeof justificacion === 'string' && justificacion.trim())) {
+      return res.status(400).json({
+        status: 'error', code: 'JUSTIFICACION_REQUERIDA',
+        message: `La parte ${catalogo.reutilizar.productCode} ya tiene la fracción ${catalogo.reutilizar.fractionCode} vigente (v${catalogo.reutilizar.version}). Reclasificar exige justificación.`,
+      });
+    }
 
     // Validación barata ANTES de crear el job: el texto basura sigue
     // recibiendo su 422 inmediato, no un job que muere después.
@@ -117,6 +155,12 @@ classifyRouter.post('/', authenticate, requirePermission('classifier', 'create')
     if (!inputValidation.ok) {
       throw createClassifyInputError(inputValidation.reason);
     }
+
+    const parteDestino = catalogo.reutilizar
+      ? { productId: catalogo.reutilizar.productId, productCode: catalogo.reutilizar.productCode, justificacion: justificacion!.trim() }
+      : catalogo.parteSinDictamen
+        ? { productId: catalogo.parteSinDictamen.productId, productCode: catalogo.parteSinDictamen.productCode, justificacion: null }
+        : null;
 
     const inputs: ClassificationJobInputs = {
       description,
@@ -128,6 +172,8 @@ classifyRouter.post('/', authenticate, requirePermission('classifier', 'create')
       sector,
       importerType,
       userRole: req.userRole,
+      clienteId,
+      catalogo: parteDestino,
     };
 
     const { jobId, reused, description: activeDescription } = await createClassificationJob({
@@ -139,7 +185,18 @@ classifyRouter.post('/', authenticate, requirePermission('classifier', 'create')
     // Si se reutilizó un job activo, `description` trae la descripción de ESE
     // job — la UI la compara con lo que el usuario tecleó para no asociar el
     // resultado del producto A con el texto del producto B (revisión 24-ago).
-    res.status(202).json({ status: 'ok', jobId, reused, description: reused ? activeDescription ?? null : null });
+    // `catalogoSugerido`: descripción idéntica (normalizada) a una parte vigente
+    // del mismo cliente — la UI la ofrece junto al resultado del modelo.
+    const s = catalogo.sugerido;
+    res.status(202).json({
+      status: 'ok', jobId, reused, description: reused ? activeDescription ?? null : null,
+      catalogoSugerido: s ? {
+        productId: s.productId, productCode: s.productCode, description: s.description,
+        fractionCode: s.fractionCode, nico: s.nico, version: s.version,
+        aprobadoAt: s.aprobadoAt?.toISOString() ?? null, aprobadoPorNombre: s.aprobadoPorNombre,
+      } : null,
+      parteEnCatalogo: parteDestino ? { productId: parteDestino.productId, productCode: parteDestino.productCode } : null,
+    });
   } catch (err) {
     next(err);
   }
@@ -201,20 +258,61 @@ classifyRouter.get('/jobs/:id', authenticate, async (req: AuthRequest, res, next
   }
 });
 
+// ── OPERACIÓN 2026-08 ── filtros del Historial (compartidos por listado,
+// agrupado y export): cliente, fracción/capítulo, fechas, confianza, feedback.
+function filtrosHistorialDe(req: AuthRequest): FiltrosHistorial {
+  const s = (k: string) => { const v = req.query[k]; return typeof v === 'string' && v.trim() ? v.trim() : undefined; };
+  const n = (k: string) => { const v = s(k); const x = v === undefined ? NaN : Number(v); return Number.isFinite(x) ? x : undefined; };
+  const fb = s('feedback');
+  return {
+    search: s('search'),
+    clienteId: clienteIdDe(req),
+    fractionCode: s('fractionCode'),
+    capitulo: s('capitulo'),
+    desde: s('desde'),
+    hasta: s('hasta'),
+    confianzaMin: n('confianzaMin'),
+    confianzaMax: n('confianzaMax'),
+    feedback: fb === 'correct' || fb === 'incorrect' || fb === 'partial' || fb === 'sin' ? fb : undefined,
+    status: s('status'),
+  };
+}
+
+// GET /api/classify/history/agrupado — por producto (misma descripción normalizada)
+classifyRouter.get('/history/agrupado', authenticate, async (req: AuthRequest, res, next) => {
+  try {
+    const page = Math.max(1, Number(req.query.page) || 1);
+    const limit = Math.min(100, Math.max(1, Number(req.query.limit) || 20));
+    const r = await agruparHistorial(req.tenantId!, filtrosHistorialDe(req), page, limit);
+    res.json({ status: 'ok', ...r });
+  } catch (err) { next(err); }
+});
+
+// GET /api/classify/history/export.xlsx
+classifyRouter.get('/history/export.xlsx', authenticate, requirePermission('classifier', 'exportData'), async (req: AuthRequest, res, next) => {
+  try {
+    const buf = await exportarHistorialXlsx(req.tenantId!, filtrosHistorialDe(req));
+    res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+    res.setHeader('Content-Disposition', `attachment; filename="historial-clasificaciones-${new Date().toISOString().slice(0, 10)}.xlsx"`);
+    res.send(buf);
+  } catch (err) { next(err); }
+});
+
+// GET /api/classify/acierto-por-capitulo — del feedback real, nunca de la confianza
+classifyRouter.get('/acierto-por-capitulo', authenticate, async (req: AuthRequest, res, next) => {
+  try {
+    const r = await aciertoPorCapitulo(req.tenantId!, filtrosHistorialDe(req));
+    res.json({ status: 'ok', ...r, nota: 'Acierto = clasificaciones marcadas ✓ entre las que tienen feedback del usuario. Sin feedback no hay métrica.' });
+  } catch (err) { next(err); }
+});
+
 classifyRouter.get('/history', authenticate, async (req: AuthRequest, res, next) => {
   try {
-    const search = String(req.query.search || '');
     const page = String(req.query.page || '1');
     const limit = String(req.query.limit || '20');
     const skip = (Number(page) - 1) * Number(limit);
 
-    const where: Record<string, unknown> = { tenantId: req.tenantId! };
-    if (search) {
-      where.OR = [
-        { inputDescription: { contains: search, mode: 'insensitive' } },
-        { fractionCode: { contains: search } },
-      ];
-    }
+    const where = whereHistorial(req.tenantId!, filtrosHistorialDe(req));
 
     const [classifications, total] = await Promise.all([
       prisma.classification.findMany({

@@ -22,6 +22,7 @@ import { recordConsult, getActiveVersions } from './traceability';
 import { isDomesticOrigin, DOMESTIC_ORIGIN_NOTE } from '../lib/origin';
 import { reconciliarClasificacion } from './clasificador-reconciliacion';
 import { getUserPermissions, hasPermission } from './permissions';
+import { logger } from '../lib/logger';
 
 export interface ClassificationJobInputs {
   description: string;
@@ -35,6 +36,11 @@ export interface ClassificationJobInputs {
   // Rol del usuario al momento de crear el job — resuelve permisos SOD dentro
   // del runner sin depender del request vivo.
   userRole?: string;
+  // ── OPERACIÓN 2026-08 ── catálogo maestro: cliente activo y, si la parte
+  // existe (reclasificación forzada o parte sin dictamen), la versión
+  // 'clasificador' que queda PROPUESTA al terminar el job.
+  clienteId?: string | null;
+  catalogo?: { productId: string; productCode: string; justificacion?: string | null } | null;
 }
 
 export interface ClassificationJobError {
@@ -225,6 +231,7 @@ export async function runClassificationJob(jobId: string): Promise<void> {
         status,
         approvedAt: canApprove ? new Date() : null,
         approvedById: canApprove ? job.userId : null,
+        clienteId: inputs.clienteId ?? null,
       },
     });
 
@@ -232,6 +239,23 @@ export async function runClassificationJob(jobId: string): Promise<void> {
       where: { id: trace.id },
       data: { classificationId: record.id },
     });
+
+    // ── OPERACIÓN 2026-08 ── el SKU ya existe en el catálogo: el resultado
+    // queda como versión PROPUESTA (fuente 'clasificador'); nunca pisa la vigente.
+    if (inputs.catalogo?.productId) {
+      try {
+        const { proponerVersion } = await import('./catalogo-partes');
+        await proponerVersion(job.tenantId, job.userId, inputs.catalogo.productId, {
+          fractionCode: result.fraction.code, fuente: 'clasificador', classificationId: record.id,
+          justificacion: inputs.catalogo.justificacion ?? null, tigieVersion: trace.versions.tigie,
+        });
+      } catch (e) {
+        // SIN_CAMBIO (misma fracción vigente) no es error; el resto se registra y no tumba el job.
+        if (!(e instanceof Error && e.name === 'CatalogoError' && (e as { codigo?: string }).codigo === 'SIN_CAMBIO')) {
+          logger.warn(`[catalogo] no se pudo versionar ${inputs.catalogo.productCode}: ${e instanceof Error ? e.message : e}`);
+        }
+      }
+    }
 
     // Verificación de Padrones SAT — no aplica a origen nacional.
     const { checkRequiredPadrones } = await import('./padron-checker');
