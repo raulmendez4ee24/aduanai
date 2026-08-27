@@ -15,6 +15,7 @@
  * finge vivos.
  */
 import { prisma } from '../lib/prisma';
+import { sinGuardaDeTenant } from '../lib/tenant-guard';
 import { classifyProduct, type IndustrialSector, type ImporterType } from './classifier';
 import { buildClassifierAlerts, computeConsultHash } from './classifier-alerts';
 import { recordConsult, getActiveVersions } from './traceability';
@@ -120,7 +121,8 @@ export async function createClassificationJob(params: {
 
 /** Ejecuta el pipeline completo de un job y persiste resultado o error. */
 export async function runClassificationJob(jobId: string): Promise<void> {
-  const job = await prisma.classificationJob.findUnique({ where: { id: jobId } });
+  // Runner de sistema: el id viene del propio create (no de un usuario) → cruce deliberado.
+  const job = await sinGuardaDeTenant(() => prisma.classificationJob.findUnique({ where: { id: jobId } }));
   if (!job || job.status !== 'queued') return;
 
   // Transición condicional: si el recovery de arranque (u otro camino) ya

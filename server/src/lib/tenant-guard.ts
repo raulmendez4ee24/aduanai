@@ -7,8 +7,16 @@
 //
 // Comportamiento:
 //   - Con TENANT_GUARD_STRICT=1  → LANZA (dev/CI: el bug no puede repetirse).
-//   - Sin el flag                → registra un aviso ruidoso y DEJA PASAR
-//     (producción no se cae por una ruta no auditada; sí queda el rastro).
+//   - Sin el flag                → registra el incidente (logger → SystemLog,
+//     ver establecerReporteDeIncidentes) y DEJA PASAR (producción no se cae
+//     por una ruta no auditada; sí queda el rastro consultable).
+//
+// PROD (Bloque 3, 26-ago-2026): TENANT_GUARD_STRICT=1 debe ir en Railway. El
+// censo de lecturas cross-tenant legítimas quedó envuelto en sinGuardaDeTenant
+// (verificación pública por hash, admin SUPERADMIN, runner de jobs, extractor
+// de documentos), así que el modo estricto no rompe ninguna ruta conocida.
+// Si aparece un incidente en SystemLog con [tenant-guard], es una ruta nueva
+// sin scope: se corrige el where, no se apaga el flag.
 //
 // Escape hatch legítimo: auth, login, herramientas SUPERADMIN cross-tenant y
 // jobs de sistema envuelven su consulta en `sinGuardaDeTenant(() => ...)`.
@@ -26,7 +34,7 @@ import { AsyncLocalStorage } from 'node:async_hooks';
 // endpoint "usuario por id", scópealo con tenantId como el resto.
 export const MODELOS_MULTITENANT = new Set<string>([
   'AIUsageLog', 'Alert', 'Annex24Report', 'Annex30Account', 'Assembly', 'AuditLog',
-  'COVE', 'CertificationProfile', 'Classification', 'ClassificationConsult',
+  'COVE', 'CertificationProfile', 'Classification', 'ClassificationConsult', 'ClassificationJob',
   'CopilotConsult', 'CopilotMessage', 'CreditUsage', 'DemoAccount', 'Discharge',
   'Document', 'GlosaSimulation', 'Guarantee', 'Invitation', 'LoadPlan',
   'ManifestacionValor', 'Operation', 'OriginAnalysis', 'OriginCertificate',
@@ -63,6 +71,27 @@ function modoEstricto(): boolean {
   return process.env.TENANT_GUARD_STRICT === '1';
 }
 
+// ── Incidentes ───────────────────────────────────────────────────────────
+// En modo aviso cada acceso sin scope es un INCIDENTE registrado, no un
+// console.error perdido en stdout. El reporte se inyecta (index.ts lo conecta
+// al logger → SystemLog) para no crear el ciclo prisma → tenant-guard → logger
+// → prisma. Sin reporte configurado cae a console.error (nunca silencio).
+export interface IncidenteTenantGuard { op: string; model: string; mensaje: string; where: unknown }
+type ReporteDeIncidentes = (inc: IncidenteTenantGuard) => void;
+let reporte: ReporteDeIncidentes | null = null;
+let incidentes = 0;
+
+export function establecerReporteDeIncidentes(fn: ReporteDeIncidentes | null): void { reporte = fn; }
+/** Incidentes registrados desde el arranque del proceso (observabilidad/tests). */
+export function contadorDeIncidentes(): number { return incidentes; }
+
+function registrarIncidente(inc: IncidenteTenantGuard): void {
+  incidentes++;
+  if (!reporte) { console.error(inc.mensaje); return; }
+  // El reporte jamás tumba la consulta: fail-open del reporte, no de la guarda.
+  try { reporte(inc); } catch (e) { console.error(inc.mensaje, e instanceof Error ? e.message : e); }
+}
+
 /** Núcleo verificable (sin Prisma): decide y, en estricto, lanza. */
 export function verificarAcceso(op: string, model: string, where: unknown): void {
   if (bypassActivo()) return;
@@ -72,8 +101,8 @@ export function verificarAcceso(op: string, model: string, where: unknown): void
   if (modoEstricto()) {
     throw new Error(`${msg}. Usa where:{ id, tenantId } o, si el cruce es intencional (auth/admin), envuélvelo en sinGuardaDeTenant().`);
   }
-  // producción: no tumbar la app; dejar rastro ruidoso para alertar/auditar.
-  console.error(msg);
+  // producción sin flag: no tumbar la app; el incidente queda registrado.
+  registrarIncidente({ op, model, mensaje: msg, where });
 }
 
 // Un intercept por operación: verifica y delega. `query` es la ejecución real.

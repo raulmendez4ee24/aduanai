@@ -8,6 +8,7 @@ import { verifyConsult } from '../services/traceability';
 import { reconciliarClasificacion } from '../services/clasificador-reconciliacion';
 import { createClassificationJob, JOB_RUNNING_TIMEOUT_MS, type ClassificationJobInputs } from '../services/classification-job-runner';
 import { prisma } from '../lib/prisma';
+import { sinGuardaDeTenant } from '../lib/tenant-guard';
 
 export const classifyRouter = Router();
 export const classifyVerifyRouter = Router();
@@ -19,7 +20,8 @@ classifyVerifyRouter.get('/:hash', async (req, res, next) => {
     if (!/^[a-f0-9]{64}$/.test(hash)) {
       return res.status(400).json({ status: 'error', message: 'Hash inválido (SHA-256 64 hex)' });
     }
-    const c = await prisma.classification.findFirst({
+    // Verificación PÚBLICA por hash: cross-tenant por diseño (el hash es la credencial).
+    const c = await sinGuardaDeTenant(() => prisma.classification.findFirst({
       where: { consultHash: hash },
       select: {
         id: true, fractionCode: true, fractionDescription: true,
@@ -27,7 +29,7 @@ classifyVerifyRouter.get('/:hash', async (req, res, next) => {
         consultedAt: true, inputDescription: true,
         tenant: { select: { name: true, rfc: true } },
       },
-    });
+    }));
     if (!c) {
       return res.json({
         status: 'ok',

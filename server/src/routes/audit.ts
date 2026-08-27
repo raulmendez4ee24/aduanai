@@ -7,6 +7,7 @@
 import { Router, Response, NextFunction } from 'express';
 import { authenticate, AuthRequest, requireRole } from '../middlewares/auth';
 import { prisma } from '../lib/prisma';
+import { sinGuardaDeTenant } from '../lib/tenant-guard';
 import { recordAudit, verifyChain, computeReportHash } from '../services/audit-service';
 
 export const auditAdminRouter = Router();
@@ -286,7 +287,8 @@ auditPublicRouter.get('/:hash', async (req, res, next) => {
     if (!/^[a-f0-9]{64}$/.test(hash)) {
       return res.status(400).json({ status: 'error', message: 'Hash inválido (debe ser SHA-256 de 64 hex chars)' });
     }
-    const log = await prisma.auditLog.findFirst({
+    // Verificación PÚBLICA por hash: cross-tenant por diseño.
+    const log = await sinGuardaDeTenant(() => prisma.auditLog.findFirst({
       where: { hash },
       select: {
         id: true, action: true, entity: true, entityId: true,
@@ -294,7 +296,7 @@ auditPublicRouter.get('/:hash', async (req, res, next) => {
         tenantId: true, hash: true, prevHash: true,
         tenant: { select: { name: true, rfc: true } },
       },
-    });
+    }));
 
     if (!log) {
       return res.json({

@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import { authenticate, AuthRequest } from '../middlewares/auth';
 import { prisma } from '../lib/prisma';
+import { sinGuardaDeTenant } from '../lib/tenant-guard';
 import {
   analyzeOrigin,
   lookupOriginRule,
@@ -212,14 +213,15 @@ originRouter.get('/certificates/:id/pdf', authenticate, async (req: AuthRequest,
 
 // Verificación pública del certificado por número (sin auth — útil para autoridad aduanera)
 export async function verifyCertificate(certNumber: string): Promise<{ found: boolean; cert?: { certificateNumber: string; fractionCode: string; productDescription: string; exporterName: string; originCountry: string; preferenceCriterion: string; signedDate: string; status: string; contentHash: string | null } }> {
-  const cert = await prisma.originCertificate.findUnique({
+  // Verificación PÚBLICA por número de certificado: cross-tenant por diseño.
+  const cert = await sinGuardaDeTenant(() => prisma.originCertificate.findUnique({
     where: { certificateNumber: certNumber },
     select: {
       certificateNumber: true, fractionCode: true, productDescription: true,
       exporterName: true, originCountry: true, preferenceCriterion: true,
       signedDate: true, status: true, contentHash: true,
     },
-  });
+  }));
   if (!cert) return { found: false };
   return {
     found: true,

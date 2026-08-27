@@ -1,5 +1,6 @@
 import { Router, Request } from 'express';
 import { prisma } from '../lib/prisma';
+import { sinGuardaDeTenant } from '../lib/tenant-guard';
 import { AppError } from '../middlewares/error';
 import { authenticate, AuthRequest } from '../middlewares/auth';
 import { authLoginLimiter, authRegisterLimiter, forgotPasswordLimiter } from '../middlewares/rateLimit';
@@ -727,7 +728,8 @@ authRouter.post('/accept-invitation', async (req, res, next) => {
     const { token, password } = (req.body ?? {}) as { token?: string; password?: string };
     if (!token || !password) throw new AppError('Token y contraseña requeridos', 400);
 
-    const inv = await prisma.invitation.findUnique({ where: { token } });
+    // Público por token de invitación (credencial): cross-tenant por diseño.
+    const inv = await sinGuardaDeTenant(() => prisma.invitation.findUnique({ where: { token } }));
     if (!inv) throw new AppError('Invitación no encontrada o inválida', 404);
     if (inv.status !== 'PENDING') throw new AppError(`Invitación ya ${inv.status.toLowerCase()}`, 400);
     if (inv.expiresAt < new Date()) {

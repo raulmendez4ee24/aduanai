@@ -132,7 +132,7 @@ operationsRouter.patch('/:opId/documents/:docId', authenticate, requirePermissio
     // tenant (status/fileName/verifiedBy). {id, operationId} no es unique en
     // Prisma, así que verificamos pertenencia y luego actualizamos por id.
     const owned = await prisma.document.findFirst({
-      where: { id: docId, operationId: opId },
+      where: { id: docId, operationId: opId, tenantId: req.tenantId! },
       select: { id: true },
     });
     if (!owned) {

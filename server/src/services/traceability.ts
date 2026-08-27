@@ -11,6 +11,7 @@
 
 import crypto from 'crypto';
 import { prisma } from '../lib/prisma';
+import { sinGuardaDeTenant } from '../lib/tenant-guard';
 import { TARIFF_VERSION } from '../lib/tariff-version';
 
 const sha256 = (s: string) => crypto.createHash('sha256').update(s).digest('hex');
@@ -181,9 +182,10 @@ export interface VerifyConsultResult {
 
 export async function verifyConsult(consultHash: string): Promise<VerifyConsultResult> {
   if (!/^[a-f0-9]{64}$/i.test(consultHash)) return { found: false };
-  const c = await prisma.classificationConsult.findUnique({
+  // Verificación PÚBLICA por hash: cross-tenant por diseño.
+  const c = await sinGuardaDeTenant(() => prisma.classificationConsult.findUnique({
     where: { consultHash },
-  });
+  }));
   if (!c) return { found: false };
 
   let tenantName: string | null = null;
@@ -199,8 +201,8 @@ export async function verifyConsult(consultHash: string): Promise<VerifyConsultR
     tenantRFC = t?.rfc ?? null;
   }
   if (c.classificationId) {
-    const cl = await prisma.classification.findUnique({
-      where: { id: c.classificationId },
+    const cl = await prisma.classification.findFirst({
+      where: { id: c.classificationId, ...(c.tenantId ? { tenantId: c.tenantId } : {}) },
       select: { fractionCode: true },
     });
     fractionCode = cl?.fractionCode ?? null;

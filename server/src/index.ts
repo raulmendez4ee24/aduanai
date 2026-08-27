@@ -80,6 +80,12 @@ import {
   copilotLimiter as copilotLim, leadLimiter, publicLimiter, adminLimiter,
 } from './middlewares/rateLimit';
 import { prisma } from './lib/prisma';
+import { establecerReporteDeIncidentes } from './lib/tenant-guard';
+
+// Incidentes de la guarda de tenant → logger (SystemLog), no solo stdout.
+establecerReporteDeIncidentes(inc => {
+  void logger.error(inc.mensaje, { endpoint: `${inc.op}:${inc.model}`, errorMessage: inc.mensaje });
+});
 
 const app = express();
 const PORT = process.env.PORT || 3001;

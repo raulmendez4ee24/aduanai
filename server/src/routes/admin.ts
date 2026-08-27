@@ -1,6 +1,7 @@
 import { Router, Response, NextFunction } from 'express';
 import { authenticate, AuthRequest, requireRole } from '../middlewares/auth';
 import { prisma } from '../lib/prisma';
+import { sinGuardaDeTenant } from '../lib/tenant-guard';
 import { AppError } from '../middlewares/error';
 import { seedTenantRoles, autoAssignTenantAdmin } from '../services/permissions';
 import bcrypt from 'bcryptjs';
@@ -191,7 +192,7 @@ adminRouter.post('/demo/prepare', async (req: AuthRequest, res: Response, next: 
 
 adminRouter.post('/demo/:id/send-invite', async (req: AuthRequest, res: Response, next: NextFunction) => {
   try {
-    const demoAccount = await prisma.demoAccount.findUnique({ where: { id: String(req.params.id) } });
+    const demoAccount = await sinGuardaDeTenant(() => prisma.demoAccount.findUnique({ where: { id: String(req.params.id) } })); // SUPERADMIN: cross-tenant deliberado
     if (!demoAccount) throw new AppError('Cuenta demo no encontrada', 404);
 
     const lead = await prisma.lead.findUnique({ where: { id: demoAccount.leadId } });
@@ -211,7 +212,7 @@ adminRouter.post('/demo/:id/complete', async (req: AuthRequest, res: Response, n
   try {
     const { notes } = req.body as { notes?: string };
 
-    const demoAccount = await prisma.demoAccount.findUnique({ where: { id: String(req.params.id) } });
+    const demoAccount = await sinGuardaDeTenant(() => prisma.demoAccount.findUnique({ where: { id: String(req.params.id) } })); // SUPERADMIN: cross-tenant deliberado
     if (!demoAccount) throw new AppError('Cuenta demo no encontrada', 404);
 
     const lead = await prisma.lead.findUnique({ where: { id: demoAccount.leadId } });
@@ -269,7 +270,7 @@ adminRouter.get('/demos', async (req: AuthRequest, res: Response, next: NextFunc
 
 adminRouter.delete('/demo/:id', async (req: AuthRequest, res: Response, next: NextFunction) => {
   try {
-    const demoAccount = await prisma.demoAccount.findUnique({ where: { id: String(req.params.id) } });
+    const demoAccount = await sinGuardaDeTenant(() => prisma.demoAccount.findUnique({ where: { id: String(req.params.id) } })); // SUPERADMIN: cross-tenant deliberado
     if (!demoAccount) throw new AppError('Cuenta demo no encontrada', 404);
 
     // Deactivate demo account record

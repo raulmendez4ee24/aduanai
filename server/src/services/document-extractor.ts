@@ -7,6 +7,7 @@
 
 import crypto from 'crypto';
 import { prisma } from '../lib/prisma';
+import { sinGuardaDeTenant } from '../lib/tenant-guard';
 import { getAnthropicClient } from '../lib/anthropic';
 
 export type DocType =
@@ -278,7 +279,8 @@ function extractRefs(doc: { docType: string | null; extractedData: unknown }): E
  * número de pedimento (Operation.reference) o factura.
  */
 export async function autoLinkToOperation(documentId: string): Promise<{ linked: boolean; operationId?: string; reason?: string }> {
-  const doc = await prisma.document.findUnique({ where: { id: documentId } });
+  // Servicio interno (post-upload): el id viene del create del propio tenant → cruce deliberado.
+  const doc = await sinGuardaDeTenant(() => prisma.document.findUnique({ where: { id: documentId } }));
   if (!doc || !doc.tenantId) return { linked: false, reason: 'documento no encontrado o sin tenant' };
   if (doc.operationId) return { linked: true, operationId: doc.operationId, reason: 'ya vinculado' };
 

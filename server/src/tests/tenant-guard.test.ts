@@ -4,8 +4,11 @@
  *   npm run test:tenant-guard   (o: tsx src/tests/tenant-guard.test.ts)
  */
 import { strict as assert } from 'node:assert';
+import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
 import {
   whereTieneTenant, verificarAcceso, sinGuardaDeTenant, MODELOS_MULTITENANT,
+  establecerReporteDeIncidentes, contadorDeIncidentes, type IncidenteTenantGuard,
 } from '../lib/tenant-guard';
 
 let pasadas = 0, falladas = 0;
@@ -80,6 +83,57 @@ prueba('sin TENANT_GUARD_STRICT → avisa pero deja pasar (no rompe prod)', () =
     assert.doesNotThrow(() => verificarAcceso('findUnique', 'Pedimento', { id: 'x' }));
     assert.ok(avisó, 'debe dejar rastro en console.error');
   } finally {
+    console.error = origErr;
+    if (antes !== undefined) process.env.TENANT_GUARD_STRICT = antes;
+  }
+});
+
+console.log('— tenant-guard: censo contra el schema (Bloque 3) —');
+prueba('TODO modelo del schema con columna tenantId está en MODELOS_MULTITENANT (salvo User)', () => {
+  const schema = readFileSync(join(__dirname, '..', '..', 'prisma', 'schema.prisma'), 'utf8');
+  const faltan: string[] = [];
+  for (const m of schema.matchAll(/^model\s+(\w+)\s*\{([\s\S]*?)^\}/gm)) {
+    const [, nombre, cuerpo] = m;
+    if (nombre === 'User') continue;
+    if (/^\s+tenantId\s+String/m.test(cuerpo) && !MODELOS_MULTITENANT.has(nombre)) faltan.push(nombre);
+  }
+  assert.deepEqual(faltan, [], `modelos multi-tenant fuera de la guarda: ${faltan.join(', ')}`);
+});
+prueba('ClassificationJob (faltaba) → LANZA en estricto sin tenantId', () => {
+  conEstricto(() => {
+    assert.throws(() => verificarAcceso('findUnique', 'ClassificationJob', { id: 'j1' }), /ClassificationJob/);
+    assert.doesNotThrow(() => verificarAcceso('findFirst', 'ClassificationJob', { id: 'j1', tenantId: 't1' }));
+  });
+});
+
+console.log('— tenant-guard: incidentes registrados (no solo console.error) —');
+prueba('en modo aviso el incidente va al reporte configurado, con modelo y operación', () => {
+  const antes = process.env.TENANT_GUARD_STRICT; delete process.env.TENANT_GUARD_STRICT;
+  const recibidos: IncidenteTenantGuard[] = [];
+  const origErr = console.error; let porConsole = false; console.error = () => { porConsole = true; };
+  establecerReporteDeIncidentes(inc => { recibidos.push(inc); });
+  try {
+    verificarAcceso('findFirst', 'Pedimento', { id: 'p1' });
+    assert.equal(recibidos.length, 1);
+    assert.equal(recibidos[0].model, 'Pedimento');
+    assert.equal(recibidos[0].op, 'findFirst');
+    assert.match(recibidos[0].mensaje, /tenant-guard/);
+    assert.ok(!porConsole, 'con reporte configurado no debe caer a console.error');
+    assert.ok(contadorDeIncidentes() >= 1);
+  } finally {
+    establecerReporteDeIncidentes(null);
+    console.error = origErr;
+    if (antes !== undefined) process.env.TENANT_GUARD_STRICT = antes;
+  }
+});
+prueba('el reporte que lanza no tumba la consulta (fail-open del reporte, no de la guarda)', () => {
+  const antes = process.env.TENANT_GUARD_STRICT; delete process.env.TENANT_GUARD_STRICT;
+  const origErr = console.error; console.error = () => {};
+  establecerReporteDeIncidentes(() => { throw new Error('logger caído'); });
+  try {
+    assert.doesNotThrow(() => verificarAcceso('findFirst', 'Pedimento', { id: 'p1' }));
+  } finally {
+    establecerReporteDeIncidentes(null);
     console.error = origErr;
     if (antes !== undefined) process.env.TENANT_GUARD_STRICT = antes;
   }

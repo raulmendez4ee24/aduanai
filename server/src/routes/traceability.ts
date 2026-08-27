@@ -147,7 +147,7 @@ dictamenRouter.get('/:id/dictamen.html', authenticate, async (req: AuthRequest, 
     if (!c) return res.status(404).json({ status: 'error', message: 'Clasificación no encontrada' });
 
     const consult = c.consultHash
-      ? await prisma.classificationConsult.findUnique({ where: { consultHash: c.consultHash } })
+      ? await prisma.classificationConsult.findFirst({ where: { consultHash: c.consultHash, tenantId: req.tenantId! } })
       : null;
 
     const baseUrl = `${req.protocol}://${req.get('host')}`;
