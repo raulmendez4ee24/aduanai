@@ -16,7 +16,10 @@
  */
 
 import { prisma } from '../lib/prisma';
-import { REGIMENES_POR_CLAVE, validatePedimentoNumero } from '../lib/anexo22';
+import {
+  ADUANAS, CLAVES_IMMEX, REGIMENES_POR_CLAVE, claveUnidadMedida, normalizeCustomsCode,
+  validatePedimentoNumero, viaDeTransporte,
+} from '../lib/anexo22';
 import { getHistoricalRate } from './exchange-rate';
 import { lookupCompliance } from './compliance-lookup';
 import { llmGenerate } from '../lib/llm';
@@ -50,9 +53,20 @@ export interface PartidaInput {
   identificadores?: { codigo: string; complemento1?: string; complemento2?: string }[];
   vinculacion?: boolean;
   vinculacionDesc?: string;
+  /** Operación 2026-08: NICO (2 dígitos) — obligatorio por partida. */
+  nico?: string;
 }
 
+/** Campos que la fuente NO trae (p. ej. el archivo M3 v1 no extrae bultos,
+ *  peso neto ni BL). Las reglas que los necesitan quedan `no_evaluado`. */
+export type DatoNoDisponible = 'bultos' | 'pesoNeto' | 'bl' | 'cove' | 'tipoCambioFecha';
+
 export interface PedimentoInput {
+  /** Origen del dato (Fase 0): M3 | DATASTAGE | MANUAL. */
+  origenArchivo?: 'M3' | 'DATASTAGE' | 'MANUAL';
+  datosNoDisponibles?: DatoNoDisponible[];
+  /** Identificadores a nivel pedimento (507 del M3 / Apéndice 8). */
+  identificadoresPedimento?: { codigo: string; complemento1?: string; complemento2?: string }[];
   numero?: string;
   clave: string;
   aduana: string;
@@ -73,6 +87,8 @@ export interface PedimentoInput {
   incoterm: string;
   transporte: string;
   medioTransporte?: string;
+  /** Clave del Apéndice 3 (501.18-20 del M3). Si viene, manda sobre `transporte`. */
+  medioTransporteClave?: string;
   factura?: string;
   cove?: string;
   bl?: string;
@@ -85,6 +101,9 @@ export interface ValidationResult {
   warningsCount: number;
   issues: ValidationIssue[];
   aiNotes: { partida: number; observation: string; suggestion: string }[];
+  /** Reglas cuyo dato de entrada no está disponible: NO disparan por defecto,
+   *  se declaran con motivo (misma política que la Pre-Glosa). */
+  reglasNoEvaluadas: { rule: string; partida?: number; motivo: string }[];
 }
 
 // ──────────────────────────────────────────────────────────────────────────
@@ -120,6 +139,11 @@ function isValidRFC(rfc: string): boolean {
 
 export async function validatePedimento(input: PedimentoInput, opts: { aiCheck?: boolean } = {}): Promise<ValidationResult> {
   const issues: ValidationIssue[] = [];
+  const reglasNoEvaluadas: ValidationResult['reglasNoEvaluadas'] = [];
+  const noDisp = new Set(input.datosNoDisponibles ?? []);
+  const noEvaluada = (rule: string, motivo: string, partida?: number) => {
+    reglasNoEvaluadas.push(partida === undefined ? { rule, motivo } : { rule, partida, motivo });
+  };
 
   // 1) Coherencia clave / régimen (lista vacía = clave válida para cualquier
   // régimen, p. ej. R1 rectificación y V1 virtuales)
@@ -145,7 +169,12 @@ export async function validatePedimento(input: PedimentoInput, opts: { aiCheck?:
 
   // 2) Coherencia tipo de operación / régimen
   const allowedRegByTipo = TIPO_OPERACION_REGIMEN[input.tipoOperacion];
-  if (allowedRegByTipo && !allowedRegByTipo.includes(input.regimen?.toUpperCase())) {
+  const regimenVacio = !input.regimen || input.regimen.trim() === '';
+  if (regimenVacio && input.origenArchivo && input.origenArchivo !== 'MANUAL') {
+    // El archivo no trae régimen: se deriva de la clave (Apéndice 2). Si la
+    // clave admite varios o es de cotejo pendiente, no se inventa.
+    noEvaluada('TIPO_REGIMEN_MISMATCH', `Régimen no derivable de la clave ${input.clave} (el archivo M3/Data Stage no declara régimen; Apéndice 2 ambiguo o clave pendiente de cotejo).`);
+  } else if (allowedRegByTipo && !allowedRegByTipo.includes(input.regimen?.toUpperCase())) {
     issues.push({
       field: 'tipoOperacion', severity: 'error', rule: 'TIPO_REGIMEN_MISMATCH',
       message: `El régimen ${input.regimen} no aplica al tipo de operación ${input.tipoOperacion}`,
@@ -161,13 +190,17 @@ export async function validatePedimento(input: PedimentoInput, opts: { aiCheck?:
   }
 
   // 4) Pesos coherentes
-  if (input.pesoNeto > input.pesoBruto) {
+  if (noDisp.has('pesoNeto')) {
+    noEvaluada('WEIGHT_INCONSISTENT', 'El archivo de origen no trae peso neto (el layout M3 v9 solo declara peso bruto en 501.17).');
+    noEvaluada('WEIGHT_RATIO_LOW', 'El archivo de origen no trae peso neto.');
+  }
+  if (!noDisp.has('pesoNeto') && input.pesoNeto > input.pesoBruto) {
     issues.push({
       field: 'pesoNeto', severity: 'error', rule: 'WEIGHT_INCONSISTENT',
       message: `Peso neto (${input.pesoNeto}) no puede ser mayor que peso bruto (${input.pesoBruto})`,
     });
   }
-  if (input.pesoBruto > 0 && input.pesoNeto / input.pesoBruto < 0.3) {
+  if (!noDisp.has('pesoNeto') && input.pesoBruto > 0 && input.pesoNeto / input.pesoBruto < 0.3) {
     issues.push({
       field: 'pesoNeto', severity: 'warning', rule: 'WEIGHT_RATIO_LOW',
       message: `Peso neto es <30% del bruto — verifica si el embalaje justifica esa diferencia`,
@@ -185,7 +218,9 @@ export async function validatePedimento(input: PedimentoInput, opts: { aiCheck?:
   }
 
   // 6) Bultos > 0
-  if (input.bultos <= 0) {
+  if (noDisp.has('bultos')) {
+    noEvaluada('BULTOS_ZERO', 'El archivo de origen no trae número de bultos (no extraído en el layout M3 v1).');
+  } else if (input.bultos <= 0) {
     issues.push({
       field: 'bultos', severity: 'error', rule: 'BULTOS_ZERO',
       message: 'Bultos debe ser mayor a cero',
@@ -202,6 +237,50 @@ export async function validatePedimento(input: PedimentoInput, opts: { aiCheck?:
     });
   }
 
+  // 7b) Congruencia aduana ↔ medio de transporte (Operación 2026-08)
+  // ADUANA_TRANSPORTE_INCONGRUENTE: marítimo por aduana fronteriza/interior,
+  // aéreo por aduana sin aeropuerto, terrestre por puerto marítimo puro.
+  {
+    const aduana = ADUANAS.find(a => a.clave === normalizeCustomsCode(input.aduana ?? ''));
+    const via = viaDeTransporte(input.medioTransporteClave ?? input.transporte);
+    if (!aduana || !aduana.tipo) {
+      noEvaluada('ADUANA_TRANSPORTE_INCONGRUENTE', `Aduana "${input.aduana}" sin tipo en el catálogo (Apéndice 1) — no se puede cruzar con el medio de transporte.`);
+    } else if (!via) {
+      noEvaluada('ADUANA_TRANSPORTE_INCONGRUENTE', `Medio de transporte "${input.transporte}" no reconocido en el Apéndice 3 — no se puede cruzar con la aduana.`);
+    } else {
+      const tipos = aduana.tipo;
+      const compatible =
+        via === 'maritima' ? tipos.includes('maritima')
+        : via === 'aerea' ? tipos.includes('aerea') || tipos.includes('interior')
+        : via === 'terrestre' ? tipos.includes('fronteriza') || tipos.includes('interior') || tipos.includes('maritima')
+        : true;
+      if (!compatible) {
+        issues.push({
+          field: 'transporte', severity: 'error', rule: 'ADUANA_TRANSPORTE_INCONGRUENTE',
+          message: `Medio de transporte ${via === 'maritima' ? 'marítimo' : via === 'aerea' ? 'aéreo' : via} por la aduana ${aduana.clave} (${aduana.denominacion}), que es ${tipos.join('/')}: no es despachable por esa vía. Corrige la aduana de despacho o el medio de transporte (Apéndices 1 y 3; tipo de aduana pendiente de cotejo).`,
+        });
+      }
+    }
+  }
+
+  // 7c) Documentos sin referencia (Operación 2026-08)
+  {
+    const vacio = (v: string | undefined) => !v || v.trim() === '';
+    if (vacio(input.factura)) {
+      issues.push({ field: 'factura', severity: 'error', rule: 'DOCUMENTO_VACIO', message: 'Factura/CFDI sin número de referencia (Art. 36-A LA: el pedimento se acompaña de la factura o documento que exprese el valor).' });
+    }
+    if (noDisp.has('cove')) {
+      noEvaluada('DOCUMENTO_VACIO', 'COVE: el archivo de origen no distingue el acuse de valor del número de CFDI (505.4).');
+    } else if (vacio(input.cove)) {
+      issues.push({ field: 'cove', severity: 'error', rule: 'DOCUMENTO_VACIO', message: 'COVE sin número de acuse de valor (RGCE 2026 regla 1.9.19; identificador en el pedimento).' });
+    }
+    if (noDisp.has('bl')) {
+      noEvaluada('DOCUMENTO_VACIO', 'BL/guía: el layout M3 v1 no extrae el documento de transporte — captúralo en Documentos.');
+    } else if (vacio(input.bl)) {
+      issues.push({ field: 'bl', severity: 'warning', rule: 'DOCUMENTO_VACIO', message: 'Documento de transporte (BL / guía aérea / carta porte) sin referencia.' });
+    }
+  }
+
   // 8) Validaciones por partida
   if (!input.partidas || input.partidas.length === 0) {
     issues.push({
@@ -211,7 +290,7 @@ export async function validatePedimento(input: PedimentoInput, opts: { aiCheck?:
   }
 
   for (const p of input.partidas) {
-    await validatePartida(p, input, issues);
+    await validatePartida(p, input, issues, noEvaluada);
   }
 
   // 9) IA — chequeo de inconsistencias de precio
@@ -229,10 +308,16 @@ export async function validatePedimento(input: PedimentoInput, opts: { aiCheck?:
     warningsCount,
     issues,
     aiNotes,
+    reglasNoEvaluadas,
   };
 }
 
-async function validatePartida(p: PartidaInput, ped: PedimentoInput, issues: ValidationIssue[]): Promise<void> {
+async function validatePartida(
+  p: PartidaInput,
+  ped: PedimentoInput,
+  issues: ValidationIssue[],
+  noEvaluada: (rule: string, motivo: string, partida?: number) => void = () => {},
+): Promise<void> {
   const cleanFrac = p.fraccion?.replace(/\./g, '') ?? '';
 
   // Fracción 8 dígitos
@@ -246,6 +331,48 @@ async function validatePartida(p: PartidaInput, ped: PedimentoInput, issues: Val
 
   // Fracción existe en TIGIE
   const fraction = await prisma.fraction.findFirst({ where: { code: cleanFrac } });
+
+  // NICO por partida (Operación 2026-08): Art. 54 LA exige la "exacta
+  // determinación del número de identificación comercial".
+  const nico = (p.nico ?? '').trim();
+  if (nico === '') {
+    issues.push({ partida: p.numeroPartida, field: 'nico', severity: 'error', rule: 'NICO_FALTANTE', message: `Partida sin NICO para la fracción ${p.fraccion} (2 dígitos, Art. 54 LA).` });
+  } else if (!/^\d{2}$/.test(nico)) {
+    issues.push({ partida: p.numeroPartida, field: 'nico', severity: 'error', rule: 'NICO_INVALIDO', message: `NICO "${nico}" inválido: deben ser 2 dígitos.` });
+  } else if (fraction && fraction.nicos.length > 0 && !fraction.nicos.includes(nico) && !fraction.nicos.includes(cleanFrac + nico)) {
+    issues.push({ partida: p.numeroPartida, field: 'nico', severity: 'error', rule: 'NICO_INVALIDO', message: `NICO ${nico} no existe para la fracción ${p.fraccion} (catálogo: ${fraction.nicos.map(n => n.slice(-2)).join(', ')}).` });
+  }
+
+  // UMT vs unidad de la fracción (Apéndice 7, cotejo pendiente)
+  if (fraction) {
+    const umtDeclarada = claveUnidadMedida(p.unidadMedida);
+    const umtFraccion = claveUnidadMedida(fraction.unit);
+    if (!umtDeclarada) {
+      noEvaluada('UMT_NO_COINCIDE', `Unidad de tarifa "${p.unidadMedida}" no reconocida en el Apéndice 7.`, p.numeroPartida);
+    } else if (!umtFraccion) {
+      noEvaluada('UMT_NO_COINCIDE', `La fracción ${p.fraccion} no tiene unidad reconocible en el catálogo local ("${fraction.unit ?? '—'}").`, p.numeroPartida);
+    } else if (umtDeclarada !== umtFraccion) {
+      issues.push({ partida: p.numeroPartida, field: 'unidadMedida', severity: 'error', rule: 'UMT_NO_COINCIDE', message: `Unidad de tarifa declarada (clave ${umtDeclarada}) ≠ unidad de la fracción ${p.fraccion} en el catálogo (${fraction.unit}, clave ${umtFraccion}).` });
+    }
+  }
+
+  // Identificadores obligatorios (Apéndice 8, cotejo pendiente)
+  {
+    const idsPartida = p.identificadores;
+    const idsPed = ped.identificadoresPedimento;
+    if (idsPartida === undefined && idsPed === undefined) {
+      noEvaluada('IDENTIFICADOR_OBLIGATORIO_FALTANTE', 'No se capturaron identificadores (Apéndice 8) — importa el archivo M3 o captúralos por partida.', p.numeroPartida);
+    } else {
+      const codigos = new Set([...(idsPartida ?? []), ...(idsPed ?? [])].map(i => i.codigo.toUpperCase()));
+      const faltan: string[] = [];
+      if (CLAVES_IMMEX.includes(ped.clave?.toUpperCase()) && !codigos.has('IM')) faltan.push('IM (programa IMMEX — clave ' + ped.clave.toUpperCase() + ')');
+      if (fraction && fraction.noms.length > 0 && !codigos.has('NM')) faltan.push('NM (NOM: ' + fraction.noms.join(', ') + ')');
+      if (faltan.length > 0) {
+        issues.push({ partida: p.numeroPartida, field: 'identificadores', severity: 'error', rule: 'IDENTIFICADOR_OBLIGATORIO_FALTANTE', message: `Falta identificador obligatorio: ${faltan.join('; ')}. Apéndice 8 Anexo 22 (catálogo pendiente de cotejo).` });
+      }
+    }
+  }
+
   if (!fraction) {
     issues.push({
       partida: p.numeroPartida, field: 'fraccion', severity: 'warning', rule: 'FRACTION_NOT_IN_TIGIE',

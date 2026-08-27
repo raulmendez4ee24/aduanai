@@ -12,7 +12,7 @@
  * CERO LLM en todo el flujo.
  */
 import { Router, type Response } from 'express';
-import { randomUUID } from 'crypto';
+import { randomUUID, createHash } from 'crypto';
 import { z } from 'zod';
 import { authenticate, type AuthRequest } from '../middlewares/auth';
 import { prisma } from '../lib/prisma';
@@ -24,6 +24,11 @@ import { parseArchivoM, ArchivoMError } from '../services/pedimento-reader/parse
 import { mapearOperaciones, type OperacionExtraida } from '../services/pedimento-reader/mapper';
 import { LAYOUT_VERSION } from '../services/pedimento-reader/layout-v9';
 import { declaradoSchema } from './risk';
+import { importarPedimentos, ImportacionError } from '../services/pedimento-importer';
+import { DATASTAGE_AVISO } from '../services/pedimento-reader/datastage';
+import { clienteIdDe, validarClienteDelTenant } from '../lib/cliente-contexto';
+import { requirePermission } from '../middlewares/requirePermission';
+import { logger } from '../lib/logger';
 
 const router = Router();
 router.use(authenticate);
@@ -129,6 +134,119 @@ function parseOr422(res: Response, nombre: string, contenido: string) {
     throw e;
   }
 }
+
+// ── OPERACIÓN 2026-08 ── Importar M3 / Data Stage → Pedimento + partidas ──
+// Sin flag beta: importar/persistir no es el radar de riesgo. El parser M3
+// sigue fail-closed (422 con detalles); Data Stage se lee por encabezados y
+// se marca "pendiente de cotejo oficial".
+const importarSchema = z.object({
+  nombreArchivo: z.string().min(1).max(128),
+  contenidoBase64: z.string().min(1).max(4_000_000),
+  layout: z.enum(['auto', 'M3', 'DATASTAGE']).default('auto'),
+  columnas: z.record(z.string(), z.array(z.string().max(80)).max(10)).optional(),
+});
+
+router.post('/importar', requirePermission('expedientes', 'create'), async (req: AuthRequest, res: Response, next) => {
+  try {
+    const parsed = importarSchema.safeParse(req.body);
+    if (!parsed.success) return res.status(400).json({ status: 'error', message: 'Entrada inválida', issues: parsed.error.issues.slice(0, 5) });
+    const { nombreArchivo, contenidoBase64, layout, columnas } = parsed.data;
+    let contenido: string;
+    try {
+      contenido = Buffer.from(contenidoBase64, 'base64').toString('utf8');
+    } catch {
+      return res.status(400).json({ status: 'error', message: 'contenidoBase64 inválido' });
+    }
+    const clienteId = await validarClienteDelTenant(req.tenantId!, clienteIdDe(req));
+    const r = await importarPedimentos({
+      tenantId: req.tenantId!, userId: req.userId!, clienteId,
+      nombreArchivo, contenido, layout,
+      columnas: columnas as Record<string, string[]> | undefined,
+    });
+    logger.info('Pedimentos importados', { action: 'pedimento_importar', tenantId: req.tenantId, metadata: { layout: r.layout, pedimentos: r.pedimentos.length, reutilizados: r.pedimentos.filter(p => p.reutilizado).length } });
+    res.status(201).json({ status: 'ok', data: r, avisoDataStage: r.layout === 'DATASTAGE' ? DATASTAGE_AVISO : null });
+  } catch (e) {
+    if (e instanceof ImportacionError) {
+      return res.status(e.status).json({ status: 'error', message: e.message, detalles: e.detalles.slice(0, 10) });
+    }
+    next(e);
+  }
+});
+
+// Pedimentos importados (para el selector "usar pedimento importado").
+router.get('/importados', async (req: AuthRequest, res: Response, next) => {
+  try {
+    const clienteId = clienteIdDe(req);
+    const data = await prisma.pedimento.findMany({
+      where: { tenantId: req.tenantId!, origenArchivo: { in: ['M3', 'DATASTAGE'] }, ...(clienteId ? { clienteId } : {}) },
+      orderBy: { createdAt: 'desc' },
+      take: 50,
+      select: { id: true, numero: true, clave: true, aduana: true, rfcImportador: true, origenArchivo: true, layoutVersion: true, createdAt: true, status: true, _count: { select: { partidas: true } } },
+    });
+    res.json({ status: 'ok', data });
+  } catch (e) { next(e); }
+});
+
+// Archivar al expediente: crea/actualiza la Operation ligada al pedimento y
+// guarda el reporte (prevalidación o pre-glosa) como Document del expediente.
+const archivarSchema = z.object({
+  tipoReporte: z.enum(['prevalidacion', 'preglosa']),
+  reporte: z.record(z.string(), z.unknown()),
+  resumen: z.string().max(500).optional(),
+});
+
+router.post('/:id/archivar', requirePermission('expedientes', 'create'), async (req: AuthRequest, res: Response, next) => {
+  try {
+    const parsed = archivarSchema.safeParse(req.body);
+    if (!parsed.success) return res.status(400).json({ status: 'error', message: 'Entrada inválida', issues: parsed.error.issues.slice(0, 5) });
+    const ped = await prisma.pedimento.findFirst({ where: { id: String(req.params.id), tenantId: req.tenantId! }, include: { partidas: { select: { fraccion: true, pais: true }, orderBy: { numeroPartida: 'asc' } } } });
+    if (!ped) return res.status(404).json({ status: 'error', message: 'Pedimento no encontrado' });
+
+    const referencia = ped.numero ?? ped.id;
+    let op = await prisma.operation.findFirst({ where: { tenantId: req.tenantId!, pedimentoId: ped.id } });
+    if (!op) op = await prisma.operation.findFirst({ where: { tenantId: req.tenantId!, reference: referencia, pedimentoId: null } });
+    const datosOp = {
+      reference: referencia,
+      type: ped.tipoOperacion === 'EXP' ? 'EXPORT' as const : 'IMPORT' as const,
+      fractionCode: ped.partidas[0]?.fraccion ?? null,
+      description: `${ped.clave} · ${ped.partidas.length} partida(s) · origen ${ped.origenArchivo ?? 'MANUAL'}`,
+      origin: ped.partidas[0]?.pais ?? null,
+      customsValue: ped.valorDolares,
+      currency: 'USD',
+      customsBroker: ped.patenteAduanal,
+      pedimentoId: ped.id,
+      clienteId: ped.clienteId,
+    };
+    op = op
+      ? await prisma.operation.update({ where: { id: op.id }, data: { ...datosOp, status: op.status === 'DRAFT' ? 'IN_PROGRESS' : op.status } })
+      : await prisma.operation.create({ data: { ...datosOp, tenantId: req.tenantId!, userId: req.userId!, status: 'IN_PROGRESS' } });
+
+    const { tipoReporte, reporte, resumen } = parsed.data;
+    const json = JSON.stringify(reporte);
+    const nombre = `${tipoReporte === 'prevalidacion' ? 'Prevalidación' : 'Pre-Glosa'} ${referencia} ${new Date().toISOString().slice(0, 10)}.json`;
+    const doc = await prisma.document.create({
+      data: {
+        tenantId: req.tenantId!,
+        operationId: op.id,
+        name: nombre,
+        type: tipoReporte === 'prevalidacion' ? 'reporte_prevalidacion' : 'reporte_preglosa',
+        docType: tipoReporte === 'prevalidacion' ? 'reporte_prevalidacion' : 'reporte_preglosa',
+        status: 'UPLOADED',
+        required: false,
+        fileName: nombre,
+        mimeType: 'application/json',
+        fileSize: Buffer.byteLength(json, 'utf8'),
+        fileHash: createHash('sha256').update(json).digest('hex'),
+        extractedData: reporte as object,
+        notes: resumen ?? null,
+        processedAt: new Date(),
+      },
+      select: { id: true, name: true, type: true },
+    });
+    logger.info('Reporte archivado al expediente', { action: 'pedimento_archivar', tenantId: req.tenantId, entity: 'operation', entityId: op.id, metadata: { tipoReporte, pedimentoId: ped.id } });
+    res.status(201).json({ status: 'ok', data: { operationId: op.id, reference: op.reference, documentId: doc.id, documentName: doc.name } });
+  } catch (e) { next(e); }
+});
 
 router.post('/parse', async (req: AuthRequest, res: Response) => {
   if (!readerHabilitado()) return res.status(403).json({ status: 'error', message: 'Lector de pedimentos deshabilitado (beta — PEDIMENTO_READER_ENABLED)' });

@@ -30,6 +30,7 @@ import {
   datoSinVerificar,
   datoNoRevisado,
 } from '../lib/dato-legal';
+import { evaluarCruces, type CruceGlosa, type FraccionCatalogo } from './glosa-cruces';
 
 export interface GlosaSimulationInput {
   fractionCode: string;
@@ -65,6 +66,20 @@ export interface GlosaSimulationInput {
     permits?: boolean;
     nomCertificates?: boolean;
   };
+
+  // ── Operación 2026-08: datos de partida del archivo M3/Data Stage para los
+  // cruces (glosa-cruces.ts). Todos opcionales: sin ellos el cruce queda
+  // no_evaluado con motivo, nunca dispara por defecto.
+  tratadoDeclarado?: string;        // TMEC | TLCUEM | CPTPP
+  exportadorNombre?: string;        // proveedor/exportador de la factura (505.12)
+  identificadores?: { codigo: string; complemento1?: string; complemento2?: string }[];
+  unidadComercial?: string;         // clave Apéndice 7 o símbolo (551.12)
+  unidadTarifa?: string;            // clave Apéndice 7 o símbolo (551.14)
+  cantidadUmc?: number;             // 551.11
+  cantidadUmt?: number;             // 551.13
+  /** Metadatos de partida (multipartida) — no afectan el score. */
+  numeroPartida?: number;
+  pedimentoId?: string;
 }
 
 export interface RiskFlag {
@@ -123,6 +138,12 @@ export interface GlosaSimulationResult {
    *  MXN vino declarado por el usuario (entonces no se usó TC del sistema). */
   tipoCambio: DatoLegal<number> | null;
   disclaimer: string;
+  /** Operación 2026-08: cruces por partida (origen-tratado, cuota por
+   *  exportador, UMC/UMT, precio estimado, identificadores Ap. 8). Cada uno
+   *  declara estado evaluado|no_evaluado y fundamento. Los hallazgos de cruce
+   *  NO suman al riskScore heurístico (las reglas ponderadas viven en DB);
+   *  se agregan en el resumen del pedimento. */
+  cruces: CruceGlosa[];
 }
 
 /** Fuentes de datos inyectables — SOLO para tests (simular fallos de DB).
@@ -138,6 +159,8 @@ export interface GlosaFuentes {
    *  clasificaciones de la fracción y cuántas fueron marcadas incorrectas. */
   reclasificaciones: (tenantId: string, fractionCode: string) => Promise<{ total: number; reclasificadas: number }>;
   tipoCambio: () => Promise<OfficialRate>;
+  /** Opcional (Operación 2026-08): catálogo de la fracción para los cruces. */
+  fraccionCatalogo?: (cleanedFraction: string) => Promise<FraccionCatalogo | null>;
 }
 
 // Claves OFICIALES del Apéndice 1 Anexo 22 RGCE 2026 (Fase 4.1, cotejo DOF
@@ -263,6 +286,14 @@ async function reclasificacionesReal(tenantId: string, fractionCode: string): Pr
   return { total, reclasificadas };
 }
 
+async function fraccionCatalogoReal(cleaned: string): Promise<FraccionCatalogo | null> {
+  const f = await prisma.fraction.findUnique({
+    where: { code: cleaned },
+    select: { unit: true, tariffNMF: true, tariffTMEC: true, tariffTLCUE: true, tariffCPTPP: true, noms: true },
+  });
+  return f ?? null;
+}
+
 const FUENTES_REALES: GlosaFuentes = {
   precioEstimado: lookupEstimatedPrice,
   cuotas: checkAntidumpingDuty,
@@ -272,6 +303,7 @@ const FUENTES_REALES: GlosaFuentes = {
   nomsRequeridas: nomsRequeridasReal,
   reclasificaciones: reclasificacionesReal,
   tipoCambio: getOfficialRate,
+  fraccionCatalogo: fraccionCatalogoReal,
 };
 
 async function getIndustryAverage(fractionCode: string): Promise<number | null> {
@@ -452,6 +484,34 @@ export async function simulateGlosa(
     const list = nomsRequeridas.slice(0, 3).join(', ');
     addFlag('DOC_002', `Fracción requiere NOM(s) ${list} pero no se declaró cumplimiento.`);
   }
+
+  // ── 9b. Cruces por partida (Operación 2026-08) ── deterministas sobre lo ya
+  // consultado (precio estimado, cuotas) + catálogo de la fracción. Un fallo
+  // del catálogo NO tumba la simulación: los cruces que lo necesitan quedan
+  // no_evaluado con motivo (nunca se degrada en silencio: se loguea).
+  let fraccionCat: FraccionCatalogo | null = null;
+  try {
+    fraccionCat = await (fuentes.fraccionCatalogo ?? fraccionCatalogoReal)(cleaned);
+  } catch (err) {
+    logger.warn('Pre-Glosa: catálogo de fracción no disponible para cruces', {
+      action: 'glosa_fraccion_catalogo_fail', tenantId,
+      errorMessage: err instanceof Error ? err.message : String(err),
+    });
+  }
+  const cruces = evaluarCruces(
+    {
+      fractionCode: input.fractionCode, countryOrigin: input.countryOrigin, regimenCode: input.regimenCode,
+      unitValueUSD: input.unitValueUSD, appliesTMEC: input.appliesTMEC, tratadoDeclarado: input.tratadoDeclarado,
+      exportadorNombre: input.exportadorNombre, identificadores: input.identificadores,
+      unidadComercial: input.unidadComercial, unidadTarifa: input.unidadTarifa,
+      cantidadUmc: input.cantidadUmc, cantidadUmt: input.cantidadUmt, declaresAntidumping: input.declaresAntidumping,
+    },
+    {
+      fraccion: fraccionCat,
+      cuotas: dominios.cuotas_compensatorias === 'revisado' ? (cuotas ?? []) : null,
+      precioEstimado: dominios.precio_estimado === 'revisado' ? est : undefined,
+    },
+  );
 
   // ── 10. Reclasificación histórica REAL ── (dominio: reclasificacion_historica)
   // Señal: clasificaciones DEL TENANT de esta fracción marcadas incorrectas en
@@ -641,6 +701,7 @@ export async function simulateGlosa(
     revision,
     tipoCambio,
     disclaimer: GLOSA_DISCLAIMER,
+    cruces,
   };
 }
 

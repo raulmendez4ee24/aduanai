@@ -54,7 +54,10 @@
     "test:defensa": "tsx src/tests/defensa.test.ts",
     "test:anexo24": "tsx src/tests/anexo24.test.ts",
     "test:mve": "tsx src/tests/mve-e2.test.ts",
-    "test:fiscal": "tsx src/tests/fiscal-guardian.test.ts"
+    "test:fiscal": "tsx src/tests/fiscal-guardian.test.ts",
+    "test:importar": "tsx src/tests/pedimento-importar.test.ts",
+    "test:prevalidador-reglas": "tsx src/tests/prevalidador-reglas.test.ts",
+    "test:glosa-multipartida": "tsx src/tests/glosa-multipartida.test.ts"
   },
   "license": "UNLICENSED",
   "private": true,

@@ -4,6 +4,9 @@ import { requirePermission } from '../middlewares/requirePermission';
 import { prevalidatePedimento } from '../services/prevalidator';
 import { validatePedimento, type PedimentoInput } from '../services/prevalidator-v2';
 import { prisma } from '../lib/prisma';
+import { REGLAS_PREVALIDADOR, PREVALIDADOR_REGLAS_NOTA } from '../services/prevalidador-reglas';
+import { cargarPedimento, pedimentoAInputPrevalidador, datosArchivoDe } from '../services/pedimento-importer';
+import { ANEXO22_APENDICES_PENDIENTES } from '../lib/anexo22';
 
 export const prevalidateRouter = Router();
 
@@ -60,6 +63,40 @@ prevalidateRouter.post('/', authenticate, async (req: AuthRequest, res, next) =>
   } catch (err) {
     next(err);
   }
+});
+
+// ── OPERACIÓN 2026-08 ── catálogo de reglas + validación desde pedimento importado ──
+
+// GET /api/prevalidate/reglas — catálogo documentado (código, descripción,
+// fundamento, severidad). Espejo de docs/PREVALIDADOR_REGLAS.md.
+prevalidateRouter.get('/reglas', authenticate, (_req, res) => {
+  res.json({ status: 'ok', data: REGLAS_PREVALIDADOR, nota: PREVALIDADOR_REGLAS_NOTA, catalogosPendientes: ANEXO22_APENDICES_PENDIENTES });
+});
+
+// POST /api/prevalidate/desde-pedimento/:id — corre el prevalidador sobre el
+// pedimento persistido (importado del M3/Data Stage o capturado), multipartida,
+// y guarda errores/advertencias en el registro.
+prevalidateRouter.post('/desde-pedimento/:id', authenticate, async (req: AuthRequest, res, next) => {
+  try {
+    const ped = await cargarPedimento(req.tenantId!, String(req.params.id));
+    if (!ped) return res.status(404).json({ status: 'error', message: 'Pedimento no encontrado' });
+    const aiCheck = !!(req.body as { aiCheck?: boolean } | undefined)?.aiCheck;
+    const input = pedimentoAInputPrevalidador(ped);
+    const validation = await validatePedimento(input, { aiCheck });
+    const status = validation.errorsCount > 0 ? 'WITH_ERRORS' : 'VALIDATED';
+    const extra = datosArchivoDe(ped);
+    await prisma.pedimento.update({
+      where: { id: ped.id },
+      data: {
+        errors: validation.issues.filter(i => i.severity === 'error') as unknown as object,
+        warnings: validation.issues.filter(i => i.severity === 'warning') as unknown as object,
+        // Preserva datosArchivo (SCHEMA REQUERIDO: Pedimento.datosArchivo Json?).
+        aiNotes: { datosArchivo: extra, notas: validation.aiNotes, reglasNoEvaluadas: validation.reglasNoEvaluadas } as unknown as object,
+        status,
+      },
+    });
+    res.json({ status: 'ok', data: { pedimentoId: ped.id, numero: ped.numero, origenArchivo: ped.origenArchivo, layoutVersion: ped.layoutVersion, input, validation } });
+  } catch (err) { next(err); }
 });
 
 // ── PEDIMENTO V2 ────────────────────────────────────────────────────────

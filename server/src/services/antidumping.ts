@@ -44,6 +44,9 @@ export interface AntidumpingCheckResult {
     expiryDate: string | null;
     dofUrl: string | null;
     notes: string | null;
+    /** Fase 0: tasas por exportador/productor [{ empresa, tasa, rateUnit }] (null = sin lista cargada). */
+    exportadorTasas: ExportadorTasa[] | null;
+    specificProducer: string | null;
   };
   calculatedAmountUSD: number | null;
   calculation: string;
@@ -60,6 +63,52 @@ export interface AntidumpingCheckResult {
   /** Fracción que coincidió en el corpus (puede diferir del input cuando
    * matchType !== exact). */
   matchedFraction: string;
+}
+
+export interface ExportadorTasa { empresa: string; tasa: number; rateUnit?: string }
+
+/** Nombre de empresa normalizado para cruce: mayúsculas, sin acentos, sin
+ *  puntuación ni sufijos societarios (S.A. DE C.V., LTD, CO., INC…). */
+export function normalizarEmpresa(nombre: string): string {
+  return nombre
+    .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+    .toUpperCase()
+    .replace(/[.,;:'"()\-\/]/g, ' ')
+    .replace(/\b(S\s*A\s*(DE)?\s*C\s*V|S\s*DE\s*R\s*L|SA|SAB|SRL|LTD|LIMITED|CO|CORP|CORPORATION|INC|LLC|GMBH|AG|BV|NV|PTE|PTY|CIA|COMPANY|GROUP|GRUPO)\b/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+export interface TasaResuelta {
+  tasa: number;
+  rateUnit: string;
+  empresa: string | null;
+  /** exportador = tasa específica de la empresa; general = hay lista pero la
+   *  empresa no está (o no se dio nombre); general_sin_lista = la resolución
+   *  no tiene tasas por empresa cargadas. */
+  origen: 'exportador' | 'general' | 'general_sin_lista';
+}
+
+/** Elige la tasa por empresa cuando la resolución la tiene y el pedimento
+ *  trae exportador; si no, la general — y lo dice. Match por nombre
+ *  normalizado (igualdad o contención en ambos sentidos). */
+export function resolverTasaPorExportador(
+  duty: { rate: number; rateUnit: string; exportadorTasas: ExportadorTasa[] | null; specificProducer: string | null },
+  exportadorNombre?: string | null,
+): TasaResuelta {
+  const lista = Array.isArray(duty.exportadorTasas) ? duty.exportadorTasas.filter(e => e && typeof e.empresa === 'string' && typeof e.tasa === 'number') : [];
+  if (lista.length === 0 && !duty.specificProducer) {
+    return { tasa: duty.rate, rateUnit: duty.rateUnit, empresa: null, origen: 'general_sin_lista' };
+  }
+  const nombre = exportadorNombre ? normalizarEmpresa(exportadorNombre) : '';
+  if (nombre.length >= 3) {
+    const hit = lista.find(e => {
+      const n = normalizarEmpresa(e.empresa);
+      return n.length >= 3 && (n === nombre || n.includes(nombre) || nombre.includes(n));
+    });
+    if (hit) return { tasa: hit.tasa, rateUnit: hit.rateUnit ?? duty.rateUnit, empresa: hit.empresa, origen: 'exportador' };
+  }
+  return { tasa: duty.rate, rateUnit: duty.rateUnit, empresa: null, origen: 'general' };
 }
 
 export async function checkAntidumpingDuty(input: AntidumpingCheckInput): Promise<AntidumpingCheckResult[]> {
@@ -152,6 +201,8 @@ export async function checkAntidumpingDuty(input: AntidumpingCheckInput): Promis
         expiryDate: d.expiryDate?.toISOString() ?? null,
         dofUrl: d.dofUrl,
         notes: d.notes,
+        exportadorTasas: Array.isArray(d.exportadorTasas) ? (d.exportadorTasas as unknown as ExportadorTasa[]) : null,
+        specificProducer: d.specificProducer,
       },
       calculatedAmountUSD,
       calculation,

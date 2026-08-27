@@ -25,6 +25,8 @@ import {
 import { getActiveVersions } from '../services/traceability';
 import { TARIFF_VERSION } from '../lib/tariff-version';
 import { clienteIdDe, filtroCliente, validarClienteDelTenant } from '../lib/cliente-contexto';
+import { cargarPedimento } from '../services/pedimento-importer';
+import { simulateGlosaPedimento } from '../services/glosa-multipartida';
 
 export const glosaRouter = Router();
 export const glosaAdminRouter = Router();
@@ -81,6 +83,37 @@ glosaRouter.post('/simulate', authenticate, async (req: AuthRequest, res: Respon
           fuenteUrl: 'https://www.snice.gob.mx',
           fechaPublicacion: TARIFF_VERSION.publishDate,
           fechaVerificacion: TARIFF_VERSION.cotejoDate,
+        },
+      },
+    });
+  } catch (err) { next(err); }
+});
+
+// ── OPERACIÓN 2026-08 ── Pre-Glosa multipartida desde pedimento importado ──
+const declaradoPedimentoSchema = z.object({
+  hasIVAIEPSCertification: z.boolean().optional(),
+  hasTMECCertificate: z.boolean().optional(),
+  declaresNOMs: z.boolean().optional(),
+  documents: simulateSchema.shape.documents,
+}).default({});
+
+glosaRouter.post('/simulate/desde-pedimento/:id', authenticate, async (req: AuthRequest, res: Response, next: NextFunction) => {
+  try {
+    const ped = await cargarPedimento(req.tenantId!, String(req.params.id ?? ''));
+    if (!ped) return res.status(404).json({ status: 'error', message: 'Pedimento no encontrado' });
+    if (ped.partidas.length === 0) return res.status(400).json({ status: 'error', message: 'El pedimento no tiene partidas' });
+    if (ped.partidas.length > 200) return res.status(413).json({ status: 'error', message: `El pedimento trae ${ped.partidas.length} partidas; la Pre-Glosa acepta hasta 200.` });
+    const declarado = declaradoPedimentoSchema.parse(req.body ?? {});
+    const result = await simulateGlosaPedimento(req.tenantId!, req.userId!, ped, declarado);
+    const versions = await getActiveVersions();
+    res.json({
+      status: 'ok',
+      data: {
+        ...result,
+        versiones: {
+          tigie: versions.tigie, ligie: versions.ligie, rgce: versions.rgce,
+          fuenteNombre: 'Base Única SNICE · DOF', fuenteUrl: 'https://www.snice.gob.mx',
+          fechaPublicacion: TARIFF_VERSION.publishDate, fechaVerificacion: TARIFF_VERSION.cotejoDate,
         },
       },
     });
