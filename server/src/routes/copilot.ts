@@ -62,10 +62,15 @@ copilotRouter.patch('/feedback/:hash', authenticate, async (req: AuthRequest, re
     if (typeof helpful !== 'boolean') {
       return res.status(400).json({ status: 'error', message: 'helpful (boolean) requerido' });
     }
-    await prisma.copilotConsult.update({
-      where: { consultHash: hash },
+    // SCOPE por tenant: la clave es (tenantId, consultHash). Sin esto un usuario
+    // de otro tenant podía escribir feedback sobre una consulta ajena.
+    const r = await prisma.copilotConsult.updateMany({
+      where: { tenantId: req.tenantId!, consultHash: hash },
       data: { helpful, feedbackNote: note },
     });
+    if (r.count === 0) {
+      return res.status(404).json({ status: 'error', message: 'Consulta no encontrada' });
+    }
     res.json({ status: 'ok' });
   } catch (err) { next(err); }
 });

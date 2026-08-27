@@ -1817,7 +1817,9 @@ model CopilotConsult {
   latencyMs  Int
   confidence Float
 
-  consultHash String @unique
+  // Bloque 3: unicidad por tenant (el hash incluye tenantId). Antes era
+  // @unique global y dos tenants con la misma consulta canónica colisionaban.
+  consultHash String
 
   helpful      Boolean?
   feedbackNote String?
@@ -1833,6 +1835,7 @@ model CopilotConsult {
 
   createdAt DateTime @default(now())
 
+  @@unique([tenantId, consultHash])
   @@index([tenantId])
   @@index([userId])
   @@index([createdAt])

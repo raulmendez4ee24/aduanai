@@ -285,6 +285,17 @@ export interface AskCopilotInput {
   history?: { role: 'user' | 'assistant'; content: string }[];
 }
 
+/** Hash de verificación de una consulta del Copilot. Incluye tenantId: la misma
+ *  pregunta canónica en dos tenants produce hashes distintos (Bloque 3). Los
+ *  ids de docs se ordenan para que el hash no dependa del orden de retrieval. */
+export function calcularConsultHash(p: {
+  tenantId: string; question: string; answer: string; docIds: string[]; modelUsed: string;
+}): string {
+  return crypto.createHash('sha256')
+    .update([p.tenantId, p.question, p.answer, [...p.docIds].sort().join(','), p.modelUsed].join('|'))
+    .digest('hex');
+}
+
 export async function askCopilotWithRAG(
   input: AskCopilotInput,
   // SOLO tests: inyectar generador/retrieval para simular respuestas con
@@ -413,18 +424,19 @@ export async function askCopilotWithRAG(
     .map(d => ({ reference: d.reference, source: d.source, officialUrl: d.officialUrl }));
 
   const confidence = calculateConfidence(docs, cruce.noRespaldadas.length, citations.length, answer, input.question);
-  const consultHash = crypto.createHash('sha256')
-    .update([input.question, answer, docs.map(d => d.id).sort().join(','), modelUsed].join('|'))
-    .digest('hex');
+  const consultHash = calcularConsultHash({
+    tenantId: input.tenantId, question: input.question, answer, docIds: docs.map(d => d.id), modelUsed,
+  });
 
-  // 6. Persistir. UPSERT por consultHash: el hash es contenido-determinista
-  // (pregunta|respuesta|docs|modelo) — misma pregunta con misma respuesta
-  // (p.ej. la abstención canónica, que es fija) produce el MISMO hash, y un
-  // create fallaría con unique violation (bug preexistente, más probable
-  // ahora). La fila original se conserva; solo se refresca la latencia.
+  // 6. Persistir. UPSERT por (tenantId, consultHash): el hash es contenido-
+  // determinista (tenant|pregunta|respuesta|docs|modelo) — misma pregunta con
+  // misma respuesta (p.ej. la abstención canónica, que es fija) produce el
+  // MISMO hash dentro del tenant, y un create fallaría con unique violation.
+  // Con tenantId en el hash y unicidad compuesta, dos tenants con la misma
+  // consulta canónica ya no colisionan ni se pisan (Bloque 3).
   const tokensUsed = Math.ceil((input.question.length + answer.length) / 4);
   await prisma.copilotConsult.upsert({
-    where: { consultHash },
+    where: { tenantId_consultHash: { tenantId: input.tenantId, consultHash } },
     update: { latencyMs: Date.now() - t0 },
     create: {
       tenantId: input.tenantId,

@@ -30,6 +30,8 @@
     "test:cors": "tsx src/tests/cors-origin.test.ts",
     "test:jwt-config": "tsx src/tests/jwt-secret-config.test.ts",
     "test:tenant-guard": "tsx src/tests/tenant-guard.test.ts",
+    "test:consult-hash": "tsx src/tests/consult-hash-tenant.test.ts",
+    "test:knowledge-tenant": "tsx src/tests/knowledge-tenant.test.ts",
     "test:xtenant": "tsx src/tests/cross-tenant-isolation.test.ts",
     "test:glosa": "tsx src/tests/glosa-fail-closed.test.ts",
     "test:glosa-capturadas": "tsx src/tests/glosa-reglas-capturadas.test.ts",
