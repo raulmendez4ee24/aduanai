@@ -3,6 +3,11 @@ import { authenticate, AuthRequest } from '../middlewares/auth';
 import { prisma } from '../lib/prisma';
 import { regenerateAlerts } from '../services/alert-generator';
 import { clienteIdDe, filtroCliente, validarClienteDelTenant } from '../lib/cliente-contexto';
+import { requirePermission } from '../middlewares/requirePermission';
+import { normalizarAccion, rutaDeAccion } from '../services/alert-acciones';
+import { REGLAS_SEVERIDAD } from '../services/alert-severity';
+import { armarDigest, enviarDigest, CANALES_DIGEST } from '../services/digest-semanal';
+import { estadoWatchdog, correrWatchdogDOF } from '../services/dof-watchdog';
 
 export const alertsRouter = Router();
 
@@ -50,8 +55,11 @@ alertsRouter.get('/', authenticate, async (req: AuthRequest, res, next) => {
         const daysToDue = a.dueDate
           ? Math.ceil((a.dueDate.getTime() - now.getTime()) / (1000 * 60 * 60 * 24))
           : null;
+        // Operación 2026-08: acción normalizada { type, label, payload } + ruta.
+        const accion = normalizarAccion({ type: a.type, suggestedAction: a.suggestedAction, affectedFraction: a.affectedFraction, affectedOperations: a.affectedOperations });
         return {
           ...a,
+          suggestedAction: accion ? { ...accion, payload: { ...accion.payload, route: rutaDeAccion(accion) } } : null,
           daysToDue,
           // BUG-7 (24-ago-2026): el texto relativo se recalcula al SERVIR.
           // El almacenado quedó congelado al generarse ("vence en 30 días"
@@ -310,4 +318,53 @@ alertsRouter.delete('/watch/:code', authenticate, async (req: AuthRequest, res, 
   } catch (err) {
     next(err);
   }
+});
+
+// ── OPERACIÓN 2026-08 ── severidad, digest semanal y watchdog DOF ──────────
+
+alertsRouter.get('/severidad/reglas', authenticate, (_req, res) => {
+  res.json({ status: 'ok', data: REGLAS_SEVERIDAD });
+});
+
+alertsRouter.get('/digest/preview', authenticate, async (req: AuthRequest, res, next) => {
+  try {
+    const [digest, tenant] = await Promise.all([
+      armarDigest(req.tenantId!),
+      prisma.tenant.findUnique({ where: { id: req.tenantId! }, select: { digestSemanalCanal: true, digestUltimoEnvioAt: true } }),
+    ]);
+    res.json({ status: 'ok', data: { digest, canal: tenant?.digestSemanalCanal ?? null, ultimoEnvioAt: tenant?.digestUltimoEnvioAt ?? null, canales: CANALES_DIGEST } });
+  } catch (err) { next(err); }
+});
+
+// TENANT_ADMIN = feature `settings` (mismo guard que PATCH /settings/empresa).
+alertsRouter.post('/digest/enviar-ahora', authenticate, requirePermission('classifier', 'settings'), async (req: AuthRequest, res, next) => {
+  try {
+    const r = await enviarDigest(req.tenantId!, { forzar: true });
+    const { digest: _d, ...resto } = r;
+    void _d;
+    res.json({ status: 'ok', data: resto });
+  } catch (err) { next(err); }
+});
+
+alertsRouter.patch('/digest/canal', authenticate, requirePermission('classifier', 'settings'), async (req: AuthRequest, res, next) => {
+  try {
+    const canal = req.body?.canal ?? null;
+    if (canal !== null && !(CANALES_DIGEST as readonly string[]).includes(canal)) {
+      return res.status(400).json({ status: 'error', message: `canal inválido (${CANALES_DIGEST.join('|')} o null)` });
+    }
+    const t = await prisma.tenant.update({ where: { id: req.tenantId! }, data: { digestSemanalCanal: canal }, select: { digestSemanalCanal: true, digestUltimoEnvioAt: true } });
+    res.json({ status: 'ok', data: t });
+  } catch (err) { next(err); }
+});
+
+alertsRouter.get('/watchdog/estado', authenticate, async (_req: AuthRequest, res, next) => {
+  try { res.json({ status: 'ok', data: await estadoWatchdog() }); } catch (err) { next(err); }
+});
+
+// Corrida manual del watchdog para el tenant (misma lógica que el job; red real).
+alertsRouter.post('/watchdog/revisar-ahora', authenticate, requirePermission('classifier', 'settings'), async (req: AuthRequest, res, next) => {
+  try {
+    const r = await correrWatchdogDOF({ tenantIds: [req.tenantId!] });
+    res.json({ status: 'ok', data: { decretos: r.decretos.map(d => ({ clave: d.clave, fechaDOF: d.fechaDOF, titulo: d.titulo, url: d.url, fracciones: d.fracciones.length })), alertasCreadas: r.alertasCreadas, alertasExistentes: r.alertasExistentes, fuentesCiegas: r.fuentesCiegas } });
+  } catch (err) { next(err); }
 });

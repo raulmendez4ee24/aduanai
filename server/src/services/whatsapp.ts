@@ -243,6 +243,9 @@ function formatQuoteForWhatsApp(result: Awaited<ReturnType<typeof calculateQuote
   return critical.join('\n\n');
 }
 
+/** ¿Hay proveedor de WhatsApp configurado? (el digest no promete envíos sin esto) */
+export function whatsappConfigurado(): boolean { return !!(YCLOUD_API_KEY && YCLOUD_FROM); }
+
 export async function sendWhatsAppMessage(to: string, body: string): Promise<void> {
   if (!YCLOUD_API_KEY || !YCLOUD_FROM) {
     console.warn('WhatsApp no configurado: falta YCLOUD_API_KEY o YCLOUD_FROM_NUMBER');

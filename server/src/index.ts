@@ -92,6 +92,10 @@ import {
 } from './middlewares/rateLimit';
 import { prisma } from './lib/prisma';
 import { establecerReporteDeIncidentes } from './lib/tenant-guard';
+// ── OPERACIÓN 2026-08 ── imports nuevos (una línea por módulo)
+import { calendarioRouter } from './routes/calendario';
+import { cambioRegimenRouter } from './routes/cambio-regimen';
+import { activoFijoRouter } from './routes/activo-fijo';
 
 // Incidentes de la guarda de tenant → logger (SystemLog), no solo stdout.
 establecerReporteDeIncidentes(inc => {
@@ -243,6 +247,9 @@ app.use('/api/aprobaciones', aprobacionesRouter);
 app.use('/api/catalogo', catalogoRouter);
 app.use('/api/traceability', defensaRouter); // Ola 3 — Defensa (paquete + certificado)
 app.use('/api/inventory', anexo24Router); app.use('/api/ubicaciones', ubicacionesRouter); // ola1/anexo24-real
+app.use('/api/calendario', calendarioRouter);
+app.use('/api/cambio-regimen', cambioRegimenRouter);
+app.use('/api/inventory/activo-fijo', activoFijoRouter);
 
 // ── SPA fallback ──
 app.use((req, res, next) => {
@@ -440,6 +447,37 @@ armTimer('tarifa_vigilante', 60 * 60000, async () => {
     logger.error('Vigilante de tarifa falló', { errorMessage: err instanceof Error ? err.message : String(err) });
   }
 }); // chequea cada hora; corre 1 vez por TARIFA_VIGILANTE_HORAS (default 24h)
+
+// ── OPERACIÓN 2026-08 ── timers nuevos (regulatorio / calendario) ──
+// Watchdog DOF real: cada 6 h (Diputados + índice DOF → alertas por catálogo del cliente).
+let _lastWatchdogDOF = 0;
+armTimer('dof_watchdog', 30 * 60000, async () => {
+  if (Date.now() - _lastWatchdogDOF < 6 * 3600000) return;
+  _lastWatchdogDOF = Date.now();
+  const { correrWatchdogDOF } = await import('./services/dof-watchdog');
+  await correrWatchdogDOF();
+});
+// Calendario de obligaciones: diario marca vencidas y crea alertas `ver_obligacion`.
+let _lastCalendarioRun = '';
+armTimer('calendario_vencimientos', 60 * 60000, async () => {
+  const today = new Date().toISOString().slice(0, 10);
+  if (_lastCalendarioRun === today) return;
+  _lastCalendarioRun = today;
+  const { procesarVencimientosTodos } = await import('./services/calendario-obligaciones');
+  const r = await procesarVencimientosTodos();
+  if (r.vencidas > 0 || r.alertas > 0) logger.info(`Calendario: ${r.tenants} tenants → ${r.vencidas} vencidas, ${r.alertas} alertas`, { action: 'calendario_cron', metadata: r });
+});
+// Digest semanal: lunes 13:00 UTC (7am CDMX); envía a tenants con canal configurado sin envío en 6 días.
+let _lastDigestRun = '';
+armTimer('digest_semanal', 30 * 60000, async () => {
+  const ahora = new Date();
+  const tag = ahora.toISOString().slice(0, 10);
+  if (_lastDigestRun === tag || ahora.getUTCDay() !== 1 || ahora.getUTCHours() !== 13) return;
+  _lastDigestRun = tag;
+  const { enviarDigestsPendientes } = await import('./services/digest-semanal');
+  const r = await enviarDigestsPendientes(ahora);
+  logger.info(`Digest semanal: ${r.enviados}/${r.tenants} enviados`, { action: 'digest_cron', metadata: r });
+});
 
 app.listen(PORT, () => {
   console.log(`🚀 ADUANAI server running on port ${PORT}`);

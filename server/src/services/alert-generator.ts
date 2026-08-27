@@ -20,6 +20,7 @@ import crypto from 'crypto';
 import { prisma } from '../lib/prisma';
 import { formatCuota } from '../lib/cuota-format';
 import { tipoCambioMXN } from './frontera-canonica';
+import { severidadPorImpacto } from './alert-severity';
 
 export type AlertSeverity = 'critical' | 'high' | 'medium' | 'low';
 export type AlertImpactType = 'savings' | 'cost' | 'risk';
@@ -58,18 +59,9 @@ const fingerprintOf = (tenantId: string, type: string, parts: string[]): string 
 const daysBetween = (from: Date, to: Date): number =>
   Math.ceil((to.getTime() - from.getTime()) / (1000 * 60 * 60 * 24));
 
-function severityForDays(daysToDue: number): AlertSeverity {
-  if (daysToDue <= 7) return 'critical';
-  if (daysToDue <= 30) return 'high';
-  if (daysToDue <= 90) return 'medium';
-  return 'low';
-}
-
 function severityForImpact(absMXN: number, daysToDue?: number): AlertSeverity {
-  if (daysToDue != null && daysToDue <= 7) return 'critical';
-  if (absMXN >= 100000 || (daysToDue != null && daysToDue <= 30)) return 'high';
-  if (absMXN >= 10000) return 'medium';
-  return 'low';
+  // Operación 2026-08: delega en la matriz monto × urgencia (alert-severity.ts).
+  return severidadPorImpacto({ tipo: 'tariff_change', impactoMXN: absMXN, diasParaVencer: daysToDue ?? null });
 }
 
 const formatMXN = (n: number): string =>
@@ -102,7 +94,8 @@ export async function generateImportExpiringAlerts(tenantId: string, isDemoData 
     const remaining = imp.quantity - imp.quantityDischarged;
     const valueMXN = imp.valueMXN ?? (tc.valor != null ? imp.customsValue * tc.valor : null);
     const remainingValueMXN = valueMXN != null ? valueMXN * (remaining / imp.quantity) : null;
-    const severity = severityForDays(days);
+    // Operación 2026-08: severidad ponderada por MONTO en riesgo (alert-severity.ts) — $387 ya no es "crítico".
+    const severity = severidadPorImpacto({ tipo: 'import_expiring', impactoMXN: remainingValueMXN != null ? remainingValueMXN * 0.30 : null, diasParaVencer: days });
     return {
       type: 'import_expiring',
       channel: 'IN_APP' as const,
@@ -146,7 +139,7 @@ export async function generateCreditExpiringAlerts(tenantId: string, isDemoData 
 
   return credits.map(c => {
     const days = daysBetween(now, c.dischargeDeadline);
-    const severity = severityForDays(days);
+    const severity = severidadPorImpacto({ tipo: 'credit_expiring', impactoMXN: c.remaining, diasParaVencer: days });
     return {
       type: 'credit_expiring',
       channel: 'IN_APP' as const,
@@ -187,7 +180,7 @@ export async function generateGuaranteeExpiringAlerts(tenantId: string, isDemoDa
 
   return guarantees.map(g => {
     const days = daysBetween(now, g.expiryDate);
-    const severity = severityForDays(days);
+    const severity = severidadPorImpacto({ tipo: 'guarantee_expiring', impactoMXN: g.amount * 0.05, diasParaVencer: days });
     return {
       type: 'guarantee_expiring',
       channel: 'IN_APP' as const,

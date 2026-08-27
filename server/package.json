@@ -57,7 +57,10 @@
     "test:fiscal": "tsx src/tests/fiscal-guardian.test.ts",
     "test:importar": "tsx src/tests/pedimento-importar.test.ts",
     "test:prevalidador-reglas": "tsx src/tests/prevalidador-reglas.test.ts",
-    "test:glosa-multipartida": "tsx src/tests/glosa-multipartida.test.ts"
+    "test:glosa-multipartida": "tsx src/tests/glosa-multipartida.test.ts",
+    "test:regulatorio": "tsx src/tests/regulatorio.test.ts",
+    "test:calendario": "tsx src/tests/calendario.test.ts",
+    "test:cambio-regimen": "tsx src/tests/cambio-regimen.test.ts"
   },
   "license": "UNLICENSED",
   "private": true,

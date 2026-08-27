@@ -1,4 +1,5 @@
 import { Resend } from 'resend';
+import type { Digest } from '../services/digest-semanal';
 
 let resend: Resend | null = null;
 function getResend(): Resend | null {
@@ -6,6 +7,9 @@ function getResend(): Resend | null {
   if (!resend) resend = new Resend(process.env.RESEND_API_KEY);
   return resend;
 }
+/** ¿Hay proveedor de email configurado? (el digest no promete envíos sin esto) */
+export function emailConfigurado(): boolean { return !!process.env.RESEND_API_KEY; }
+
 const FROM = process.env.EMAIL_FROM || 'ADUANAI <noreply@aduanai.mx>';
 const APP_URL = process.env.APP_URL || 'https://kanaduana-production.up.railway.app';
 
@@ -366,4 +370,36 @@ export async function sendLeadThankYouEmail(to: string, name: string): Promise<v
   }
 
   await getResend()!.emails.send({ from: FROM, to, subject, html });
+}
+
+// ── Digest semanal (Operación 2026-08) ────────────────────────────────────
+const esc = (s: string): string => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+const mxn = (n: number): string => `$${Math.round(Math.abs(n)).toLocaleString('es-MX')} MXN`;
+const SEV_COLOR: Record<string, string> = { critical: '#be123c', high: '#c2410c', medium: '#b45309', low: '#0369a1' };
+
+export function digestSemanalHtml(d: Digest): string {
+  const f = (iso: string) => iso.slice(0, 10);
+  const bloques = d.clientes.map(c => `
+    <div style="margin:0 0 22px;padding:16px 18px;border:1px solid #eeeeee;border-radius:8px;">
+      <p style="margin:0 0 10px;color:#1a1a1a;font-size:15px;font-weight:700;">${esc(c.nombre)}${c.rfc ? ` <span style="color:#888;font-weight:400;font-family:'Courier New',monospace;font-size:12px;">${esc(c.rfc)}</span>` : ''}</p>
+      ${c.alertas.length ? `<p style="margin:0 0 4px;color:#555;font-size:12px;font-weight:600;">Alertas nuevas (${c.alertas.length})</p><ul style="margin:0 0 10px;padding-left:18px;color:#333;font-size:13px;line-height:1.5;">${c.alertas.slice(0, 8).map(a => `<li><span style="color:${SEV_COLOR[a.severity] ?? '#555'};font-weight:700;">[${esc(a.severity)}]</span> ${esc(a.title)}${a.estimatedImpactMXN != null ? ` — ${mxn(a.estimatedImpactMXN)}` : ''}${a.ruta ? ` <a href="${APP_URL}${esc(a.ruta)}" style="color:#1a1a1a;">abrir</a>` : ''}</li>`).join('')}${c.alertas.length > 8 ? `<li>… y ${c.alertas.length - 8} más</li>` : ''}</ul>` : ''}
+      ${c.vencimientos.length ? `<p style="margin:0 0 4px;color:#555;font-size:12px;font-weight:600;">Importaciones temporales que vencen ≤30 días (${c.vencimientos.length})</p><ul style="margin:0 0 10px;padding-left:18px;color:#333;font-size:13px;line-height:1.5;">${c.vencimientos.slice(0, 8).map(v => `<li>${f(v.expirationDate)} (${v.dias}d) — pedimento ${esc(v.pedimento)}, ${esc(v.fractionCode)}, saldo ${v.saldo} ${esc(v.unit)}</li>`).join('')}${c.vencimientos.length > 8 ? `<li>… y ${c.vencimientos.length - 8} más</li>` : ''}</ul>` : ''}
+      ${c.obligaciones.length ? `<p style="margin:0 0 4px;color:#555;font-size:12px;font-weight:600;">Obligaciones del calendario ≤30 días (${c.obligaciones.length})</p><ul style="margin:0;padding-left:18px;color:#333;font-size:13px;line-height:1.5;">${c.obligaciones.slice(0, 8).map(o => `<li>${o.estado === 'vencida' ? '<strong style="color:#be123c;">VENCIDA</strong>' : `${o.dias}d`} — ${esc(o.titulo)} (${f(o.fechaLimite)}) <a href="${APP_URL}/calendario/${esc(o.id)}" style="color:#1a1a1a;">ver</a></li>`).join('')}${c.obligaciones.length > 8 ? `<li>… y ${c.obligaciones.length - 8} más</li>` : ''}</ul>` : ''}
+    </div>`).join('');
+  return `
+    <h2 style="margin:0 0 8px;color:#1a1a1a;font-size:22px;font-weight:700;">Resumen semanal — ${esc(d.tenantNombre)}</h2>
+    <p style="margin:0 0 18px;color:#555555;font-size:14px;line-height:1.6;">Del ${d.periodo.desde} al ${d.periodo.hasta}: <strong>${d.totales.alertas}</strong> alertas nuevas · <strong>${d.totales.vencimientos}</strong> vencimientos ≤30d · <strong>${d.totales.obligaciones}</strong> obligaciones ≤30d${d.totales.impactoMXN > 0 ? ` · exposición estimada <strong>${mxn(d.totales.impactoMXN)}</strong>` : ''}.</p>
+    ${bloques || '<p style="margin:0 0 18px;color:#555;font-size:14px;">Sin novedades esta semana.</p>'}
+    <div style="text-align:center;margin:8px 0 0;"><a href="${APP_URL}/alertas" style="display:inline-block;background:#1a1a1a;color:#ffffff;text-decoration:none;font-size:14px;font-weight:600;padding:12px 28px;border-radius:6px;">Ver alertas en ADUANAI</a></div>
+  `;
+}
+
+export async function sendDigestSemanalEmail(to: string, d: Digest): Promise<void> {
+  const subject = `Resumen semanal ADUANAI — ${d.tenantNombre} (${d.periodo.hasta})`;
+  const r = getResend();
+  if (!r) {
+    console.warn(`[email] Resend not configured — digest NO enviado a ${to}`);
+    throw new Error('canal no configurado (RESEND_API_KEY ausente)');
+  }
+  await r.emails.send({ from: FROM, to, subject, html: emailBase(subject, digestSemanalHtml(d)) });
 }
