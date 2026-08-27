@@ -131,9 +131,76 @@ async function main() {
       assert.equal(ids.length, 1); assert.equal(ids[0]!.codigo, 'CC'); assert.equal(ids[0]!.complemento1, '1');
       assert.equal(p2.unidadMedida, '1'); // UMT kilo
     });
+
+    // ── Alcance por cliente (Revisión D) — routers REALES vía HTTP ──────────
+    console.log('\n— Alcance por cliente: importados / prevalidate no muestran pedimentos de otro cliente —');
+    const { levantar, tokenDe } = await import('./http-harness');
+    const { default: pedimentoReaderRouter } = await import('../routes/pedimento-reader');
+    const { prevalidateRouter } = await import('../routes/prevalidate');
+    const { SYSTEM_ROLES } = await import('../services/permissions');
+
+    const cA = await prisma.cliente.create({ data: { tenantId: tenant.id, rfc: 'AAA010101AA1', razonSocial: 'Cliente A', isDemoData: true } });
+    const cB = await prisma.cliente.create({ data: { tenantId: tenant.id, rfc: 'BBB010101BB1', razonSocial: 'Cliente B', isDemoData: true } });
+    const admin = await prisma.user.create({ data: { email: `importar-admin-${nonce}@example.test`, password: 'x', name: 'Admin', tenantId: tenant.id, role: 'ADMIN' } });
+    const restr = await prisma.user.create({ data: { email: `importar-restr-${nonce}@example.test`, password: 'x', name: 'Restringido A', tenantId: tenant.id, role: 'USER' } });
+    const rol = await prisma.tenantRole.create({ data: { tenantId: tenant.id, code: 'TEST_ALCANCE', name: 'Prueba alcance', isCustom: true, permissions: SYSTEM_ROLES[0]!.permissions as unknown as object } });
+    await prisma.userTenantRole.create({ data: { userId: restr.id, tenantId: tenant.id, roleId: rol.id, assignedBy: admin.id, active: true, scopeRestrictions: { clienteIds: [cA.id] } } });
+    const tokAdmin = tokenDe(admin.id, tenant.id);
+    const tokRestr = tokenDe(restr.id, tenant.id);
+    // El Data Stage importado arriba pasa a ser del cliente B; el M3 (idPrimero) queda compartido (clienteId null).
+    const pedB = await prisma.pedimento.findFirstOrThrow({ where: { tenantId: tenant.id, origenArchivo: 'DATASTAGE' } });
+    await prisma.pedimento.update({ where: { id: pedB.id }, data: { clienteId: cB.id } });
+
+    const srv = await levantar(app => {
+      app.use('/api/pedimentos', pedimentoReaderRouter);
+      app.use('/api/prevalidate', prevalidateRouter);
+    });
+    try {
+      await test('GET /pedimentos/importados: restringido a A ve el compartido (null) y no el de B; admin ve ambos', async () => {
+        const r = await srv.llamar('GET', '/api/pedimentos/importados', { token: tokRestr });
+        assert.equal(r.status, 200, JSON.stringify(r.body));
+        const ids = (r.body.data as Array<{ id: string }>).map(x => x.id);
+        assert.ok(ids.includes(idPrimero), 'M3 compartido visible'); assert.ok(!ids.includes(pedB.id), 'Data Stage de B oculto');
+        const a = await srv.llamar('GET', '/api/pedimentos/importados', { token: tokAdmin });
+        const idsA = (a.body.data as Array<{ id: string }>).map(x => x.id);
+        assert.ok(idsA.includes(idPrimero) && idsA.includes(pedB.id));
+      });
+
+      await test('GET /prevalidate/pedimento (lista y detalle): el de B no existe para el restringido a A', async () => {
+        const lista = await srv.llamar('GET', '/api/prevalidate/pedimento', { token: tokRestr });
+        assert.equal(lista.status, 200, JSON.stringify(lista.body));
+        const ids = (lista.body.data as Array<{ id: string }>).map(x => x.id);
+        assert.ok(ids.includes(idPrimero) && !ids.includes(pedB.id), `lista: ${ids}`);
+        const det = await srv.llamar('GET', `/api/prevalidate/pedimento/${pedB.id}`, { token: tokRestr });
+        assert.equal(det.status, 404);
+        const detAdmin = await srv.llamar('GET', `/api/prevalidate/pedimento/${pedB.id}`, { token: tokAdmin });
+        assert.equal(detAdmin.status, 200);
+        const del = await srv.llamar('DELETE', `/api/prevalidate/pedimento/${pedB.id}`, { token: tokRestr });
+        assert.ok(del.status === 404 || del.status === 403, `tampoco puede borrarlo (${del.status})`);
+        assert.ok(await prisma.pedimento.findFirst({ where: { id: pedB.id, tenantId: tenant.id } }), 'sigue existiendo');
+      });
+
+      await test('POST /prevalidate/pedimento persiste clienteId del cliente activo (restringido a A → A; B por header → 403)', async () => {
+        const input = pedimentoAInputPrevalidador((await cargarPedimento(tenant.id, idPrimero))!);
+        const body = { pedimento: { ...input, rfcImportador: 'MEJ010203AB1', numero: '26 24 3842 6123999' }, aiCheck: false };
+        const r = await srv.llamar('POST', '/api/prevalidate/pedimento', { token: tokRestr, body });
+        assert.equal(r.status, 201, JSON.stringify(r.body));
+        assert.equal(r.body.data.pedimento.clienteId, cA.id);
+        const fila = await prisma.pedimento.findFirstOrThrow({ where: { id: r.body.data.pedimento.id, tenantId: tenant.id } });
+        assert.equal(fila.clienteId, cA.id);
+        const fuera = await srv.llamar('POST', '/api/prevalidate/pedimento', { token: tokRestr, clienteId: cB.id, body });
+        assert.equal(fuera.status, 403, JSON.stringify(fuera.body));
+      });
+    } finally {
+      await srv.cerrar();
+    }
   } finally {
     await prisma.pedimento.deleteMany({ where: { tenantId: tenant.id } });
-    await prisma.user.delete({ where: { id: user.id } });
+    await prisma.userTenantRole.deleteMany({ where: { tenantId: tenant.id } });
+    await prisma.tenantRole.deleteMany({ where: { tenantId: tenant.id } });
+    await prisma.cliente.deleteMany({ where: { tenantId: tenant.id } });
+    await prisma.auditLog.deleteMany({ where: { tenantId: tenant.id } });
+    await prisma.user.deleteMany({ where: { tenantId: tenant.id } });
     await prisma.tenant.delete({ where: { id: tenant.id } });
     await prisma.$disconnect();
   }

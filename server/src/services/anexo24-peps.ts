@@ -15,6 +15,7 @@ import { prisma } from '../lib/prisma';
 import { AppError } from '../middlewares/error';
 import { createDischargeInTx, lockTemporaryImport } from './inventory-ledger';
 import { assertPeriodoAbierto } from './anexo24-cierre';
+import { whereAlcance, type AlcanceCliente } from '../lib/cliente-contexto';
 
 const EPSILON = 1e-9;
 const ABIERTAS = ['ACTIVE', 'PARTIALLY_DISCHARGED'] as const;
@@ -98,6 +99,8 @@ export interface DescargarPepsInput {
   constanciaTransferencia?: string | null;
   fecha: Date;
   clienteId?: string | null;
+  /** Alcance del usuario (filtroCliente(req)): sin cliente explícito, solo lotes de sus clientes o compartidos. */
+  alcance?: AlcanceCliente | null;
   assemblyId?: string | null;
   customsValue?: number | null;
   destinationCountry?: string | null;
@@ -116,7 +119,7 @@ export interface DescargoPepsResultado {
 /** Lotes vivos de la parte (o fracción) en orden PEPS, con lock tomado en orden de id. */
 async function lotesDeLaParte(
   tx: Prisma.TransactionClient,
-  input: Pick<DescargarPepsInput, 'tenantId' | 'productId' | 'fractionCode' | 'clienteId'>,
+  input: Pick<DescargarPepsInput, 'tenantId' | 'productId' | 'fractionCode' | 'clienteId' | 'alcance'>,
 ) {
   if (!input.productId && !input.fractionCode) throw new AppError('Indique productId (parte) o fractionCode', 400);
   const where: Prisma.TemporaryImportWhereInput = {
@@ -124,7 +127,7 @@ async function lotesDeLaParte(
     status: { in: [...ABIERTAS] },
     tipo: 'INSUMO',
     ...(input.productId ? { productId: input.productId } : { fractionCode: input.fractionCode! }),
-    ...(input.clienteId ? { clienteId: input.clienteId } : {}),
+    ...(input.clienteId ? { clienteId: input.clienteId } : whereAlcance(input.alcance)),
   };
   const candidatos = await tx.temporaryImport.findMany({ where, select: { id: true }, orderBy: { id: 'asc' } });
   // Mismo protocolo de lock que el ledger y bom-service: orden global por id.
@@ -233,13 +236,13 @@ export interface ParteConLotes {
   }>;
 }
 
-export async function saldosPorParte(tenantId: string, opts: { clienteId?: string | null; tipo?: 'INSUMO' | 'ACTIVO_FIJO' } = {}): Promise<ParteConLotes[]> {
+export async function saldosPorParte(tenantId: string, opts: { alcance?: AlcanceCliente | null; tipo?: 'INSUMO' | 'ACTIVO_FIJO' } = {}): Promise<ParteConLotes[]> {
   const imports = await prisma.temporaryImport.findMany({
     where: {
       tenantId,
       status: { in: [...ABIERTAS] },
       ...(opts.tipo ? { tipo: opts.tipo } : {}),
-      ...(opts.clienteId ? { clienteId: opts.clienteId } : {}),
+      ...whereAlcance(opts.alcance),
     },
     include: { product: { select: { id: true, productCode: true, description: true } }, ubicacion: { select: { id: true, nombre: true, tipo: true } } },
     orderBy: [{ entryDate: 'asc' }, { id: 'asc' }],

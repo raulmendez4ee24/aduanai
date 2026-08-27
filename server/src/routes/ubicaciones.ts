@@ -6,7 +6,7 @@ import { Router } from 'express';
 import { authenticate, AuthRequest } from '../middlewares/auth';
 import { requirePermission } from '../middlewares/requirePermission';
 import { prisma } from '../lib/prisma';
-import { clienteIdDe, validarClienteDelTenant } from '../lib/cliente-contexto';
+import { clienteIdDe, validarClienteDelTenant, whereConAlcance } from '../lib/cliente-contexto';
 import { recordAudit } from '../services/audit-service';
 
 export const ubicacionesRouter = Router();
@@ -15,9 +15,8 @@ const TIPOS = new Set(['PLANTA', 'SUBMAQUILA']);
 
 ubicacionesRouter.get('/', authenticate, async (req: AuthRequest, res, next) => {
   try {
-    const clienteId = clienteIdDe(req);
     const data = await prisma.ubicacion.findMany({
-      where: { tenantId: req.tenantId!, ...(clienteId ? { OR: [{ clienteId }, { clienteId: null }] } : {}) },
+      where: whereConAlcance(req, { tenantId: req.tenantId! }),
       include: { _count: { select: { temporaryImports: { where: { status: { in: ['ACTIVE', 'PARTIALLY_DISCHARGED'] } } } } } },
       orderBy: [{ tipo: 'asc' }, { nombre: 'asc' }],
     });
@@ -52,7 +51,7 @@ ubicacionesRouter.post('/', authenticate, requirePermission('inventory', 'adjust
 
 ubicacionesRouter.patch('/:id', authenticate, requirePermission('inventory', 'adjust'), async (req: AuthRequest, res, next) => {
   try {
-    const existente = await prisma.ubicacion.findFirst({ where: { id: String(req.params.id), tenantId: req.tenantId! } });
+    const existente = await prisma.ubicacion.findFirst({ where: whereConAlcance(req, { id: String(req.params.id), tenantId: req.tenantId! }) });
     if (!existente) return res.status(404).json({ status: 'error', message: 'Ubicación no encontrada' });
     const b = req.body ?? {};
     const data: Record<string, unknown> = {};
@@ -74,7 +73,7 @@ ubicacionesRouter.patch('/:id', authenticate, requirePermission('inventory', 'ad
 
 ubicacionesRouter.delete('/:id', authenticate, requirePermission('inventory', 'adjust'), async (req: AuthRequest, res, next) => {
   try {
-    const existente = await prisma.ubicacion.findFirst({ where: { id: String(req.params.id), tenantId: req.tenantId! } });
+    const existente = await prisma.ubicacion.findFirst({ where: whereConAlcance(req, { id: String(req.params.id), tenantId: req.tenantId! }) });
     if (!existente) return res.status(404).json({ status: 'error', message: 'Ubicación no encontrada' });
     const lotes = await prisma.temporaryImport.count({ where: { tenantId: req.tenantId!, ubicacionId: existente.id, status: { in: ['ACTIVE', 'PARTIALLY_DISCHARGED'] } } });
     if (lotes > 0) return res.status(409).json({ status: 'error', message: `La ubicación tiene ${lotes} lote(s) activo(s); trasládelos antes de desactivarla` });

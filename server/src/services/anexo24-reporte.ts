@@ -20,6 +20,7 @@ import { rangoDePeriodo, calcularSaldosAlCorte, periodoValido, type ResumenCierr
 import { mermasEnRango } from './anexo24-bom';
 import { esVigenciaPrograma } from '../lib/plazos-immex';
 import { AppError } from '../middlewares/error';
+import { whereAlcance, type AlcanceCliente } from '../lib/cliente-contexto';
 
 export const ETIQUETA_COTEJO_ANEXO24 =
   'Estructura pendiente de cotejo contra Anexo 24 RGCE vigente (el corpus del sistema solo contiene un resumen del anexo).';
@@ -62,11 +63,13 @@ function folioReporte(tenantId: string, periodo: string, generadoEn: Date): stri
   return `A24-${periodo}-${h}`;
 }
 
-export async function generarReporteAnexo24(tenantId: string, periodo: string, clienteId: string | null): Promise<ReporteAnexo24> {
+/** `alcance`: `filtroCliente(req)` — `{}` todo el tenant; `{ clienteId }` / `{ clienteId: { in } }` solo esos clientes más filas compartidas. */
+export async function generarReporteAnexo24(tenantId: string, periodo: string, alcance: AlcanceCliente | null): Promise<ReporteAnexo24> {
   if (!periodoValido(periodo)) throw new AppError(`Periodo inválido "${periodo}"; formato YYYY-MM`, 400);
   const { inicio, fin } = rangoDePeriodo(periodo);
   const generadoEn = new Date();
-  const filtroCliente = clienteId ? { clienteId } : {};
+  const clienteId = typeof alcance?.clienteId === 'string' ? alcance.clienteId : null;
+  const filtroCliente = whereAlcance(alcance);
 
   const [entradasRaw, salidasRaw, saldosCorte, afRaw, mermas, ubicaciones, cierre] = await Promise.all([
     prisma.temporaryImport.findMany({
@@ -79,15 +82,15 @@ export async function generarReporteAnexo24(tenantId: string, periodo: string, c
       include: { temporaryImport: { select: { pedimento: true, fractionCode: true, product: { select: { productCode: true } } } } },
       orderBy: [{ dischargeDate: 'asc' }, { id: 'asc' }],
     }),
-    calcularSaldosAlCorte(prisma, tenantId, periodo, clienteId),
+    calcularSaldosAlCorte(prisma, tenantId, periodo, alcance),
     prisma.temporaryImport.findMany({
       where: { tenantId, tipo: 'ACTIVO_FIJO', entryDate: { lte: fin }, ...filtroCliente },
       include: { product: { select: { productCode: true } }, ubicacion: { select: { nombre: true } } },
       orderBy: [{ entryDate: 'asc' }],
     }),
-    mermasEnRango(tenantId, inicio, fin, clienteId),
+    mermasEnRango(tenantId, inicio, fin, alcance),
     prisma.ubicacion.findMany({
-      where: { tenantId, tipo: 'SUBMAQUILA', ...(clienteId ? { OR: [{ clienteId }, { clienteId: null }] } : {}) },
+      where: { tenantId, tipo: 'SUBMAQUILA', ...filtroCliente },
       include: {
         temporaryImports: {
           where: { status: { in: ['ACTIVE', 'PARTIALLY_DISCHARGED'] }, ...filtroCliente },

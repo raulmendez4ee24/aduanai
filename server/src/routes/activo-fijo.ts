@@ -14,7 +14,7 @@ import { Router } from 'express';
 import { authenticate, AuthRequest } from '../middlewares/auth';
 import { requirePermission } from '../middlewares/requirePermission';
 import { prisma } from '../lib/prisma';
-import { clienteIdDe, validarClienteDelTenant } from '../lib/cliente-contexto';
+import { clienteIdDe, validarClienteEnAlcance, whereConAlcance } from '../lib/cliente-contexto';
 import { validateFraction, FRACTION_UNVERIFIED_MESSAGE } from '../services/fraction-validator';
 
 export const activoFijoRouter = Router();
@@ -26,9 +26,8 @@ const mesesEntre = (a: Date, b: Date): number => Math.max(0, (b.getUTCFullYear()
 
 activoFijoRouter.get('/', async (req: AuthRequest, res, next) => {
   try {
-    const clienteId = clienteIdDe(req);
     const rows = await prisma.temporaryImport.findMany({
-      where: { tenantId: req.tenantId!, tipo: 'ACTIVO_FIJO', ...(clienteId ? { clienteId } : {}) },
+      where: whereConAlcance(req, { tenantId: req.tenantId!, tipo: 'ACTIVO_FIJO' }),
       orderBy: { entryDate: 'desc' }, take: 300,
       include: { ubicacion: { select: { id: true, nombre: true } } },
     });
@@ -67,9 +66,10 @@ activoFijoRouter.post('/', requirePermission('inventory', 'adjust'), async (req:
     if (vida != null && !Number.isFinite(vida)) return res.status(400).json({ status: 'error', message: 'vidaUtilMeses inválida' });
     const horizonte = vida ?? HORIZONTE_AF_MESES;
     const expiration = new Date(entry); expiration.setMonth(expiration.getMonth() + horizonte);
-    const clienteId = await validarClienteDelTenant(req.tenantId!, req.body?.clienteId ?? clienteIdDe(req));
+    // El clienteId del body debe ser del tenant Y estar en el alcance del usuario (403/400 vía AppError).
+    const clienteId = await validarClienteEnAlcance(req, req.tenantId!, req.body?.clienteId ?? clienteIdDe(req));
     if (ubicacionId) {
-      const u = await prisma.ubicacion.findFirst({ where: { id: String(ubicacionId), tenantId: req.tenantId! }, select: { id: true } });
+      const u = await prisma.ubicacion.findFirst({ where: whereConAlcance(req, { id: String(ubicacionId), tenantId: req.tenantId! }), select: { id: true } });
       if (!u) return res.status(400).json({ status: 'error', message: 'Ubicación no encontrada' });
     }
     const imp = await prisma.temporaryImport.create({

@@ -26,7 +26,7 @@ import { LAYOUT_VERSION } from '../services/pedimento-reader/layout-v9';
 import { declaradoSchema } from './risk';
 import { importarPedimentos, ImportacionError } from '../services/pedimento-importer';
 import { DATASTAGE_AVISO } from '../services/pedimento-reader/datastage';
-import { clienteIdDe, validarClienteDelTenant } from '../lib/cliente-contexto';
+import { clienteIdDe, validarClienteDelTenant, whereConAlcance } from '../lib/cliente-contexto';
 import { requirePermission } from '../middlewares/requirePermission';
 import { logger } from '../lib/logger';
 
@@ -176,9 +176,8 @@ router.post('/importar', requirePermission('expedientes', 'create'), async (req:
 // Pedimentos importados (para el selector "usar pedimento importado").
 router.get('/importados', async (req: AuthRequest, res: Response, next) => {
   try {
-    const clienteId = clienteIdDe(req);
     const data = await prisma.pedimento.findMany({
-      where: { tenantId: req.tenantId!, origenArchivo: { in: ['M3', 'DATASTAGE'] }, ...(clienteId ? { clienteId } : {}) },
+      where: whereConAlcance(req, { tenantId: req.tenantId!, origenArchivo: { in: ['M3', 'DATASTAGE'] } }),
       orderBy: { createdAt: 'desc' },
       take: 50,
       select: { id: true, numero: true, clave: true, aduana: true, rfcImportador: true, origenArchivo: true, layoutVersion: true, createdAt: true, status: true, _count: { select: { partidas: true } } },
@@ -199,7 +198,7 @@ router.post('/:id/archivar', requirePermission('expedientes', 'create'), async (
   try {
     const parsed = archivarSchema.safeParse(req.body);
     if (!parsed.success) return res.status(400).json({ status: 'error', message: 'Entrada inválida', issues: parsed.error.issues.slice(0, 5) });
-    const ped = await prisma.pedimento.findFirst({ where: { id: String(req.params.id), tenantId: req.tenantId! }, include: { partidas: { select: { fraccion: true, pais: true }, orderBy: { numeroPartida: 'asc' } } } });
+    const ped = await prisma.pedimento.findFirst({ where: whereConAlcance(req, { id: String(req.params.id), tenantId: req.tenantId! }), include: { partidas: { select: { fraccion: true, pais: true }, orderBy: { numeroPartida: 'asc' } } } });
     if (!ped) return res.status(404).json({ status: 'error', message: 'Pedimento no encontrado' });
 
     const referencia = ped.numero ?? ped.id;

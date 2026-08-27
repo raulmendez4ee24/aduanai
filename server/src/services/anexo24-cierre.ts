@@ -14,6 +14,7 @@ import { prisma } from '../lib/prisma';
 import { AppError } from '../middlewares/error';
 import { recordAudit } from './audit-service';
 import { esVigenciaPrograma } from '../lib/plazos-immex';
+import { whereAlcance, type AlcanceCliente } from '../lib/cliente-contexto';
 
 type Db = Prisma.TransactionClient | typeof prisma;
 
@@ -128,10 +129,12 @@ const r6 = (n: number) => Math.round(n * 1e6) / 1e6;
  * Cuenta importaciones con entrada ≤ corte y descargos con fecha ≤ corte
  * (no usa `quantityDischarged` acumulado porque incluiría descargos futuros).
  */
-export async function calcularSaldosAlCorte(db: Db, tenantId: string, periodo: string, clienteId: string | null): Promise<ResumenCierre> {
+/** `alcance`: `{ clienteId }` para un cierre por cliente (incluye lotes compartidos, clienteId null), `{}` para todo el tenant. */
+export async function calcularSaldosAlCorte(db: Db, tenantId: string, periodo: string, alcance: AlcanceCliente | null): Promise<ResumenCierre> {
   const { fin } = rangoDePeriodo(periodo);
+  const clienteId = typeof alcance?.clienteId === 'string' ? alcance.clienteId : null;
   const imports = await db.temporaryImport.findMany({
-    where: { tenantId, entryDate: { lte: fin }, ...(clienteId ? { clienteId } : {}) },
+    where: { tenantId, entryDate: { lte: fin }, ...whereAlcance(alcance) },
     include: {
       discharges: { where: { dischargeDate: { lte: fin } }, select: { quantity: true } },
       product: { select: { id: true, productCode: true } },
@@ -218,7 +221,7 @@ export async function cerrarPeriodo(input: CerrarPeriodoInput) {
     throw new AppError(`El periodo ${input.periodo} ya está sellado (último cierre: ${ultimo.periodo})`, 409);
   }
 
-  const resumen = await calcularSaldosAlCorte(prisma, input.tenantId, input.periodo, input.clienteId ?? null);
+  const resumen = await calcularSaldosAlCorte(prisma, input.tenantId, input.periodo, input.clienteId ? { clienteId: input.clienteId } : {});
   const hash = hashResumen(resumen);
 
   const cierre = await prisma.cierrePeriodo.create({
@@ -246,9 +249,9 @@ export async function cerrarPeriodo(input: CerrarPeriodoInput) {
   return { cierre, resumen };
 }
 
-export async function listarCierres(tenantId: string) {
+export async function listarCierres(tenantId: string, alcance?: AlcanceCliente | null) {
   return prisma.cierrePeriodo.findMany({
-    where: { tenantId },
+    where: { tenantId, ...whereAlcance(alcance) },
     orderBy: { periodo: 'desc' },
     select: { id: true, periodo: true, cerradoPor: true, cerradoAt: true, hash: true, clienteId: true, notas: true, resumen: true },
   });

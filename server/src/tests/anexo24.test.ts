@@ -319,6 +319,109 @@ async function db() {
       const r = await generarReporteAnexo24(tB.id, '2026-06', null);
       assert.equal(r.salidas.length, 1); assert.equal(r.activoFijo.length, 0); assert.equal(r.mermas.length, 0);
     });
+
+    // ── Alcance por cliente (Revisión D) — routers REALES vía HTTP ──────────
+    console.log('\n— Alcance por cliente: tenant ajeno → 400, restringido a A no ve B pero sí compartidas —');
+    const { levantar, tokenDe } = await import('./http-harness');
+    const { inventoryRouter } = await import('../routes/inventory');
+    const { anexo24Router } = await import('../routes/anexo24');
+    const { activoFijoRouter } = await import('../routes/activo-fijo');
+    const { ubicacionesRouter } = await import('../routes/ubicaciones');
+    const { SYSTEM_ROLES } = await import('../services/permissions');
+    const { saldosPorParte } = await import('../services/anexo24-peps');
+    const { calcularExposicion } = await import('../services/anexo24-exposicion');
+
+    const cA = await prisma.cliente.create({ data: { tenantId: tA.id, rfc: `AAA010101AA${nonce.slice(-1)}`, razonSocial: 'Cliente A', isDemoData: true } });
+    const cB = await prisma.cliente.create({ data: { tenantId: tA.id, rfc: `BBB010101BB${nonce.slice(-1)}`, razonSocial: 'Cliente B', isDemoData: true } });
+    const adminA = await prisma.user.create({ data: { email: `a24admin-${nonce}@example.test`, password: 'x', name: 'Admin A', tenantId: tA.id, role: 'ADMIN' } });
+    const restrA = await prisma.user.create({ data: { email: `a24restr-${nonce}@example.test`, password: 'x', name: 'Restringido A', tenantId: tA.id, role: 'USER' } });
+    const rolAmplio = await prisma.tenantRole.create({ data: { tenantId: tA.id, code: `TEST_ALCANCE_${nonce.slice(-4)}`, name: 'Prueba alcance', isCustom: true, permissions: SYSTEM_ROLES[0]!.permissions as unknown as object } });
+    await prisma.userTenantRole.create({ data: { userId: restrA.id, tenantId: tA.id, roleId: rolAmplio.id, assignedBy: adminA.id, active: true, scopeRestrictions: { clienteIds: [cA.id] } } });
+    const tokAdmin = tokenDe(adminA.id, tA.id);
+    const tokRestr = tokenDe(restrA.id, tA.id);
+
+    const lotA = await mkImp(tA.id, adminA.id, 'PED-CA', '2026-08-02T00:00:00Z', 5, { clienteId: cA.id, tipo: 'ACTIVO_FIJO', claveDocumento: 'AF' });
+    const lotB = await mkImp(tA.id, adminA.id, 'PED-CB', '2026-08-02T00:00:00Z', 7, { clienteId: cB.id, tipo: 'ACTIVO_FIJO', claveDocumento: 'AF' });
+    const lotBIns = await mkImp(tA.id, adminA.id, 'PED-CB-IN', '2026-08-02T00:00:00Z', 40, { clienteId: cB.id });
+    const ubNull = await prisma.ubicacion.create({ data: { tenantId: tA.id, nombre: `Planta compartida ${nonce}`, tipo: 'PLANTA' } });
+    const ubB = await prisma.ubicacion.create({ data: { tenantId: tA.id, clienteId: cB.id, nombre: `Planta B ${nonce}`, tipo: 'PLANTA' } });
+    const ubTenantB = await prisma.ubicacion.create({ data: { tenantId: tB.id, nombre: `Planta tenant B ${nonce}`, tipo: 'PLANTA' } });
+    const prodB = await prisma.product.create({ data: { tenantId: tA.id, clienteId: cB.id, productCode: `SOLO-B-${nonce}`, description: 'Parte del cliente B', unit: 'pza' } });
+    const cierreB = await prisma.cierrePeriodo.create({ data: { tenantId: tA.id, clienteId: cB.id, periodo: '2026-07', cerradoPor: adminA.id, hash: 'h'.repeat(64), resumen: {} } });
+
+    const srv = await levantar(app => {
+      app.use('/api/inventory', inventoryRouter);
+      app.use('/api/inventory', anexo24Router);
+      app.use('/api/inventory/activo-fijo', activoFijoRouter);
+      app.use('/api/ubicaciones', ubicacionesRouter);
+    });
+    const bodyImport = { pedimento: 'PED-X', fractionCode: '73181599', quantity: 1, unit: 'pza', customsValue: 1, entryDate: '2026-08-10' };
+    try {
+      await prueba('POST /imports con productId de OTRO tenant → 400 (no se escribe la referencia ajena)', async () => {
+        const r = await srv.llamar('POST', '/api/inventory/imports', { token: tokAdmin, body: { ...bodyImport, productId: parteB.id } });
+        assert.equal(r.status, 400, JSON.stringify(r.body)); assert.match(r.body.message, /Producto/);
+        assert.equal(await prisma.temporaryImport.count({ where: { tenantId: tA.id, productId: parteB.id } }), 0);
+      });
+      await prueba('POST /imports con ubicacionId de OTRO tenant → 400; con la propia → 201', async () => {
+        const r = await srv.llamar('POST', '/api/inventory/imports', { token: tokAdmin, body: { ...bodyImport, ubicacionId: ubTenantB.id } });
+        assert.equal(r.status, 400, JSON.stringify(r.body)); assert.match(r.body.message, /Ubicación/);
+        const ok = await srv.llamar('POST', '/api/inventory/imports', { token: tokAdmin, body: { ...bodyImport, ubicacionId: ubNull.id, productId: parte.id } });
+        assert.equal(ok.status, 201, JSON.stringify(ok.body)); assert.equal(ok.body.data.ubicacionId, ubNull.id); assert.equal(ok.body.data.productId, parte.id);
+      });
+      await prueba('restringido a A: pedimento-partidas trae lotes de A y compartidos (clienteId null), nunca los de B', async () => {
+        const r = await srv.llamar('GET', '/api/inventory/pedimento-partidas?abiertas=false', { token: tokRestr });
+        assert.equal(r.status, 200, JSON.stringify(r.body));
+        const ids = new Set((r.body.data as Array<{ id: string }>).map(x => x.id));
+        assert.ok(ids.has(lotA.id), 'lote de A visible'); assert.ok(ids.has(l1.id), 'lote compartido visible');
+        assert.ok(!ids.has(lotB.id) && !ids.has(lotBIns.id), 'lotes de B ocultos');
+        const sinAlcance = await srv.llamar('GET', '/api/inventory/pedimento-partidas?abiertas=false', { token: tokAdmin });
+        assert.ok((sinAlcance.body.data as Array<{ id: string }>).some(x => x.id === lotB.id), 'admin sin restricción sí ve B');
+      });
+      await prueba('restringido a A: activo fijo lista A + compartido, no B', async () => {
+        const r = await srv.llamar('GET', '/api/inventory/activo-fijo', { token: tokRestr });
+        assert.equal(r.status, 200, JSON.stringify(r.body));
+        const peds = (r.body.data as Array<{ pedimento: string }>).map(x => x.pedimento);
+        assert.ok(peds.includes('PED-CA') && peds.includes('PED-AF'), `esperaba PED-CA y PED-AF en ${peds}`);
+        assert.ok(!peds.includes('PED-CB'), 'PED-CB (cliente B) oculto');
+      });
+      await prueba('restringido a A: cierres muestra el cierre compartido (2026-06) y oculta el de B (2026-07)', async () => {
+        const r = await srv.llamar('GET', '/api/inventory/cierres', { token: tokRestr });
+        assert.equal(r.status, 200, JSON.stringify(r.body));
+        const periodos = (r.body.data as Array<{ id: string; periodo: string }>);
+        assert.ok(periodos.some(c => c.periodo === '2026-06'), 'cierre compartido visible');
+        assert.ok(!periodos.some(c => c.id === cierreB.id), 'cierre de B oculto');
+        const admin = await srv.llamar('GET', '/api/inventory/cierres', { token: tokAdmin });
+        assert.ok((admin.body.data as Array<{ id: string }>).some(c => c.id === cierreB.id), 'admin sí ve el cierre de B');
+      });
+      await prueba('restringido a A: POST activo-fijo con body.clienteId = B → 403; con A → 201 ligado a A', async () => {
+        const base = { pedimento: 'PED-AF-X', fractionCode: '73181599', quantity: 1, unit: 'pza', customsValue: 1, entryDate: '2026-08-10' };
+        const r = await srv.llamar('POST', '/api/inventory/activo-fijo', { token: tokRestr, body: { ...base, clienteId: cB.id } });
+        assert.equal(r.status, 403, JSON.stringify(r.body));
+        const ok = await srv.llamar('POST', '/api/inventory/activo-fijo', { token: tokRestr, body: { ...base, clienteId: cA.id } });
+        assert.equal(ok.status, 201, JSON.stringify(ok.body)); assert.equal(ok.body.data.clienteId, cA.id);
+        const ubi = await srv.llamar('POST', '/api/inventory/activo-fijo', { token: tokRestr, body: { ...base, ubicacionId: ubB.id } });
+        assert.equal(ubi.status, 400, 'ubicación del cliente B fuera de alcance → 400');
+      });
+      await prueba('restringido a A: ubicaciones y productos ven lo compartido, no lo de B', async () => {
+        const u = await srv.llamar('GET', '/api/ubicaciones', { token: tokRestr });
+        const uIds = (u.body.data as Array<{ id: string }>).map(x => x.id);
+        assert.ok(uIds.includes(ubNull.id) && !uIds.includes(ubB.id), `ubicaciones: ${uIds}`);
+        const p = await srv.llamar('GET', '/api/inventory/products', { token: tokRestr });
+        const pIds = (p.body.data as Array<{ id: string }>).map(x => x.id);
+        assert.ok(pIds.includes(parte.id) && !pIds.includes(prodB.id), 'productos: compartido sí, de B no');
+      });
+      await prueba('restringido a A: exposición y saldos por parte no alcanzan lotes de B', async () => {
+        const r = await srv.llamar('GET', `/api/inventory/exposicion/${lotBIns.id}`, { token: tokRestr });
+        assert.equal(r.status, 404, JSON.stringify(r.body));
+        await esperaAppError(() => calcularExposicion(tA.id, lotBIns.id, { clienteId: cA.id }), 404);
+        const saldos = await saldosPorParte(tA.id, { alcance: { clienteId: cA.id } });
+        assert.ok(!saldos.some(s => s.lotes.some(l => l.temporaryImportId === lotBIns.id)), 'PED-CB-IN fuera del alcance');
+        const todos = await saldosPorParte(tA.id, { alcance: {} });
+        assert.ok(todos.some(s => s.lotes.some(l => l.temporaryImportId === lotBIns.id)), 'sin restricción sí aparece');
+      });
+    } finally {
+      await srv.cerrar();
+    }
   } finally {
     for (const tenantId of [creados.tenantA, creados.tenantB]) {
       if (!tenantId) continue;
@@ -330,6 +433,10 @@ async function db() {
       await prisma.product.deleteMany({ where: { tenantId } });
       await prisma.pedimento.deleteMany({ where: { tenantId } });
       await prisma.cierrePeriodo.deleteMany({ where: { tenantId } });
+      await prisma.ubicacion.deleteMany({ where: { tenantId } });
+      await prisma.userTenantRole.deleteMany({ where: { tenantId } });
+      await prisma.tenantRole.deleteMany({ where: { tenantId } });
+      await prisma.cliente.deleteMany({ where: { tenantId } });
       await prisma.auditLog.deleteMany({ where: { tenantId } });
       await prisma.user.deleteMany({ where: { tenantId } });
       await prisma.tenant.delete({ where: { id: tenantId } });

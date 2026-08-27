@@ -13,6 +13,7 @@ import { prisma } from '../lib/prisma';
 import { AppError } from '../middlewares/error';
 import { descargarPepsEnTx, tipoDescargoDe, type DescargoPepsResultado } from './anexo24-peps';
 import { assertPeriodoAbierto } from './anexo24-cierre';
+import { whereAlcance, filaEnAlcance, type AlcanceCliente } from '../lib/cliente-contexto';
 
 const r6 = (n: number) => Math.round(n * 1e6) / 1e6;
 
@@ -68,6 +69,8 @@ export interface RetornoDesdeBomInput {
   referencia?: string | null;
   notas?: string | null;
   clienteId?: string | null;
+  /** Alcance del usuario (filtroCliente(req)): el producto y los lotes deben caer en él. */
+  alcance?: AlcanceCliente | null;
 }
 
 export interface RetornoDesdeBomResultado {
@@ -80,7 +83,7 @@ export interface RetornoDesdeBomResultado {
 
 export async function retornoDesdeBom(input: RetornoDesdeBomInput): Promise<RetornoDesdeBomResultado> {
   const producto = await prisma.product.findFirst({
-    where: { id: input.productId, tenantId: input.tenantId },
+    where: { id: input.productId, tenantId: input.tenantId, ...whereAlcance(input.alcance) },
     include: { components: { include: { component: true } } },
   });
   if (!producto) throw new AppError('Producto terminado no encontrado', 404);
@@ -169,7 +172,7 @@ export async function retornoDesdeBom(input: RetornoDesdeBomInput): Promise<Reto
 }
 
 /** Mermas/desperdicios declarados en un rango (para el reporte Anexo 24). */
-export async function mermasEnRango(tenantId: string, inicio: Date, fin: Date, clienteId?: string | null) {
+export async function mermasEnRango(tenantId: string, inicio: Date, fin: Date, alcance?: AlcanceCliente | null) {
   const where: Prisma.AssemblyConsumptionWhereInput = {
     assembly: { tenantId, assemblyDate: { gte: inicio, lte: fin } },
   };
@@ -179,7 +182,7 @@ export async function mermasEnRango(tenantId: string, inicio: Date, fin: Date, c
     orderBy: { createdAt: 'asc' },
   });
   return consumos
-    .filter(c => !clienteId || c.assembly.product.clienteId === clienteId || c.assembly.product.clienteId == null)
+    .filter(c => filaEnAlcance(alcance, c.assembly.product.clienteId))
     .map(c => ({
       assemblyId: c.assemblyId,
       fecha: c.assembly.assemblyDate.toISOString().slice(0, 10),

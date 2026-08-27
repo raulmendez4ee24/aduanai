@@ -5,10 +5,11 @@
  * submaquila, cierre mensual, reporte de autoridad y simulador de exposición.
  */
 import { Router } from 'express';
+import type { Prisma } from '@prisma/client';
 import { authenticate, AuthRequest } from '../middlewares/auth';
 import { requirePermission } from '../middlewares/requirePermission';
 import { prisma } from '../lib/prisma';
-import { clienteIdDe, validarClienteDelTenant } from '../lib/cliente-contexto';
+import { clienteIdDe, filtroCliente, validarClienteDelTenant, whereConAlcance } from '../lib/cliente-contexto';
 import { recordAudit } from '../services/audit-service';
 import { altaDesdePedimento, pedimentosParaAlta } from '../services/anexo24-alta';
 import { descargarPeps, saldosPorParte } from '../services/anexo24-peps';
@@ -34,7 +35,7 @@ anexo24Router.get('/plazos-immex', authenticate, (_req, res) => {
 // ── 1. Alta desde pedimento persistido ────────────────────────────────────
 anexo24Router.get('/pedimentos-para-alta', authenticate, async (req: AuthRequest, res, next) => {
   try {
-    res.json({ status: 'ok', data: await pedimentosParaAlta(req.tenantId!, clienteIdDe(req)) });
+    res.json({ status: 'ok', data: await pedimentosParaAlta(req.tenantId!, filtroCliente(req)) });
   } catch (err) { next(err); }
 });
 
@@ -61,20 +62,19 @@ anexo24Router.post('/desde-pedimento/:pedimentoId', authenticate, requirePermiss
 anexo24Router.get('/partes', authenticate, async (req: AuthRequest, res, next) => {
   try {
     const tipo = req.query.tipo === 'ACTIVO_FIJO' ? 'ACTIVO_FIJO' : req.query.tipo === 'INSUMO' ? 'INSUMO' : undefined;
-    res.json({ status: 'ok', data: await saldosPorParte(req.tenantId!, { clienteId: clienteIdDe(req), tipo }) });
+    res.json({ status: 'ok', data: await saldosPorParte(req.tenantId!, { alcance: filtroCliente(req), tipo }) });
   } catch (err) { next(err); }
 });
 
 anexo24Router.get('/pedimento-partidas', authenticate, async (req: AuthRequest, res, next) => {
   try {
-    const clienteId = clienteIdDe(req);
     const soloAbiertas = req.query.abiertas !== 'false';
+    const base: Prisma.TemporaryImportWhereInput = {
+      tenantId: req.tenantId!,
+      ...(soloAbiertas ? { status: { in: ['ACTIVE', 'PARTIALLY_DISCHARGED'] } } : {}),
+    };
     const imports = await prisma.temporaryImport.findMany({
-      where: {
-        tenantId: req.tenantId!,
-        ...(soloAbiertas ? { status: { in: ['ACTIVE', 'PARTIALLY_DISCHARGED'] } } : {}),
-        ...(clienteId ? { clienteId } : {}),
-      },
+      where: whereConAlcance(req, base),
       include: {
         product: { select: { id: true, productCode: true } },
         ubicacion: { select: { id: true, nombre: true, tipo: true } },
@@ -122,6 +122,7 @@ anexo24Router.post('/descargar-peps', authenticate, requirePermission('inventory
       constanciaTransferencia: b.constanciaTransferencia ?? null,
       fecha,
       clienteId,
+      alcance: filtroCliente(req),
       customsValue: b.customsValue != null ? Number(b.customsValue) : null,
       destinationCountry: b.destinationCountry ?? null,
       buyerName: b.buyerName ?? null,
@@ -157,6 +158,7 @@ anexo24Router.post('/retorno-desde-bom', authenticate, requirePermission('invent
       referencia: b.referencia ?? null,
       notas: b.notas ?? null,
       clienteId,
+      alcance: filtroCliente(req),
     });
     await recordAudit({
       tenantId: req.tenantId!, userId: req.userId!, action: 'inventory.retorno_desde_bom', entity: 'Assembly', entityId: r.assemblyId,
@@ -171,11 +173,11 @@ anexo24Router.post('/retorno-desde-bom', authenticate, requirePermission('invent
 anexo24Router.post('/imports/:id/traslado', authenticate, requirePermission('inventory', 'adjust'), async (req: AuthRequest, res, next) => {
   try {
     const b = req.body ?? {};
-    const imp = await prisma.temporaryImport.findFirst({ where: { id: String(req.params.id), tenantId: req.tenantId! }, include: { ubicacion: true } });
+    const imp = await prisma.temporaryImport.findFirst({ where: whereConAlcance(req, { id: String(req.params.id), tenantId: req.tenantId! }), include: { ubicacion: true } });
     if (!imp) return res.status(404).json({ status: 'error', message: 'Importación no encontrada' });
     const fecha = fechaDe(b.fecha) ?? new Date();
     await assertPeriodoAbierto(prisma, req.tenantId!, fecha, 'trasladar mercancía');
-    const destino = b.ubicacionId ? await prisma.ubicacion.findFirst({ where: { id: String(b.ubicacionId), tenantId: req.tenantId!, activo: true } }) : null;
+    const destino = b.ubicacionId ? await prisma.ubicacion.findFirst({ where: whereConAlcance(req, { id: String(b.ubicacionId), tenantId: req.tenantId!, activo: true }) }) : null;
     if (b.ubicacionId && !destino) return res.status(404).json({ status: 'error', message: 'Ubicación destino no encontrada' });
     const avisos: string[] = [];
     if (destino?.tipo === 'SUBMAQUILA' && !destino.avisoSubmaquila) {
@@ -199,7 +201,7 @@ anexo24Router.post('/imports/:id/traslado', authenticate, requirePermission('inv
 // ── 6. Cierre mensual ─────────────────────────────────────────────────────
 anexo24Router.get('/cierres', authenticate, async (req: AuthRequest, res, next) => {
   try {
-    const [cierres, ultimo] = await Promise.all([listarCierres(req.tenantId!), ultimoPeriodoCerrado(prisma, req.tenantId!)]);
+    const [cierres, ultimo] = await Promise.all([listarCierres(req.tenantId!, filtroCliente(req)), ultimoPeriodoCerrado(prisma, req.tenantId!)]);
     res.json({ status: 'ok', data: cierres.map(c => ({ ...c, resumen: undefined, totales: (c.resumen as { totales?: unknown } | null)?.totales ?? null })), ultimoPeriodoCerrado: ultimo?.periodo ?? null });
   } catch (err) { next(err); }
 });
@@ -217,7 +219,7 @@ anexo24Router.post('/cierres', authenticate, requirePermission('inventory', 'adj
 anexo24Router.get('/anexo24/reporte', authenticate, async (req: AuthRequest, res, next) => {
   try {
     const periodo = String(req.query.periodo ?? '');
-    const r = await generarReporteAnexo24(req.tenantId!, periodo, clienteIdDe(req));
+    const r = await generarReporteAnexo24(req.tenantId!, periodo, filtroCliente(req));
     if (req.query.formato === 'xlsx') {
       const buf = reporteAnexo24Xlsx(r);
       res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
@@ -231,6 +233,6 @@ anexo24Router.get('/anexo24/reporte', authenticate, async (req: AuthRequest, res
 // ── 8. Simulador de exposición ────────────────────────────────────────────
 anexo24Router.get('/exposicion/:temporaryImportId', authenticate, async (req: AuthRequest, res, next) => {
   try {
-    res.json({ status: 'ok', data: await calcularExposicion(req.tenantId!, String(req.params.temporaryImportId)) });
+    res.json({ status: 'ok', data: await calcularExposicion(req.tenantId!, String(req.params.temporaryImportId), filtroCliente(req)) });
   } catch (err) { next(err); }
 });

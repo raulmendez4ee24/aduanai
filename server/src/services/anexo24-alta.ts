@@ -11,6 +11,7 @@ import { prisma } from '../lib/prisma';
 import { AppError } from '../middlewares/error';
 import { recordAudit } from './audit-service';
 import { assertPeriodoAbierto } from './anexo24-cierre';
+import { whereAlcance, type AlcanceCliente } from '../lib/cliente-contexto';
 import { plazoMeses, fechaVencimiento, type Certificacion, type TipoTemporal } from '../lib/plazos-immex';
 
 /** Claves de pedimento (Apéndice 2, Anexo 22) que dan de alta inventario IMMEX. */
@@ -192,9 +193,9 @@ export async function altaDesdePedimento(input: AltaDesdePedimentoInput): Promis
 }
 
 /** Pedimentos IN/AF persistidos del tenant con su avance de alta (para el selector de la UI). */
-export async function pedimentosParaAlta(tenantId: string, clienteId?: string | null) {
+export async function pedimentosParaAlta(tenantId: string, alcance?: AlcanceCliente | null) {
   const peds = await prisma.pedimento.findMany({
-    where: { tenantId, clave: { in: Object.keys(CLAVES_TEMPORAL_IMMEX) }, ...(clienteId ? { clienteId } : {}) },
+    where: { tenantId, clave: { in: Object.keys(CLAVES_TEMPORAL_IMMEX) }, ...whereAlcance(alcance) },
     select: { id: true, numero: true, clave: true, aduana: true, rfcImportador: true, origenArchivo: true, createdAt: true, partidas: { select: { id: true } } },
     orderBy: { createdAt: 'desc' },
     take: 200,
