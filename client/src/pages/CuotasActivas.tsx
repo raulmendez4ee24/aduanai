@@ -1,3 +1,4 @@
+import { CampoNumerico } from '../components/ui'
 import { useEffect, useState } from 'react'
 import { AlertTriangle, ExternalLink, Search, ShieldAlert, Building2 } from 'lucide-react'
 import { api } from '../lib/api'
@@ -88,7 +89,7 @@ export function CuotasActivasPage() {
           <input value={form.bFraccion} onChange={e => set('bFraccion', e.target.value)} placeholder="Fracción 8 dígitos" className="text-[12px] font-mono border border-slate-200 rounded-lg px-2 py-1.5 w-36"/>
           <input value={form.bPais} onChange={e => set('bPais', e.target.value.toUpperCase())} placeholder="País" className="text-[12px] font-mono border border-slate-200 rounded-lg px-2 py-1.5 w-20"/>
           <input value={form.bExportador} onChange={e => set('bExportador', e.target.value)} placeholder="Exportador / productor (opcional)" className="text-[12px] border border-slate-200 rounded-lg px-2 py-1.5 w-64"/>
-          <input type="number" value={form.bValor || ''} onChange={e => set('bValor', Number(e.target.value) || 0)} placeholder="Valor USD" className="text-[12px] font-mono border border-slate-200 rounded-lg px-2 py-1.5 w-28"/>
+          <CampoNumerico value={form.bValor} onValue={n => set('bValor', n)} step="0.01" placeholder="Valor USD" className="text-[12px] font-mono border border-slate-200 rounded-lg px-2 py-1.5 w-28"/>
           <button onClick={buscar} className="text-[11px] bg-slate-900 hover:bg-slate-800 text-white px-3 py-1.5 rounded-lg flex items-center gap-1"><Search className="w-3 h-3"/> Buscar</button>
           {busqErr && <span className="text-[11px] text-rose-700">{busqErr}</span>}
         </div>
