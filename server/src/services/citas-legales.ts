@@ -56,10 +56,13 @@ function normalizarNumero(raw: string): string {
 export function parseReferencia(texto: string): ClaveCita | null {
   const t = texto.trim();
 
-  // RGI: "Regla General 3 a) (RGI)" / "RGI 3" — NUNCA es artículo
-  let m = /(?:Regla\s+General\s+|RGI\s*)(\d+)\s*([a-f]\))?/i.exec(t);
-  if (m && /RGI|Regla\s+General/i.test(t)) {
-    return { tipo: 'rgi', numero: normalizarNumero(m[1]! + (m[2] ? ` ${m[2]}` : '')), cuerpo: 'LIGIE' };
+  // RGI: "Regla General 3 a) (RGI)" / "RGI 3" / "GRI 3" — NUNCA es artículo
+  let m = /(?:Regla\s+General\s+|RGI\s*|GRI\s*)(\d+)(?:\s*-\s*(\d+))?\s*([a-f]\))?/i.exec(t);
+  if (m && /RGI|GRI|Regla\s+General/i.test(t)) {
+    // Rango "GRI 1-6 LIGIE" (así se llama el doc del corpus): numero "1-6".
+    // Una cita a una regla del rango se cruza por pertenencia (clavesIguales).
+    if (m[2]) return { tipo: 'rgi', numero: `${m[1]}-${m[2]}`, cuerpo: 'LIGIE' };
+    return { tipo: 'rgi', numero: normalizarNumero(m[1]! + (m[3] ? ` ${m[3]}` : '')), cuerpo: 'LIGIE' };
   }
 
   // Regla RGCE: "Regla 7.1.6 RGCE 2026" / "Regla 1.2.1"
@@ -67,8 +70,12 @@ export function parseReferencia(texto: string): ClaveCita | null {
   if (m) return { tipo: 'regla', numero: normalizarNumero(m[1]!), cuerpo: normalizarCuerpo(m[2]) ?? 'RGCE' };
 
   // Anexo: "Anexo 22 RGCE 2026" / "Anexo 2.4.1"
-  m = /Anexo\s+(\d+(?:\.\d+)*(?:-[A-Z])?)\s*([A-Za-z].*)?$/i.exec(t);
-  if (m) return { tipo: 'anexo', numero: normalizarNumero(m[1]!), cuerpo: normalizarCuerpo(m[2]) ?? 'RGCE' };
+  m = /(?:^(TMEC|T-MEC)\s+)?Anexo\s+(\d+(?:\.\d+)*(?:-[A-Z])?)\s*([A-Za-z].*)?$/i.exec(t);
+  if (m) {
+    // "TMEC Anexo 4-B" (prefijo, así nombra el corpus) ≡ "Anexo 4-B del T-MEC".
+    const cuerpo = m[1] ? 'TMEC' : (normalizarCuerpo(m[3]) ?? 'RGCE');
+    return { tipo: 'anexo', numero: normalizarNumero(m[2]!), cuerpo };
+  }
 
   // TMEC capítulo: "TMEC Cap. 4" / "Capítulo 4 del T-MEC"
   m = /(?:TMEC|T-MEC).*?Cap(?:ítulo|\.)?\s*(\d+)|Cap(?:ítulo|\.)?\s*(\d+)\s+(?:del\s+)?(?:TMEC|T-MEC)/i.exec(t);
@@ -85,6 +92,10 @@ export function parseReferencia(texto: string): ClaveCita | null {
   // un transitorio anticipado NUNCA respalda una cita al DOF ni viceversa.
   m = /^Transitorios?\s+(?:del\s+Decreto\s+)?(DOF|VA-SAT)\s+(\d{2}-\d{2}-\d{4})\s*([A-Za-z][A-Za-z\s-]{0,25})?$/i.exec(t);
   if (m) return { tipo: 'transitorio', numero: m[1]!.toUpperCase() === 'DOF' ? m[2]! : `VA-SAT-${m[2]!}`, cuerpo: normalizarCuerpo(m[3]) };
+
+  // Artículo en RANGO (referencia de doc): "Art. 73-89 LCE" → numero "73-89".
+  m = /^Art(?:ículos?|s?\.)?\s*(\d+)\s*-\s*(\d+)\s+(?:de\s+la\s+|del\s+)?([A-Za-z][A-Za-z\s-]{0,25})$/i.exec(t);
+  if (m) return { tipo: 'articulo', numero: `${m[1]}-${m[2]}`, cuerpo: normalizarCuerpo(m[3]) };
 
   // Artículo: "Art. 54 LA" / "Artículo 28-A de la LIVA" / "Art. 4.5 T-MEC"
   m = /Art(?:ículo|\.)?\s*(\d+(?:\.\d+)*(?:-(?:[A-ZÑ]{1,2}(?![a-zñ])|(?:[Bb]is|BIS|[Tt]er|TER|[Qq]u[aá]ter|QU[AÁ]TER|[Qq]uintus|QUINTUS)))?(?:\s+(?:[Bb]is|BIS|[Tt]er|TER|[Qq]u[aá]ter|QU[AÁ]TER|[Qq]uintus|QUINTUS)(?:\s+\d+)?)?)\s*(?:,?\s*(?:fracci[oó]n\s+[IVXLC]+\s*)?)?(?:de\s+la\s+|de\s+el\s+|del\s+)?([A-Za-z][A-Za-z\s-]{0,25})?$/.exec(t);
@@ -119,7 +130,9 @@ export function extraerCitas(answer: string): { texto: string; clave: ClaveCita 
     /Glosario(?:\s*,?\s*apartado\s+[IVX]+)?\s+(?:de\s+las?\s+)?RGCE(?:\s+\d{4})?/g,
     /Regla\s+General\s+\d+\s*(?:[a-f]\))?\s*(?:\(RGI\))?/g,
     /Regla\s+\d+(?:\.\d+)+(?:\s+RGCE(?:\s+\d{4})?)?/g,
-    /Anexo\s+\d+(?:\.\d+)*(?:-[A-Z])?(?:\s+RGCE(?:\s+\d{4})?)?/g,
+    // Anexo de las RGCE o del T-MEC ("Anexo 4-B del T-MEC"): sin el cuerpo
+    // T-MEC, el anexo se cruzaba como RGCE y era fantasma seguro.
+    /Anexo\s+\d+(?:\.\d+)*(?:-[A-Z])?(?:\s+(?:del\s+)?(?:RGCE(?:\s+\d{4})?|TMEC|T-MEC))?/g,
     // Ambos órdenes: "TMEC Cap. 5" y "Capítulo 5 del T-MEC" — el segundo era
     // invisible para el extractor (forma conocida de falso negativo).
     /(?:TMEC|T-MEC)\s+Cap(?:ítulo|\.)?\s*\d+/g,
@@ -167,12 +180,30 @@ export function extraerCitas(answer: string): { texto: string; clave: ClaveCita 
   return out;
 }
 
+/** "3" y "3A)" pertenecen al rango "1-6"; "75" al "73-89"; dos rangos
+ *  coinciden si son el mismo; dos números sueltos, si son iguales. */
+function numeroCoincide(a: string, b: string): boolean {
+  if (a === b) return true;
+  const rango = /^(\d+)-(\d+)$/;
+  const enRango = (r: string, n: string): boolean => {
+    const m = rango.exec(r); const k = /^(\d+)(?:[A-F]\))?$/.exec(n);
+    if (!m || !k) return false; // "28-A", "137-BIS" jamás entran a un rango
+    const v = Number(k[1]);
+    return v >= Number(m[1]) && v <= Number(m[2]);
+  };
+  return enRango(a, b) || enRango(b, a);
+}
+
 export function clavesIguales(a: ClaveCita, b: ClaveCita): boolean {
   if (a.tipo !== b.tipo) return false;
   // Glosario: la cita genérica ("Glosario de las RGCE", numero '*') respalda
   // cualquier apartado del glosario del mismo cuerpo, y viceversa.
   if (a.tipo === 'glosario') {
     if (a.numero !== b.numero && a.numero !== '*' && b.numero !== '*') return false;
+  } else if (a.tipo === 'rgi' || a.tipo === 'articulo') {
+    // Rangos numéricos puros ("1-6" RGI, "73-89" LCE): pertenencia. "28-A" no
+    // es rango (sufijo de letra) y cruza solo por igualdad exacta.
+    if (!numeroCoincide(a.numero, b.numero)) return false;
   } else if (a.numero !== b.numero) return false;
   // Cuerpo: si AMBOS lo declaran, debe coincidir. Si la cita no lo declara,
   // solo respalda un doc cuyo número+tipo sea inequívoco (se resuelve arriba).
@@ -193,16 +224,51 @@ export interface ResultadoCitas {
  * declarado solo se respalda si UN ÚNICO doc coincide en tipo+número
  * (ambigüedad = no respaldada — mejor pedir precisión que fingir respaldo).
  */
+/** Claves de UN documento del corpus. La `reference` de un doc puede ser
+ *  compuesta — "A · B" (dos preceptos), "Reglas 7.1.1, 7.1.2 y 7.1.3 RGCE 2026"
+ *  (lista), "TMEC Anexo 4-B (automotriz)" (sufijo), "Art. 28-A párr. final
+ *  LIVA" (precisión) — y antes solo se intentaba parsearla entera: 8/45 docs
+ *  del corpus no obtenían clave y toda cita a ellos era "fantasma" (27-ago). */
+export function clavesDeReferencia(reference: string): ClaveCita[] {
+  const claves: ClaveCita[] = [];
+  for (const parte of reference.split(/\s*[·|]\s*/)) {
+    let t = parte
+      .replace(/\s*\([^)]*\)\s*/g, ' ')                       // "(automotriz)", "(vigente desde 2018)"
+      .replace(/\s+p[aá]rr(?:afo|\.)\s+\w+/gi, '')              // "párr. final"
+      .replace(/\s+fr(?:acci[oó]n|\.)\s+[IVXLC]+/gi, '')         // "fr. I"
+      .replace(/\s+[—–-]\s+.*$/, '')                          // "Capítulo 4 — Textiles"
+      .replace(/\s+/g, ' ').trim();
+    // La forma original primero ("TMEC Capítulo 4" ya parsea); si no, el cuerpo
+    // al final como en las citas: "TMEC Anexo 4-B" → "Anexo 4-B TMEC".
+    const directa = parseReferencia(t);
+    if (directa) { claves.push(directa); continue; }
+    const pre = /^(TMEC|T-MEC|RGCE(?:\s+\d{4})?)\s+(.+)$/i.exec(t);
+    if (pre) t = `${pre[2]} ${pre[1]}`;
+    // Lista "Reglas 7.1.1, 7.1.2 y 7.1.3 RGCE 2026" → una clave por regla
+    const lista = /^Reglas\s+((?:\d+(?:\.\d+)+)(?:\s*(?:,|\sy)\s*\d+(?:\.\d+)+)+)\s*(.*)$/i.exec(t);
+    if (lista) {
+      const cuerpo = lista[2] ? normalizarCuerpo(lista[2]) ?? 'RGCE' : 'RGCE';
+      for (const n of lista[1]!.split(/\s*(?:,|\sy)\s*/)) claves.push({ tipo: 'regla', numero: normalizarNumero(n), cuerpo });
+      continue;
+    }
+    const c = parseReferencia(t);
+    if (c) claves.push(c);
+  }
+  return claves;
+}
+
 export function cruzarCitas(answer: string, docReferences: string[]): ResultadoCitas {
-  const clavesDocs = docReferences.map(r => parseReferencia(r));
+  // Índice del doc por cada clave (un doc puede aportar varias claves).
+  const clavesDocs: Array<{ clave: ClaveCita; doc: number }> = [];
+  docReferences.forEach((r, i) => { for (const clave of clavesDeReferencia(r)) clavesDocs.push({ clave, doc: i }); });
   const citadas = extraerCitas(answer);
   const respaldadas = new Map<string, number>();
   const noRespaldadas: string[] = [];
   for (const c of citadas) {
     const matches: number[] = [];
-    clavesDocs.forEach((cd, i) => {
-      if (cd && clavesIguales(c.clave, cd)) matches.push(i);
-    });
+    for (const cd of clavesDocs) {
+      if (clavesIguales(c.clave, cd.clave) && !matches.includes(cd.doc)) matches.push(cd.doc);
+    }
     if (matches.length === 1 || (matches.length > 1 && c.clave.cuerpo)) {
       respaldadas.set(c.texto, matches[0]!);
     } else {

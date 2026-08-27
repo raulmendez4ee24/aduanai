@@ -111,6 +111,35 @@ async function main() {
     assert.deepEqual(reglaInventada.noRespaldadas, ['Regla 5.4.1 RGCE 2026']);
   });
 
+  await test('matcher: el doc "GRI 1-6 LIGIE" respalda "Regla General 3", "Regla General 3 a) (RGI)" y "RGI 3" (rango)', () => {
+    // Prod 27-ago (estricta): "Explica la GRI 3" se DEGRADABA porque el doc del
+    // corpus se llama "GRI 1-6 LIGIE" y parseReferencia no le daba clave.
+    const doc = parseReferencia('GRI 1-6 LIGIE');
+    assert.ok(doc && doc.tipo === 'rgi', 'GRI 1-6 LIGIE debe parsear como rgi');
+    const r = cruzarCitas('Conforme a la Regla General 3 a) (RGI) y la Regla General 3, ver también RGI 6.', ['GRI 1-6 LIGIE']);
+    assert.deepEqual(r.noRespaldadas, []);
+    const fuera = cruzarCitas('Según la Regla General 7 (RGI).', ['GRI 1-6 LIGIE']);
+    assert.deepEqual(fuera.noRespaldadas, ['Regla General 7 (RGI)']);
+    // Un rango NO respalda un artículo ni un doc de otro cuerpo
+    assert.ok(cruzarCitas('Art. 3 LA', ['GRI 1-6 LIGIE']).noRespaldadas.length === 1);
+  });
+
+  await test('matcher: docs con referencia compuesta (rango, lista, doble, sufijo) sí respaldan citas', () => {
+    // Censo 27-ago: 8/45 docs activos no obtenían clave → toda cita a ellos era
+    // "fantasma" y estricta degradaba respuestas correctas.
+    const r = cruzarCitas(
+      'Ver Art. 75 LCE y Art. 89 LCE; la Regla 7.1.2 RGCE 2026; Art. 28-A LIVA y Art. 86-A LA; el Anexo 4-B TMEC.',
+      ['Art. 73-89 LCE', 'Reglas 7.1.1, 7.1.2 y 7.1.3 RGCE 2026', 'Art. 28-A párr. final LIVA · Art. 86-A fr. I LA', 'TMEC Anexo 4-B (automotriz)'],
+    );
+    assert.deepEqual(r.noRespaldadas, []);
+    // Fuera de rango / lista → sigue siendo fantasma
+    const f = cruzarCitas('Art. 90 LCE y Regla 7.1.4 RGCE 2026.', ['Art. 73-89 LCE', 'Reglas 7.1.1, 7.1.2 y 7.1.3 RGCE 2026']);
+    assert.deepEqual(f.noRespaldadas, ['Art. 90 LCE', 'Regla 7.1.4 RGCE 2026']);
+    assert.deepEqual(cruzarCitas('Ver TMEC Cap. 4.', ['TMEC Capítulo 4 — Textiles']).noRespaldadas, []);
+    // "Art. 28-A" NO es rango 28..A
+    assert.equal(cruzarCitas('Art. 28 LIVA', ['Art. 28-A LIVA']).noRespaldadas.length, 1);
+  });
+
   await test('cruzarCitas: cita sin cuerpo — único match respalda, ambigüedad NO', () => {
     const unico = cruzarCitas('Ver el Art. 54.', ['Art. 54 LA', 'Art. 27 LIVA']);
     assert.equal(unico.noRespaldadas.length, 0);
