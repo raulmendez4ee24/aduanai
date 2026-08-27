@@ -22,14 +22,61 @@
  * se muestra el DATO del pedimento cuando el flag mapea a uno; no se fabrican
  * números de campo del Anexo 22 (no cotejados). La estructura dice la verdad.
  */
-import { useEffect, useState } from 'react'
+import { Fragment, useEffect, useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import {
-  Printer, RotateCcw, CheckCircle2, AlertTriangle, ShieldAlert, ClipboardCheck,
+  Printer, RotateCcw, CheckCircle2, AlertTriangle, ShieldAlert, ClipboardCheck, FileUp, Archive, ChevronDown, ChevronUp,
 } from 'lucide-react'
 import { api } from '../lib/api'
 import type { GlosaSimulationInput, GlosaSimulationResult, GlosaRiskFlag, DominioGlosa, Anexo22Catalogs } from '../lib/api'
 import { Button, Card, Badge, Input, Select, Textarea, SelloVerificacion, useCampoNumerico, type EstadoSello } from '../components/ui'
+import { ImportarArchivo } from '../components/pedimentos/ImportarArchivo'
+import { PaisSelect } from '../components/pedimentos/PaisSelect'
+import { apiPedimentos, type GlosaPedimentoResultado, type CruceGlosa, type GlosaSimulationResultConCruces } from '../lib/api/pedimentos'
+
+export const GUIA_MODULO = {
+  titulo: 'Reporte de revisión pre-glosa',
+  pasos: [
+    'Importa el archivo M3 / Data Stage: se genera una revisión por partida y un resumen del pedimento (riesgo máximo, hallazgos agregados, reglas no evaluadas).',
+    'O captura una operación: fracción, país de origen y vendedor (combo con catálogo), aduana, clave y valores.',
+    'Lee los hallazgos y los cruces por partida (origen-tratado, cuota por exportador, UMC/UMT, precio estimado, identificadores Ap. 8): cada uno cita fundamento y si pudo evaluarse.',
+    'Un dominio sin revisar o una partida indeterminada nunca se presenta como riesgo bajo.',
+    'Descarga el PDF (impresión del navegador) y archiva el reporte al expediente del pedimento.',
+  ],
+}
+
+// ── Cruces por partida (Operación 2026-08) ────────────────────────────────
+const CRUCE_RESULTADO: Record<NonNullable<CruceGlosa['resultado']>, { label: string; tono: 'neutral' | 'ambar' | 'carmin' | 'petroleo' }> = {
+  ok: { label: 'Congruente', tono: 'petroleo' }, observacion: { label: 'Observación', tono: 'ambar' }, hallazgo: { label: 'Hallazgo', tono: 'carmin' },
+}
+
+function SeccionCruces({ cruces }: { cruces: CruceGlosa[] }) {
+  if (!cruces || cruces.length === 0) return null
+  return (
+    <section className="mt-8 doc-evitar-corte">
+      <h2 className="text-13 uppercase tracking-wide text-tinta-suave mb-3">Cruces de la partida ({cruces.length})</h2>
+      <ul className="space-y-3">
+        {cruces.map(c => (
+          <li key={c.codigo} className="border-l-2 pl-4" style={{ borderColor: c.estado === 'no_evaluado' ? 'var(--color-ambar)' : c.resultado === 'hallazgo' ? 'var(--color-carmin)' : 'var(--color-linea)' }}>
+            <div className="flex items-center gap-2 flex-wrap">
+              <span className="font-sello-mono text-13 text-tinta-suave">{c.codigo}</span>
+              <span className="text-base font-medium text-tinta">{c.nombre}</span>
+              {c.estado === 'no_evaluado'
+                ? <Badge tono="ambar">No evaluado</Badge>
+                : <Badge tono={CRUCE_RESULTADO[c.resultado ?? 'ok'].tono}>{CRUCE_RESULTADO[c.resultado ?? 'ok'].label}</Badge>}
+            </div>
+            <p className="text-sm text-tinta leading-relaxed mt-1">{c.estado === 'no_evaluado' ? (c.motivo ?? c.mensaje) : c.mensaje}</p>
+            <div className="flex items-center gap-2 flex-wrap mt-1">
+              <span className="text-13 text-tinta-suave">Fundamento:</span>
+              <span className="text-13 text-tinta">{c.fundamento}</span>
+              <SelloVerificacion estado={c.cotejoFundamento === 'verificado' ? 'verificado' : 'sin_verificar'} />
+            </div>
+          </li>
+        ))}
+      </ul>
+    </section>
+  )
+}
 
 // ── Mapa flag.category → dato del pedimento (solo lo que mapea de verdad) ──
 // Homenaje honesto a la estructura del pedimento: mostramos el NOMBRE del dato
@@ -177,7 +224,13 @@ export function GlosaSimulatorPage() {
     // que se marcaran los dos checkboxes T-MEC.
     documents: { originCertificate: false },
   })
-  const [estado, setEstado] = useState<'form' | 'generando' | 'listo' | 'error'>('form')
+  const [estado, setEstado] = useState<'form' | 'generando' | 'listo' | 'listo-pedimento' | 'error'>('form')
+  const [pedResultado, setPedResultado] = useState<GlosaPedimentoResultado | null>(null)
+  const [partidaAbierta, setPartidaAbierta] = useState<number | null>(null)
+  const [archivado, setArchivado] = useState<{ reference: string; documentName: string } | null>(null)
+  const [archivando, setArchivando] = useState(false)
+  const [mostrarImportar, setMostrarImportar] = useState(false)
+  const [declaradoPed, setDeclaradoPed] = useState<{ hasIVAIEPSCertification?: boolean; hasTMECCertificate?: boolean }>({})
   const [paso, setPaso] = useState(0)
   const [result, setResult] = useState<GlosaSimulationResult | null>(null)
   const [error, setError] = useState('')
@@ -214,6 +267,30 @@ export function GlosaSimulatorPage() {
   const campoWeight = useCampoNumerico(form.weightKg, n => set('weightKg', n))
   const campoTotalValue = useCampoNumerico(form.totalValueUSD, n => set('totalValueUSD', n))
 
+  async function generarDesdePedimento(id: string) {
+    setEstado('generando'); setError(''); setArchivado(null); setPartidaAbierta(null)
+    try {
+      const res = await apiPedimentos.glosaDesdePedimento(id, declaradoPed)
+      setPedResultado(res.data)
+      setGeneradoEn(new Date())
+      setEstado('listo-pedimento')
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'No se pudo generar el reporte del pedimento.')
+      setEstado('error')
+    }
+  }
+
+  async function archivarPedimento() {
+    if (!pedResultado) return
+    setArchivando(true)
+    try {
+      const r = await apiPedimentos.archivar(pedResultado.pedimentoId, 'preglosa', pedResultado as unknown as Record<string, unknown>,
+        `Riesgo máximo ${pedResultado.resumen.riskLevelPresentacion} · ${pedResultado.resumen.hallazgos.length} hallazgo(s) agregados`)
+      setArchivado({ reference: r.data.reference, documentName: r.data.documentName })
+    } catch (e) { setError(e instanceof Error ? e.message : 'No se pudo archivar') }
+    setArchivando(false)
+  }
+
   async function generar() {
     setEstado('generando'); setError('')
     try {
@@ -238,14 +315,37 @@ export function GlosaSimulatorPage() {
           </p>
         </div>
 
+        <Card denso header={
+          <button type="button" className="w-full flex items-center gap-2 text-left" onClick={() => setMostrarImportar(m => !m)}>
+            <FileUp className="w-5 h-5 text-tinta-suave" strokeWidth={1.5} aria-hidden />
+            <span className="text-base font-medium text-tinta">Importar archivo M3 / Data Stage</span>
+            <span className="text-sm text-tinta-suave">— una revisión por partida y resumen del pedimento</span>
+            {mostrarImportar ? <ChevronUp className="w-4 h-4 ml-auto text-tinta-suave" aria-hidden /> : <ChevronDown className="w-4 h-4 ml-auto text-tinta-suave" aria-hidden />}
+          </button>
+        }>
+          {mostrarImportar ? (
+            <div className="space-y-3">
+              <div className="grid sm:grid-cols-2 gap-2">
+                {([['hasIVAIEPSCertification', 'El importador tiene certificación IVA/IEPS'], ['hasTMECCertificate', 'Cuenta con certificado de origen T-MEC vinculado']] as const).map(([k, label]) => (
+                  <label key={k} className="flex items-center gap-2 text-sm text-tinta cursor-pointer py-1">
+                    <input type="checkbox" className="accent-petroleo w-4 h-4" checked={!!declaradoPed[k]} onChange={e => setDeclaradoPed(d => ({ ...d, [k]: e.target.checked }))} />
+                    {label} <span className="text-13 text-tinta-suave">(el archivo no lo trae)</span>
+                  </label>
+                ))}
+              </div>
+              <ImportarArchivo onImportado={id => { void generarDesdePedimento(id) }} />
+            </div>
+          ) : (
+            <p className="text-sm text-tinta-suave">Abre para arrastrar el .txt del SAAI M3 o el CSV de Data Stage. Nada se recaptura.</p>
+          )}
+        </Card>
+
         <Card>
           <div className="grid sm:grid-cols-2 gap-4">
             <Input label="Fracción arancelaria" mono requerido placeholder="7318.15.01"
               value={form.fractionCode} onChange={e => set('fractionCode', e.target.value)} />
-            <Input label="País de origen (ISO-2)" mono placeholder="CN"
-              value={form.countryOrigin} onChange={e => set('countryOrigin', e.target.value.toUpperCase())} />
-            <Input label="País del vendedor (ISO-2)" mono placeholder="CN"
-              value={form.countryProvider} onChange={e => set('countryProvider', e.target.value.toUpperCase())} />
+            <PaisSelect label="País de origen" value={form.countryOrigin} onChange={v => set('countryOrigin', v)} />
+            <PaisSelect label="País del vendedor" value={form.countryProvider} onChange={v => set('countryProvider', v)} />
             <Select label="Aduana" value={form.customsCode} onChange={e => set('customsCode', e.target.value)}>
               <option value="">Selecciona…</option>
               {catalogos?.aduanas.map(a => <option key={a.clave} value={a.clave}>{a.clave} — {a.denominacion}</option>)}
@@ -329,6 +429,19 @@ export function GlosaSimulatorPage() {
           )}
         </div>
       </div>
+    )
+  }
+
+  // ── Estado: reporte multipartida (desde pedimento importado) ──
+  if (estado === 'listo-pedimento' && pedResultado && generadoEn) {
+    return (
+      <ReportePedimento
+        r={pedResultado} generadoEn={generadoEn} archivado={archivado} archivando={archivando}
+        partidaAbierta={partidaAbierta} setPartidaAbierta={setPartidaAbierta}
+        onArchivar={archivarPedimento}
+        onNuevo={() => { setEstado('form'); setPedResultado(null); setArchivado(null) }}
+        error={error}
+      />
     )
   }
 
@@ -533,6 +646,9 @@ export function GlosaSimulatorPage() {
             )}
           </section>
 
+          {/* Cruces por partida (Operación 2026-08) */}
+          <SeccionCruces cruces={(result as GlosaSimulationResultConCruces).cruces ?? []} />
+
           {/* Recomendaciones priorizadas */}
           {result.recommendations.some(r => r.items.length > 0) && (
             <section className="mt-8 doc-evitar-corte">
@@ -584,6 +700,200 @@ export function GlosaSimulatorPage() {
       </article>
 
       {/* Pie repetido en cada hoja impresa */}
+      <div className="doc-pie font-sello-mono">{pieTexto}</div>
+    </div>
+  )
+}
+
+
+// ── Documento multipartida (Operación 2026-08) ────────────────────────────
+const NIVEL_INDET = { label: 'Indeterminado', tono: 'carmin' as const }
+const NIVEL: Record<string, { label: string; tono: 'neutral' | 'ambar' | 'carmin' | 'petroleo' }> = {
+  low: { label: 'Bajo', tono: 'petroleo' }, medium: { label: 'Medio', tono: 'ambar' }, high: { label: 'Alto', tono: 'carmin' }, critical: { label: 'Crítico', tono: 'carmin' }, indeterminado: { label: 'Indeterminado', tono: 'carmin' },
+}
+
+function ReportePedimento({ r, generadoEn, archivado, archivando, partidaAbierta, setPartidaAbierta, onArchivar, onNuevo, error }: {
+  r: GlosaPedimentoResultado; generadoEn: Date; archivado: { reference: string; documentName: string } | null; archivando: boolean
+  partidaAbierta: number | null; setPartidaAbierta: (n: number | null) => void; onArchivar: () => void; onNuevo: () => void; error: string
+}) {
+  const folio = `PG-${generadoEn.getFullYear()}-${r.pedimentoId.replace(/[^a-zA-Z0-9]/g, '').slice(-6).toUpperCase()}`
+  const res = r.resumen
+  const indeterminado = res.riskLevelPresentacion === 'indeterminado'
+  const nivel = NIVEL[res.riskLevelPresentacion] ?? NIVEL_INDET
+  const pieTexto = `${folio} · ${fechaHoraLarga(generadoEn)} · Pedimento ${r.numero ?? r.pedimentoId} · ${res.partidasTotal} partida(s) · Generado por ADUANAI${indeterminado ? ' · REVISIÓN INCOMPLETA' : ''}`
+
+  return (
+    <div>
+      <div className="max-w-[960px] mx-auto mb-4 flex items-center gap-2 flex-wrap no-print">
+        <Button variante="primario" onClick={() => window.print()}><Printer className="w-4 h-4" strokeWidth={1.5} aria-hidden /> Descargar PDF</Button>
+        <Button variante="primario" onClick={onArchivar} disabled={archivando || !!archivado} loading={archivando}><Archive className="w-4 h-4" strokeWidth={1.5} aria-hidden /> {archivado ? 'Archivado' : 'Archivar al expediente'}</Button>
+        <Button variante="secundario" onClick={onNuevo}><RotateCcw className="w-4 h-4" strokeWidth={1.5} aria-hidden /> Nuevo reporte</Button>
+        {archivado && <span className="text-sm text-sello">Guardado en el expediente <span className="font-sello-mono">{archivado.reference}</span> · <a className="underline" href="/expediente">ver</a></span>}
+        {error && <span className="text-sm text-carmin">{error}</span>}
+      </div>
+
+      <article className="doc-imprimible max-w-[960px] mx-auto">
+        <div className="doc-hoja bg-superficie border border-linea rounded-sello p-8 sm:p-12 text-tinta">
+          <header className="doc-evitar-corte">
+            <div className="flex items-start justify-between gap-4 flex-wrap">
+              <div>
+                <p className="font-sello-display text-lg text-tinta">ADUANAI</p>
+                <h1 className="font-sello-display text-28 text-tinta mt-3">Reporte de revisión pre-glosa — pedimento completo</h1>
+              </div>
+              <dl className="text-13 font-sello-ui text-right space-y-0.5">
+                <div><dt className="inline text-tinta-suave">Folio: </dt><dd className="inline font-sello-mono text-tinta">{folio}</dd></div>
+                <div><dt className="inline text-tinta-suave">Generado: </dt><dd className="inline font-sello-mono text-tinta">{fechaHoraLarga(generadoEn)}</dd></div>
+                <div><dt className="inline text-tinta-suave">Pedimento: </dt><dd className="inline font-sello-mono text-tinta">{r.numero ?? r.pedimentoId}</dd></div>
+                <div><dt className="inline text-tinta-suave">Clave / aduana: </dt><dd className="inline font-sello-mono text-tinta">{r.clave} / {r.aduana}</dd></div>
+                <div><dt className="inline text-tinta-suave">Origen del dato: </dt><dd className="inline font-sello-mono text-tinta">{r.origenArchivo ?? 'captura'}</dd></div>
+              </dl>
+            </div>
+            {r.versiones && (
+              <div className="mt-4 pt-4 border-t border-linea flex items-center gap-2 flex-wrap">
+                <span className="text-sm text-tinta-suave">Base normativa usada:</span>
+                <span className="text-sm text-tinta">{r.versiones.tigie}</span>
+                <SelloVerificacion estado="verificado" fuenteNombre={r.versiones.fuenteNombre} fuenteUrl={r.versiones.fuenteUrl} fechaPublicacion={r.versiones.fechaPublicacion} fechaVerificacion={r.versiones.fechaVerificacion} metodo="manual" />
+              </div>
+            )}
+          </header>
+
+          {/* Resumen del pedimento */}
+          <section className="mt-8 doc-evitar-corte">
+            <h2 className="text-13 uppercase tracking-wide text-tinta-suave mb-2">Resumen del pedimento</h2>
+            <div className={`rounded-sello border p-5 ${nivel.tono === 'carmin' ? 'border-carmin/30 bg-carmin-suave' : nivel.tono === 'ambar' ? 'border-ambar/30 bg-ambar-suave' : 'border-sello/30'}`} style={nivel.tono === 'petroleo' ? { backgroundColor: 'var(--color-petroleo-suave)' } : undefined}>
+              <div className="flex items-center gap-3 flex-wrap">
+                {indeterminado ? <ShieldAlert className="w-6 h-6 text-carmin" strokeWidth={1.5} aria-hidden /> : <ClipboardCheck className="w-6 h-6 text-tinta" strokeWidth={1.5} aria-hidden />}
+                <p className="font-sello-display text-22 text-tinta">Riesgo máximo: {nivel.label}</p>
+                {res.partidaRiesgoMaximo !== null && !indeterminado && <span className="text-sm text-tinta-suave">(partida {res.partidaRiesgoMaximo}, índice heurístico {res.riskScoreMax})</span>}
+              </div>
+              <p className="text-sm text-tinta leading-relaxed mt-2">
+                {res.partidasEvaluadas} de {res.partidasTotal} partidas evaluadas{res.partidasConError > 0 ? ` · ${res.partidasConError} con error` : ''} · {res.hallazgos.length} regla(s) con hallazgo · {res.cruces.length} cruce(s) con observación · {res.reglasNoEvaluadas.length + res.crucesNoEvaluados.length} regla(s)/cruce(s) no evaluados
+              </p>
+              {indeterminado && (
+                <p className="text-sm text-carmin mt-2">Alguna partida quedó indeterminada (dominio sin revisar, fracción inexistente o error): el pedimento no puede presentarse como riesgo bajo.</p>
+              )}
+            </div>
+          </section>
+
+          {/* Tabla de partidas */}
+          <section className="mt-8">
+            <h2 className="text-13 uppercase tracking-wide text-tinta-suave mb-3">Partidas ({r.partidas.length})</h2>
+            <div className="overflow-x-auto border border-linea rounded-sello">
+              <table className="w-full font-sello-ui">
+                <thead>
+                  <tr className="border-b border-linea">
+                    {['#', 'Fracción', 'Descripción', 'Origen', 'Nivel', 'Hallazgos', 'Cruces', 'No eval.', ''].map(h => (
+                      <th key={h} scope="col" className="text-13 uppercase tracking-wide font-medium text-tinta-suave px-3 py-2 text-left">{h}</th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {r.partidas.map(p => {
+                    const rr = p.resultado
+                    const niv = rr ? (NIVEL[rr.riskLevelPresentacion] ?? NIVEL_INDET) : NIVEL_INDET
+                    const crucesMalos = (rr?.cruces ?? []).filter(c => c.estado === 'evaluado' && c.resultado !== 'ok').length
+                    const noEval = (rr?.revision.reglasNoEvaluadas?.length ?? 0) + (rr?.cruces ?? []).filter(c => c.estado === 'no_evaluado').length
+                    const abierta = partidaAbierta === p.numeroPartida
+                    return (
+                      <Fragment key={p.numeroPartida}>
+                        <tr className="border-b border-linea/60 odd:bg-papel-2/40 cursor-pointer" onClick={() => setPartidaAbierta(abierta ? null : p.numeroPartida)}>
+                          <td className="px-3 py-2 font-sello-mono text-sm text-tinta">{p.numeroPartida}</td>
+                          <td className="px-3 py-2 font-sello-mono text-sm text-tinta">{p.fraccion}</td>
+                          <td className="px-3 py-2 text-sm text-tinta max-w-[260px] truncate" title={p.descripcion}>{p.descripcion}</td>
+                          <td className="px-3 py-2 font-sello-mono text-sm text-tinta">{p.input.countryOrigin}</td>
+                          <td className="px-3 py-2"><Badge tono={niv.tono}>{p.error ? 'Error' : niv.label}</Badge></td>
+                          <td className="px-3 py-2 font-sello-mono text-sm text-right text-tinta">{rr ? rr.flags.length : '—'}</td>
+                          <td className="px-3 py-2 font-sello-mono text-sm text-right text-tinta">{rr ? crucesMalos : '—'}</td>
+                          <td className="px-3 py-2 font-sello-mono text-sm text-right text-tinta">{rr ? noEval : '—'}</td>
+                          <td className="px-3 py-2 text-tinta-suave no-print">{abierta ? <ChevronUp className="w-4 h-4" aria-hidden /> : <ChevronDown className="w-4 h-4" aria-hidden />}</td>
+                        </tr>
+                        {abierta && (
+                          <tr className="border-b border-linea">
+                            <td colSpan={9} className="px-4 py-4 bg-superficie">
+                              {p.error && <p className="text-sm text-carmin">{p.error}</p>}
+                              {rr && (
+                                <div className="space-y-4">
+                                  {rr.flags.length === 0 ? <p className="text-sm text-tinta-suave">Sin hallazgos de reglas ponderadas en esta partida.</p> : (
+                                    <ol className="space-y-3">
+                                      {rr.flags.map((f, i) => (
+                                        <li key={f.ruleCode + i} className="border-l-2 pl-3" style={{ borderColor: f.severity === 'critical' ? 'var(--color-carmin)' : f.severity === 'low' ? 'var(--color-linea)' : 'var(--color-ambar)' }}>
+                                          <div className="flex items-center gap-2 flex-wrap"><span className="font-sello-mono text-13 text-tinta-suave">{f.ruleCode}</span><Badge tono={SEVERIDAD[f.severity].tono}>{SEVERIDAD[f.severity].label}</Badge><span className="text-sm font-medium text-tinta">{f.name}</span></div>
+                                          <p className="text-sm text-tinta mt-1">{f.reason}</p>
+                                          {(f.fundamento?.valor ?? f.legalBasis) && <p className="text-13 text-tinta-suave mt-0.5">Fundamento: {f.fundamento?.valor ?? f.legalBasis}</p>}
+                                        </li>
+                                      ))}
+                                    </ol>
+                                  )}
+                                  <SeccionCruces cruces={rr.cruces ?? []} />
+                                  {(rr.revision.reglasNoEvaluadas?.length ?? 0) > 0 && (
+                                    <ul className="text-sm text-tinta space-y-1">
+                                      {rr.revision.reglasNoEvaluadas!.map(n => <li key={n.ruleCode}><span className="font-sello-mono text-13 text-tinta-suave">{n.ruleCode}</span> no evaluada — {n.motivo}</li>)}
+                                    </ul>
+                                  )}
+                                </div>
+                              )}
+                            </td>
+                          </tr>
+                        )}
+                      </Fragment>
+                    )
+                  })}
+                </tbody>
+              </table>
+            </div>
+          </section>
+
+          {/* Hallazgos agregados */}
+          <section className="mt-8">
+            <h2 className="text-13 uppercase tracking-wide text-tinta-suave mb-3">Hallazgos agregados del pedimento ({res.hallazgos.length + res.cruces.length})</h2>
+            {res.hallazgos.length === 0 && res.cruces.length === 0 ? <p className="text-base text-tinta-suave">Sin hallazgos agregados.</p> : (
+              <ol className="space-y-4">
+                {res.hallazgos.map((h, i) => (
+                  <li key={h.ruleCode} className="doc-evitar-corte border-l-2 pl-4" style={{ borderColor: h.severity === 'critical' ? 'var(--color-carmin)' : h.severity === 'low' ? 'var(--color-linea)' : 'var(--color-ambar)' }}>
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <span className="font-sello-mono text-sm text-tinta-suave">Hallazgo {String(i + 1).padStart(2, '0')}</span>
+                      <Badge tono={SEVERIDAD[h.severity].tono}>{SEVERIDAD[h.severity].label}</Badge>
+                      <span className="font-sello-mono text-13 text-tinta-suave">· partidas {h.partidas.join(', ')}</span>
+                    </div>
+                    <p className="text-base font-medium text-tinta mt-1">{h.name}</p>
+                    <p className="text-sm text-tinta leading-relaxed mt-1">{h.reason}</p>
+                    {h.legalBasis && <p className="text-13 text-tinta-suave mt-0.5">Fundamento: {h.legalBasis}</p>}
+                  </li>
+                ))}
+                {res.cruces.map((c, i) => (
+                  <li key={c.codigo + c.resultado} className="doc-evitar-corte border-l-2 pl-4" style={{ borderColor: c.resultado === 'hallazgo' ? 'var(--color-carmin)' : 'var(--color-ambar)' }}>
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <span className="font-sello-mono text-sm text-tinta-suave">Cruce {String(i + 1).padStart(2, '0')}</span>
+                      <Badge tono={CRUCE_RESULTADO[c.resultado].tono}>{CRUCE_RESULTADO[c.resultado].label}</Badge>
+                      <span className="font-sello-mono text-13 text-tinta-suave">· partidas {c.partidas.join(', ')}</span>
+                    </div>
+                    <p className="text-base font-medium text-tinta mt-1">{c.nombre}</p>
+                    <p className="text-sm text-tinta leading-relaxed mt-1">{c.mensaje}</p>
+                    <p className="text-13 text-tinta-suave mt-0.5">Fundamento: {c.fundamento}</p>
+                  </li>
+                ))}
+              </ol>
+            )}
+          </section>
+
+          {/* No evaluado / no revisado */}
+          {(res.reglasNoEvaluadas.length > 0 || res.crucesNoEvaluados.length > 0 || res.dominiosNoRevisados.length > 0) && (
+            <section className="mt-8 doc-evitar-corte">
+              <div className={`rounded-sello border p-5 ${res.dominiosNoRevisados.length > 0 ? 'border-carmin/40 bg-carmin-suave' : 'border-ambar/40 bg-ambar-suave'}`}>
+                <p className="font-sello-display text-16 text-tinta">Reglas no evaluadas y dominios sin revisar</p>
+                <ul className="mt-2 space-y-1.5">
+                  {res.dominiosNoRevisados.map(d => <li key={d.dominio + d.motivo} className="text-sm text-carmin"><span className="font-medium">{DOMINIO_LABEL[d.dominio as DominioGlosa] ?? d.dominio}</span> NO revisado en partidas {d.partidas.join(', ')} — {d.motivo}</li>)}
+                  {res.reglasNoEvaluadas.map(n => <li key={n.ruleCode + n.motivo} className="text-sm text-tinta"><span className="font-sello-mono text-tinta-suave">{n.ruleCode}</span> partidas {n.partidas.join(', ')} — {n.motivo}</li>)}
+                  {res.crucesNoEvaluados.map(n => <li key={n.codigo + n.motivo} className="text-sm text-tinta"><span className="font-sello-mono text-tinta-suave">{n.codigo}</span> partidas {n.partidas.join(', ')} — {n.motivo}</li>)}
+                </ul>
+                <p className="text-xs text-tinta-suave leading-relaxed mt-2">Una regla sin dato no dispara ni cuenta como revisada; un dominio sin revisar puede esconder exactamente el hallazgo que falta.</p>
+              </div>
+            </section>
+          )}
+
+          <p className="text-13 text-tinta-suave mt-8 pt-3 border-t border-linea leading-relaxed">{r.disclaimer}</p>
+        </div>
+      </article>
       <div className="doc-pie font-sello-mono">{pieTexto}</div>
     </div>
   )
