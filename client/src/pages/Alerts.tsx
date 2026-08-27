@@ -5,6 +5,7 @@ import type { Alert, FractionSearchResult } from '../lib/api'
 import { useNavigate } from 'react-router-dom'
 import { Megaphone, CheckCheck, Search, Bell, Eye, X, AlertTriangle, AlertCircle, Info, Clock, RefreshCw, Check, Bell as BellIcon, ArrowRight } from 'lucide-react'
 import { formatFraction } from '../lib/format'
+import { regulatorioApi, rutaDeAccion, type EstadoWatchdog } from '../lib/api/regulatorio'
 
 const GLASS = 'bg-white/70 backdrop-blur-xl border border-white/50 shadow-[0_8px_30px_rgb(0,0,0,0.04)]'
 
@@ -18,9 +19,14 @@ export function AlertsPage() {
   const [searching, setSearching] = useState(false)
   const [regenerating, setRegenerating] = useState(false)
   const [severityFilter, setSeverityFilter] = useState<'' | 'critical' | 'high' | 'medium' | 'low'>('')
+  const [watchdog, setWatchdog] = useState<EstadoWatchdog | null>(null)
   const navigate = useNavigate()
 
-  useEffect(() => { loadAlerts(); loadWatched() }, [])
+  useEffect(() => { loadAlerts(); loadWatched(); loadWatchdog() }, [])
+
+  async function loadWatchdog() {
+    try { const r = await regulatorioApi.watchdogEstado(); setWatchdog(r.data) } catch { setWatchdog(null) }
+  }
 
   async function loadAlerts() {
     setLoading(true)
@@ -62,13 +68,15 @@ export function AlertsPage() {
     setRegenerating(false)
   }
 
+  // Operación 2026-08: acción en un clic — el server normaliza suggestedAction a
+  // { type, label, payload.route } (armar_rt | cambio_regimen | revisar_fraccion |
+  // ver_obligacion | cotizar); se navega con el payload en el querystring/ruta y
+  // también en el estado de navegación por si la pantalla destino lo prefiere.
   function executeAction(a: Alert) {
-    if (!a.suggestedAction) return
-    const route = (a.suggestedAction.payload as Record<string, unknown> | undefined)?.route as string | undefined
-    if (route) {
-      acknowledgeAlert(a.id)
-      navigate(route)
-    }
+    const route = rutaDeAccion(a.suggestedAction as Parameters<typeof rutaDeAccion>[0])
+    if (!route) return
+    acknowledgeAlert(a.id)
+    navigate(route, { state: { accion: a.suggestedAction, alertId: a.id } })
   }
 
   const filteredAlerts = severityFilter
@@ -110,6 +118,13 @@ export function AlertsPage() {
             </div>
           )}
         </div>
+
+        {/* Watchdog DOF real (Operación 2026-08): última revisión y fuentes */}
+        <p className="text-[11px] text-slate-500 mb-3">
+          Watchdog DOF · {watchdog?.ultimaRevision
+            ? <>última revisión: {new Date(watchdog.ultimaRevision).toLocaleString('es-MX')} · fuentes: {watchdog.fuentes.map(f => `${f.nombre} (${f.estado === 'ok' ? 'ok' : f.estado === 'ciega' ? 'sin respuesta' : 'sin revisar'})`).join(', ')} · {watchdog.decretosRevisados} decreto(s) revisados en {watchdog.ventanaDias} días</>
+            : 'sin revisión registrada aún (corre cada 6 h; filtra por las fracciones de tu catálogo)'}
+        </p>
 
         {/* Tabs */}
         <div className="flex gap-2 mb-5">

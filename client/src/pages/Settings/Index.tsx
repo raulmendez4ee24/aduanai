@@ -1,5 +1,5 @@
 import { Link } from 'react-router-dom'
-import { Building2, Shield, BadgeCheck, Bell, FileText, Users, Settings as SettingsIcon } from 'lucide-react'
+import { Building2, Shield, BadgeCheck, Bell, FileText, Users, Settings as SettingsIcon, Mail } from 'lucide-react'
 import { usePermissions } from '../../hooks/usePermissions'
 
 const GLASS = 'bg-white/70 backdrop-blur-xl border border-white/50 shadow-[0_8px_30px_rgb(0,0,0,0.04)]'
@@ -13,6 +13,7 @@ const TILES: Tile[] = [
   { to: '/verificacion', icon: BadgeCheck, label: 'Verificación profesional', desc: 'Credenciales del agente aduanal' },
   { to: '/audit', icon: FileText, label: 'Audit Trail', desc: 'Registro de eventos con cadena de hashes verificable' },
   { to: '/alertas', icon: Bell, label: 'Notificaciones', desc: 'Alertas inteligentes' },
+  { to: '/settings/digest', icon: Mail, label: 'Digest semanal', desc: 'Resumen por cliente: email / WhatsApp' },
 ]
 
 export function SettingsIndexPage() {

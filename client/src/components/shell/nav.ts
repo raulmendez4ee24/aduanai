@@ -10,6 +10,7 @@ import {
   Warehouse, Landmark, FileText, Boxes, Globe, Scale, BadgeCheck,
   Megaphone, ListChecks, Building2, Users, Gauge, Database, ScanSearch,
   Layers, // ── OPERACIÓN 2026-08 ──
+  CalendarCheck, Repeat, Factory,
 } from 'lucide-react'
 
 export interface NavItem {
@@ -59,6 +60,9 @@ export const NAV_HERRAMIENTAS: NavItem[] = [
   { label: 'Aprobaciones', path: '/aprobaciones', icono: BadgeCheck },
   { label: 'Catálogo de partes', path: '/catalogo', icono: Boxes },
   { label: 'Defensa', path: '/defensa', icono: ShieldCheck },
+  { label: 'Calendario de obligaciones', path: '/calendario', icono: CalendarCheck },
+  { label: 'Cambio de régimen', path: '/cambio-regimen', icono: Repeat },
+  { label: 'Activo fijo', path: '/activo-fijo', icono: Factory },
 ]
 
 /** Admin (solo SUPERADMIN; grupo colapsable). */

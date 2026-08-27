@@ -48,6 +48,11 @@ import { AdminGlosaPage } from './pages/Admin/AdminGlosa'
 import { AuditTrailPage } from './pages/AuditTrail'
 import { EmpresaPage } from './pages/Settings/Empresa'
 import { SettingsIndexPage } from './pages/Settings/Index'
+// ── OPERACIÓN 2026-08 ── imports nuevos (una línea por módulo)
+import { CalendarioPage } from './pages/Calendario'
+import { CambioRegimenPage } from './pages/CambioRegimen'
+import { ActivoFijoPage } from './pages/ActivoFijo'
+import { DigestSettingsPage } from './pages/Settings/Digest'
 import { UsersAndRolesPage } from './pages/Settings/Users'
 import { InviteAcceptPage } from './pages/InviteAccept'
 import { BibliotecaLegalPage } from './pages/BibliotecaLegal'
@@ -255,6 +260,11 @@ export function App() {
         <Route path="/aprobaciones" element={<AprobacionesPage />} />
         <Route path="/catalogo" element={<CatalogoPage />} />
         <Route path="/defensa" element={<DefensaPage />} />{/* Ola 3 — Cumplimiento + Auditoría */}
+        <Route path="/calendario" element={<CalendarioPage />} />
+        <Route path="/calendario/:id" element={<CalendarioPage />} />
+        <Route path="/cambio-regimen" element={<CambioRegimenPage />} />
+        <Route path="/activo-fijo" element={<ActivoFijoPage />} />
+        <Route path="/settings/digest" element={<DigestSettingsPage />} />
         {/* Admin: mismo shell, guard adicional */}
         <Route element={<RequireSuperAdmin user={user}><Outlet /></RequireSuperAdmin>}>
           <Route path="/admin" element={<AdminDashboardPage />} />

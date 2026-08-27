@@ -5,24 +5,26 @@
  * Datos REALES: stats (clasificaciones), alerts (activas), operationsList
  * (operaciones del mes + tabla), legalLibraryList (% corpus verificado,
  * computado de officialUrl/publishedDate por doc).
- * MOCK señalizado: panel "Regulatorio hoy" detrás de MOCK_WATCHDOG (el
- * backend del watchdog DOF aún no existe — ver TODO).
+ * Regulatorio hoy (Operación 2026-08): alertas REALES tipo tariff_change /
+ * tarifa_decreto_nuevo del watchdog DOF + estado del vigilante (última
+ * revisión, fuentes). El mock anterior quedó atrás de MOCK_WATCHDOG=false.
  */
 import { useEffect, useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { FileSearch, FolderOpen, Radar, ArrowRight } from 'lucide-react'
 import { api, type Alert, type OperationRecord, type LegalDocSummary } from '../lib/api'
+import { regulatorioApi, rutaDeAccion, type EstadoWatchdog } from '../lib/api/regulatorio'
 import {
   Button, Card, Badge, DataTable, EmptyState, SelloVerificacion, formatFechaSello,
   type Columna,
 } from '../components/ui'
 
 // ════════════════════════════════════════════════════════════════════════
-// Watchdog regulatorio — TODO(watchdog): reemplazar el mock por el endpoint
-// real cuando exista el backend del feed DOF (no existe según
-// docs/AUDIT_FRONTEND.md §5). La UI ya consume el tipo final.
+// Watchdog regulatorio — backend real en server/src/services/dof-watchdog.ts
+// (Operación 2026-08). El mock se conserva solo como fixture de diseño,
+// apagado: la UI muestra alertas reales del tenant/cliente.
 // ════════════════════════════════════════════════════════════════════════
-const MOCK_WATCHDOG = true
+const MOCK_WATCHDOG = false
 
 export interface AlertaRegulatoria {
   id: string
@@ -110,6 +112,8 @@ export function DashboardPage() {
   const [alertasActivas, setAlertasActivas] = useState<number | null>(null)
   const [operaciones, setOperaciones] = useState<OperationRecord[]>([])
   const [corpus, setCorpus] = useState<LegalDocSummary[]>([])
+  const [regulatorias, setRegulatorias] = useState<Alert[]>([])
+  const [watchdog, setWatchdog] = useState<EstadoWatchdog | null>(null)
 
   useEffect(() => {
     let vivo = true
@@ -118,12 +122,18 @@ export function DashboardPage() {
       api.alerts(),
       api.operationsList(),
       api.legalLibraryList(),
-    ]).then(([st, al, op, co]) => {
+      regulatorioApi.watchdogEstado(),
+    ]).then(([st, al, op, co, wd]) => {
       if (!vivo) return
       if (st.status === 'fulfilled') setClasificaciones(st.value.data.counts.classifications)
-      if (al.status === 'fulfilled') setAlertasActivas((al.value.data as Alert[]).filter(a => !a.read).length)
+      if (al.status === 'fulfilled') {
+        const todas = al.value.data as Alert[]
+        setAlertasActivas(todas.filter(a => !a.read).length)
+        setRegulatorias(todas.filter(a => a.type === 'tariff_change' || a.type === 'tarifa_decreto_nuevo' || a.type === 'new_regulation' || a.type === 'antidumping_new').slice(0, 5))
+      }
       if (op.status === 'fulfilled') setOperaciones(op.value.data as OperationRecord[])
       if (co.status === 'fulfilled') setCorpus(co.value.data as LegalDocSummary[])
+      if (wd.status === 'fulfilled') setWatchdog(wd.value.data)
       setCargando(false)
     })
     return () => { vivo = false }
@@ -232,7 +242,14 @@ export function DashboardPage() {
           <div className="flex items-center gap-2 flex-wrap">
             <Radar className="w-[18px] h-[18px] text-petroleo" strokeWidth={1.5} aria-hidden />
             <h2 className="font-sello-display text-lg text-tinta">Regulatorio hoy</h2>
-            {MOCK_WATCHDOG && <Badge tono="ambar">Datos de ejemplo — watchdog en construcción</Badge>}
+            {MOCK_WATCHDOG && <Badge tono="ambar">Datos de ejemplo</Badge>}
+            {!MOCK_WATCHDOG && (
+              <Badge tono={watchdog?.ultimaRevision ? 'petroleo' : 'neutral'}>
+                {watchdog?.ultimaRevision
+                  ? `Última revisión ${new Date(watchdog.ultimaRevision).toLocaleString('es-MX', { dateStyle: 'short', timeStyle: 'short' })} · ${watchdog.fuentes.map(f => f.nombre.split(' — ')[0]).join(' + ')}`
+                  : 'Watchdog sin revisión registrada aún'}
+              </Badge>
+            )}
             <button
               type="button"
               onClick={() => navigate('/alertas')}
@@ -248,30 +265,45 @@ export function DashboardPage() {
             {[0, 1, 2].map(i => <SkeletonBloque key={i} className="h-12 w-full" />)}
           </div>
         ) : (
+          MOCK_WATCHDOG ? (
           <ul className="divide-y divide-linea -my-2">
-            {(MOCK_WATCHDOG ? ALERTAS_MOCK : []).map(a => (
+            {ALERTAS_MOCK.map(a => (
               <li key={a.id} className="py-3 flex items-start gap-3 flex-wrap">
                 <div className="min-w-0 flex-1">
                   <p className="text-base text-tinta leading-snug">{a.titulo}</p>
                   <div className="mt-1.5">
-                    <SelloVerificacion
-                      estado="verificado"
-                      fuenteNombre={a.fuenteNombre}
-                      fuenteUrl={a.fuenteUrl}
-                      fechaPublicacion={a.fechaPublicacion}
-                      fechaVerificacion={a.fechaVerificacion}
-                      metodo={a.metodo}
-                    />
+                    <SelloVerificacion estado="verificado" fuenteNombre={a.fuenteNombre} fuenteUrl={a.fuenteUrl} fechaPublicacion={a.fechaPublicacion} fechaVerificacion={a.fechaVerificacion} metodo={a.metodo} />
                   </div>
                 </div>
-                <Badge tono={a.fraccionesAfectadas > 0 ? 'ambar' : 'neutral'}>
-                  {a.fraccionesAfectadas > 0
-                    ? `Afecta ${a.fraccionesAfectadas} de tus fracciones`
-                    : 'Sin impacto en tus fracciones'}
-                </Badge>
+                <Badge tono={a.fraccionesAfectadas > 0 ? 'ambar' : 'neutral'}>{a.fraccionesAfectadas > 0 ? `Afecta ${a.fraccionesAfectadas} de tus fracciones` : 'Sin impacto en tus fracciones'}</Badge>
               </li>
             ))}
           </ul>
+          ) : regulatorias.length === 0 ? (
+            <p className="text-sm text-tinta-suave">
+              Sin decretos que toquen tus fracciones{watchdog?.ultimaRevision ? ` en los últimos ${watchdog.ventanaDias} días (${watchdog.decretosRevisados} decreto(s) revisados)` : ''}.
+              {watchdog?.fuentes.some(f => f.estado === 'ciega') ? ' Una fuente no respondió en la última revisión.' : ''}
+            </p>
+          ) : (
+          <ul className="divide-y divide-linea -my-2">
+            {regulatorias.map(a => {
+              const url = /https?:\/\/\S+/.exec(a.content)?.[0]?.replace(/[.,;)]+$/, '') ?? null
+              const ruta = rutaDeAccion(a.suggestedAction as Parameters<typeof rutaDeAccion>[0])
+              return (
+                <li key={a.id} className="py-3 flex items-start gap-3 flex-wrap">
+                  <div className="min-w-0 flex-1">
+                    <p className="text-base text-tinta leading-snug">{a.title}</p>
+                    <div className="mt-1.5">
+                      <SelloVerificacion estado="verificado" fuenteNombre={a.type === 'tariff_change' || a.type === 'tarifa_decreto_nuevo' ? 'DOF / Diputados' : 'Sistema'} fuenteUrl={url ?? undefined} fechaPublicacion={a.createdAt} metodo="scraper" />
+                    </div>
+                  </div>
+                  <Badge tono={a.fractionCodes.length > 0 ? 'ambar' : 'neutral'}>{a.fractionCodes.length > 0 ? `Afecta ${a.fractionCodes.length} de tus fracciones` : 'Informativo'}</Badge>
+                  {ruta && <Button variante="secundario" tamano="sm" onClick={() => navigate(ruta)}>{a.suggestedAction?.label ?? 'Abrir'} <ArrowRight className="w-3 h-3" /></Button>}
+                </li>
+              )
+            })}
+          </ul>
+          )
         )}
       </Card>
 
