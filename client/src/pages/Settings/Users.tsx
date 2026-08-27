@@ -2,6 +2,8 @@ import { useEffect, useState } from 'react'
 import { Users, Shield, AlertTriangle, FileSearch, CheckCircle2, XCircle, ChevronDown, ChevronUp, UserPlus, Mail, RotateCw, Trash2 } from 'lucide-react'
 import { api } from '../../lib/api'
 import type { TenantRoleRecord, TenantUserWithRoles, PermissionAuditEntry, OEAReport, SODConflict, InvitationRecord } from '../../lib/api'
+// ── OPERACIÓN 2026-08 ── alcance por cliente (Ola 1)
+import { clientesApi, type Cliente } from '../../lib/api/clientes'
 
 const GLASS = 'bg-white/70 backdrop-blur-xl border border-white/50 shadow-[0_8px_30px_rgb(0,0,0,0.04)]'
 
@@ -47,6 +49,7 @@ function UsersTab() {
   const [roles, setRoles] = useState<TenantRoleRecord[]>([])
   const [invitations, setInvitations] = useState<InvitationRecord[]>([])
   const [assignFor, setAssignFor] = useState<TenantUserWithRoles | null>(null)
+  const [clientesFor, setClientesFor] = useState<TenantUserWithRoles | null>(null)
   const [showInvite, setShowInvite] = useState(false)
   const [loading, setLoading] = useState(true)
   const [err, setErr] = useState('')
@@ -125,6 +128,7 @@ function UsersTab() {
                 <td className="py-2 text-slate-500">{u.lastLoginAt ? new Date(u.lastLoginAt).toLocaleDateString('es-MX') : 'nunca'}</td>
                 <td className="py-2 text-right">
                   <button onClick={() => setAssignFor(u)} className="text-[10px] bg-emerald-600 hover:bg-emerald-700 text-white px-2 py-1 rounded">+ Asignar rol</button>
+                  <button onClick={() => setClientesFor(u)} disabled={u.roles.length === 0} title={u.roles.length === 0 ? 'Asigna primero un rol' : 'Restringir a ciertos clientes/RFC'} className="ml-1 text-[10px] bg-white border border-slate-300 hover:bg-slate-50 disabled:opacity-40 text-slate-700 px-2 py-1 rounded">Clientes</button>
                 </td>
               </tr>
             ))}
@@ -166,6 +170,10 @@ function UsersTab() {
 
       {assignFor && (
         <AssignRoleModal user={assignFor} roles={roles} onClose={() => setAssignFor(null)} onSaved={() => { setAssignFor(null); load() }}/>
+      )}
+
+      {clientesFor && (
+        <AlcanceClientesModal user={clientesFor} onClose={() => setClientesFor(null)} onSaved={() => { setClientesFor(null); load() }}/>
       )}
 
       {showInvite && (
@@ -251,6 +259,80 @@ function InviteUserModal({ roles, onClose, onSaved }: { roles: TenantRoleRecord[
             className="text-[12px] bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 text-white px-3 py-1.5 rounded-lg flex items-center gap-1.5">
             <Mail className="w-3.5 h-3.5"/>{saving ? 'Enviando…' : 'Enviar invitación'}
           </button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+// ── OPERACIÓN 2026-08 ── alcance por cliente: el usuario solo ve/crea sobre estos RFC
+function AlcanceClientesModal({ user, onClose, onSaved }: { user: TenantUserWithRoles; onClose: () => void; onSaved: () => void }) {
+  const [clientes, setClientes] = useState<Cliente[]>([])
+  const [seleccion, setSeleccion] = useState<Set<string>>(new Set())
+  const [restringir, setRestringir] = useState(false)
+  const [loading, setLoading] = useState(true)
+  const [saving, setSaving] = useState(false)
+  const [err, setErr] = useState('')
+
+  useEffect(() => {
+    Promise.all([clientesApi.listar({ incluirInactivos: true }), clientesApi.alcanceDeUsuario(user.id)])
+      .then(([l, a]) => {
+        setClientes(l.data)
+        if (a.data.clienteIds) { setRestringir(true); setSeleccion(new Set(a.data.clienteIds)) }
+      })
+      .catch(e => setErr(e instanceof Error ? e.message : 'Error'))
+      .finally(() => setLoading(false))
+  }, [user.id])
+
+  function toggle(id: string) {
+    setSeleccion(prev => { const n = new Set(prev); if (n.has(id)) n.delete(id); else n.add(id); return n })
+  }
+
+  async function submit() {
+    setSaving(true); setErr('')
+    try {
+      await clientesApi.fijarAlcanceDeUsuario(user.id, restringir ? Array.from(seleccion) : null)
+      onSaved()
+    } catch (e) { setErr(e instanceof Error ? e.message : 'Error') }
+    finally { setSaving(false) }
+  }
+
+  return (
+    <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4" onClick={onClose}>
+      <div className="bg-white rounded-2xl p-6 max-w-lg w-full shadow-2xl max-h-[90vh] overflow-auto" onClick={e => e.stopPropagation()}>
+        <h3 className="text-[14px] font-bold text-slate-900 mb-1">Clientes visibles para {user.name || user.email}</h3>
+        <p className="text-[11px] text-slate-500 mb-3">Con restricción, el usuario solo ve y crea registros de los RFC marcados (todas sus asignaciones de rol la comparten). Sin restricción ve todos los clientes de la empresa.</p>
+        {loading ? <p className="text-[11px] text-slate-500">Cargando…</p> : (
+          <>
+            <label className="flex items-center gap-2 text-[12px] text-slate-800 mb-3">
+              <input type="checkbox" checked={restringir} onChange={e => setRestringir(e.target.checked)}/>
+              Restringir a ciertos clientes
+            </label>
+            {restringir && (
+              clientes.length === 0
+                ? <p className="text-[11px] text-slate-500 italic">No hay clientes registrados. Da de alta la cartera en Clientes.</p>
+                : (
+                  <div className="border border-slate-200 rounded-lg divide-y divide-slate-100 max-h-64 overflow-auto">
+                    {clientes.map(c => (
+                      <label key={c.id} className="flex items-center gap-2 px-3 py-1.5 text-[11px] hover:bg-slate-50">
+                        <input type="checkbox" checked={seleccion.has(c.id)} onChange={() => toggle(c.id)}/>
+                        <span className="text-slate-800">{c.razonSocial}</span>
+                        <span className="font-mono text-slate-500">{c.rfc}</span>
+                        {!c.activo && <span className="text-[9px] uppercase text-rose-700">baja</span>}
+                      </label>
+                    ))}
+                  </div>
+                )
+            )}
+            {restringir && seleccion.size === 0 && clientes.length > 0 && (
+              <p className="text-[10px] text-amber-700 mt-2">Sin clientes marcados el usuario no verá ningún registro con cliente.</p>
+            )}
+          </>
+        )}
+        {err && <p className="text-[11px] text-rose-700 mt-2">{err}</p>}
+        <div className="flex gap-2 justify-end mt-4">
+          <button onClick={onClose} className="text-[11px] px-3 py-1.5 border border-slate-200 rounded-lg">Cancelar</button>
+          <button onClick={submit} disabled={saving || loading} className="text-[11px] px-3 py-1.5 bg-emerald-600 text-white rounded-lg disabled:opacity-50">{saving ? 'Guardando…' : 'Guardar'}</button>
         </div>
       </div>
     </div>

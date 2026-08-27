@@ -19,6 +19,9 @@ import { DemoBanner } from '../DemoBanner'
 import { CommandPalette } from './CommandPalette'
 import { NAV_PRINCIPAL, NAV_HERRAMIENTAS, NAV_ADMIN, labelDeRuta, filtrarPorFlags, type NavItem } from './nav'
 import { useRadarHabilitado } from '../../hooks/useRadarHabilitado'
+// ── OPERACIÓN 2026-08 ── selector global de cliente + badge de aprobaciones
+import { ClienteSelector } from './ClienteSelector'
+import { usePendientesAprobacion } from '../../hooks/usePendientesAprobacion'
 
 // ── Acciones contextuales del topbar ─────────────────────────────────────
 // Las páginas (cuando migren) publican sus acciones con useShellActions(<botones/>).
@@ -33,7 +36,7 @@ export function useShellActions(nodo: ReactNode) {
 }
 
 // ── Ítem de navegación ────────────────────────────────────────────────────
-function NavEntry({ item, onNavegar, compacto = false }: { item: NavItem; onNavegar: () => void; compacto?: boolean }) {
+function NavEntry({ item, onNavegar, compacto = false, badge }: { item: NavItem; onNavegar: () => void; compacto?: boolean; badge?: number }) {
   return (
     <NavLink
       to={item.path}
@@ -50,12 +53,15 @@ function NavEntry({ item, onNavegar, compacto = false }: { item: NavItem; onNave
     >
       <item.icono className="w-[18px] h-[18px] shrink-0" strokeWidth={1.5} aria-hidden />
       <span className="truncate">{item.label}</span>
+      {badge !== undefined && badge > 0 && (
+        <span aria-label={`${badge} pendientes`} className="ml-auto font-sello-mono text-13 leading-none px-1.5 py-0.5 rounded-full bg-ambar-suave text-ambar border border-ambar/25">{badge > 99 ? '99+' : badge}</span>
+      )}
     </NavLink>
   )
 }
 
-function GrupoColapsable({ titulo, items, onNavegar, defaultAbierto = false }: {
-  titulo: string; items: NavItem[]; onNavegar: () => void; defaultAbierto?: boolean
+function GrupoColapsable({ titulo, items, onNavegar, defaultAbierto = false, badges }: {
+  titulo: string; items: NavItem[]; onNavegar: () => void; defaultAbierto?: boolean; badges?: Record<string, number>
 }) {
   const location = useLocation()
   const contieneActiva = items.some(i => i.path === location.pathname)
@@ -73,7 +79,7 @@ function GrupoColapsable({ titulo, items, onNavegar, defaultAbierto = false }: {
       </button>
       {abierto && (
         <div className="space-y-0.5 pb-2">
-          {items.map(i => <NavEntry key={i.path} item={i} onNavegar={onNavegar} compacto />)}
+          {items.map(i => <NavEntry key={i.path} item={i} onNavegar={onNavegar} compacto badge={badges?.[i.path]} />)}
         </div>
       )}
     </div>
@@ -99,6 +105,8 @@ export function AppShell({ onLogout, userRole, userName, userEmail, tenantName }
   const esSuperAdmin = userRole === 'SUPERADMIN'
   const radarHabilitado = useRadarHabilitado()
   const herramientas = useMemo(() => filtrarPorFlags(NAV_HERRAMIENTAS, { radar: radarHabilitado }), [radarHabilitado])
+  const pendientesAprobacion = usePendientesAprobacion()
+  const badgesNav = useMemo(() => ({ '/aprobaciones': pendientesAprobacion }), [pendientesAprobacion])
 
   // Cmd+K / Ctrl+K abre el palette; Escape cierra drawer y palette.
   useEffect(() => {
@@ -150,7 +158,7 @@ export function AppShell({ onLogout, userRole, userName, userEmail, tenantName }
 
       {/* Resto de herramientas + admin (colapsables; nada huérfano) */}
       <div className="mt-4 flex-1 overflow-y-auto border-t border-linea pt-2" aria-label="Más herramientas">
-        <GrupoColapsable titulo="Más herramientas" items={herramientas} onNavegar={() => setDrawerAbierto(false)} />
+        <GrupoColapsable titulo="Más herramientas" items={herramientas} onNavegar={() => setDrawerAbierto(false)} badges={badgesNav} />
         {esSuperAdmin && (
           <GrupoColapsable titulo="Administración" items={NAV_ADMIN} onNavegar={() => setDrawerAbierto(false)} />
         )}
@@ -223,6 +231,7 @@ export function AppShell({ onLogout, userRole, userName, userEmail, tenantName }
 
               {/* Acciones contextuales de la página + búsqueda móvil */}
               <div className="ml-auto flex items-center gap-2">
+                <ClienteSelector />
                 {acciones}
                 <button
                   type="button"
