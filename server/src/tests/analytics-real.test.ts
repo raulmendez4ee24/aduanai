@@ -14,6 +14,12 @@
 import { strict as assert } from 'node:assert';
 import { prisma } from '../lib/prisma';
 import { calcularAnalytics } from '../services/analytics';
+import { filtroCliente } from '../lib/cliente-contexto';
+import type { Request } from 'express';
+
+/** Simula la petición de un usuario restringido (lo que deja clienteScope en req.clienteIdsPermitidos). */
+const reqRestringida = (clienteIds: string[] | null, header?: string): Request =>
+  ({ headers: header ? { 'x-cliente-id': header } : {}, query: {}, clienteIdsPermitidos: clienteIds } as unknown as Request);
 
 let pasan = 0, fallan = 0;
 async function caso(nombre: string, fn: () => void | Promise<void>) {
@@ -113,6 +119,31 @@ async function main() {
       if (s) { assert.ok(s.apariciones >= 4); assert.ok(s.cuotaCompensatoria.count > 0 || s.nomObligatoria.length > 0 || s.precioEstimado || s.anexo10); }
       assert.match(todo.riesgo.formula, /antidumping_duties/);
       assert.equal(todo.riesgo.riskScorer.evaluaciones, 0);
+    });
+    await caso('usuario restringido a A sin cliente activo: filtroCliente → clienteId=A y los totales son los de A (no todo el tenant)', async () => {
+      const f = filtroCliente(reqRestringida([cA.id]));
+      assert.equal(f.clienteId, cA.id);
+      const r = await calcularAnalytics({ ...filtro, clienteId: f.clienteId });
+      assert.equal(r.totales.clasificaciones, 3);
+      assert.equal(r.totales.cotizaciones, 1);
+      assert.equal(r.filtro.clienteId, cA.id);
+      assert.equal(r.ahorro.tmecNoAplicado.lineas.length, 2);
+    });
+    await caso('usuario restringido a A y B sin cliente activo: filtro {in} → suma de A y B, excluye la fila sin cliente', async () => {
+      const f = filtroCliente(reqRestringida([cA.id, cB.id]));
+      assert.deepEqual(f.clienteId, { in: [cA.id, cB.id] });
+      const r = await calcularAnalytics({ ...filtro, clienteId: f.clienteId });
+      assert.equal(r.totales.clasificaciones, 4, '5 del tenant menos la que no tiene cliente');
+      assert.equal(r.totales.cotizaciones, 2);
+      assert.equal(r.filtro.clienteId, null);
+      assert.deepEqual(r.filtro.clienteIds, [cA.id, cB.id]);
+      assert.equal(r.ahorro.tmecNoAplicado.lineas.length, 3);
+      assert.match(r.totales.formula, /clientes permitidos/);
+    });
+    await caso('restringido a nada ([]) → {in: []} → cero registros', async () => {
+      const r = await calcularAnalytics({ ...filtro, clienteId: filtroCliente(reqRestringida([])).clienteId });
+      assert.equal(r.totales.clasificaciones, 0);
+      assert.equal(r.totales.cotizaciones, 0);
     });
     await caso('la cotización sembrada se conserva con sus 2 partidas', async () => {
       assert.equal(await prisma.quoteItem.count({ where: { quoteId: quoteA.id } }), 2);

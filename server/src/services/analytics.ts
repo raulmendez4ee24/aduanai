@@ -18,9 +18,12 @@
 import { prisma } from '../lib/prisma';
 import { esMiembroTMEC } from '../lib/treaties';
 
+/** Filtro de cliente tal como lo produce `filtroCliente(req)`: un id, un conjunto permitido o nada. */
+export type ClienteFiltro = string | { in: string[] };
+
 export interface FiltroAnalytics {
   tenantId: string;
-  clienteId?: string;
+  clienteId?: ClienteFiltro;
   desde: Date;
   hasta: Date;
 }
@@ -40,7 +43,7 @@ export interface LineaAhorro {
 }
 
 export interface AnalyticsReal {
-  filtro: { tenantId: string; clienteId: string | null; desde: string; hasta: string };
+  filtro: { tenantId: string; clienteId: string | null; clienteIds: string[] | null; desde: string; hasta: string };
   totales: {
     clasificaciones: number;
     cotizaciones: number;
@@ -78,8 +81,10 @@ const r2 = (n: number) => Math.round(n * 100) / 100;
 const iso = (d: Date) => d.toISOString();
 
 export async function calcularAnalytics(f: FiltroAnalytics): Promise<AnalyticsReal> {
-  const baseCls = { tenantId: f.tenantId, ...(f.clienteId ? { clienteId: f.clienteId } : {}) };
-  const baseQuote = { tenantId: f.tenantId, ...(f.clienteId ? { clienteId: f.clienteId } : {}) };
+  // Revisión C: el filtro admite `{ in: [...] }` (usuario restringido a varios clientes sin cliente activo).
+  const filtroCli = f.clienteId ? { clienteId: f.clienteId } : {};
+  const baseCls = { tenantId: f.tenantId, ...filtroCli };
+  const baseQuote = { tenantId: f.tenantId, ...filtroCli };
   const periodo = { gte: f.desde, lte: f.hasta };
 
   const [totalCls, totalQuotes, clsPeriodo, quotesPeriodo] = await Promise.all([
@@ -166,7 +171,7 @@ export async function calcularAnalytics(f: FiltroAnalytics): Promise<AnalyticsRe
   }).filter(x => x.cuotaCompensatoria.count > 0 || x.nomObligatoria.length > 0 || x.precioEstimado || x.anexo10)
     .sort((a, b) => b.valorUSD - a.valorUSD);
 
-  const baseGlosa = { tenantId: f.tenantId, ...(f.clienteId ? { clienteId: f.clienteId } : {}), createdAt: periodo };
+  const baseGlosa = { tenantId: f.tenantId, ...filtroCli, createdAt: periodo };
   const [glosas, risks] = await Promise.all([
     prisma.glosaSimulation.findMany({ where: baseGlosa, select: { customsCode: true, raProbability: true, riskScore: true, riskLevel: true } }),
     prisma.riskAssessment.findMany({ where: baseGlosa, select: { banda: true, exposicion: true } }),
@@ -185,7 +190,7 @@ export async function calcularAnalytics(f: FiltroAnalytics): Promise<AnalyticsRe
   const userIds = [...new Set(clsPeriodo.map(c => c.userId))];
   const [usuarios, jobs] = await Promise.all([
     userIds.length ? prisma.user.findMany({ where: { id: { in: userIds } }, select: { id: true, name: true, email: true } }) : [],
-    prisma.classificationJob.findMany({ where: { tenantId: f.tenantId, ...(f.clienteId ? { clienteId: f.clienteId } : {}), status: 'done', createdAt: periodo, finishedAt: { not: null } }, select: { userId: true, createdAt: true, finishedAt: true } }),
+    prisma.classificationJob.findMany({ where: { tenantId: f.tenantId, ...filtroCli, status: 'done', createdAt: periodo, finishedAt: { not: null } }, select: { userId: true, createdAt: true, finishedAt: true } }),
   ]);
   const porUsuario = userIds.map(uid => {
     const mias = clsPeriodo.filter(c => c.userId === uid);
@@ -205,11 +210,16 @@ export async function calcularAnalytics(f: FiltroAnalytics): Promise<AnalyticsRe
   }).sort((a, b) => b.clasificaciones - a.clasificaciones);
 
   return {
-    filtro: { tenantId: f.tenantId, clienteId: f.clienteId ?? null, desde: iso(f.desde), hasta: iso(f.hasta) },
+    filtro: {
+      tenantId: f.tenantId,
+      clienteId: typeof f.clienteId === 'string' ? f.clienteId : null,
+      clienteIds: typeof f.clienteId === 'object' ? f.clienteId.in : null,
+      desde: iso(f.desde), hasta: iso(f.hasta),
+    },
     totales: {
       clasificaciones: totalCls, cotizaciones: totalQuotes,
       clasificacionesPeriodo: clsPeriodo.length, cotizacionesPeriodo: quotesPeriodo.length,
-      formula: 'count(Classification) y count(Quote) del tenant' + (f.clienteId ? ' filtrados por clienteId' : '') + ' — mismo criterio que el Historial; "periodo" acota por createdAt',
+      formula: 'count(Classification) y count(Quote) del tenant' + (typeof f.clienteId === 'string' ? ' filtrados por clienteId' : typeof f.clienteId === 'object' ? ' acotados a los clientes permitidos' : '') + ' — mismo criterio que el Historial; "periodo" acota por createdAt',
     },
     ahorro: {
       tmecNoAplicado: { totalUSD: r2(tmecLineas.reduce((s, l) => s + l.ahorroUSD, 0)), lineas: tmecLineas, sinTasa, formula: 'Σ valor USD × (IGI aplicado o NMF − tasa T-MEC del catálogo) / 100, para partidas con origen US/CA/MX y sin preferencia aplicada' },

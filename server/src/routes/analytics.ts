@@ -7,7 +7,8 @@
 import { Router } from 'express';
 import * as XLSX from 'xlsx';
 import { authenticate, AuthRequest } from '../middlewares/auth';
-import { clienteIdDe } from '../lib/cliente-contexto';
+import { filtroCliente } from '../lib/cliente-contexto';
+import { requirePermission } from '../middlewares/requirePermission';
 import { AppError } from '../middlewares/error';
 import { calcularAnalytics, type AnalyticsReal } from '../services/analytics';
 
@@ -24,7 +25,8 @@ function periodoDe(req: AuthRequest): { desde: Date; hasta: Date } {
 analyticsRouter.get('/', authenticate, async (req: AuthRequest, res, next) => {
   try {
     const { desde, hasta } = periodoDe(req);
-    const data = await calcularAnalytics({ tenantId: req.tenantId!, clienteId: clienteIdDe(req) ?? undefined, desde, hasta });
+    // Revisión C: filtroCliente honra `req.clienteIdsPermitidos` (varios clientes ⇒ `{ in }`, nunca todo el tenant).
+    const data = await calcularAnalytics({ tenantId: req.tenantId!, clienteId: filtroCliente(req).clienteId, desde, hasta });
     res.json({ status: 'ok', data });
   } catch (err) {
     next(err);
@@ -39,7 +41,7 @@ function hojas(a: AnalyticsReal): Record<string, Record<string, unknown>[]> {
   return {
     Resumen: [
       { concepto: 'Periodo', valor: `${a.filtro.desde.slice(0, 10)} → ${a.filtro.hasta.slice(0, 10)}`, formula: '' },
-      { concepto: 'Cliente', valor: a.filtro.clienteId ?? '(todos)', formula: '' },
+      { concepto: 'Cliente', valor: a.filtro.clienteId ?? (a.filtro.clienteIds ? a.filtro.clienteIds.join(', ') : '(todos)'), formula: '' },
       { concepto: 'Clasificaciones (total, = Historial)', valor: a.totales.clasificaciones, formula: a.totales.formula },
       { concepto: 'Cotizaciones (total)', valor: a.totales.cotizaciones, formula: a.totales.formula },
       { concepto: 'Clasificaciones en periodo', valor: a.totales.clasificacionesPeriodo, formula: '' },
@@ -59,10 +61,10 @@ function hojas(a: AnalyticsReal): Record<string, Record<string, unknown>[]> {
   };
 }
 
-analyticsRouter.get('/export.xlsx', authenticate, async (req: AuthRequest, res, next) => {
+analyticsRouter.get('/export.xlsx', authenticate, requirePermission('classifier', 'view'), requirePermission('classifier', 'exportData'), async (req: AuthRequest, res, next) => {
   try {
     const { desde, hasta } = periodoDe(req);
-    const data = await calcularAnalytics({ tenantId: req.tenantId!, clienteId: clienteIdDe(req) ?? undefined, desde, hasta });
+    const data = await calcularAnalytics({ tenantId: req.tenantId!, clienteId: filtroCliente(req).clienteId, desde, hasta });
     const wb = XLSX.utils.book_new();
     for (const [nombre, filas] of Object.entries(hojas(data))) {
       XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(filas.length ? filas : [{ nota: 'sin datos en el periodo' }]), nombre.slice(0, 31));
