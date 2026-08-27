@@ -93,7 +93,8 @@ export async function getExpiringImports(tenantId: string, daysAhead = 90) {
 // Detección de inconsistencias con IA
 // ============================================
 
-export async function detectInconsistencies(tenantId: string) {
+/** `conResumenIA`: solo con `?resumenIA=1` se llama al LLM (patrón de fiscal-guardian); nunca síncrono por defecto. */
+export async function detectInconsistencies(tenantId: string, opts: { conResumenIA?: boolean } = {}) {
   const balances = await getInventoryBalances(tenantId);
   const expiring = await getExpiringImports(tenantId, 60);
 
@@ -180,8 +181,8 @@ export async function detectInconsistencies(tenantId: string) {
     });
   }
 
-  // Enriquecer con IA si hay issues relevantes
-  if (issues.length > 0) {
+  // Enriquecer con IA solo si se pidió explícitamente y hay issues relevantes
+  if (opts.conResumenIA && issues.length > 0) {
     try {
       const client = getAnthropicClient();
       const summaryData = issues.slice(0, 20).map(i => `[${i.severity}] ${i.fractionCode}: ${i.message} - ${i.detail}`).join('\n');
@@ -205,7 +206,7 @@ Responde en español, de forma directa y accionable. Formato: párrafo corto con
     }
   }
 
-  return { issues, aiSummary: null, total: 0 };
+  return { issues, aiSummary: null, total: issues.length };
 }
 
 // ============================================

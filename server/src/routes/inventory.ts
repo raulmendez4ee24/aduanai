@@ -343,10 +343,10 @@ inventoryRouter.get('/expiring', authenticate, async (req: AuthRequest, res, nex
   }
 });
 
-// Detección de inconsistencias con IA
+// Detección de inconsistencias (resumen IA solo con ?resumenIA=1)
 inventoryRouter.get('/inconsistencies', authenticate, async (req: AuthRequest, res, next) => {
   try {
-    const result = await detectInconsistencies(req.tenantId!);
+    const result = await detectInconsistencies(req.tenantId!, { conResumenIA: req.query.resumenIA === '1' });
     res.json({ status: 'ok', data: result });
   } catch (err) {
     next(err);
@@ -426,15 +426,21 @@ inventoryRouter.get('/products', authenticate, async (req: AuthRequest, res, nex
     if (req.query.finished === 'true') where.isFinished = true;
     if (req.query.finished === 'false') where.isFinished = false;
 
+    const limit = Math.min(Math.max(Number(req.query.limit) || 200, 1), 500);
     const products = await prisma.product.findMany({
       where,
       include: {
-        components: { include: { component: true } },
+        // Solo lo que pinta la UI del BOM (código/descripción/fracción del componente), no la fila completa.
+        components: { select: {
+          id: true, productId: true, componentId: true, quantity: true, unit: true, scrapPercent: true, notes: true,
+          component: { select: { id: true, productCode: true, description: true, fractionCode: true, unit: true, isFinished: true } },
+        } },
         _count: { select: { assemblies: true } },
       },
       orderBy: [{ isFinished: 'desc' }, { productCode: 'asc' }],
+      take: limit,
     });
-    res.json({ status: 'ok', data: products });
+    res.json({ status: 'ok', data: products, limit });
   } catch (err) {
     next(err);
   }
