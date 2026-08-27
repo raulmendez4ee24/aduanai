@@ -39,9 +39,23 @@ export function esOrigenPermitido(
 
   let url: URL;
   try { url = new URL(origin); } catch { return false; }
-
-  const hostSinPuerto = host.split(':')[0].toLowerCase();
-  if (url.hostname.toLowerCase() !== hostSinPuerto) return false;
+  if (url.protocol !== 'https:' && url.protocol !== 'http:') return false;
   if (protocolo && url.protocol !== `${protocolo}:`) return false;
-  return true;
+
+  // Same-origin real = mismo esquema, mismo host Y mismo puerto (revisión
+  // adversarial: https://aduanaia.lat:8443 NO es el mismo origen que
+  // https://aduanaia.lat). El puerto efectivo de la petición sale del Host
+  // (o del default del protocolo efectivo si el Host no lo trae).
+  const protoPeticion = protocolo ?? url.protocol.replace(':', '');
+  const [hostPeticion, puertoPeticion] = separarHostPuerto(host, protoPeticion);
+  const [hostOrigen, puertoOrigen] = separarHostPuerto(url.host, url.protocol.replace(':', ''));
+  return hostOrigen === hostPeticion && puertoOrigen === puertoPeticion;
+}
+
+function separarHostPuerto(hostConPuerto: string, protocolo: string): [string, string] {
+  const i = hostConPuerto.lastIndexOf(':');
+  const tienePuerto = i > -1 && !hostConPuerto.endsWith(']');
+  const host = (tienePuerto ? hostConPuerto.slice(0, i) : hostConPuerto).toLowerCase();
+  const puerto = tienePuerto ? hostConPuerto.slice(i + 1) : (protocolo === 'https' ? '443' : '80');
+  return [host, puerto];
 }

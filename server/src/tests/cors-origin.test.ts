@@ -45,6 +45,16 @@ caso('same-host por http cuando la petición vino por https se rechaza (no downg
 caso('Host falsificado con sufijo no se permite (evil.aduanaia.lat ≠ aduanaia.lat)', () => {
   assert.equal(esOrigenPermitido('https://evil.aduanaia.lat', 'aduanaia.lat', lista), false);
 });
+caso('mismo host pero otro puerto NO es same-origin (aduanaia.lat:8443 vs aduanaia.lat)', () => {
+  assert.equal(esOrigenPermitido('https://aduanaia.lat:8443', 'aduanaia.lat', lista, 'https'), false);
+  assert.equal(esOrigenPermitido('https://www.aduanaia.lat', 'www.aduanaia.lat:8443', lista, 'https'), false);
+});
+caso('puerto explícito igual al default cuenta como same-origin', () => {
+  assert.equal(esOrigenPermitido('https://aduanaia.lat:443', 'aduanaia.lat', lista, 'https'), true);
+});
+caso('esquema no http(s) se rechaza', () => {
+  assert.equal(esOrigenPermitido('file://aduanaia.lat', 'aduanaia.lat', lista), false);
+});
 caso('Origin malformado se rechaza sin lanzar', () => {
   assert.equal(esOrigenPermitido('not a url', 'aduanaia.lat', lista), false);
 });
