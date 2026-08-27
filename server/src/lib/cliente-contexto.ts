@@ -12,6 +12,7 @@
  */
 import type { Request } from 'express';
 import { prisma } from './prisma';
+import { AppError } from '../middlewares/error';
 
 type ReqConAlcance = Request & { clienteIdsPermitidos?: string[] | null };
 
@@ -43,4 +44,30 @@ export async function validarClienteDelTenant(tenantId: string, clienteId: strin
   if (!clienteId) return null;
   const c = await prisma.cliente.findFirst({ where: { id: clienteId, tenantId, activo: true }, select: { id: true } });
   return c ? c.id : null;
+}
+
+/** ¿El cliente cae dentro del alcance del usuario? (sin restricción ⇒ true; null ⇒ true: fila compartida del tenant). */
+export function enAlcance(req: Request, clienteId: string | null | undefined): boolean {
+  const p = permitidos(req);
+  if (!p) return true;
+  if (clienteId == null) return true;
+  return p.includes(clienteId);
+}
+
+/** Para escrituras que traen clienteId del body: debe ser del tenant Y estar en el alcance del usuario.
+ *  Devuelve el id validado, null si no se mandó, o lanza AppError 403/400. */
+export async function validarClienteEnAlcance(req: Request, tenantId: string, clienteId: string | null | undefined): Promise<string | null> {
+  if (!clienteId) return null;
+  if (!enAlcance(req, clienteId)) throw new AppError('Cliente fuera de tu alcance', 403);
+  const ok = await validarClienteDelTenant(tenantId, clienteId);
+  if (!ok) throw new AppError('Cliente inválido', 400);
+  return ok;
+}
+
+/** Where por id CON alcance de cliente: `{ id, tenantId, ...filtroCliente(req) }`.
+ *  Las filas con clienteId null (compartidas del tenant) siguen visibles cuando hay restricción. */
+export function whereConAlcance<T extends Record<string, unknown>>(req: Request, base: T): T & { OR?: Array<Record<string, unknown>> } {
+  const f = filtroCliente(req);
+  if (!('clienteId' in f)) return base;
+  return { ...base, OR: [{ clienteId: f.clienteId }, { clienteId: null }] };
 }
