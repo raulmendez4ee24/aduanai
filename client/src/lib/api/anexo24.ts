@@ -30,7 +30,9 @@ export interface ParteConLotes {
   descargado: number
   saldo: number
   proximoVencimiento: string | null
+  /** Vacío en /partes (resumen agregado); se cargan con `lotesDeParte` al expandir. */
   lotes: LotePeps[]
+  lotesTotal: number
 }
 
 export interface PedimentoPartidaInv {
@@ -147,6 +149,12 @@ type Ok<T> = { status: string; data: T }
 
 export const anexo24Api = {
   partes: (tipo?: TipoTemporal) => request<Ok<ParteConLotes[]>>(`/inventory/partes${tipo ? `?tipo=${tipo}` : ''}`),
+  lotesDeParte: (p: Pick<ParteConLotes, 'parteId' | 'fractionCode' | 'tipo'>) => {
+    const q = new URLSearchParams()
+    if (p.parteId) q.set('parteId', p.parteId); else q.set('fractionCode', p.fractionCode)
+    q.set('tipo', p.tipo)
+    return request<Ok<LotePeps[]>>(`/inventory/partes/lotes?${q.toString()}`)
+  },
   pedimentoPartidas: (abiertas = true) => request<Ok<PedimentoPartidaInv[]>>(`/inventory/pedimento-partidas?abiertas=${abiertas}`),
   pedimentosParaAlta: () => request<Ok<PedimentoParaAlta[]>>('/inventory/pedimentos-para-alta'),
   altaDesdePedimento: (pedimentoId: string, body: { fechaEntrada: string; vidaUtilMeses?: number; ubicacionId?: string; esAnexoIBis?: boolean; esAnexoITer?: boolean }) =>

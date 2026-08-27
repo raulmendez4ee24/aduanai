@@ -21,6 +21,7 @@ import { reporteAnexo24Xlsx, HOJAS_ANEXO24, type ReporteAnexo24 } from '../servi
 import { AppError } from '../middlewares/error';
 
 let pasadas = 0, falladas = 0;
+const r6 = (n: number) => Math.round(n * 1e6) / 1e6;
 async function prueba(nombre: string, fn: () => void | Promise<void>) {
   try { await fn(); pasadas++; console.log(`  ✓ ${nombre}`); }
   catch (e) { falladas++; console.error(`  ✗ ${nombre}\n     ${e instanceof Error ? e.message : e}`); }
@@ -359,7 +360,7 @@ async function db() {
     const { activoFijoRouter } = await import('../routes/activo-fijo');
     const { ubicacionesRouter } = await import('../routes/ubicaciones');
     const { SYSTEM_ROLES } = await import('../services/permissions');
-    const { saldosPorParte } = await import('../services/anexo24-peps');
+    const { saldosPorParte, lotesDeParte } = await import('../services/anexo24-peps');
     const { calcularExposicion } = await import('../services/anexo24-exposicion');
 
     const cA = await prisma.cliente.create({ data: { tenantId: tA.id, rfc: `AAA010101AA${nonce.slice(-1)}`, razonSocial: 'Cliente A', isDemoData: true } });
@@ -463,9 +464,21 @@ async function db() {
         assert.equal(r.status, 404, JSON.stringify(r.body));
         await esperaAppError(() => calcularExposicion(tA.id, lotBIns.id, { clienteId: cA.id }), 404);
         const saldos = await saldosPorParte(tA.id, { alcance: { clienteId: cA.id } });
-        assert.ok(!saldos.some(s => s.lotes.some(l => l.temporaryImportId === lotBIns.id)), 'PED-CB-IN fuera del alcance');
+        const parteA = saldos.find(s => s.parteId === parte.id && s.tipo === 'INSUMO')!;
         const todos = await saldosPorParte(tA.id, { alcance: {} });
-        assert.ok(todos.some(s => s.lotes.some(l => l.temporaryImportId === lotBIns.id)), 'sin restricción sí aparece');
+        const parteTodos = todos.find(s => s.parteId === parte.id && s.tipo === 'INSUMO')!;
+        assert.equal(parteTodos.lotesTotal - parteA.lotesTotal, 2, 'PED-CB-IN (40) y PED-CB-JUL (3) del cliente B solo cuentan sin restricción');
+        assert.equal(r6(parteTodos.importado - parteA.importado), 43);
+        assert.deepEqual(parteA.lotes, [], 'el resumen no carga lotes');
+        const lotesA = await lotesDeParte(tA.id, { parteId: parte.id, tipo: 'INSUMO', alcance: { clienteId: cA.id } });
+        assert.ok(!lotesA.some(l => l.temporaryImportId === lotBIns.id), 'PED-CB-IN fuera del alcance');
+        assert.equal(lotesA.length, parteA.lotesTotal);
+        const lotesTodos = await lotesDeParte(tA.id, { parteId: parte.id, tipo: 'INSUMO', alcance: {} });
+        assert.ok(lotesTodos.some(l => l.temporaryImportId === lotBIns.id), 'sin restricción sí aparece');
+        assert.deepEqual(lotesTodos.map(l => l.ordenPeps), lotesTodos.map((_, i) => i + 1), 'orden PEPS 1..n');
+        const viaHttp = await srv.llamar('GET', `/api/inventory/partes/lotes?parteId=${parte.id}&tipo=INSUMO`, { token: tokRestr });
+        assert.equal(viaHttp.status, 200, JSON.stringify(viaHttp.body));
+        assert.equal((viaHttp.body.data as unknown[]).length, lotesA.length);
       });
     } finally {
       await srv.cerrar();

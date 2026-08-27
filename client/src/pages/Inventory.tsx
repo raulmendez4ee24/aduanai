@@ -13,7 +13,7 @@ import { Warehouse, Boxes, FileText, Landmark } from 'lucide-react'
 import { DemoTag } from '../components/DemoBanner'
 import { api } from '../lib/api'
 import type { ProductRecord, AssemblyRecord } from '../lib/api'
-import { anexo24Api, type ParteConLotes, type PedimentoPartidaInv, type AltaResultado, type DescargoPepsResultado, type RetornoBomResultado } from '../lib/api/anexo24'
+import { anexo24Api, type ParteConLotes, type LotePeps, type PedimentoPartidaInv, type AltaResultado, type DescargoPepsResultado, type RetornoBomResultado } from '../lib/api/anexo24'
 import { formatFraction } from '../lib/format'
 import { usePermissions } from '../hooks/usePermissions'
 import { Badge, Button, Card, DataTable, EmptyState } from '../components/ui'
@@ -65,6 +65,7 @@ export function InventoryPage() {
   const [resultado, setResultado] = useState<null | { tipo: 'alta'; r: AltaResultado } | { tipo: 'peps'; r: DescargoPepsResultado } | { tipo: 'retorno'; r: RetornoBomResultado }>(null)
   const [exposicion, setExposicion] = useState<string | null>(params.get('exposicion'))
   const [parteAbierta, setParteAbierta] = useState<string | null>(null)
+  const [lotesPorParte, setLotesPorParte] = useState<Record<string, LotePeps[] | null>>({})
 
   const cargar = useCallback(async () => {
     const res = await Promise.allSettled([anexo24Api.partes(), anexo24Api.pedimentoPartidas(true), api.bomProducts(), api.assemblies(), anexo24Api.cierres()])
@@ -138,12 +139,12 @@ export function InventoryPage() {
               const dias = p.proximoVencimiento ? Math.ceil((new Date(p.proximoVencimiento).getTime() - hoy) / 86_400_000) : null
               return (
                 <Card key={k} denso>
-                  <button onClick={() => setParteAbierta(abierta ? null : k)} aria-expanded={abierta} className="w-full flex flex-wrap items-center gap-3 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-petroleo rounded-sello-sm">
+                  <button onClick={() => { setParteAbierta(abierta ? null : k); if (!abierta && lotesPorParte[k] === undefined) { setLotesPorParte(s => ({ ...s, [k]: null })); anexo24Api.lotesDeParte(p).then(r => setLotesPorParte(s => ({ ...s, [k]: r.data }))).catch(e => { setLotesPorParte(s => { const { [k]: _omit, ...rest } = s; return rest }); setError(mensajeDe(e)) }) } }} aria-expanded={abierta} className="w-full flex flex-wrap items-center gap-3 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-petroleo rounded-sello-sm">
                     <span className="font-sello-mono text-tinta text-base">{p.parteCodigo ?? <span className="text-tinta-suave">(sin parte)</span>}</span>
                     <span className="font-sello-mono text-13 text-tinta-suave">{formatFraction(p.fractionCode)}</span>
                     <span className="text-sm text-tinta-suave truncate flex-1 min-w-[10rem]">{p.descripcion}</span>
                     <span className="font-sello-mono text-tinta">saldo {fmtNum(p.saldo)} {p.unit}</span>
-                    <Badge>{p.lotes.length} lote(s)</Badge>
+                    <Badge>{p.lotesTotal} lote(s)</Badge>
                     {dias != null && <Badge tono={dias < 0 ? 'carmin' : dias <= 90 ? 'ambar' : 'neutral'}>{dias < 0 ? `vencida hace ${-dias} d` : `vence en ${dias} d`}</Badge>}
                   </button>
                   {abierta && (
@@ -160,9 +161,10 @@ export function InventoryPage() {
                           { key: 'ubi', header: 'Ubicación', render: l => l.ubicacion ? <span>{l.ubicacion.nombre}{l.ubicacion.tipo === 'SUBMAQUILA' && <Badge tono="petroleo" className="ml-1">submaquila</Badge>}</span> : <span className="text-tinta-suave">planta</span> },
                           { key: 'acc', header: '', render: l => <Button variante="ghost" tamano="sm" onClick={() => setExposicion(l.temporaryImportId)}>Exposición</Button> },
                         ]}
-                        filas={p.lotes}
+                        filas={lotesPorParte[k] ?? []}
                         filaKey={l => l.temporaryImportId}
                       />
+                      {lotesPorParte[k] === null && <p className="text-sm text-tinta-suave mt-1">Cargando lotes…</p>}
                       {puedeDescargar && <div className="mt-2 flex justify-end"><Button tamano="sm" onClick={() => setAccion({ tipo: 'peps', parte: p })}>Descargar PEPS de esta parte</Button></div>}
                     </div>
                   )}

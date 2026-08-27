@@ -136,7 +136,7 @@ export function DescargarPepsForm({ partes, parteInicial, onClose, onDone }: { p
       <div className="space-y-4 font-sello-ui">
         <Select label="Parte (insumo)" requerido value={form.parte} onChange={e => setForm({ ...form, parte: e.target.value })}>
           <option value="">Selecciona…</option>
-          {insumos.map(p => <option key={claveDe(p)} value={claveDe(p)}>{p.parteCodigo ?? `(sin parte) ${p.fractionCode}`} · saldo {fmtNum(p.saldo)} {p.unit} · {p.lotes.length} lote(s)</option>)}
+          {insumos.map(p => <option key={claveDe(p)} value={claveDe(p)}>{p.parteCodigo ?? `(sin parte) ${p.fractionCode}`} · saldo {fmtNum(p.saldo)} {p.unit} · {p.lotesTotal} lote(s)</option>)}
         </Select>
         <div className="grid sm:grid-cols-3 gap-4">
           <Input label={`Cantidad${sel ? ` (${sel.unit})` : ''}`} requerido type="number" mono min={0} step="any" value={form.cantidad} onChange={e => setForm({ ...form, cantidad: e.target.value })} />

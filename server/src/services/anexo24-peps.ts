@@ -218,7 +218,20 @@ export async function descargarPeps(input: DescargarPepsInput): Promise<Descargo
   return prisma.$transaction(tx => descargarPepsEnTx(tx, input), { maxWait: 5_000, timeout: 20_000 });
 }
 
-// ── Saldos por parte con sus lotes (vista PEPS) ───────────────────────────
+// ── Saldos por parte (vista PEPS) ─────────────────────────────────────────
+
+export interface LotePeps {
+  temporaryImportId: string;
+  pedimento: string;
+  pedimentoPartidaId: string | null;
+  entryDate: string;
+  expirationDate: string | null;
+  quantity: number;
+  quantityDischarged: number;
+  disponible: number;
+  ordenPeps: number;
+  ubicacion: { id: string; nombre: string; tipo: string } | null;
+}
 
 export interface ParteConLotes {
   parteId: string | null;
@@ -231,54 +244,89 @@ export interface ParteConLotes {
   descargado: number;
   saldo: number;
   proximoVencimiento: string | null;
-  lotes: Array<{
-    temporaryImportId: string;
-    pedimento: string;
-    pedimentoPartidaId: string | null;
-    entryDate: string;
-    expirationDate: string | null;
-    quantity: number;
-    quantityDischarged: number;
-    disponible: number;
-    ordenPeps: number;
-    ubicacion: { id: string; nombre: string; tipo: string } | null;
-  }>;
+  /** Lotes abiertos de la parte. `saldosPorParte` devuelve `[]` (resumen agregado); se expanden con `lotesDeParte`. */
+  lotes: LotePeps[];
+  lotesTotal: number;
 }
 
+const esCentinela = (d: Date | null | undefined) => !d || d.getUTCFullYear() >= 9999;
+
+/**
+ * Resumen por parte con UNA agregación en base (groupBy) + un lookup de partes:
+ * no carga los lotes del tenant. Los lotes se piden por parte con `lotesDeParte`.
+ */
 export async function saldosPorParte(tenantId: string, opts: { alcance?: AlcanceFiltro | null; tipo?: 'INSUMO' | 'ACTIVO_FIJO' } = {}): Promise<ParteConLotes[]> {
+  const where: Prisma.TemporaryImportWhereInput = {
+    tenantId,
+    status: { in: [...ABIERTAS] },
+    ...(opts.tipo ? { tipo: opts.tipo } : {}),
+    ...whereAlcance(opts.alcance),
+  };
+  const grupos = await prisma.temporaryImport.groupBy({
+    by: ['tipo', 'productId', 'fractionCode'],
+    where,
+    _sum: { quantity: true, quantityDischarged: true },
+    _count: { _all: true },
+    _min: { expirationDate: true, unit: true, description: true },
+  });
+  const productIds = [...new Set(grupos.map(g => g.productId).filter((x): x is string => !!x))];
+  const productos = productIds.length
+    ? await prisma.product.findMany({ where: { id: { in: productIds }, tenantId }, select: { id: true, productCode: true, description: true } })
+    : [];
+  const porId = new Map(productos.map(p => [p.id, p]));
+
+  const partes: ParteConLotes[] = grupos.map(g => {
+    const prod = g.productId ? porId.get(g.productId) ?? null : null;
+    const importado = r6(g._sum.quantity ?? 0);
+    const descargado = r6(g._sum.quantityDischarged ?? 0);
+    const vence = g.tipo === 'ACTIVO_FIJO' || esCentinela(g._min.expirationDate) ? null : g._min.expirationDate!.toISOString();
+    return {
+      parteId: prod?.id ?? null,
+      parteCodigo: prod?.productCode ?? null,
+      fractionCode: g.fractionCode,
+      descripcion: prod?.description ?? g._min.description ?? '',
+      unit: g._min.unit ?? '',
+      tipo: g.tipo,
+      importado,
+      descargado,
+      saldo: r6(importado - descargado),
+      proximoVencimiento: vence,
+      lotes: [],
+      lotesTotal: g._count._all,
+    };
+  });
+  return partes.sort((a, b) => {
+    if (a.proximoVencimiento && b.proximoVencimiento) return a.proximoVencimiento.localeCompare(b.proximoVencimiento);
+    if (a.proximoVencimiento) return -1;
+    if (b.proximoVencimiento) return 1;
+    return (a.parteCodigo ?? a.fractionCode).localeCompare(b.parteCodigo ?? b.fractionCode);
+  });
+}
+
+/** Lotes abiertos de UNA parte (por productId) o de una fracción sin parte, en orden PEPS. */
+export async function lotesDeParte(
+  tenantId: string,
+  sel: { parteId?: string | null; fractionCode?: string | null; tipo?: 'INSUMO' | 'ACTIVO_FIJO'; alcance?: AlcanceFiltro | null; take?: number },
+): Promise<LotePeps[]> {
+  if (!sel.parteId && !sel.fractionCode) throw new AppError('Indique parteId o fractionCode', 400);
   const imports = await prisma.temporaryImport.findMany({
     where: {
       tenantId,
       status: { in: [...ABIERTAS] },
-      ...(opts.tipo ? { tipo: opts.tipo } : {}),
-      ...whereAlcance(opts.alcance),
+      ...(sel.tipo ? { tipo: sel.tipo } : {}),
+      ...(sel.parteId ? { productId: sel.parteId } : { productId: null, fractionCode: sel.fractionCode! }),
+      ...whereAlcance(sel.alcance),
     },
-    include: { product: { select: { id: true, productCode: true, description: true } }, ubicacion: { select: { id: true, nombre: true, tipo: true } } },
+    select: {
+      id: true, pedimento: true, pedimentoPartidaId: true, entryDate: true, expirationDate: true, quantity: true, quantityDischarged: true, tipo: true,
+      ubicacion: { select: { id: true, nombre: true, tipo: true } },
+    },
     orderBy: [{ entryDate: 'asc' }, { id: 'asc' }],
+    take: Math.min(Math.max(sel.take ?? 500, 1), 2000),
   });
-  const mapa = new Map<string, ParteConLotes>();
-  for (const imp of imports) {
-    const clave = `${imp.tipo}:${imp.product ? `P:${imp.product.id}` : `F:${imp.fractionCode}`}`;
-    const p = mapa.get(clave) ?? {
-      parteId: imp.product?.id ?? null,
-      parteCodigo: imp.product?.productCode ?? null,
-      fractionCode: imp.fractionCode,
-      descripcion: imp.product?.description ?? imp.description,
-      unit: imp.unit,
-      tipo: imp.tipo,
-      importado: 0, descargado: 0, saldo: 0,
-      proximoVencimiento: null,
-      lotes: [],
-    };
-    const disponible = imp.quantity - imp.quantityDischarged;
-    const vigencia = imp.tipo === 'ACTIVO_FIJO' || imp.expirationDate.getUTCFullYear() >= 9999;
-    p.importado += imp.quantity;
-    p.descargado += imp.quantityDischarged;
-    p.saldo += disponible;
-    if (!vigencia && (!p.proximoVencimiento || imp.expirationDate.toISOString() < p.proximoVencimiento)) {
-      p.proximoVencimiento = imp.expirationDate.toISOString();
-    }
-    p.lotes.push({
+  return imports.map((imp, i) => {
+    const vigencia = imp.tipo === 'ACTIVO_FIJO' || esCentinela(imp.expirationDate);
+    return {
       temporaryImportId: imp.id,
       pedimento: imp.pedimento,
       pedimentoPartidaId: imp.pedimentoPartidaId,
@@ -286,16 +334,9 @@ export async function saldosPorParte(tenantId: string, opts: { alcance?: Alcance
       expirationDate: vigencia ? null : imp.expirationDate.toISOString(),
       quantity: imp.quantity,
       quantityDischarged: imp.quantityDischarged,
-      disponible,
-      ordenPeps: p.lotes.length + 1,
+      disponible: r6(imp.quantity - imp.quantityDischarged),
+      ordenPeps: i + 1,
       ubicacion: imp.ubicacion,
-    });
-    mapa.set(clave, p);
-  }
-  return Array.from(mapa.values()).sort((a, b) => {
-    if (a.proximoVencimiento && b.proximoVencimiento) return a.proximoVencimiento.localeCompare(b.proximoVencimiento);
-    if (a.proximoVencimiento) return -1;
-    if (b.proximoVencimiento) return 1;
-    return (a.parteCodigo ?? a.fractionCode).localeCompare(b.parteCodigo ?? b.fractionCode);
+    };
   });
 }

@@ -12,7 +12,7 @@ import { prisma } from '../lib/prisma';
 import { clienteIdDe, filtroCliente, validarClienteDelTenant, whereConAlcance } from '../lib/cliente-contexto';
 import { recordAudit } from '../services/audit-service';
 import { altaDesdePedimento, pedimentosParaAlta } from '../services/anexo24-alta';
-import { descargarPeps, saldosPorParte } from '../services/anexo24-peps';
+import { descargarPeps, saldosPorParte, lotesDeParte } from '../services/anexo24-peps';
 import { retornoDesdeBom } from '../services/anexo24-bom';
 import { cerrarPeriodo, listarCierres, ultimoPeriodoCerrado, assertPeriodoAbierto } from '../services/anexo24-cierre';
 import { generarReporteAnexo24, reporteAnexo24Xlsx } from '../services/anexo24-reporte';
@@ -63,6 +63,16 @@ anexo24Router.get('/partes', authenticate, async (req: AuthRequest, res, next) =
   try {
     const tipo = req.query.tipo === 'ACTIVO_FIJO' ? 'ACTIVO_FIJO' : req.query.tipo === 'INSUMO' ? 'INSUMO' : undefined;
     res.json({ status: 'ok', data: await saldosPorParte(req.tenantId!, { alcance: filtroCliente(req), tipo }) });
+  } catch (err) { next(err); }
+});
+
+// Lotes de una parte (expansión bajo demanda de /partes): ?parteId=… | ?fractionCode=…&tipo=…
+anexo24Router.get('/partes/lotes', authenticate, async (req: AuthRequest, res, next) => {
+  try {
+    const tipo = req.query.tipo === 'ACTIVO_FIJO' ? 'ACTIVO_FIJO' : req.query.tipo === 'INSUMO' ? 'INSUMO' : undefined;
+    const parteId = typeof req.query.parteId === 'string' && req.query.parteId ? req.query.parteId : null;
+    const fractionCode = typeof req.query.fractionCode === 'string' && req.query.fractionCode ? req.query.fractionCode : null;
+    res.json({ status: 'ok', data: await lotesDeParte(req.tenantId!, { parteId, fractionCode, tipo, alcance: filtroCliente(req) }) });
   } catch (err) { next(err); }
 });
 
