@@ -9,8 +9,8 @@ import { reconciliarClasificacion } from '../services/clasificador-reconciliacio
 import { createClassificationJob, JOB_RUNNING_TIMEOUT_MS, type ClassificationJobInputs } from '../services/classification-job-runner';
 import { prisma } from '../lib/prisma';
 import { sinGuardaDeTenant } from '../lib/tenant-guard';
+import { clienteIdDe, validarClienteDelTenant } from '../lib/cliente-contexto';
 // ── OPERACIÓN 2026-08 ── catálogo maestro: consultar antes de correr; historial agrupado
-import { clienteIdDe } from '../lib/cliente-contexto';
 import { consultarCatalogoParaClasificar } from '../services/catalogo-partes';
 import { agruparHistorial, exportarHistorialXlsx, aciertoPorCapitulo, whereHistorial, type FiltrosHistorial } from '../services/historial-clasificaciones';
 
@@ -123,7 +123,7 @@ classifyRouter.post('/', authenticate, requirePermission('classifier', 'create')
     // fracción siempre = consistencia = defensa legal) — sin IA, sin job —
     // salvo `forzar:true`, que exige `justificacion` y deja el resultado como
     // versión PROPUESTA de esa parte (nunca pisa la vigente).
-    const clienteId = clienteIdDe(req);
+    const clienteId = await validarClienteDelTenant(req.tenantId!, clienteIdDe(req));
     const catalogo = await consultarCatalogoParaClasificar(req.tenantId!, {
       productCode: typeof productCode === 'string' ? productCode : null,
       description,
@@ -180,6 +180,7 @@ classifyRouter.post('/', authenticate, requirePermission('classifier', 'create')
       tenantId: req.tenantId!,
       userId: req.userId!,
       inputs,
+      clienteId,
     });
 
     // Si se reutilizó un job activo, `description` trae la descripción de ESE
@@ -313,6 +314,7 @@ classifyRouter.get('/history', authenticate, async (req: AuthRequest, res, next)
     const limit = String(req.query.limit || '20');
     const skip = (Number(page) - 1) * Number(limit);
 
+    // El cliente activo (X-Cliente-Id) viaja dentro de filtrosHistorialDe → whereHistorial.
     const where = whereHistorial(req.tenantId!, filtrosHistorialDe(req));
 
     const [classifications, total] = await Promise.all([

@@ -185,6 +185,7 @@ export async function extractDocument(input: {
  */
 export async function processUpload(input: {
   tenantId: string;
+  clienteId?: string | null;
   fileName: string;
   mimeType: string;
   base64: string;
@@ -219,6 +220,7 @@ export async function processUpload(input: {
   const created = await prisma.document.create({
     data: {
       tenantId: input.tenantId,
+      clienteId: input.clienteId ?? null,
       name: input.fileName,
       type: result.docType,
       docType: result.docType,

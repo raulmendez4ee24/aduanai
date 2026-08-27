@@ -1,6 +1,7 @@
 import { Request, Response, NextFunction } from 'express';
 import jwt from 'jsonwebtoken';
 import { AppError } from './error';
+import { clienteScope } from './clienteScope';
 import { getJwtSecret } from '../lib/config';
 import { prisma } from '../lib/prisma';
 import type { UserRole } from '@prisma/client';
@@ -11,6 +12,8 @@ export interface AuthRequest extends Request {
   userRole?: UserRole;
   emailVerified?: boolean;
   userStatus?: string;
+  // Operación 2026-08: alcance por cliente (null = sin restricción). Ver clienteScope.ts.
+  clienteIdsPermitidos?: string[] | null;
 }
 
 export async function authenticate(req: AuthRequest, _res: Response, next: NextFunction) {
@@ -52,7 +55,9 @@ export async function authenticate(req: AuthRequest, _res: Response, next: NextF
     req.userRole = user.role;
     req.emailVerified = user.emailVerified;
     req.userStatus = user.status;
-    next();
+    // Operación 2026-08: resuelve la restricción de alcance por cliente y
+    // rechaza un X-Cliente-Id fuera de ella (403). Sin restricción: next().
+    return clienteScope(req, _res, next);
   } catch {
     return next(new AppError('Token inválido o expirado', 401));
   }

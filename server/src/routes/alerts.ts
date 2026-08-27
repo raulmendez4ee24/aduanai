@@ -2,6 +2,7 @@ import { Router } from 'express';
 import { authenticate, AuthRequest } from '../middlewares/auth';
 import { prisma } from '../lib/prisma';
 import { regenerateAlerts } from '../services/alert-generator';
+import { clienteIdDe, filtroCliente, validarClienteDelTenant } from '../lib/cliente-contexto';
 
 export const alertsRouter = Router();
 
@@ -30,7 +31,7 @@ alertsRouter.get('/', authenticate, async (req: AuthRequest, res, next) => {
   try {
     const includeResolved = req.query.includeResolved === 'true';
     const includeIgnored = req.query.includeIgnored === 'true';
-    const where: Record<string, unknown> = { tenantId: req.tenantId! };
+    const where: Record<string, unknown> = { tenantId: req.tenantId!, ...filtroCliente(req) };
     if (!includeResolved) where.resolvedAt = null;
     if (!includeIgnored) where.ignored = false;
     // Filtra snoozed: si snoozedUntil > now, no mostrar
@@ -272,6 +273,7 @@ alertsRouter.post('/watch', authenticate, async (req: AuthRequest, res, next) =>
       await prisma.alert.create({
         data: {
           tenantId: req.tenantId!,
+          clienteId: await validarClienteDelTenant(req.tenantId!, clienteIdDe(req)),
           channel: 'IN_APP',
           type: 'watch',
           title: 'Fracciones monitoreadas',

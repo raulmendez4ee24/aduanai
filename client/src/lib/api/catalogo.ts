@@ -131,7 +131,7 @@ export const catalogoApi = {
    * vigente el servidor responde `reused:true` SIN correr el modelo; si no,
    * responde 202 con jobId (+ `catalogoSugerido` si la descripción coincide).
    */
-  clasificarConCatalogo: (d: { description: string; productCode?: string; countryOfOrigin?: string; declaredValueUSD?: number; declaredQuantity?: number; forzar?: boolean; justificacion?: string }) =>
+  clasificarConCatalogo: (d: { description: string; productCode?: string; countryOfOrigin?: string; declaredValueUSD?: number; declaredQuantity?: number; useCase?: string; importerType?: string; forzar?: boolean; justificacion?: string }) =>
     request<
       | { status: string; reused: true; catalogo: CatalogoHit; message: string; jobId?: undefined }
       | { status: string; reused: boolean; jobId: string; description: string | null; catalogoSugerido: CatalogoHit | null; parteEnCatalogo: { productId: string; productCode: string } | null; catalogo?: undefined }

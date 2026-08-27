@@ -13,6 +13,7 @@ import {
 import { recordAssembly, traceImport } from '../services/bom-service';
 import { validateFraction, FRACTION_UNVERIFIED_MESSAGE } from '../services/fraction-validator';
 import { createDischargeAtomic, deleteDischargeAtomic } from '../services/inventory-ledger';
+import { clienteIdDe, filtroCliente, validarClienteDelTenant } from '../lib/cliente-contexto';
 
 export const inventoryRouter = Router();
 
@@ -52,6 +53,7 @@ inventoryRouter.post('/imports', authenticate, requirePermission('inventory', 'a
 
     const imp = await prisma.temporaryImport.create({
       data: {
+        clienteId: await validarClienteDelTenant(req.tenantId!, clienteIdDe(req)),
         pedimento,
         fractionCode: fx.code,
         description: description || '',
@@ -84,7 +86,7 @@ inventoryRouter.get('/imports', authenticate, async (req: AuthRequest, res, next
     const page = Math.max(1, Number(req.query.page) || 1);
     const limit = Math.min(100, Math.max(1, Number(req.query.limit) || 20));
 
-    const where: Record<string, unknown> = { tenantId: req.tenantId! };
+    const where: Record<string, unknown> = { tenantId: req.tenantId!, ...filtroCliente(req) };
     if (status && ['ACTIVE', 'PARTIALLY_DISCHARGED', 'FULLY_DISCHARGED', 'EXPIRED', 'REGULARIZED'].includes(status)) {
       where.status = status;
     }

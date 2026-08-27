@@ -24,6 +24,7 @@ import {
 } from '../services/glosa-simulator';
 import { getActiveVersions } from '../services/traceability';
 import { TARIFF_VERSION } from '../lib/tariff-version';
+import { clienteIdDe, filtroCliente, validarClienteDelTenant } from '../lib/cliente-contexto';
 
 export const glosaRouter = Router();
 export const glosaAdminRouter = Router();
@@ -63,7 +64,7 @@ const simulateSchema = z.object({
 glosaRouter.post('/simulate', authenticate, async (req: AuthRequest, res: Response, next: NextFunction) => {
   try {
     const input = simulateSchema.parse(req.body) as GlosaSimulationInput;
-    const result = await simulateGlosa(req.tenantId!, req.userId!, input);
+    const result = await simulateGlosa(req.tenantId!, req.userId!, input, {}, await validarClienteDelTenant(req.tenantId!, clienteIdDe(req)));
     // Frontera Canónica §5.5: la versión normativa se ECO-DEVUELVE por corrida
     // (cierra el GAP documentado en client/src/lib/corpus-version.ts — el
     // reporte deja de leer un espejo hardcodeado en el cliente).
@@ -89,7 +90,7 @@ glosaRouter.post('/simulate', authenticate, async (req: AuthRequest, res: Respon
 glosaRouter.get('/history', authenticate, async (req: AuthRequest, res: Response, next: NextFunction) => {
   try {
     const items = await prisma.glosaSimulation.findMany({
-      where: { tenantId: req.tenantId! },
+      where: { tenantId: req.tenantId!, ...filtroCliente(req) },
       orderBy: { createdAt: 'desc' },
       take: 100,
       select: {

@@ -4,22 +4,38 @@
  * `clienteId`. Devuelve null si no hay cliente activo. NUNCA sustituye al
  * tenantId: el cliente es una dimensión DENTRO del tenant y se valida que le
  * pertenezca antes de usarlo en escrituras (ver `validarClienteDelTenant`).
+ *
+ * Ola 1 (multi-cliente y roles): honra la restricción de alcance que deja
+ * `middlewares/clienteScope.ts` en `req.clienteIdsPermitidos`:
+ *   - sin X-Cliente-Id y restringido a UN cliente → ese cliente (creaciones).
+ *   - sin X-Cliente-Id y restringido a varios → `clienteId IN (...)` (listados).
  */
 import type { Request } from 'express';
 import { prisma } from './prisma';
+
+type ReqConAlcance = Request & { clienteIdsPermitidos?: string[] | null };
+
+function permitidos(req: Request): string[] | null {
+  const p = (req as ReqConAlcance).clienteIdsPermitidos;
+  return Array.isArray(p) ? p : null;
+}
 
 export function clienteIdDe(req: Request): string | null {
   const h = req.headers['x-cliente-id'];
   const v = Array.isArray(h) ? h[0] : h;
   const q = typeof req.query?.clienteId === 'string' ? req.query.clienteId : null;
   const id = (q ?? v ?? '').trim();
-  return id.length > 0 ? id : null;
+  if (id.length > 0) return id;
+  const p = permitidos(req);
+  return p && p.length === 1 ? p[0]! : null;
 }
 
 /** Filtro Prisma listo para spreadear: `{ ...filtroCliente(req) }`. */
-export function filtroCliente(req: Request): { clienteId?: string } {
+export function filtroCliente(req: Request): { clienteId?: string | { in: string[] } } {
   const id = clienteIdDe(req);
-  return id ? { clienteId: id } : {};
+  if (id) return { clienteId: id };
+  const p = permitidos(req);
+  return p ? { clienteId: { in: p } } : {};
 }
 
 /** Para escrituras: el cliente debe existir y ser del tenant; si no, null. */

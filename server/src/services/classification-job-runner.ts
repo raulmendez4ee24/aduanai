@@ -22,6 +22,7 @@ import { recordConsult, getActiveVersions } from './traceability';
 import { isDomesticOrigin, DOMESTIC_ORIGIN_NOTE } from '../lib/origin';
 import { reconciliarClasificacion } from './clasificador-reconciliacion';
 import { getUserPermissions, hasPermission } from './permissions';
+import { subpartidasHermanas } from './subpartidas-hermanas';
 import { logger } from '../lib/logger';
 
 export interface ClassificationJobInputs {
@@ -70,6 +71,7 @@ export async function createClassificationJob(params: {
   tenantId: string;
   userId: string;
   inputs: ClassificationJobInputs;
+  clienteId?: string | null;
 }): Promise<{ jobId: string; reused: boolean; description?: string }> {
   const { tenantId, userId, inputs } = params;
 
@@ -92,7 +94,7 @@ export async function createClassificationJob(params: {
   let job: { id: string };
   try {
     job = await prisma.classificationJob.create({
-      data: { tenantId, userId, inputs: inputs as unknown as object },
+      data: { tenantId, userId, inputs: inputs as unknown as object, clienteId: params.clienteId ?? null },
       select: { id: true },
     });
   } catch (err) {
@@ -231,7 +233,7 @@ export async function runClassificationJob(jobId: string): Promise<void> {
         status,
         approvedAt: canApprove ? new Date() : null,
         approvedById: canApprove ? job.userId : null,
-        clienteId: inputs.clienteId ?? null,
+        clienteId: job.clienteId ?? null,
       },
     });
 
@@ -261,10 +263,15 @@ export async function runClassificationJob(jobId: string): Promise<void> {
     const { checkRequiredPadrones } = await import('./padron-checker');
     const padronCheck = domestic ? null : await checkRequiredPadrones(job.tenantId, result.fraction.code, 'classify', record.id);
 
-    // Payload idéntico al que la ruta síncrona devolvía en `data`.
+    // Ola 1 (Operación 2026-08): subpartidas hermanas de la misma partida —
+    // capa de presentación/contraste desde el catálogo; nunca bloquea el job.
+    const hermanas = await subpartidasHermanas(result.fraction.code).catch(() => []);
+
+    // Payload idéntico al que la ruta síncrona devolvía en `data` (+ hermanas).
     const payload = {
       ...result,
       _trace: undefined,
+      hermanas,
       alerts,
       datosCanonicos,
       discrepanciasLLM: discrepancias,

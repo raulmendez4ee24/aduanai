@@ -16,14 +16,18 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import {
   Send, Copy, Check, FileDown, ClipboardCheck, MessageSquareText,
-  FolderOpen, ThumbsUp, ThumbsDown, ChevronDown,
+  FolderOpen, ThumbsUp, ThumbsDown, ChevronDown, Gavel,
 } from 'lucide-react'
 import { api } from '../lib/api'
 import type { ClassificationResult, ClassifierAlert, ClassifierAntidumpingMetadata, DatoLegal } from '../lib/api'
 import { formatFraction } from '../lib/format'
+import { Button, Card, Badge, Textarea, Input, Select, SelloVerificacion, EmptyState, type EstadoSello } from '../components/ui'
+// Ola 1 (Operación 2026-08): uso/destino, adjuntos, hermanas y dictamen humano.
+import { apiDictamen, USOS_DESTINO, type SubpartidaHermana } from '../lib/api/clasificacion-lote'
+import { AdjuntosClasificacion } from '../components/clasificador/AdjuntosClasificacion'
+import { HermanasClasificacion } from '../components/clasificador/HermanasClasificacion'
 // ── OPERACIÓN 2026-08 ── el Clasificador consulta el catálogo maestro antes de correr
 import { catalogoApi, formatearFraccion, fechaCorta } from '../lib/api/catalogo'
-import { Button, Card, Badge, Textarea, Input, SelloVerificacion, EmptyState, type EstadoSello } from '../components/ui'
 
 // ════════════════════════════════════════════════════════════════════════
 // DatoLegalVerificado — el tipo IDEAL contra el que está construida la UI.
@@ -200,7 +204,7 @@ function idUsuarioLocal(): string {
 const draftKey = () => `aduanai:classifier:draft:${idUsuarioLocal()}`
 const jobKey = () => `aduanai:classifier:job:${idUsuarioLocal()}`
 
-function leerDraft(): { input: string; pais: string; valor: string; cantidad: string } {
+function leerDraft(): { input: string; pais: string; valor: string; cantidad: string; usoDestino: string } {
   try {
     const d = JSON.parse(localStorage.getItem(draftKey()) ?? '{}') as Record<string, unknown>
     return {
@@ -208,9 +212,10 @@ function leerDraft(): { input: string; pais: string; valor: string; cantidad: st
       pais: typeof d.pais === 'string' ? d.pais : '',
       valor: typeof d.valor === 'string' ? d.valor : '',
       cantidad: typeof d.cantidad === 'string' ? d.cantidad : '',
+      usoDestino: typeof d.usoDestino === 'string' ? d.usoDestino : '',
     }
   } catch {
-    return { input: '', pais: '', valor: '', cantidad: '' }
+    return { input: '', pais: '', valor: '', cantidad: '', usoDestino: '' }
   }
 }
 
@@ -222,7 +227,11 @@ export function ClassifierPage() {
   const [pais, setPais] = useState(draftInicial.pais)
   const [valor, setValor] = useState(draftInicial.valor)
   const [cantidad, setCantidad] = useState(draftInicial.cantidad)
+  // Número de parte del catálogo maestro: con versión vigente, el servidor responde sin correr el modelo.
   const [numeroParte, setNumeroParte] = useState('')
+  // Uso/destino explícito: viaja como useCase + importerType al clasificador.
+  const [usoDestino, setUsoDestino] = useState(draftInicial.usoDestino)
+  const [dictamen, setDictamen] = useState<{ estado: 'idle' | 'enviando' | 'listo' | 'existente'; msg?: string }>({ estado: 'idle' })
   const [detallesAbiertos, setDetallesAbiertos] = useState(false)
   const [cargando, setCargando] = useState(false)
   const [etapa, setEtapa] = useState(0)
@@ -262,10 +271,10 @@ export function ClassifierPage() {
   // Borrador persistente (BUG-2): se guarda al escribir, con debounce corto.
   useEffect(() => {
     const t = setTimeout(() => {
-      try { localStorage.setItem(draftKey(), JSON.stringify({ input, pais, valor, cantidad })) } catch { /* almacenamiento lleno/bloqueado: el borrador es best-effort */ }
+      try { localStorage.setItem(draftKey(), JSON.stringify({ input, pais, valor, cantidad, usoDestino })) } catch { /* almacenamiento lleno/bloqueado: el borrador es best-effort */ }
     }, 400)
     return () => clearTimeout(t)
-  }, [input, pais, valor, cantidad])
+  }, [input, pais, valor, cantidad, usoDestino])
 
   // Al montar: si hay un job guardado, retomarlo — el trabajo en vuelo
   // sobrevive a la navegación. El polling se cancela al desmontar (el job
@@ -359,6 +368,8 @@ export function ClassifierPage() {
         countryOfOrigin: pais.trim() || undefined,
         declaredValueUSD: valor ? parseFloat(valor) : undefined,
         declaredQuantity: cantidad ? parseFloat(cantidad) : undefined,
+        useCase: usoDestino || undefined,
+        importerType: usoDestino === 'INSUMO_IMMEX' ? 'IMMEX' : usoDestino === 'VENTA_DIRECTA' ? 'DEFINITIVO' : undefined,
       })
       // Catálogo maestro: el número de parte ya tiene clasificación vigente →
       // el servidor NO corrió el modelo. Se muestra tal cual (consistencia =
@@ -385,6 +396,7 @@ export function ClassifierPage() {
       setResultado(null)
       setClassificationId('')
       setExpedienteNuevo(false)
+      setDictamen({ estado: 'idle' })
       const reusadoDistinto = res.reused && res.description && res.description.trim() !== q
       if (reusadoDistinto) {
         setMensajes(m => [...m.filter(x => !x.esError),
@@ -420,6 +432,19 @@ export function ClassifierPage() {
     if (!classificationId || feedback) return
     setFeedback(fb)
     api.classifyFeedback(classificationId, fb).catch(() => {})
+  }
+
+  async function solicitarDictamen() {
+    if (!classificationId || dictamen.estado === 'enviando') return
+    setDictamen({ estado: 'enviando' })
+    try {
+      const r = await apiDictamen.solicitar(classificationId, 'Solicitado desde el resultado del Clasificador')
+      setDictamen(r.existente
+        ? { estado: 'existente', msg: 'Ya había una solicitud abierta para esta clasificación — está en la bandeja de dictámenes.' }
+        : { estado: 'listo', msg: 'Solicitud enviada. Un validador la resolverá desde Clasificador en lote → Dictámenes.' })
+    } catch (e) {
+      setDictamen({ estado: 'idle', msg: e instanceof Error ? e.message : 'No pude solicitar el dictamen.' })
+    }
   }
 
   function copiarFraccion() {
@@ -509,14 +534,22 @@ export function ClassifierPage() {
           className="inline-flex items-center gap-1 text-13 text-tinta-suave hover:text-tinta focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-petroleo rounded-sello-sm"
         >
           <ChevronDown className={`w-3.5 h-3.5 transition-transform duration-150 ${detallesAbiertos ? 'rotate-180' : ''}`} strokeWidth={1.5} aria-hidden />
-          Detalles opcionales (número de parte, país, valor, cantidad)
+          Detalles opcionales (número de parte, uso/destino, país, valor, cantidad)
         </button>
         {detallesAbiertos && (
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
-            <Input aria-label="Número de parte (catálogo)" placeholder="Núm. de parte" mono value={numeroParte} onChange={e => setNumeroParte(e.target.value)} />
-            <Input aria-label="País de origen" placeholder="País (CN)" mono value={pais} onChange={e => setPais(e.target.value)} />
-            <Input aria-label="Valor unitario USD" placeholder="Valor USD" mono value={valor} onChange={e => setValor(e.target.value)} />
-            <Input aria-label="Cantidad declarada" placeholder="Cantidad" mono value={cantidad} onChange={e => setCantidad(e.target.value)} />
+          <div className="space-y-2">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+              <Input aria-label="Número de parte (catálogo)" placeholder="Número de parte (catálogo)" mono value={numeroParte} onChange={e => setNumeroParte(e.target.value)} />
+              <Select aria-label="Uso o destino del producto" value={usoDestino} onChange={e => setUsoDestino(e.target.value)}>
+                <option value="">Uso/destino (opcional)</option>
+                {USOS_DESTINO.map(u => <option key={u.valor} value={u.valor}>{u.label}</option>)}
+              </Select>
+            </div>
+            <div className="grid grid-cols-3 gap-2">
+              <Input aria-label="País de origen" placeholder="País (CN)" mono value={pais} onChange={e => setPais(e.target.value)} />
+              <Input aria-label="Valor unitario USD" placeholder="Valor USD" mono value={valor} onChange={e => setValor(e.target.value)} />
+              <Input aria-label="Cantidad declarada" placeholder="Cantidad" mono value={cantidad} onChange={e => setCantidad(e.target.value)} />
+            </div>
           </div>
         )}
         <Button variante="primario" onClick={clasificar} loading={cargando} disabled={!input.trim()} className="w-full">
@@ -561,6 +594,17 @@ export function ClassifierPage() {
           <ClipboardCheck className="w-4 h-4" strokeWidth={1.5} aria-hidden />
           Enviar a Pre-Glosa
         </Button>
+        <Button
+          variante="secundario"
+          tamano="sm"
+          disabled={!classificationId || dictamen.estado !== 'idle'}
+          loading={dictamen.estado === 'enviando'}
+          onClick={solicitarDictamen}
+        >
+          <Gavel className="w-4 h-4" strokeWidth={1.5} aria-hidden />
+          {dictamen.estado === 'listo' || dictamen.estado === 'existente' ? 'Dictamen solicitado' : 'Solicitar dictamen humano'}
+        </Button>
+        {dictamen.msg && <p className={`text-13 w-full ${dictamen.estado === 'idle' ? 'text-carmin' : 'text-tinta-suave'}`}>{dictamen.msg}</p>}
       </div>
 
       {/* Encabezado del expediente */}
@@ -648,6 +692,18 @@ export function ClassifierPage() {
               </li>
             ))}
           </ul>
+        </SeccionExpediente>
+      )}
+
+      {/* Compara contra las hermanas (Ola 1): subpartidas de la misma partida en el catálogo */}
+      <SeccionExpediente titulo="Compara contra las hermanas">
+        <HermanasClasificacion hermanas={((resultado as unknown as { hermanas?: SubpartidaHermana[] }).hermanas) ?? []} />
+      </SeccionExpediente>
+
+      {/* Adjuntos (Ola 1): ficha técnica, foto, hoja de seguridad */}
+      {classificationId && (
+        <SeccionExpediente titulo="Adjuntos del expediente">
+          <AdjuntosClasificacion classificationId={classificationId} />
         </SeccionExpediente>
       )}
 

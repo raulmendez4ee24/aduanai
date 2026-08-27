@@ -3,6 +3,7 @@ import { authenticate, AuthRequest } from '../middlewares/auth';
 import { requirePermission } from '../middlewares/requirePermission';
 import { prisma } from '../lib/prisma';
 import { getRequiredDocuments, calculateCompleteness, getMissingDocuments } from '../services/expediente';
+import { clienteIdDe, filtroCliente, validarClienteDelTenant } from '../lib/cliente-contexto';
 
 export const operationsRouter = Router();
 
@@ -33,6 +34,7 @@ operationsRouter.post('/', authenticate, requirePermission('expedientes', 'creat
         customsBroker,
         operationDate: operationDate ? new Date(operationDate) : null,
         tenantId: req.tenantId!,
+        clienteId: await validarClienteDelTenant(req.tenantId!, clienteIdDe(req)),
         userId: req.userId!,
         documents: {
           create: requiredDocs.map(doc => ({
@@ -57,7 +59,7 @@ operationsRouter.get('/', authenticate, async (req: AuthRequest, res, next) => {
   try {
     const status = String(req.query.status || '');
 
-    const where: Record<string, unknown> = { tenantId: req.tenantId! };
+    const where: Record<string, unknown> = { tenantId: req.tenantId!, ...filtroCliente(req) };
     if (status && ['DRAFT', 'IN_PROGRESS', 'COMPLETE', 'ARCHIVED'].includes(status)) {
       where.status = status;
     }

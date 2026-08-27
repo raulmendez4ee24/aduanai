@@ -9,6 +9,7 @@ import {
   Calculator, Bot, Clock, FolderOpen, Sparkles, ShieldCheck, LineChart,
   Warehouse, Landmark, FileText, Truck, Boxes, Globe, Scale, BadgeCheck,
   Megaphone, ListChecks, Building2, Users, Gauge, Database, ScanSearch,
+  Layers, // ── OPERACIÓN 2026-08 ──
 } from 'lucide-react'
 
 export interface NavItem {
@@ -54,6 +55,9 @@ export const NAV_HERRAMIENTAS: NavItem[] = [
   { label: 'Verificación', path: '/verificacion', icono: BadgeCheck },
   { label: 'Novedades', path: '/updates', icono: Megaphone },
   // ── OPERACIÓN 2026-08 ── entradas nuevas (una línea por módulo)
+  { label: 'Clasificador en lote', path: '/clasificador/lote', icono: Layers },
+  { label: 'Clientes', path: '/clientes', icono: Building2 },
+  { label: 'Aprobaciones', path: '/aprobaciones', icono: BadgeCheck },
   { label: 'Catálogo de partes', path: '/catalogo', icono: Boxes },
 ]
 

@@ -291,6 +291,7 @@ export async function simulateGlosa(
   userId: string,
   input: GlosaSimulationInput,
   fuentesOverride: Partial<GlosaFuentes> = {}, // SOLO tests — simular fallos
+  clienteId: string | null = null, // Operación 2026-08: cliente/RFC activo
 ): Promise<GlosaSimulationResult> {
   const fuentes: GlosaFuentes = { ...FUENTES_REALES, ...fuentesOverride };
 
@@ -599,7 +600,7 @@ export async function simulateGlosa(
   // Persistir
   const created = await prisma.glosaSimulation.create({
     data: {
-      tenantId, userId,
+      tenantId, userId, clienteId,
       pedimentoData: input as unknown as object,
       fractionCode: input.fractionCode,
       countryOrigin: input.countryOrigin,
