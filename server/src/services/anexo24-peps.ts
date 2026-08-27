@@ -15,7 +15,7 @@ import { prisma } from '../lib/prisma';
 import { AppError } from '../middlewares/error';
 import { createDischargeInTx, lockTemporaryImport } from './inventory-ledger';
 import { assertPeriodoAbierto } from './anexo24-cierre';
-import { whereAlcance, type AlcanceCliente } from '../lib/cliente-contexto';
+import { whereAlcance, type AlcanceFiltro } from '../lib/cliente-contexto';
 
 const EPSILON = 1e-9;
 const ABIERTAS = ['ACTIVE', 'PARTIALLY_DISCHARGED'] as const;
@@ -100,7 +100,7 @@ export interface DescargarPepsInput {
   fecha: Date;
   clienteId?: string | null;
   /** Alcance del usuario (filtroCliente(req)): sin cliente explícito, solo lotes de sus clientes o compartidos. */
-  alcance?: AlcanceCliente | null;
+  alcance?: AlcanceFiltro | null;
   assemblyId?: string | null;
   customsValue?: number | null;
   destinationCountry?: string | null;
@@ -236,7 +236,7 @@ export interface ParteConLotes {
   }>;
 }
 
-export async function saldosPorParte(tenantId: string, opts: { alcance?: AlcanceCliente | null; tipo?: 'INSUMO' | 'ACTIVO_FIJO' } = {}): Promise<ParteConLotes[]> {
+export async function saldosPorParte(tenantId: string, opts: { alcance?: AlcanceFiltro | null; tipo?: 'INSUMO' | 'ACTIVO_FIJO' } = {}): Promise<ParteConLotes[]> {
   const imports = await prisma.temporaryImport.findMany({
     where: {
       tenantId,

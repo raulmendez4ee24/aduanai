@@ -14,7 +14,7 @@ import { prisma } from '../lib/prisma';
 import { AppError } from '../middlewares/error';
 import { recordAudit } from './audit-service';
 import { esVigenciaPrograma } from '../lib/plazos-immex';
-import { whereAlcance, type AlcanceCliente } from '../lib/cliente-contexto';
+import { whereAlcance, type AlcanceFiltro } from '../lib/cliente-contexto';
 
 type Db = Prisma.TransactionClient | typeof prisma;
 
@@ -130,7 +130,7 @@ const r6 = (n: number) => Math.round(n * 1e6) / 1e6;
  * (no usa `quantityDischarged` acumulado porque incluiría descargos futuros).
  */
 /** `alcance`: `{ clienteId }` para un cierre por cliente (incluye lotes compartidos, clienteId null), `{}` para todo el tenant. */
-export async function calcularSaldosAlCorte(db: Db, tenantId: string, periodo: string, alcance: AlcanceCliente | null): Promise<ResumenCierre> {
+export async function calcularSaldosAlCorte(db: Db, tenantId: string, periodo: string, alcance: AlcanceFiltro | null): Promise<ResumenCierre> {
   const { fin } = rangoDePeriodo(periodo);
   const clienteId = typeof alcance?.clienteId === 'string' ? alcance.clienteId : null;
   const imports = await db.temporaryImport.findMany({
@@ -249,7 +249,7 @@ export async function cerrarPeriodo(input: CerrarPeriodoInput) {
   return { cierre, resumen };
 }
 
-export async function listarCierres(tenantId: string, alcance?: AlcanceCliente | null) {
+export async function listarCierres(tenantId: string, alcance?: AlcanceFiltro | null) {
   return prisma.cierrePeriodo.findMany({
     where: { tenantId, ...whereAlcance(alcance) },
     orderBy: { periodo: 'desc' },

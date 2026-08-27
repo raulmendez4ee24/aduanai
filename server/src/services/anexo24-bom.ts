@@ -13,7 +13,7 @@ import { prisma } from '../lib/prisma';
 import { AppError } from '../middlewares/error';
 import { descargarPepsEnTx, tipoDescargoDe, type DescargoPepsResultado } from './anexo24-peps';
 import { assertPeriodoAbierto } from './anexo24-cierre';
-import { whereAlcance, filaEnAlcance, type AlcanceCliente } from '../lib/cliente-contexto';
+import { whereAlcance, filaEnAlcance, type AlcanceFiltro } from '../lib/cliente-contexto';
 
 const r6 = (n: number) => Math.round(n * 1e6) / 1e6;
 
@@ -70,7 +70,7 @@ export interface RetornoDesdeBomInput {
   notas?: string | null;
   clienteId?: string | null;
   /** Alcance del usuario (filtroCliente(req)): el producto y los lotes deben caer en él. */
-  alcance?: AlcanceCliente | null;
+  alcance?: AlcanceFiltro | null;
 }
 
 export interface RetornoDesdeBomResultado {
@@ -172,7 +172,7 @@ export async function retornoDesdeBom(input: RetornoDesdeBomInput): Promise<Reto
 }
 
 /** Mermas/desperdicios declarados en un rango (para el reporte Anexo 24). */
-export async function mermasEnRango(tenantId: string, inicio: Date, fin: Date, alcance?: AlcanceCliente | null) {
+export async function mermasEnRango(tenantId: string, inicio: Date, fin: Date, alcance?: AlcanceFiltro | null) {
   const where: Prisma.AssemblyConsumptionWhereInput = {
     assembly: { tenantId, assemblyDate: { gte: inicio, lte: fin } },
   };

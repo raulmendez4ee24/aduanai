@@ -72,17 +72,17 @@ export function whereConAlcance<T extends Record<string, unknown>>(req: Request,
 
 // ── Alcance sin Request (para servicios) ─────────────────────────────────
 /** Lo que devuelve `filtroCliente(req)`: `{}` sin restricción; `{ clienteId }` o `{ clienteId: { in } }` con ella. */
-export type AlcanceCliente = ReturnType<typeof filtroCliente>;
+export type AlcanceFiltro = ReturnType<typeof filtroCliente>;
 
 /** Ids del alcance: `null` = sin restricción (ve todo el tenant). */
-export function idsDeAlcance(alcance?: AlcanceCliente | null): string[] | null {
+export function idsDeAlcance(alcance?: AlcanceFiltro | null): string[] | null {
   const c = alcance?.clienteId;
   if (c === undefined) return null;
   return typeof c === 'string' ? [c] : c.in;
 }
 
 /** ¿La fila (por su clienteId) cae dentro del alcance? null = compartida del tenant ⇒ visible. */
-export function filaEnAlcance(alcance: AlcanceCliente | null | undefined, clienteId: string | null | undefined): boolean {
+export function filaEnAlcance(alcance: AlcanceFiltro | null | undefined, clienteId: string | null | undefined): boolean {
   const ids = idsDeAlcance(alcance);
   if (!ids) return true;
   if (clienteId == null) return true;
@@ -91,7 +91,7 @@ export function filaEnAlcance(alcance: AlcanceCliente | null | undefined, client
 
 /** Fragmento `where` para servicios: `{}` sin restricción; con ella, cliente(s) del alcance O fila compartida
  *  (clienteId null). Se spreadea junto al resto del where: `{ tenantId, ...whereAlcance(alcance) }`. */
-export function whereAlcance(alcance?: AlcanceCliente | null): { OR?: Array<{ clienteId: string | { in: string[] } | null }> } {
+export function whereAlcance(alcance?: AlcanceFiltro | null): { OR?: Array<{ clienteId: string | { in: string[] } | null }> } {
   if (!alcance || alcance.clienteId === undefined) return {};
   return { OR: [{ clienteId: alcance.clienteId }, { clienteId: null }] };
 }

@@ -15,7 +15,7 @@ import { AppError } from '../middlewares/error';
 import { computeQuoteAmounts } from './quoter';
 import { tipoCambioMXN } from './frontera-canonica';
 import { esVigenciaPrograma } from '../lib/plazos-immex';
-import { whereAlcance, type AlcanceCliente } from '../lib/cliente-contexto';
+import { whereAlcance, type AlcanceFiltro } from '../lib/cliente-contexto';
 
 export interface ExposicionResultado {
   temporaryImportId: string;
@@ -41,7 +41,7 @@ export interface ExposicionResultado {
   avisos: string[];
 }
 
-export async function calcularExposicion(tenantId: string, temporaryImportId: string, alcance?: AlcanceCliente | null): Promise<ExposicionResultado> {
+export async function calcularExposicion(tenantId: string, temporaryImportId: string, alcance?: AlcanceFiltro | null): Promise<ExposicionResultado> {
   const imp = await prisma.temporaryImport.findFirst({
     where: { id: temporaryImportId, tenantId, ...whereAlcance(alcance) },
     include: { product: { select: { productCode: true } } },

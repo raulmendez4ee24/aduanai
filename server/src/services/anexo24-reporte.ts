@@ -20,7 +20,7 @@ import { rangoDePeriodo, calcularSaldosAlCorte, periodoValido, type ResumenCierr
 import { mermasEnRango } from './anexo24-bom';
 import { esVigenciaPrograma } from '../lib/plazos-immex';
 import { AppError } from '../middlewares/error';
-import { whereAlcance, type AlcanceCliente } from '../lib/cliente-contexto';
+import { whereAlcance, type AlcanceFiltro } from '../lib/cliente-contexto';
 
 export const ETIQUETA_COTEJO_ANEXO24 =
   'Estructura pendiente de cotejo contra Anexo 24 RGCE vigente (el corpus del sistema solo contiene un resumen del anexo).';
@@ -64,7 +64,7 @@ function folioReporte(tenantId: string, periodo: string, generadoEn: Date): stri
 }
 
 /** `alcance`: `filtroCliente(req)` — `{}` todo el tenant; `{ clienteId }` / `{ clienteId: { in } }` solo esos clientes más filas compartidas. */
-export async function generarReporteAnexo24(tenantId: string, periodo: string, alcance: AlcanceCliente | null): Promise<ReporteAnexo24> {
+export async function generarReporteAnexo24(tenantId: string, periodo: string, alcance: AlcanceFiltro | null): Promise<ReporteAnexo24> {
   if (!periodoValido(periodo)) throw new AppError(`Periodo inválido "${periodo}"; formato YYYY-MM`, 400);
   const { inicio, fin } = rangoDePeriodo(periodo);
   const generadoEn = new Date();
