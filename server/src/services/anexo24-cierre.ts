@@ -7,6 +7,11 @@
  * movimiento (alta, descargo, eliminación de descargo) cuya fecha caiga en
  * un periodo cerrado o ANTERIOR al último cerrado: un movimiento retroactivo
  * cambiaría saldos ya sellados.
+ *
+ * El cierre es POR TENANT (`@@unique([tenantId, periodo])`): sella todos los
+ * clientes/RFC del tenant a la vez y el candado (`assertPeriodoAbierto`) no
+ * distingue cliente. No existe cierre por cliente: un cierre calculado con un
+ * subconjunto de lotes dejaría un hash parcial que igual bloquearía al resto.
  */
 import crypto from 'node:crypto';
 import type { Prisma } from '@prisma/client';
@@ -206,10 +211,10 @@ export interface CerrarPeriodoInput {
   tenantId: string;
   userId: string;
   periodo: string;
-  clienteId?: string | null;
   notas?: string | null;
 }
 
+/** Sella `periodo` para TODO el tenant (todos los clientes). El resumen y su hash cubren el tenant completo. */
 export async function cerrarPeriodo(input: CerrarPeriodoInput) {
   if (!periodoValido(input.periodo)) throw new AppError(`Periodo inválido "${input.periodo}"; formato YYYY-MM`, 400);
   const { fin } = rangoDePeriodo(input.periodo);
@@ -221,13 +226,13 @@ export async function cerrarPeriodo(input: CerrarPeriodoInput) {
     throw new AppError(`El periodo ${input.periodo} ya está sellado (último cierre: ${ultimo.periodo})`, 409);
   }
 
-  const resumen = await calcularSaldosAlCorte(prisma, input.tenantId, input.periodo, input.clienteId ? { clienteId: input.clienteId } : {});
+  const resumen = await calcularSaldosAlCorte(prisma, input.tenantId, input.periodo, {});
   const hash = hashResumen(resumen);
 
   const cierre = await prisma.cierrePeriodo.create({
     data: {
       tenantId: input.tenantId,
-      clienteId: input.clienteId ?? null,
+      clienteId: null, // cierre por tenant: visible y vinculante para todos los clientes
       periodo: input.periodo,
       cerradoPor: input.userId,
       hash,

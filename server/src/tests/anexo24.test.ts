@@ -357,7 +357,8 @@ async function db() {
     const ubB = await prisma.ubicacion.create({ data: { tenantId: tA.id, clienteId: cB.id, nombre: `Planta B ${nonce}`, tipo: 'PLANTA' } });
     const ubTenantB = await prisma.ubicacion.create({ data: { tenantId: tB.id, nombre: `Planta tenant B ${nonce}`, tipo: 'PLANTA' } });
     const prodB = await prisma.product.create({ data: { tenantId: tA.id, clienteId: cB.id, productCode: `SOLO-B-${nonce}`, description: 'Parte del cliente B', unit: 'pza' } });
-    const cierreB = await prisma.cierrePeriodo.create({ data: { tenantId: tA.id, clienteId: cB.id, periodo: '2026-07', cerradoPor: adminA.id, hash: 'h'.repeat(64), resumen: {} } });
+    // Fila legacy con clienteId (anterior al cierre por tenant): solo para probar el filtro del listado.
+    const cierreB = await prisma.cierrePeriodo.create({ data: { tenantId: tA.id, clienteId: cB.id, periodo: '2026-05', cerradoPor: adminA.id, hash: 'h'.repeat(64), resumen: {} } });
 
     const srv = await levantar(app => {
       app.use('/api/inventory', inventoryRouter);
@@ -394,7 +395,7 @@ async function db() {
         assert.ok(peds.includes('PED-CA') && peds.includes('PED-AF'), `esperaba PED-CA y PED-AF en ${peds}`);
         assert.ok(!peds.includes('PED-CB'), 'PED-CB (cliente B) oculto');
       });
-      await prueba('restringido a A: cierres muestra el cierre compartido (2026-06) y oculta el de B (2026-07)', async () => {
+      await prueba('restringido a A: cierres muestra el cierre compartido (2026-06) y oculta el legacy de B (2026-05)', async () => {
         const r = await srv.llamar('GET', '/api/inventory/cierres', { token: tokRestr });
         assert.equal(r.status, 200, JSON.stringify(r.body));
         const periodos = (r.body.data as Array<{ id: string; periodo: string }>);
@@ -402,6 +403,22 @@ async function db() {
         assert.ok(!periodos.some(c => c.id === cierreB.id), 'cierre de B oculto');
         const admin = await srv.llamar('GET', '/api/inventory/cierres', { token: tokAdmin });
         assert.ok((admin.body.data as Array<{ id: string }>).some(c => c.id === cierreB.id), 'admin sí ve el cierre de B');
+      });
+      await prueba('cierre POR TENANT: restringido → 403; admin con X-Cliente-Id=A sella todo (lotes de B incluidos, clienteId null) y B queda bloqueado', async () => {
+        const lotBJul = await mkImp(tA.id, adminA.id, 'PED-CB-JUL', '2026-07-05T00:00:00Z', 3, { clienteId: cB.id });
+        const r403 = await srv.llamar('POST', '/api/inventory/cierres', { token: tokRestr, body: { periodo: '2026-07' } });
+        assert.equal(r403.status, 403, JSON.stringify(r403.body));
+        assert.equal(await prisma.cierrePeriodo.count({ where: { tenantId: tA.id, periodo: '2026-07' } }), 0);
+        const ok = await srv.llamar('POST', '/api/inventory/cierres', { token: tokAdmin, clienteId: cA.id, body: { periodo: '2026-07' } });
+        assert.equal(ok.status, 201, JSON.stringify(ok.body));
+        assert.equal(ok.body.data.cierre.clienteId, null, 'el cierre no se liga a un cliente');
+        const ids = (ok.body.data.resumen.porPedimento as Array<{ temporaryImportId: string }>).map(x => x.temporaryImportId);
+        assert.ok(ids.includes(lotBJul.id) && ids.includes(l1.id), 'el resumen cubre al cliente B (no solo A) y lo compartido');
+        // Coherencia con el candado: un movimiento de julio del cliente B → 409.
+        await esperaAppError(() => createDischargeAtomic({ temporaryImportId: lotBJul.id, tenantId: tA.id, userId: adminA.id, type: 'RETURN_EXPORT', quantity: 1, unit: 'pza', dischargeDate: new Date('2026-07-15T00:00:00Z') }), 409, /cerrado/);
+        const lista = await srv.llamar('GET', '/api/inventory/cierres', { token: tokRestr });
+        assert.ok((lista.body.data as Array<{ periodo: string }>).some(c => c.periodo === '2026-07'), 'el restringido ve el cierre del tenant');
+        assert.equal(lista.body.ultimoPeriodoCerrado, '2026-07');
       });
       await prueba('restringido a A: POST activo-fijo con body.clienteId = B → 403; con A → 201 ligado a A', async () => {
         const base = { pedimento: 'PED-AF-X', fractionCode: '73181599', quantity: 1, unit: 'pza', customsValue: 1, entryDate: '2026-08-10' };

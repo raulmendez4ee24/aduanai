@@ -209,8 +209,13 @@ anexo24Router.get('/cierres', authenticate, async (req: AuthRequest, res, next) 
 anexo24Router.post('/cierres', authenticate, requirePermission('inventory', 'adjust'), async (req: AuthRequest, res, next) => {
   try {
     const periodo = String(req.body?.periodo ?? '');
-    const clienteId = await validarClienteDelTenant(req.tenantId!, clienteIdDe(req));
-    const r = await cerrarPeriodo({ tenantId: req.tenantId!, userId: req.userId!, periodo, clienteId, notas: req.body?.notas ?? null });
+    // El cierre sella TODO el tenant (unique [tenantId, periodo]); X-Cliente-Id no lo acota.
+    // Un usuario restringido a ciertos clientes no puede sellar el inventario de los demás.
+    const permitidos = (req as AuthRequest & { clienteIdsPermitidos?: string[] | null }).clienteIdsPermitidos;
+    if (Array.isArray(permitidos)) {
+      return res.status(403).json({ status: 'error', message: 'El cierre mensual sella el inventario de todo el tenant; requiere un usuario sin restricción de clientes' });
+    }
+    const r = await cerrarPeriodo({ tenantId: req.tenantId!, userId: req.userId!, periodo, notas: req.body?.notas ?? null });
     res.status(201).json({ status: 'ok', data: { cierre: { ...r.cierre, resumen: undefined }, resumen: r.resumen } });
   } catch (err) { next(err); }
 });
