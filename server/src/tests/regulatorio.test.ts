@@ -94,7 +94,7 @@ function fetchFixture(): typeof fetch {
   await prueba('legacy view_fraction → revisar_fraccion', () => {
     const a = normalizarAccion({ type: 'tariff_change', suggestedAction: { type: 'view_fraction', label: 'x', payload: { fractionCode: '7208.25.01' } } });
     assert.equal(a?.type, 'revisar_fraccion');
-    assert.equal(rutaDeAccion(a!), '/fracciones/72082501');
+    assert.equal(rutaDeAccion(a!), '/fracciones?code=72082501');
   });
   await prueba('sin acción y sin datos → null; tipos nuevos pasan tal cual', () => {
     assert.equal(normalizarAccion({ type: 'weekly_summary', suggestedAction: null }), null);

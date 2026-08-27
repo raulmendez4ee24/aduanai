@@ -6,7 +6,7 @@
  *
  *   armar_rt         → /inventario?temporaryImportId=…        (retorno/descargo)
  *   cambio_regimen   → /cambio-regimen?ids=a,b,c&tipo=F4      (asistente F4/F5)
- *   revisar_fraccion → /fracciones/:code
+ *   revisar_fraccion → /fracciones?code=XXXXXXXX (ficha de la fracción, Ola 3)
  *   ver_obligacion   → /calendario/:id
  *   cotizar          → /cotizador  (payload = partidas prellenadas)
  *
@@ -32,7 +32,7 @@ export const accionCambioRegimen = (temporaryImportIds: string[], tipo: 'F4' | '
   ({ type: 'cambio_regimen', label, payload: { temporaryImportIds, tipo, route: '/cambio-regimen' } });
 
 export const accionRevisarFraccion = (code: string, label = 'Revisar fracción'): AccionAlerta =>
-  ({ type: 'revisar_fraccion', label, payload: { fractionCode: code.replace(/\./g, ''), route: `/fracciones/${code.replace(/\./g, '')}` } });
+  ({ type: 'revisar_fraccion', label, payload: { fractionCode: code.replace(/\./g, ''), route: `/fracciones?code=${code.replace(/\./g, '')}` } });
 
 export const accionVerObligacion = (obligacionId: string, label = 'Ver obligación'): AccionAlerta =>
   ({ type: 'ver_obligacion', label, payload: { obligacionId, route: `/calendario/${obligacionId}` } });
@@ -52,7 +52,7 @@ export function rutaDeAccion(a: AccionAlerta): string {
       return `/cambio-regimen?ids=${encodeURIComponent(ids.join(','))}&tipo=${encodeURIComponent(tipo)}`;
     }
     case 'revisar_fraccion':
-      return `/fracciones/${encodeURIComponent(String(p.fractionCode ?? ''))}`;
+      return `/fracciones?code=${encodeURIComponent(String(p.fractionCode ?? ''))}`;
     case 'ver_obligacion':
       return `/calendario/${encodeURIComponent(String(p.obligacionId ?? ''))}`;
     case 'cotizar': {
