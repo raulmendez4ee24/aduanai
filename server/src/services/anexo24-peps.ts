@@ -10,10 +10,10 @@
  * El activo fijo NO se descarga por PEPS de consumo (permanece por la vigencia
  * del programa; sale por retorno o cambio de régimen explícito).
  */
-import type { DischargeType, Prisma } from '@prisma/client';
+import { Prisma, type DischargeType } from '@prisma/client';
 import { prisma } from '../lib/prisma';
 import { AppError } from '../middlewares/error';
-import { createDischargeInTx, lockTemporaryImport } from './inventory-ledger';
+import { createDischargeInTx } from './inventory-ledger';
 import { assertPeriodoAbierto } from './anexo24-cierre';
 import { whereAlcance, type AlcanceFiltro } from '../lib/cliente-contexto';
 
@@ -132,10 +132,17 @@ async function lotesDeLaParte(
     ...(input.clienteId ? { clienteId: input.clienteId } : whereAlcance(input.alcance)),
   };
   const candidatos = await tx.temporaryImport.findMany({ where, select: { id: true }, orderBy: { id: 'asc' } });
-  // Mismo protocolo de lock que el ledger y bom-service: orden global por id.
-  for (const c of candidatos) await lockTemporaryImport(tx, c.id, input.tenantId);
+  if (candidatos.length === 0) return [];
+  const ids = candidatos.map(c => c.id);
+  // Mismo protocolo de lock que el ledger y bom-service (orden global por id),
+  // pero en UN solo statement: cientos de lotes IMMEX = un round-trip, no cientos.
+  await tx.$queryRaw`
+    SELECT id FROM temporary_imports
+    WHERE id IN (${Prisma.join(ids)}) AND "tenantId" = ${input.tenantId}
+    ORDER BY id FOR UPDATE
+  `;
   return tx.temporaryImport.findMany({
-    where: { id: { in: candidatos.map(c => c.id) }, tenantId: input.tenantId },
+    where: { id: { in: ids }, tenantId: input.tenantId },
     orderBy: [{ entryDate: 'asc' }, { id: 'asc' }],
   });
 }
