@@ -13,7 +13,7 @@ import crypto from 'crypto';
 import { getAnthropicClient } from '../lib/anthropic';
 import { llmGenerateWithMeta } from '../lib/llm';
 import { smartRetrieval, type RetrievedDoc } from './rag-search';
-import { cruzarCitas } from './citas-legales';
+import { cruzarCitas, clavesDeReferencia, parseReferencia, clavesIguales } from './citas-legales';
 import { prisma } from '../lib/prisma';
 import { logger } from '../lib/logger';
 
@@ -296,14 +296,39 @@ export function calcularConsultHash(p: {
     .digest('hex');
 }
 
+/** Docs ACTIVOS del corpus cuya clave coincide con alguna de las citas dadas
+ *  (excluyendo ids ya recuperados). El corpus es pequeño (~50 refs): se
+ *  cruzan en memoria con el mismo matcher de clave normalizada. */
+export async function buscarDocsPorCita(citas: string[], excluirIds: string[]): Promise<RetrievedDoc[]> {
+  const claves = citas.map(parseReferencia).filter((c): c is NonNullable<typeof c> => c !== null);
+  if (claves.length === 0) return [];
+  const refs = await prisma.legalDocument.findMany({
+    where: { isActive: true, id: { notIn: excluirIds } },
+    select: { id: true, reference: true },
+  });
+  const ids = refs
+    .filter(r => clavesDeReferencia(r.reference).some(cd => claves.some(c => clavesIguales(c, cd))))
+    .map(r => r.id);
+  if (ids.length === 0) return [];
+  const filas = await prisma.legalDocument.findMany({ where: { id: { in: ids } } });
+  return filas.map(d => ({
+    id: d.id, type: d.type, claseTexto: d.claseTexto, source: d.source, title: d.title, reference: d.reference,
+    content: d.content, excerpt: d.content.slice(0, 300), officialUrl: d.officialUrl,
+    effectiveDate: d.effectiveDate ? d.effectiveDate.toISOString() : null, version: d.version ?? undefined,
+    topics: d.topics, keywords: d.keywords, fractionRefs: d.fractionRefs,
+    similarity: 0, keywordScore: 0, finalScore: 0,
+  }) as RetrievedDoc);
+}
+
 export async function askCopilotWithRAG(
   input: AskCopilotInput,
   // SOLO tests: inyectar generador/retrieval para simular respuestas con
   // citas no respaldadas sin gastar LLM real ni depender del corpus vivo.
-  depsOverride: { generar?: typeof llmGenerateWithMeta; recuperar?: typeof smartRetrieval } = {},
+  depsOverride: { generar?: typeof llmGenerateWithMeta; recuperar?: typeof smartRetrieval; buscarPorCita?: typeof buscarDocsPorCita } = {},
 ): Promise<CopilotRAGResult> {
   const generar = depsOverride.generar ?? llmGenerateWithMeta;
   const recuperar = depsOverride.recuperar ?? smartRetrieval;
+  const buscarPorCita = depsOverride.buscarPorCita ?? buscarDocsPorCita;
   const t0 = Date.now();
 
   // 1. Smart retrieval: topic filter + híbrido + Haiku reranker. Gate
@@ -315,7 +340,7 @@ export async function askCopilotWithRAG(
     tenantId: input.tenantId,
     userId: input.userId,
   });
-  const docs = retrieval.docs as RetrievedDoc[];
+  let docs = retrieval.docs as RetrievedDoc[];
   logger.info(`Copilot retrieval: ${docs.length} docs (avg ${retrieval.averageRelevance}/100, topics: ${retrieval.detectedTopics.join(',') || 'none'}, shouldRespond=${retrieval.shouldRespond})`, {
     action: 'copilot_retrieval',
     tenantId: input.tenantId,
@@ -333,11 +358,11 @@ export async function askCopilotWithRAG(
   // inyectamos una instrucción dura para que el modelo responda con la
   // frase canónica "no tengo información verificada" en lugar de
   // intentar contestar con baja evidencia.
-  const contextBlock = buildContextBlock(docs);
+  let contextBlock = buildContextBlock(docs);
   const noInfoDirective = retrieval.shouldRespond
     ? ''
     : '\n[INSTRUCCIÓN OBLIGATORIA] No hay documentos suficientemente relevantes para responder esta pregunta con confianza. Responde EXACTAMENTE: "No tengo información verificada al respecto en mi base de documentos legales. Te sugiero consultar el portal del SAT o a un agente aduanal certificado." NO intentes contestar de memoria. NO inventes citas.\n';
-  const userMsg = `${input.question}\n${contextBlock}${noInfoDirective}`;
+  let userMsg = `${input.question}\n${contextBlock}${noInfoDirective}`;
 
   // 3. Generar respuesta
   const generation = await generar({
@@ -366,6 +391,22 @@ export async function askCopilotWithRAG(
     });
 
     if (modo === 'estricta') {
+      // Recuperación POR CITA (27-ago): si una cita no respaldada apunta a un
+      // doc que SÍ existe en el corpus pero el retrieval no trajo (prod: "Art.
+      // 86-A LA" para permisos de textiles), se añade ese doc al contexto y la
+      // regeneración puede sostener la cita con texto verificable. Un precepto
+      // que no está en el corpus sigue el camino de siempre (regenerar/degradar).
+      const porCita = await buscarPorCita(cruce.noRespaldadas, docs.map(d => d.id));
+      if (porCita.length > 0) {
+        docs = [...docs, ...porCita];
+        contextBlock = buildContextBlock(docs);
+        userMsg = `${input.question}\n${contextBlock}${noInfoDirective}`;
+        cruce = cruzarCitas(answer, docs.map(d => d.reference));
+        logger.info(`Copilot recuperó ${porCita.length} doc(s) por cita: ${porCita.map(d => d.reference).join('; ')}`, {
+          action: 'copilot_retrieval_por_cita', tenantId: input.tenantId, userId: input.userId,
+          metadata: { referencias: porCita.map(d => d.reference), quedanNoRespaldadas: cruce.noRespaldadas },
+        });
+      }
       // Intento ÚNICO de regeneración con instrucción correctiva.
       regenerada = true;
       const correccion = `\n[CORRECCIÓN OBLIGATORIA] Tu respuesta anterior citó referencias que NO están en el contexto verificado: ${cruce.noRespaldadas.join('; ')}. Reescribe la respuesta ELIMINANDO esas referencias o sustituyéndolas por "no tengo este dato verificado; consúltalo en el DOF". NO agregues citas nuevas que no estén en el contexto.\n`;

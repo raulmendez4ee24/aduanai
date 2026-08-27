@@ -73,7 +73,12 @@ export function parseReferencia(texto: string): ClaveCita | null {
   m = /(?:^(TMEC|T-MEC)\s+)?Anexo\s+(\d+(?:\.\d+)*(?:-[A-Z])?)\s*([A-Za-z].*)?$/i.exec(t);
   if (m) {
     // "TMEC Anexo 4-B" (prefijo, así nombra el corpus) ≡ "Anexo 4-B del T-MEC".
-    const cuerpo = m[1] ? 'TMEC' : (normalizarCuerpo(m[3]) ?? 'RGCE');
+    // "Anexo 1-A trámites N/LA": lo que sigue al número y no es un cuerpo
+    // conocido es un descriptor, no un cuerpo → RGCE (los anexos numerados
+    // del ámbito aduanero son de las RGCE; los del T-MEC llevan prefijo).
+    const bruto = normalizarCuerpo(m[3]);
+    const conocido = bruto !== null && Object.values(CUERPOS).includes(bruto);
+    const cuerpo = m[1] ? 'TMEC' : (conocido ? bruto : 'RGCE');
     return { tipo: 'anexo', numero: normalizarNumero(m[2]!), cuerpo };
   }
 
@@ -244,6 +249,20 @@ export function clavesDeReferencia(reference: string): ClaveCita[] {
     if (directa) { claves.push(directa); continue; }
     const pre = /^(TMEC|T-MEC|RGCE(?:\s+\d{4})?)\s+(.+)$/i.exec(t);
     if (pre) t = `${pre[2]} ${pre[1]}`;
+    // Rango "Reglas 1.3.2 a 1.3.7 RGCE 2026" → una clave por regla del tramo
+    // (mismo prefijo, último segmento numérico).
+    const rango = /^Reglas\s+(\d+(?:\.\d+)+)\s+a\s+(\d+(?:\.\d+)+)\s*(.*)$/i.exec(t);
+    if (rango) {
+      const cuerpo = rango[3] ? normalizarCuerpo(rango[3]) ?? 'RGCE' : 'RGCE';
+      const ini = rango[1]!.split('.'), fin = rango[2]!.split('.');
+      const prefijo = ini.slice(0, -1).join('.');
+      if (ini.length === fin.length && prefijo === fin.slice(0, -1).join('.')) {
+        for (let n = Number(ini.at(-1)); n <= Number(fin.at(-1)); n++) claves.push({ tipo: 'regla', numero: `${prefijo}.${n}`, cuerpo });
+      } else {
+        claves.push({ tipo: 'regla', numero: normalizarNumero(rango[1]!), cuerpo }, { tipo: 'regla', numero: normalizarNumero(rango[2]!), cuerpo });
+      }
+      continue;
+    }
     // Lista "Reglas 7.1.1, 7.1.2 y 7.1.3 RGCE 2026" → una clave por regla
     const lista = /^Reglas\s+((?:\d+(?:\.\d+)+)(?:\s*(?:,|\sy)\s*\d+(?:\.\d+)+)+)\s*(.*)$/i.exec(t);
     if (lista) {

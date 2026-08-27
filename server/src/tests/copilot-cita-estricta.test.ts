@@ -140,6 +140,12 @@ async function main() {
     assert.equal(cruzarCitas('Art. 28 LIVA', ['Art. 28-A LIVA']).noRespaldadas.length, 1);
   });
 
+  await test('matcher: "Reglas 1.3.2 a 1.3.7 RGCE 2026 · Anexo 1-A trámites N/LA" → rango de reglas + Anexo 1-A RGCE', () => {
+    const r = cruzarCitas('Regla 1.3.5 RGCE 2026 y Anexo 1-A RGCE.', ['Reglas 1.3.2 a 1.3.7 RGCE 2026 · Anexo 1-A trámites N/LA']);
+    assert.deepEqual(r.noRespaldadas, []);
+    assert.deepEqual(cruzarCitas('Regla 1.3.8 RGCE 2026.', ['Reglas 1.3.2 a 1.3.7 RGCE 2026']).noRespaldadas, ['Regla 1.3.8 RGCE 2026']);
+  });
+
   await test('cruzarCitas: cita sin cuerpo — único match respalda, ambigüedad NO', () => {
     const unico = cruzarCitas('Ver el Art. 54.', ['Art. 54 LA', 'Art. 27 LIVA']);
     assert.equal(unico.noRespaldadas.length, 0);
@@ -186,6 +192,36 @@ async function main() {
   // ── 2. Política estricta ──
   const RESPUESTA_MALA = 'Aplica multa conforme al Art. 199 LFT y el Art. 54 LA. ⚖️ Verifica en DOF.';
   const RESPUESTA_BUENA = 'Procede conforme al Art. 54 LA. ⚖️ Verifica en DOF.';
+
+  await test('estricta: cita a un doc que EXISTE en el corpus pero no fue recuperado → se recupera por cita y NO se degrada', async () => {
+    // Prod 27-ago: "¿Necesito permiso para importar textiles?" citaba Art. 86-A LA
+    // (en corpus, no recuperado) → regeneración fallaba → abstención.
+    process.env.COPILOT_CITA_ESTRICTA = 'estricta';
+    const gen = generadorSecuencia([
+      'Conforme al Art. 86-A LA se requiere padrón.',   // 1ª: cita no recuperada
+      'Conforme al Art. 86-A LA se requiere padrón.',   // regeneración (ya con el doc en contexto)
+    ]);
+    const buscadas: string[] = [];
+    const r = await askCopilotWithRAG(
+      { question: '¿Necesito permiso para importar textiles?', tenantId: TEST_TENANT, userId: TEST_USER },
+      { generar: gen.fn, recuperar: retrievalFake([doc('Regla 1.3.2 RGCE 2026', 'r1')]),
+        buscarPorCita: async (citas: string[]) => { buscadas.push(...citas); return [doc('Art. 28-A párr. final LIVA · Art. 86-A fr. I LA', 'd86')]; } },
+    );
+    assert.deepEqual(buscadas, ['Art. 86-A LA']);
+    assert.equal(r.citaEstricta?.degradada, false, 'no debe degradar: el doc existe y se añadió al contexto');
+    assert.ok(gen.llamadas[1]!.includes('Art. 86-A fr. I LA'), 'la regeneración debe llevar el doc recuperado por cita en el contexto');
+    assert.ok(r.citations.some(c => c.reference.includes('86-A')));
+  });
+
+  await test('estricta: cita a un precepto que NO existe en el corpus → regeneración y degradación como antes', async () => {
+    process.env.COPILOT_CITA_ESTRICTA = 'estricta';
+    const gen = generadorSecuencia(['Según el Art. 999 LA.', 'Según el Art. 999 LA.']);
+    const r = await askCopilotWithRAG(
+      { question: 'x', tenantId: TEST_TENANT, userId: TEST_USER },
+      { generar: gen.fn, recuperar: retrievalFake(), buscarPorCita: async () => [] },
+    );
+    assert.equal(r.citaEstricta?.degradada, true);
+  });
 
   await test('estricta: regeneración corrige → se muestra la regenerada (no degradada)', async () => {
     const { r, llamadas } = await correr([RESPUESTA_MALA, RESPUESTA_BUENA], 'estricta');
