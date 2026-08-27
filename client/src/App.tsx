@@ -17,7 +17,7 @@ import { ClassifierPage } from './pages/Classifier'
 import { QuoterPage } from './pages/Quoter'
 import { CopilotPage } from './pages/Copilot'
 import { HistoryPage } from './pages/History'
-import { OperationsPage } from './pages/Operations'
+import { ExpedientesPage } from './pages/Expedientes' // ola2: fusiona Operations + ExpedientesAI
 import { AlertsPage } from './pages/Alerts'
 import { AnalyticsPage } from './pages/Analytics'
 import { InventoryPage } from './pages/Inventory'
@@ -76,7 +76,6 @@ import { AdminRenovacionesPage } from './pages/Admin/AdminRenovaciones'
 import { AdminMetricasPage } from './pages/Admin/AdminMetricas'
 import { AdminDemoPage } from './pages/Admin/AdminDemo'
 import { AdminAuditPage } from './pages/Admin/AdminAudit'
-import { ExpedientesAIPage } from './pages/ExpedientesAI'
 import { CotizacionImprimirPage } from './pages/CotizacionImprimir' // Ola 2 — cotizador
 import { OnboardingWizard } from './components/OnboardingWizard'
 import { api } from './lib/api'
@@ -230,8 +229,9 @@ export function App() {
         <Route path="/cotizador" element={<QuoterPage />} />
         <Route path="/copilot" element={<CopilotPage />} />
         <Route path="/historial" element={<HistoryPage />} />
-        <Route path="/expediente" element={<OperationsPage />} />
-        <Route path="/expediente-ia" element={<ExpedientesAIPage />} />
+        <Route path="/expediente" element={<ExpedientesPage />} />
+        <Route path="/expediente/:id" element={<ExpedientesPage />} />
+        <Route path="/expediente-ia" element={<Navigate to="/expediente?tab=documentos" replace />} />
         <Route path="/prevalidador" element={<PreValidatorPage />} />
         <Route path="/alertas" element={<AlertsPage />} />
         <Route path="/analytics" element={<AnalyticsPage />} />

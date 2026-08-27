@@ -1,11 +1,15 @@
-import { useEffect, useState } from 'react'
-import { BookOpen, Search, RefreshCw, Trash2, ExternalLink, BarChart3 } from 'lucide-react'
+import { useEffect, useRef, useState } from 'react'
+import { BookOpen, Search, RefreshCw, Trash2, ExternalLink, BarChart3, Upload, Download, Gavel } from 'lucide-react'
 import { api } from '../../lib/api'
 import type { LegalDocumentMeta, LegalDocsStats, CopilotQuality } from '../../lib/api'
+import {
+  legalDocsImportar, precedentsImportar, precedentsEstado, descargarConToken, archivoABase64,
+  PLANTILLA_LEGAL_DOCS_URL, PLANTILLA_PRECEDENTES_URL, type ResultadoImportacion, type EstadoPrecedentes,
+} from '../../lib/api/ola2'
 
 const GLASS = 'bg-white/70 backdrop-blur-xl border border-white/50 shadow-[0_8px_30px_rgb(0,0,0,0.04)]'
 
-type Tab = 'docs' | 'stats' | 'quality'
+type Tab = 'docs' | 'stats' | 'quality' | 'importar'
 
 export function AdminLegalDocsPage() {
   const [tab, setTab] = useState<Tab>('docs')
@@ -18,9 +22,9 @@ export function AdminLegalDocsPage() {
         </div>
         <p className="text-[12px] text-slate-500 mb-4">Corpus que el Copilot usa para responder con citas verificables. Sin RAG, el LLM alucina artículos.</p>
         <div className="flex gap-2 flex-wrap">
-          {(['docs', 'stats', 'quality'] as Tab[]).map(t => (
+          {(['docs', 'stats', 'quality', 'importar'] as Tab[]).map(t => (
             <button key={t} onClick={() => setTab(t)} className={`text-[12px] font-medium px-3 py-1.5 rounded-full transition ${tab === t ? 'bg-slate-900 text-white' : 'bg-white border border-slate-200 text-slate-700 hover:bg-slate-50'}`}>
-              {t === 'docs' ? 'Documentos' : t === 'stats' ? 'Estadísticas' : 'Calidad Copilot'}
+              {t === 'docs' ? 'Documentos' : t === 'stats' ? 'Estadísticas' : t === 'quality' ? 'Calidad Copilot' : 'Importar corpus / precedentes'}
             </button>
           ))}
         </div>
@@ -28,6 +32,114 @@ export function AdminLegalDocsPage() {
       {tab === 'docs' && <DocsTab/>}
       {tab === 'stats' && <StatsTab/>}
       {tab === 'quality' && <QualityTab/>}
+      {tab === 'importar' && <ImportarTab/>}
+    </div>
+  )
+}
+
+// ── Ola 2: pipeline de carga (xlsx/csv/json) con reporte por fila ────────
+function ImportarTab() {
+  const [tipo, setTipo] = useState<'legal-docs' | 'precedents'>('legal-docs')
+  const [busy, setBusy] = useState(false)
+  const [res, setRes] = useState<ResultadoImportacion | null>(null)
+  const [aviso, setAviso] = useState<string | null>(null)
+  const [material, setMaterial] = useState<{ material: string; motivo: string }[]>([])
+  const [err, setErr] = useState('')
+  const [estadoPrec, setEstadoPrec] = useState<EstadoPrecedentes | null>(null)
+  const input = useRef<HTMLInputElement>(null)
+  useEffect(() => { precedentsEstado().then(r => setEstadoPrec(r.data)).catch(() => setEstadoPrec(null)) }, [res])
+
+  async function subir(file: File) {
+    setBusy(true); setErr(''); setRes(null); setAviso(null)
+    try {
+      const base64 = await archivoABase64(file)
+      if (tipo === 'legal-docs') { const r = await legalDocsImportar(file.name, base64); setRes(r.data); setMaterial(r.materialPendiente) }
+      else { const r = await precedentsImportar(file.name, base64); setRes(r.data); setAviso(r.aviso) }
+    } catch (e) { setErr(e instanceof Error ? e.message : 'Error al importar') }
+    setBusy(false)
+  }
+  const plantilla = tipo === 'legal-docs' ? PLANTILLA_LEGAL_DOCS_URL : PLANTILLA_PRECEDENTES_URL
+  const ESTADO_CLS: Record<string, string> = { creado: 'bg-emerald-50 text-emerald-700', actualizado: 'bg-sky-50 text-sky-700', duplicado: 'bg-slate-100 text-slate-600', rechazado: 'bg-rose-50 text-rose-700' }
+  return (
+    <div className="space-y-3">
+      <div className={`${GLASS} rounded-2xl p-5 space-y-3`}>
+        <div className="flex gap-2 flex-wrap items-center">
+          {(['legal-docs', 'precedents'] as const).map(t => (
+            <button key={t} onClick={() => { setTipo(t); setRes(null) }} className={`text-[12px] font-medium px-3 py-1.5 rounded-full flex items-center gap-1 ${tipo === t ? 'bg-slate-900 text-white' : 'bg-white border border-slate-200 text-slate-700'}`}>
+              {t === 'legal-docs' ? <><BookOpen className="w-3 h-3"/> Corpus legal (LegalDocument)</> : <><Gavel className="w-3 h-3"/> Precedentes (tesis / criterios)</>}
+            </button>
+          ))}
+          <button onClick={() => descargarConToken(plantilla, tipo === 'legal-docs' ? 'plantilla-corpus-legal.xlsx' : 'plantilla-precedentes.xlsx').catch(e => setErr(e.message))} className="ml-auto text-[11px] bg-white border border-slate-200 text-slate-700 px-3 py-1.5 rounded-lg flex items-center gap-1 hover:bg-slate-50">
+            <Download className="w-3 h-3"/> Plantilla .xlsx
+          </button>
+          <input ref={input} type="file" className="hidden" accept=".xlsx,.xls,.csv,.json" onChange={e => e.target.files?.[0] && subir(e.target.files[0])} />
+          <button onClick={() => input.current?.click()} disabled={busy} className="text-[11px] bg-violet-500 hover:bg-violet-600 disabled:opacity-50 text-white px-3 py-1.5 rounded-lg flex items-center gap-1">
+            <Upload className={`w-3 h-3 ${busy ? 'animate-pulse' : ''}`}/> {busy ? 'Importando…' : 'Importar archivo'}
+          </button>
+        </div>
+        <div className="text-[11px] text-slate-600 leading-relaxed">
+          {tipo === 'legal-docs' ? (
+            <>Columnas: <code>reference*</code> (debe obtener clave: "Art. 54 LA", "Regla 7.1.6 RGCE 2026", "Anexo 22 RGCE"), <code>title*</code>, <code>source*</code>, <code>content*</code>, <code>type</code>, <code>claseTexto</code> (texto_integro | resumen), <code>version</code>, <code>fechaCotejo</code> (YYYY-MM-DD), <code>officialUrl</code>, <code>effectiveDate</code>, <code>topics</code>, <code>keywords</code>, <code>fractionRefs</code>. <strong>fechaCotejo + officialUrl son obligatorias para marcar verificado</strong>; sin ellas la fila entra como resumen no verificado. Dedupe por hash del contenido. El embedding se rechaza si el proveedor cayó a un fallback de otra dimensión (no se envenena el corpus).</>
+          ) : (
+            <>Columnas: <code>reference*</code> (sin placeholders "XX"), <code>title*</code>, <code>type*</code> (TFJA | SCJN | CRITERIO_SAT | CONSULTA_SAT | OMA | RESOLUCION_UPCI), <code>topic*</code>, <code>summary*</code>, <code>ruling*</code>, <code>reasoning*</code>, <code>yearPublished*</code>, <code>officialUrl</code>, <code>fechaCotejo</code>, <code>applicability</code>, <code>fractionCodes</code>, <code>chapterCodes</code>, <code>litigated</code>. Solo las filas con officialUrl + fechaCotejo cuentan como verificadas; y NADA se sirve al Clasificador/Copilot mientras <code>PRECEDENT_CORPUS_VERIFIED=false</code>.</>
+          )}
+        </div>
+        <div className="bg-amber-50 border border-amber-200 rounded-xl p-3 text-[11px] text-amber-900">
+          <p className="font-semibold mb-1">Material pendiente de licencia / fuente oficial (no se carga contenido)</p>
+          <ul className="list-disc ml-4 space-y-0.5">
+            {(material.length ? material : [
+              { material: 'Notas Explicativas del Sistema Armonizado', motivo: 'Licencia OMA/SE — pendiente de fuente oficial con permiso de uso.' },
+              { material: 'RGCE 2026 íntegras (texto completo)', motivo: 'Carga verbatim por regla desde el DOF; este importador acepta reglas sueltas con fechaCotejo y officialUrl.' },
+            ]).map(m => <li key={m.material}><strong>{m.material}</strong>: {m.motivo}</li>)}
+          </ul>
+        </div>
+        {err && <p className="text-[12px] text-rose-700 bg-rose-50 rounded-lg px-3 py-2">{err}</p>}
+        {aviso && <p className="text-[12px] text-amber-800 bg-amber-50 rounded-lg px-3 py-2">{aviso}</p>}
+      </div>
+
+      {res && (
+        <div className={`${GLASS} rounded-2xl p-5`}>
+          <div className="grid grid-cols-3 md:grid-cols-6 gap-2 mb-3">
+            {([['Filas', res.total], ['Creadas', res.creados], ['Actualizadas', res.actualizados], ['Duplicadas', res.duplicados], ['Rechazadas', res.rechazados], ['Verificadas', res.verificados]] as const).map(([l, v]) => (
+              <div key={l} className="bg-white/60 rounded-xl p-2 text-center"><p className="text-[10px] uppercase text-slate-500">{l}</p><p className="text-[18px] font-bold text-slate-900">{v}</p></div>
+            ))}
+          </div>
+          <div className="space-y-1 max-h-[420px] overflow-y-auto">
+            {res.filas.map(f => (
+              <div key={f.indice} className="rounded-lg border border-slate-200 bg-white/60 px-3 py-2 text-[11px]">
+                <div className="flex items-center gap-2 flex-wrap">
+                  <span className="font-mono text-slate-500">#{f.indice + 1}</span>
+                  <span className="font-mono font-semibold text-slate-800">{f.reference || '(sin reference)'}</span>
+                  <span className={`px-1.5 py-0.5 rounded font-bold uppercase text-[9px] ${ESTADO_CLS[f.estado]}`}>{f.estado}</span>
+                  {f.estado !== 'rechazado' && <span className={`px-1.5 py-0.5 rounded text-[9px] font-bold ${f.verificado ? 'bg-emerald-100 text-emerald-800' : 'bg-amber-100 text-amber-800'}`}>{f.verificado ? 'verificado' : 'NO verificado'}</span>}
+                </div>
+                {f.errores.length > 0 && <p className="text-rose-700 mt-0.5">{f.errores.join(' · ')}</p>}
+                {f.avisos.length > 0 && <p className="text-amber-700 mt-0.5">{f.avisos.join(' · ')}</p>}
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {tipo === 'precedents' && estadoPrec && (
+        <div className={`${GLASS} rounded-2xl p-5`}>
+          <p className="text-[12px] font-semibold text-slate-700 mb-2 flex items-center gap-2">
+            Estado del corpus de precedentes
+            <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded ${estadoPrec.corpusVerificado ? 'bg-emerald-100 text-emerald-800' : 'bg-rose-100 text-rose-800'}`}>{estadoPrec.corpusVerificado ? 'SERVIDO' : 'APAGADO (PRECEDENT_CORPUS_VERIFIED=false)'}</span>
+          </p>
+          <p className="text-[11px] text-slate-600 mb-2">{estadoPrec.total} fila(s) · {estadoPrec.conFuente} con URL de fuente oficial · {estadoPrec.sinFuente} sin fuente (no citables)</p>
+          <ul className="space-y-1 max-h-[300px] overflow-y-auto">
+            {estadoPrec.items.map(p => (
+              <li key={p.id} className="text-[11px] flex items-center gap-2 flex-wrap border-b border-slate-100 py-1">
+                <span className="text-[9px] font-bold uppercase px-1.5 py-0.5 rounded bg-slate-100 text-slate-700">{p.type}</span>
+                <span className="font-mono text-slate-800">{p.reference}</span>
+                <span className="text-slate-600 truncate flex-1">{p.title}</span>
+                <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded ${p.tieneFuente ? 'bg-emerald-100 text-emerald-800' : 'bg-rose-100 text-rose-800'}`}>{p.tieneFuente ? `fuente${p.cotejo ? ` · cotejo ${p.cotejo}` : ''}` : 'sin fuente'}</span>
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
     </div>
   )
 }

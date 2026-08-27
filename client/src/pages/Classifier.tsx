@@ -28,6 +28,7 @@ import { AdjuntosClasificacion } from '../components/clasificador/AdjuntosClasif
 import { HermanasClasificacion } from '../components/clasificador/HermanasClasificacion'
 // ── OPERACIÓN 2026-08 ── el Clasificador consulta el catálogo maestro antes de correr
 import { catalogoApi, formatearFraccion, fechaCorta } from '../lib/api/catalogo'
+import type { PrecedentesPorFraccion } from '../lib/api/ola2' // ola2/copilot-risk-expedientes
 
 // ════════════════════════════════════════════════════════════════════════
 // DatoLegalVerificado — el tipo IDEAL contra el que está construida la UI.
@@ -773,6 +774,44 @@ export function ClassifierPage() {
           </ul>
         </SeccionExpediente>
       )}
+
+      {/* Precedentes por fracción (Ola 2): estado honesto — con el corpus apagado dice "sin precedentes verificados". */}
+      {(() => {
+        const pf = (resultado as { precedentes?: PrecedentesPorFraccion }).precedentes
+        if (!pf) return null
+        return (
+          <SeccionExpediente titulo="Criterios y tesis de esta fracción">
+            {pf.verificados > 0 ? (
+              <>
+                <p className="text-sm text-tinta">Esta fracción tiene <strong>{pf.criterios}</strong> criterio(s) y <strong>{pf.tesis}</strong> tesis con fuente oficial — léelos antes de firmar.</p>
+                <ul className="mt-3 divide-y divide-linea">
+                  {pf.items.slice(0, 8).map(it => (
+                    <li key={it.id} className="py-2">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <Badge tono="petroleo">{it.type}</Badge>
+                        <span className="font-sello-mono text-13 text-tinta">{it.reference}</span>
+                        <span className="text-13 text-tinta-suave">{it.yearPublished}</span>
+                        {it.litigated && <Badge tono="ambar">litigio</Badge>}
+                        {it.source && <a href={it.source} target="_blank" rel="noreferrer" className="text-13 text-petroleo underline ml-auto">fuente oficial</a>}
+                      </div>
+                      <p className="text-sm text-tinta mt-1">{it.title}</p>
+                      <p className="text-13 text-tinta-suave mt-0.5">{it.ruling}</p>
+                    </li>
+                  ))}
+                </ul>
+              </>
+            ) : (
+              <div className="flex items-start gap-2 flex-wrap">
+                <Badge tono="ambar">sin precedentes verificados cargados</Badge>
+                <p className="text-sm text-tinta-suave leading-relaxed w-full">{pf.mensaje}</p>
+                {!pf.corpusVerificado && (
+                  <p className="text-13 text-tinta-suave w-full">El corpus de precedentes está en cotejo contra TFJA/SAT: nada se muestra hasta tener fuente oficial. Si tienes criterios o tesis verificados, el administrador puede cargarlos en Documentos legales → Importar.</p>
+                )}
+              </div>
+            )}
+          </SeccionExpediente>
+        )
+      })()}
 
       {/* Advertencias */}
       {expediente.advertencias.length > 0 && (

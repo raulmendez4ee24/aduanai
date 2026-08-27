@@ -1,7 +1,20 @@
 import { useState, useRef, useEffect } from 'react'
 import { api } from '../lib/api'
 import type { CopilotCitation } from '../lib/api'
-import { Bot, Send, User, ExternalLink, ThumbsUp, ThumbsDown, Scale, AlertTriangle } from 'lucide-react'
+import { Bot, Send, User, ExternalLink, ThumbsUp, ThumbsDown, Scale, AlertTriangle, Database } from 'lucide-react'
+import { useEstadoPersistente } from '../hooks/useEstadoPersistente'
+import { useClienteActivo } from '../hooks/useClienteActivo'
+
+export const GUIA_MODULO = {
+  titulo: 'Copilot regulatorio',
+  pasos: [
+    'Pregunta en lenguaje natural; la respuesta se construye SOLO con el corpus legal verificado y muestra las fuentes que la respaldan.',
+    'Con un cliente activo en el selector global, el Copilot añade la sección "Datos de tu operación": saldos de temporales por clave (IN/AF), vencimientos, certificación IVA/IEPS, IMMEX y padrones — etiquetados como datos del sistema, nunca como fuente legal.',
+    'Si la respuesta citaba algo que no está en el corpus, se retira y se muestra la abstención estándar (modo estricto).',
+    'Califica cada respuesta (útil / no útil): alimenta la calidad del corpus.',
+    'La conversación se conserva al cambiar de módulo; usa "Nueva conversación" para empezar de cero.',
+  ],
+}
 
 const GLASS = 'bg-white/70 backdrop-blur-xl border border-white/50 shadow-[0_8px_30px_rgb(0,0,0,0.04)]'
 
@@ -17,7 +30,11 @@ interface Message {
   consultHash?: string;
   hallucinationWarning?: { count: number; refs: string[] } | null;
   feedback?: 'helpful' | 'unhelpful' | null;
+  /** Ola 2: resumen del contexto operativo del tenant/cliente inyectado al prompt. */
+  contextoOperativo?: { temporalesConSaldo: number; clienteRfc: string | null; generadoAt: string } | null;
 }
+
+interface EstadoCopilot { messages: Message[]; input: string; conversationId?: string }
 
 
 // Re-verificación 24-ago (cosmético): las respuestas del Copilot llegan con
@@ -53,10 +70,14 @@ function MarkdownLigero({ texto }: { texto: string }) {
 }
 
 export function CopilotPage() {
-  const [messages, setMessages] = useState<Message[]>([])
-  const [input, setInput] = useState('')
+  // Ola 2: estado persistente (la conversación sobrevive al cambio de módulo).
+  const [estado, setEstado, resetEstado] = useEstadoPersistente<EstadoCopilot>('copilot', { messages: [], input: '' })
+  const { messages, input, conversationId } = estado
+  const setMessages = (v: Message[] | ((prev: Message[]) => Message[])) => setEstado(e => ({ ...e, messages: typeof v === 'function' ? v(e.messages) : v }))
+  const setInput = (v: string) => setEstado(e => ({ ...e, input: v }))
+  const setConversationId = (v: string | undefined) => setEstado(e => ({ ...e, conversationId: v }))
+  const { clienteId } = useClienteActivo()
   const [loading, setLoading] = useState(false)
-  const [conversationId, setConversationId] = useState<string>()
   const bottomRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => { bottomRef.current?.scrollIntoView({ behavior: 'smooth' }) }, [messages])
@@ -81,6 +102,7 @@ export function CopilotPage() {
         confidence: res.data.confidence,
         consultHash: res.data.consultHash,
         hallucinationWarning: res.data.hallucinationWarning,
+        contextoOperativo: (res.data as { contextoOperativo?: Message['contextoOperativo'] }).contextoOperativo ?? null,
       }])
     } catch (e) {
       setMessages(prev => [...prev, {
@@ -119,8 +141,13 @@ export function CopilotPage() {
           </div>
           <div className="flex-1">
             <h1 className="text-[15px] font-bold text-slate-900">Copilot Regulatorio</h1>
-            <p className="text-[11px] text-slate-500">Pregunta sobre normatividad aduanera mexicana</p>
+            <p className="text-[11px] text-slate-500">Pregunta sobre normatividad aduanera mexicana{clienteId ? ' · responde en el contexto del cliente activo' : ''}</p>
           </div>
+          {messages.length > 0 && (
+            <button onClick={() => { if (confirm('¿Empezar una conversación nueva?')) resetEstado() }} className="text-[11px] font-semibold text-slate-600 bg-white/60 border border-slate-200 px-3 py-1.5 rounded-full hover:bg-white">
+              Nueva conversación
+            </button>
+          )}
         </div>
         {/* Disclaimer permanente */}
         <div className="bg-amber-50 border-b border-amber-100 px-6 py-2">
@@ -184,6 +211,11 @@ export function CopilotPage() {
 
                 {/* Citas, documentos consultados y feedback (Fase 3a: las citas
                     son SOLO las que respaldan el texto — puede no haber) */}
+                {msg.role === 'assistant' && !msg.error && msg.contextoOperativo && (
+                  <p className="mt-2 text-[10px] text-teal-800 bg-teal-50 border border-teal-100 rounded-lg px-2 py-1 flex items-center gap-1.5">
+                    <Database className="w-3 h-3 shrink-0" /> Respuesta con datos de tu operación{msg.contextoOperativo.clienteRfc ? ` (RFC ${msg.contextoOperativo.clienteRfc})` : ''}: {msg.contextoOperativo.temporalesConSaldo} pedimento(s) temporal(es) con saldo. Estos datos son del sistema, no fuente legal.
+                  </p>
+                )}
                 {msg.role === 'assistant' && !msg.error && (msg.citations || msg.documentosConsultados || msg.consultHash) && (
                   <div className="mt-3 pt-3 border-t border-slate-200/50">
                     {msg.citaEstricta?.degradada && (
