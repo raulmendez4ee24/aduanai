@@ -17,6 +17,12 @@ function prueba(nombre: string, fn: () => void) {
   catch (e) { falladas++; console.error(`  ✗ ${nombre}:`, e instanceof Error ? e.message : e); }
 }
 
+async function conEstrictoAsync<T>(fn: () => Promise<T>): Promise<T> {
+  const antes = process.env.TENANT_GUARD_STRICT;
+  process.env.TENANT_GUARD_STRICT = '1';
+  try { return await fn(); } finally { if (antes === undefined) delete process.env.TENANT_GUARD_STRICT; else process.env.TENANT_GUARD_STRICT = antes; }
+}
+
 function conEstricto<T>(fn: () => T): T {
   const antes = process.env.TENANT_GUARD_STRICT;
   process.env.TENANT_GUARD_STRICT = '1';
@@ -149,5 +155,25 @@ prueba('el reporte que lanza no tumba la consulta (fail-open del reporte, no de 
   }
 });
 
+async function pruebaAsync(nombre: string, fn: () => Promise<void>) {
+  try { await fn(); pasadas++; console.log(`  ✓ ${nombre}`); }
+  catch (e) { falladas++; console.error(`  ✗ ${nombre}:`, e instanceof Error ? e.message : e); }
+}
+(async () => {
+console.log('— tenant-guard: escape hatch con promesas perezosas —');
+await pruebaAsync('sinGuardaDeTenant() cubre PrismaPromise perezosas (la consulta corre al await, fuera del run)', async () => {
+  // Reproduce prod 27-ago: el runner hacía `await sinGuardaDeTenant(() => prisma.x.findUnique(...))`;
+  // la PrismaPromise ejecuta la consulta en .then(), que ocurre FUERA de almacenBypass.run → estricto tumbaba el job.
+  const perezosa = { then(res: (v: string) => void, rej: (e: unknown) => void) {
+    try { verificarAcceso('findUnique', 'ClassificationJob', { id: 'x' }); res('ok'); } catch (e) { rej(e); }
+  } };
+  await conEstrictoAsync(async () => {
+    const v = await sinGuardaDeTenant(() => perezosa as unknown as Promise<string>);
+    assert.equal(v, 'ok');
+  });
+});
+
+
 console.log(`\nResultado: ${pasadas} pruebas pasaron, ${falladas} fallaron.`);
 if (falladas > 0) process.exit(1);
+})();

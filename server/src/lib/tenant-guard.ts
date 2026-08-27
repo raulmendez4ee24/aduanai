@@ -48,7 +48,17 @@ const almacenBypass = new AsyncLocalStorage<boolean>();
 /** Envuelve una operación cross-tenant LEGÍTIMA (auth, login, admin SUPERADMIN,
  *  jobs). Dentro de fn la guarda no aplica — el cruce es deliberado y explícito. */
 export function sinGuardaDeTenant<T>(fn: () => T): T {
-  return almacenBypass.run(true, fn);
+  return almacenBypass.run(true, () => {
+    const r = fn();
+    // PrismaPromise es PEREZOSA: la consulta (y la guarda) corren en .then(),
+    // que ocurre al `await` del llamador — FUERA de este run(). Si fn devuelve
+    // un thenable, se resuelve aquí adentro para que el bypass lo cubra
+    // (incidente prod 27-ago-2026: runner de ClassificationJob en estricto).
+    if (r && typeof (r as { then?: unknown }).then === 'function') {
+      return (async () => await (r as unknown as Promise<unknown>))() as unknown as T;
+    }
+    return r;
+  });
 }
 function bypassActivo(): boolean {
   return almacenBypass.getStore() === true;
