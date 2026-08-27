@@ -40,6 +40,12 @@ export function FiscalPage() {
   const [guarantees, setGuarantees] = useState<GuaranteeRecord[]>([])
   const [cert, setCert] = useState<CertificationProfileRecord | null>(null)
   const [risks, setRisks] = useState<FiscalRiskReport | null>(null)
+  const [riesgosCargando, setRiesgosCargando] = useState(false)
+  const cargarRiesgos = useCallback(async (resumenIA = false) => {
+    setRiesgosCargando(true)
+    try { const r = await api.fiscalRisks({ resumenIA }); setRisks(r.data) } catch (e) { setError(e instanceof Error ? e.message : 'No se pudieron cargar los riesgos') } finally { setRiesgosCargando(false) }
+  }, [])
+  useEffect(() => { if (tab === 'risks' && !risks && !riesgosCargando) void cargarRiesgos(false) }, [tab]) // eslint-disable-line react-hooks/exhaustive-deps
   const [semaforo, setSemaforo] = useState<SemaforoCertificacion | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
@@ -49,12 +55,12 @@ export function FiscalPage() {
 
   useEffect(() => {
     async function load() {
-      const results = await Promise.allSettled([api.fiscalDashboard(), api.fiscalCredits(), api.fiscalGuarantees(), api.fiscalCertification(), api.fiscalRisks(), fiscalApi.semaforo()])
+      // Riesgos NO entran aquí: su resumen IA tarda ~20 s y bloqueaba la pantalla; se cargan al abrir la pestaña.
+      const results = await Promise.allSettled([api.fiscalDashboard(), api.fiscalCredits(), api.fiscalGuarantees(), api.fiscalCertification(), Promise.resolve(null), fiscalApi.semaforo()])
       if (results[0].status === 'fulfilled') setDash(results[0].value.data)
       if (results[1].status === 'fulfilled') setCredits(results[1].value.data)
       if (results[2].status === 'fulfilled') setGuarantees(results[2].value.data)
       if (results[3].status === 'fulfilled') setCert(results[3].value.data)
-      if (results[4].status === 'fulfilled') setRisks(results[4].value.data)
       if (results[5].status === 'fulfilled') setSemaforo(results[5].value.data)
       setLoading(false)
     }
@@ -131,11 +137,14 @@ export function FiscalPage() {
           ) : <EmptyState icono={Shield} titulo="Sin garantías registradas" descripcion="Si tu rubro exige garantía del interés fiscal, regístrala para vigilar su vencimiento." />
         )}
 
-        {!loading && tab === 'risks' && (
+        {!loading && tab === 'risks' && riesgosCargando && <p className="text-13 text-tinta-suave">Cargando riesgos…</p>}
+        {!loading && tab === 'risks' && !riesgosCargando && (
           risks && risks.risks.length > 0 ? (
             <div className="space-y-2">
               <div className="flex gap-2 mb-3">{risks.critical > 0 && <Badge tono="carmin">{risks.critical} críticos</Badge>}{risks.high > 0 && <Badge tono="ambar">{risks.high} altos</Badge>}<Badge>{risks.total} detectados</Badge></div>
-              {risks.aiSummary && <div className="border border-linea rounded-sello p-4 text-sm text-tinta leading-relaxed">{risks.aiSummary}</div>}
+              {risks.aiSummary
+                ? <div className="border border-linea rounded-sello p-4 text-sm text-tinta leading-relaxed">{risks.aiSummary}</div>
+                : <Button variante="secundario" onClick={() => cargarRiesgos(true)}>Generar diagnóstico ejecutivo con IA (≈20 s)</Button>}
               {risks.risks.map((r, i) => (
                 <div key={i} className={`p-4 rounded-sello border ${r.severity === 'critical' ? 'border-carmin/40 bg-carmin-suave' : r.severity === 'high' ? 'border-ambar/40 bg-ambar-suave' : 'border-linea'}`}>
                   <div className="flex items-center gap-2 mb-1"><Badge tono={r.severity === 'critical' ? 'carmin' : r.severity === 'high' ? 'ambar' : 'neutral'}>{r.severity}</Badge><span className="text-13 text-tinta-suave">{r.category}</span></div>

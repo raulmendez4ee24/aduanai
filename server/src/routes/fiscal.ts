@@ -196,7 +196,7 @@ fiscalRouter.get('/dashboard', authenticate, async (req: AuthRequest, res, next)
 
 fiscalRouter.get('/risks', authenticate, async (req: AuthRequest, res, next) => {
   try {
-    const result = await detectFiscalRisks(req.tenantId!);
+    const result = await detectFiscalRisks(req.tenantId!, { conResumenIA: req.query.resumenIA === '1' });
     res.json({ status: 'ok', data: result });
   } catch (err) {
     next(err);

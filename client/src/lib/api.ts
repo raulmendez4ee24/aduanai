@@ -880,8 +880,8 @@ export const api = {
   fiscalCreditDelete: (id: string) =>
     request<{ status: string }>(`/fiscal/credits/${id}`, { method: 'DELETE' }),
 
-  fiscalRisks: () =>
-    request<{ status: string; data: FiscalRiskReport }>('/fiscal/risks'),
+  fiscalRisks: (opts: { resumenIA?: boolean } = {}) =>
+    request<{ status: string; data: FiscalRiskReport }>(`/fiscal/risks${opts.resumenIA ? '?resumenIA=1' : ''}`, undefined, opts.resumenIA ? 60000 : 20000),
 
   fiscalSimulateLoss: () =>
     request<{ status: string; data: CertLossSimulation }>('/fiscal/simulate-loss', { method: 'POST' }),

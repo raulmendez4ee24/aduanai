@@ -155,7 +155,7 @@ export async function getFiscalDashboard(tenantId: string) {
 // IA — Detección de riesgos
 // ============================================
 
-export async function detectFiscalRisks(tenantId: string) {
+export async function detectFiscalRisks(tenantId: string, opts: { conResumenIA?: boolean } = {}) {
   const now = new Date();
   const risks: {
     severity: 'critical' | 'high' | 'medium' | 'low';
@@ -309,9 +309,10 @@ export async function detectFiscalRisks(tenantId: string) {
     });
   }
 
-  // IA summary
+  // IA summary — OPCIONAL: una llamada al LLM (~20 s) dentro de un GET bloqueaba
+  // toda la pantalla de Fiscal (bug 27-ago). Solo con conResumenIA.
   let aiSummary: string | null = null;
-  if (risks.length > 0) {
+  if (opts.conResumenIA && risks.length > 0) {
     try {
       const client = getAnthropicClient();
       const riskData = risks.slice(0, 15).map(r => `[${r.severity.toUpperCase()}] ${r.category}: ${r.message} — ${r.detail}`).join('\n');
