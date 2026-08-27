@@ -13,6 +13,13 @@ import { DEFAULT_WEIGHTS, RULES_VERSION } from '../services/risk-scorer/rules';
 import { listaCriterios } from '../services/risk-scorer/criterios';
 import type { Signals } from '../services/risk-scorer/types';
 import { clienteIdDe, filtroCliente, validarClienteDelTenant } from '../lib/cliente-contexto';
+import crypto from 'crypto';
+import { DISCLAIMER } from '../services/risk-scorer/engine';
+import {
+  siguienteFolio, aplicarEvidencia, resultadoDesdeFila, idsEvidenciables, construirCartera,
+  hashAssessment, renderDictamenHTML, type EvidenciaMap,
+} from '../services/risk-scorer/operativo';
+import { recordAudit } from '../services/audit-service';
 
 const router = Router();
 router.use(authenticate);
@@ -53,6 +60,8 @@ const assessSchema = z.object({
     preferenciaArancelaria: z.boolean().optional(),
   }).default({}),
   declarado: declaradoSchema.default({}),
+  /** Ola 2: expediente 59-V de la operación al que pertenece la evaluación. */
+  operationId: z.string().max(40).optional(),
 });
 
 async function getWeights(): Promise<Record<string, number>> {
@@ -66,7 +75,18 @@ router.post('/assess', async (req: AuthRequest, res: Response) => {
   if (!parsed.success) {
     return res.status(400).json({ status: 'error', message: 'Entrada inválida', issues: parsed.error.issues.slice(0, 5) });
   }
-  const { tipoSujeto, operacion, declarado } = parsed.data;
+  const { tipoSujeto, operacion, declarado, operationId } = parsed.data;
+  // Ola 2: clienteId obligatorio cuando hay cliente activo — un id que no es
+  // del tenant no se ignora en silencio (antes caía a null).
+  const clienteSolicitado = clienteIdDe(req);
+  const clienteId = await validarClienteDelTenant(req.tenantId!, clienteSolicitado);
+  if (clienteSolicitado && !clienteId) {
+    return res.status(400).json({ status: 'error', message: 'El cliente activo no existe o no pertenece a tu empresa' });
+  }
+  if (operationId) {
+    const op = await prisma.operation.findFirst({ where: { id: operationId, tenantId: req.tenantId! }, select: { id: true } });
+    if (!op) return res.status(404).json({ status: 'error', message: 'Operación no encontrada' });
+  }
   const tieneIdentificador = [operacion.fraccion, operacion.importadorRfc, operacion.numeroPedimento]
     .some(valor => typeof valor === 'string' && valor.trim().length > 0);
   if (!tieneIdentificador) {
@@ -91,7 +111,9 @@ router.post('/assess', async (req: AuthRequest, res: Response) => {
     data: {
       tenantId: req.tenantId!,
       userId: req.userId!,
-      clienteId: await validarClienteDelTenant(req.tenantId!, clienteIdDe(req)),
+      clienteId,
+      folio: await siguienteFolio(req.tenantId!),
+      operationId: operationId ?? null,
       input: JSON.parse(JSON.stringify(signals)),
       exposicion: resultado.exposicion,
       escudoPct: resultado.escudoPct,
@@ -101,10 +123,138 @@ router.post('/assess', async (req: AuthRequest, res: Response) => {
       rulesVersion: resultado.rulesVersion,
       pesosSnapshot: weights,
     },
-    select: { id: true },
+    select: { id: true, folio: true },
   });
 
-  res.json({ status: 'ok', data: { ...resultado, assessmentId: saved.id } });
+  res.json({ status: 'ok', data: { ...resultado, assessmentId: saved.id, folio: saved.folio, clienteId, operationId: operationId ?? null } });
+});
+
+// ── Ola 2: historial por cliente (score vivo = último + serie) ──────────
+router.get('/clientes/:clienteId/historial', async (req: AuthRequest, res: Response) => {
+  const clienteId = String(req.params.clienteId);
+  const cliente = await prisma.cliente.findFirst({ where: { id: clienteId, tenantId: req.tenantId! }, select: { id: true, rfc: true, razonSocial: true } });
+  if (!cliente) return res.status(404).json({ status: 'error', message: 'Cliente no encontrado' });
+  const serie = await prisma.riskAssessment.findMany({
+    where: { tenantId: req.tenantId!, clienteId },
+    orderBy: { createdAt: 'desc' },
+    select: { id: true, folio: true, exposicion: true, escudoPct: true, banda: true, rulesVersion: true, createdAt: true, operationId: true },
+    take: 100,
+  });
+  const vivo = serie[0] ?? null;
+  res.json({ status: 'ok', data: { cliente, vivo, serie: [...serie].reverse() } });
+});
+
+// ── Ola 2: cartera para el gerente (por cliente, ordenada por exposición) ─
+router.get('/cartera', async (req: AuthRequest, res: Response) => {
+  const permitidos = (req as AuthRequest & { clienteIdsPermitidos?: string[] | null }).clienteIdsPermitidos;
+  const filas = await construirCartera(req.tenantId!, Array.isArray(permitidos) ? permitidos : null);
+  res.json({ status: 'ok', data: filas, total: filas.length });
+});
+
+// ── Ola 2: respaldo documental → declarado pasa a verificado (sin tocar pesos) ─
+const MAX_EVIDENCIA_BYTES = 3 * 1024 * 1024;
+router.post('/:id/factores/:factorId/evidencia', async (req: AuthRequest, res: Response) => {
+  const id = String(req.params.id);
+  const factorId = String(req.params.factorId);
+  const body = (req.body ?? {}) as { fileName?: string; mimeType?: string; base64?: string; nombre?: string };
+  if (!body.fileName || !body.mimeType || !body.base64) {
+    return res.status(400).json({ status: 'error', message: 'fileName, mimeType y base64 requeridos' });
+  }
+  const row = await prisma.riskAssessment.findFirst({ where: { id, tenantId: req.tenantId! } });
+  if (!row) return res.status(404).json({ status: 'error', message: 'Evaluación no encontrada' });
+  const base = resultadoDesdeFila(row);
+  if (!idsEvidenciables(base).has(factorId)) {
+    return res.status(400).json({ status: 'error', message: `factorId "${factorId}" no existe en esta evaluación (usa el id de una regla, de un ítem del escudo o de un factor)` });
+  }
+  const buf = Buffer.from(body.base64, 'base64');
+  if (buf.length === 0) return res.status(400).json({ status: 'error', message: 'Archivo vacío' });
+  if (buf.length > MAX_EVIDENCIA_BYTES) return res.status(413).json({ status: 'error', message: 'Evidencia máxima 3 MB' });
+  const fileHash = crypto.createHash('sha256').update(buf).digest('hex');
+  const doc = await prisma.document.create({
+    data: {
+      tenantId: req.tenantId!, clienteId: row.clienteId, operationId: row.operationId,
+      name: body.nombre?.trim() || `Evidencia ${factorId} · ${row.folio ?? id}`, type: 'evidencia_riesgo', docType: 'evidencia_riesgo',
+      status: 'UPLOADED', required: false, fileName: body.fileName, fileSize: buf.length, mimeType: body.mimeType, fileHash,
+      fileUrl: `data:${body.mimeType};base64,${body.base64}`,
+      notes: `Respaldo documental del Risk Scorer · assessment ${id} · ${factorId}`,
+      verifiedAt: new Date(), verifiedBy: req.userId!,
+    },
+    select: { id: true, name: true },
+  });
+  const evidencia: EvidenciaMap = { ...((row.evidencia ?? {}) as unknown as EvidenciaMap) };
+  const antes = evidencia[factorId] ?? null;
+  evidencia[factorId] = { documentId: doc.id, verificadoAt: new Date().toISOString(), verificadoPor: req.userId!, nombre: doc.name };
+  const recalculado = aplicarEvidencia(base, evidencia);
+  await prisma.riskAssessment.update({
+    where: { id },
+    data: {
+      evidencia: JSON.parse(JSON.stringify(evidencia)),
+      detalle: JSON.parse(JSON.stringify(recalculado.factores)),
+      checklist: JSON.parse(JSON.stringify(recalculado.checklist)),
+    },
+  });
+  await recordAudit({
+    tenantId: req.tenantId!, userId: req.userId!, action: 'risk.evidencia', entity: 'RiskAssessment', entityId: id,
+    before: { [factorId]: antes }, after: { [factorId]: evidencia[factorId] },
+    endpoint: req.originalUrl, method: req.method,
+    metadata: { factorId, documentId: doc.id, fileHash, folio: row.folio },
+  });
+  res.json({ status: 'ok', data: { documentId: doc.id, factorId, evidencia, resultado: { ...recalculado, assessmentId: id, folio: row.folio } } });
+});
+
+// ── Ola 2: dictamen imprimible con folio + hash ─────────────────────────
+async function cargarDictamen(tenantId: string, id: string) {
+  const row = await prisma.riskAssessment.findFirst({ where: { id, tenantId } });
+  if (!row) return null;
+  const [tenant, cliente, operacion] = await Promise.all([
+    prisma.tenant.findUnique({ where: { id: tenantId }, select: { name: true } }),
+    row.clienteId ? prisma.cliente.findFirst({ where: { id: row.clienteId, tenantId }, select: { rfc: true, razonSocial: true } }) : null,
+    row.operationId ? prisma.operation.findFirst({ where: { id: row.operationId, tenantId }, select: { reference: true } }) : null,
+  ]);
+  const evidencia = (row.evidencia ?? {}) as unknown as EvidenciaMap;
+  const resultado = aplicarEvidencia(resultadoDesdeFila(row), evidencia);
+  const hash = hashAssessment(row);
+  const html = renderDictamenHTML({
+    folio: row.folio, hash, creado: row.createdAt, tenantNombre: tenant?.name ?? 'ADUANAI', cliente,
+    operacionRef: operacion?.reference ?? null, resultado, input: row.input, evidencia, disclaimer: DISCLAIMER,
+  });
+  return { row, hash, html };
+}
+
+router.get('/:id/dictamen.html', async (req: AuthRequest, res: Response) => {
+  const d = await cargarDictamen(req.tenantId!, String(req.params.id));
+  if (!d) return res.status(404).json({ status: 'error', message: 'Evaluación no encontrada' });
+  res.setHeader('Content-Type', 'text/html; charset=utf-8');
+  res.send(d.html);
+});
+
+// Archiva el dictamen (HTML con folio + hash) como Document del expediente 59-V de la operación.
+router.post('/:id/archivar', async (req: AuthRequest, res: Response) => {
+  const id = String(req.params.id);
+  const body = (req.body ?? {}) as { operationId?: string };
+  const d = await cargarDictamen(req.tenantId!, id);
+  if (!d) return res.status(404).json({ status: 'error', message: 'Evaluación no encontrada' });
+  const operationId = body.operationId ?? d.row.operationId;
+  if (!operationId) return res.status(400).json({ status: 'error', message: 'operationId requerido: la evaluación no está ligada a una operación' });
+  const op = await prisma.operation.findFirst({ where: { id: operationId, tenantId: req.tenantId! }, select: { id: true, reference: true } });
+  if (!op) return res.status(404).json({ status: 'error', message: 'Operación no encontrada' });
+  if (!d.row.operationId) await prisma.riskAssessment.update({ where: { id }, data: { operationId: op.id } });
+  const buf = Buffer.from(d.html, 'utf8');
+  const doc = await prisma.document.create({
+    data: {
+      tenantId: req.tenantId!, clienteId: d.row.clienteId, operationId: op.id,
+      name: `Dictamen Risk Scorer ${d.row.folio ?? id}`, type: 'dictamen_riesgo', docType: 'dictamen_riesgo', status: 'VERIFIED', required: false,
+      fileName: `dictamen-${d.row.folio ?? id}.html`, fileSize: buf.length, mimeType: 'text/html', fileHash: d.hash,
+      fileUrl: `data:text/html;base64,${buf.toString('base64')}`,
+      notes: `Dictamen de exposición ${d.row.folio ?? ''} · hash ${d.hash}`, verifiedAt: new Date(), verifiedBy: req.userId!,
+    },
+    select: { id: true },
+  });
+  await recordAudit({
+    tenantId: req.tenantId!, userId: req.userId!, action: 'risk.archivar_dictamen', entity: 'Operation', entityId: op.id,
+    endpoint: req.originalUrl, method: req.method, metadata: { assessmentId: id, folio: d.row.folio, hash: d.hash, documentId: doc.id },
+  });
+  res.json({ status: 'ok', data: { documentId: doc.id, operationId: op.id, folio: d.row.folio, hash: d.hash } });
 });
 
 router.get('/assessments', async (req: AuthRequest, res: Response) => {
@@ -114,7 +264,7 @@ router.get('/assessments', async (req: AuthRequest, res: Response) => {
     prisma.riskAssessment.findMany({
       where: { tenantId: req.tenantId!, ...filtroCliente(req) },
       orderBy: { createdAt: 'desc' },
-      select: { id: true, exposicion: true, escudoPct: true, banda: true, rulesVersion: true, createdAt: true },
+      select: { id: true, folio: true, clienteId: true, operationId: true, exposicion: true, escudoPct: true, banda: true, rulesVersion: true, createdAt: true },
       skip: (page - 1) * take, take,
     }),
     prisma.riskAssessment.count({ where: { tenantId: req.tenantId!, ...filtroCliente(req) } }),
