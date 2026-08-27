@@ -14,7 +14,10 @@ import { spawn } from 'child_process';
 import path from 'path';
 import { authenticate, AuthRequest, requireRole } from '../middlewares/auth';
 import { prisma } from '../lib/prisma';
-import { checkAntidumpingDuty, calculateExposure } from '../services/antidumping';
+import { checkAntidumpingDuty, calculateExposure, buscarCuotaAplicable, coberturaCuotas } from '../services/antidumping';
+import { importarUPCI, plantillaUPCIXlsx, COLUMNAS_UPCI } from '../services/antidumping-importar';
+import { detectarElusion } from '../services/antidumping-elusion';
+import { logger } from '../lib/logger';
 
 export const antidumpingRouter = Router();
 export const antidumpingAdminRouter = Router();
@@ -203,4 +206,54 @@ antidumpingAdminRouter.get('/exposure-by-tenant', adminOnly, async (req: AuthReq
     const report = await calculateExposure(tenantId);
     res.json({ status: 'ok', data: report });
   } catch (err) { next(err); }
+});
+
+// ═══════════════════════════════════════════════════════════════════════════
+// Ola 2 (origen-cuotas): enganche por exportador, cobertura (honestidad
+// visible), pipeline de carga UPCI y alerta de elusión.
+// ═══════════════════════════════════════════════════════════════════════════
+
+// POST /api/antidumping/buscar — { fractionCode, countryOfOrigin, exportador?, valueUSD?, weightKg?, units? }
+antidumpingRouter.post('/buscar', authenticate, async (req: AuthRequest, res: Response, next: NextFunction) => {
+  try {
+    const b = req.body as { fractionCode?: string; countryOfOrigin?: string; exportador?: string; valueUSD?: number; weightKg?: number; units?: number };
+    if (!b.fractionCode || !b.countryOfOrigin) return res.status(400).json({ status: 'error', message: 'fractionCode y countryOfOrigin requeridos' });
+    const r = await buscarCuotaAplicable({ fractionCode: b.fractionCode, countryOfOrigin: b.countryOfOrigin, exportador: b.exportador, valueUSD: b.valueUSD, weightKg: b.weightKg, units: b.units });
+    res.json({ status: 'ok', data: r });
+  } catch (err) { next(err); }
+});
+
+// GET /api/antidumping/cobertura — cotejadas vs pendientes
+antidumpingRouter.get('/cobertura', authenticate, async (_req: AuthRequest, res: Response, next: NextFunction) => {
+  try { res.json({ status: 'ok', data: await coberturaCuotas() }); } catch (err) { next(err); }
+});
+
+// POST /api/antidumping/elusion/detectar — corre la regla para el tenant (manual)
+antidumpingRouter.post('/elusion/detectar', authenticate, async (req: AuthRequest, res: Response, next: NextFunction) => {
+  try { res.json({ status: 'ok', data: await detectarElusion(req.tenantId!) }); } catch (err) { next(err); }
+});
+
+// GET /api/admin/antidumping/plantilla.xlsx
+antidumpingAdminRouter.get('/plantilla.xlsx', adminOnly, async (_req: AuthRequest, res: Response, next: NextFunction) => {
+  try {
+    res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+    res.setHeader('Content-Disposition', 'attachment; filename="plantilla-cuotas-upci.xlsx"');
+    res.send(plantillaUPCIXlsx());
+  } catch (err) { next(err); }
+});
+
+// POST /api/admin/antidumping/importar — { archivoBase64, nombreArchivo, dryRun }
+antidumpingAdminRouter.post('/importar', adminOnly, async (req: AuthRequest, res: Response, next: NextFunction) => {
+  try {
+    const b = req.body as { archivoBase64?: string; nombreArchivo?: string; dryRun?: boolean };
+    if (!b.archivoBase64) return res.status(400).json({ status: 'error', message: 'archivoBase64 requerido' });
+    const rep = await importarUPCI({ archivoBase64: b.archivoBase64, nombreArchivo: b.nombreArchivo, dryRun: !!b.dryRun });
+    logger.info(`Cuotas UPCI importadas: ${rep.creadas} creadas, ${rep.actualizadas} actualizadas, ${rep.invalidas} rechazadas (${rep.cotejadas} cotejadas)`, { action: 'antidumping_import', userId: req.userId, metadata: { ...rep, filas: undefined } });
+    res.json({ status: 'ok', data: rep });
+  } catch (err) { next(err); }
+});
+
+// GET /api/admin/antidumping/columnas — documentación de la plantilla
+antidumpingAdminRouter.get('/columnas', adminOnly, (_req: AuthRequest, res: Response) => {
+  res.json({ status: 'ok', data: { columnas: COLUMNAS_UPCI, dedupe: ['fractionCode', 'countryOfOrigin', 'resolutionNumber'], cotejo: 'cotejadoAt solo si la fila trae fuenteUrl http(s)' } });
 });

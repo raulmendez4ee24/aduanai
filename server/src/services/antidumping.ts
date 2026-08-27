@@ -310,3 +310,129 @@ export async function calculateExposure(tenantId: string): Promise<ExposureRepor
     byResolution: byResolution.sort((a, b) => b.exposureUSD - a.exposureUSD),
   };
 }
+
+// ═══════════════════════════════════════════════════════════════════════════
+// Ola 2 (origen-cuotas): enganche único para Cotizador y Pre-Glosa + cobertura
+// ═══════════════════════════════════════════════════════════════════════════
+
+export interface FundamentoCuota {
+  resolucion: string | null;
+  expedienteUPCI: string | null;
+  fechaDOF: string | null;
+  dofUrl: string | null;
+  fuenteUrl: string | null;
+  /** cotejada = la fila trae cotejadoAt (cargada con fuente); pendiente = tabla sembrada/sin fuente. */
+  cotejo: 'cotejada' | 'pendiente';
+  cotejadoAt: string | null;
+}
+
+export interface CuotaAplicable {
+  duty: AntidumpingCheckResult['duty'];
+  /** Tasa elegida: por exportador si coincide, si no la general (y lo dice). */
+  tasa: TasaResuelta;
+  fundamento: FundamentoCuota;
+  esAntielusion: boolean;
+  vigencia: { desde: string | null; hasta: string | null; examenSunsetFecha: string | null; investigationType: string | null; expiraPronto: boolean; diasParaExpirar: number | null };
+  /** Monto calculado con la tasa elegida (si vinieron valor/peso/unidades). */
+  montoUSD: number | null;
+  calculo: string;
+  /** Otras resoluciones vigentes para la misma fracción+país (si hay más de una). */
+  otras: number;
+}
+
+/**
+ * Elige la resolución aplicable y resuelve la tasa por exportador. Pura: la
+ * usan `buscarCuotaAplicable` (Cotizador) y `glosa-cruces.ts` (Pre-Glosa)
+ * para que ambos digan lo mismo ante los mismos datos.
+ */
+export function elegirCuotaAplicable(
+  cuotas: AntidumpingCheckResult[],
+  exportador?: string | null,
+  extra?: { esAntielusion?: boolean; examenSunsetFecha?: string | null; fuenteUrl?: string | null; cotejadoAt?: string | null; valueUSD?: number; weightKg?: number; units?: number },
+): CuotaAplicable | null {
+  if (!cuotas || cuotas.length === 0) return null;
+  const c = cuotas[0]!;
+  const tasa = resolverTasaPorExportador(c.duty, exportador);
+  const rateType = c.duty.rateType;
+  let montoUSD: number | null = null;
+  let calculo = formatCuota(rateType, tasa.tasa, tasa.rateUnit);
+  if (rateType === 'percentage' && extra?.valueUSD != null) { montoUSD = extra.valueUSD * (tasa.tasa / 100); calculo = `${calculo} × $${extra.valueUSD.toLocaleString('en-US')} USD = $${montoUSD.toFixed(2)} USD`; }
+  else if (rateType === 'specific_USD_kg' && extra?.weightKg != null) { montoUSD = extra.weightKg * tasa.tasa; calculo = `${calculo} × ${extra.weightKg.toLocaleString('en-US')} kg = $${montoUSD.toFixed(2)} USD`; }
+  else if (rateType === 'specific_USD_unit' && extra?.units != null) { montoUSD = extra.units * tasa.tasa; calculo = `${calculo} × ${extra.units.toLocaleString('en-US')} unidades = $${montoUSD.toFixed(2)} USD`; }
+  if (tasa.origen === 'exportador') calculo += ` (tasa de ${tasa.empresa})`;
+  else if (tasa.origen === 'general') calculo += ' (tasa general: el exportador no tiene tasa específica)';
+  else calculo += ' (tasa general: la resolución no tiene lista por empresa cargada)';
+  const cotejadoAt = extra?.cotejadoAt ?? null;
+  return {
+    duty: c.duty,
+    tasa,
+    fundamento: {
+      resolucion: c.duty.resolutionNumber, expedienteUPCI: c.duty.expedienteUPCI,
+      fechaDOF: c.duty.publishDateDOF ? c.duty.publishDateDOF.slice(0, 10) : null,
+      dofUrl: c.duty.dofUrl, fuenteUrl: extra?.fuenteUrl ?? null,
+      cotejo: cotejadoAt ? 'cotejada' : 'pendiente', cotejadoAt,
+    },
+    esAntielusion: !!extra?.esAntielusion || c.duty.investigationType === 'elusion',
+    vigencia: { desde: c.duty.effectiveDate, hasta: c.duty.expiryDate, examenSunsetFecha: extra?.examenSunsetFecha ?? null, investigationType: c.duty.investigationType, expiraPronto: c.expiringSoon, diasParaExpirar: c.daysToExpiry },
+    montoUSD, calculo, otras: cuotas.length - 1,
+  };
+}
+
+/**
+ * Enganche para Cotizador/Pre-Glosa: cuota aplicable a (fracción, país,
+ * exportador?). Compatible con `checkAntidumpingDuty` (mismos campos base).
+ * Devuelve null si no hay cuota vigente con match EXACTO de fracción.
+ */
+export async function buscarCuotaAplicable(input: AntidumpingCheckInput & { exportador?: string | null }): Promise<CuotaAplicable | null> {
+  const cuotas = await checkAntidumpingDuty(input);
+  if (cuotas.length === 0) return null;
+  const fila = await prisma.antidumpingDuty.findUnique({
+    where: { id: cuotas[0]!.duty.id },
+    select: { esAntielusion: true, examenSunsetFecha: true, fuenteUrl: true, cotejadoAt: true },
+  });
+  return elegirCuotaAplicable(cuotas, input.exportador, {
+    esAntielusion: fila?.esAntielusion, examenSunsetFecha: fila?.examenSunsetFecha?.toISOString().slice(0, 10) ?? null,
+    fuenteUrl: fila?.fuenteUrl ?? null, cotejadoAt: fila?.cotejadoAt?.toISOString() ?? null,
+    valueUSD: input.valueUSD, weightKg: input.weightKg, units: input.units,
+  });
+}
+
+export interface CoberturaCuotas {
+  total: number;
+  activas: number;
+  inactivas: number;
+  vigentes: number;
+  cotejadas: number;
+  pendientesCotejo: number;
+  conTasasPorExportador: number;
+  antielusion: number;
+  conSunset: number;
+  porPais: { pais: string; total: number; cotejadas: number }[];
+  nota: string;
+}
+
+/** Honestidad visible: cuántas resoluciones están cotejadas contra fuente y cuántas no. */
+export async function coberturaCuotas(): Promise<CoberturaCuotas> {
+  const filas = await prisma.antidumpingDuty.findMany({
+    select: { countryOfOrigin: true, active: true, status: true, cotejadoAt: true, exportadorTasas: true, esAntielusion: true, investigationType: true, examenSunsetFecha: true },
+  });
+  const porPais = new Map<string, { pais: string; total: number; cotejadas: number }>();
+  let cotejadas = 0, conTasas = 0, antielusion = 0, conSunset = 0, activas = 0, vigentes = 0;
+  for (const f of filas) {
+    if (f.active) activas++;
+    if (f.active && f.status === 'vigente') vigentes++;
+    if (f.cotejadoAt) cotejadas++;
+    if (Array.isArray(f.exportadorTasas) && (f.exportadorTasas as unknown[]).length > 0) conTasas++;
+    if (f.esAntielusion || f.investigationType === 'elusion') antielusion++;
+    if (f.examenSunsetFecha) conSunset++;
+    const p = porPais.get(f.countryOfOrigin) ?? { pais: f.countryOfOrigin, total: 0, cotejadas: 0 };
+    p.total++; if (f.cotejadoAt) p.cotejadas++;
+    porPais.set(f.countryOfOrigin, p);
+  }
+  return {
+    total: filas.length, activas, inactivas: filas.length - activas, vigentes, cotejadas, pendientesCotejo: filas.length - cotejadas,
+    conTasasPorExportador: conTasas, antielusion, conSunset,
+    porPais: Array.from(porPais.values()).sort((a, b) => b.total - a.total),
+    nota: 'Una resolución cuenta como "cotejada" solo si fue cargada con fuente oficial (fuenteUrl → cotejadoAt). Las demás son estructura sembrada pendiente de cotejo contra la lista UPCI/DOF: no confirman ni descartan una cuota real.',
+  };
+}

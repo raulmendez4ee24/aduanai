@@ -9,13 +9,14 @@
  *   revisar_fraccion → /fracciones?code=XXXXXXXX (ficha de la fracción, Ola 3)
  *   ver_obligacion   → /calendario/:id
  *   cotizar          → /cotizador  (payload = partidas prellenadas)
+ *   ver_certificado_proveedor → /origen-tmec?tab=proveedores&certificadoId=…
  *
  * Las alertas históricas traen tipos legacy ('review_operation',
  * 'view_fraction', 'recalculate_quotes', …); `normalizarAccion` los traduce
  * al servir, sin migrar datos. Puro: sin DB ni red.
  */
 
-export type TipoAccion = 'armar_rt' | 'cambio_regimen' | 'revisar_fraccion' | 'ver_obligacion' | 'cotizar';
+export type TipoAccion = 'armar_rt' | 'cambio_regimen' | 'revisar_fraccion' | 'ver_obligacion' | 'cotizar' | 'ver_certificado_proveedor';
 
 export interface AccionAlerta {
   type: TipoAccion;
@@ -23,7 +24,7 @@ export interface AccionAlerta {
   payload: Record<string, unknown>;
 }
 
-export const TIPOS_ACCION: readonly TipoAccion[] = ['armar_rt', 'cambio_regimen', 'revisar_fraccion', 'ver_obligacion', 'cotizar'];
+export const TIPOS_ACCION: readonly TipoAccion[] = ['armar_rt', 'cambio_regimen', 'revisar_fraccion', 'ver_obligacion', 'cotizar', 'ver_certificado_proveedor'];
 
 export const accionArmarRT = (temporaryImportId: string, label = 'Armar retorno (RT)'): AccionAlerta =>
   ({ type: 'armar_rt', label, payload: { temporaryImportId, route: '/inventario' } });
@@ -36,6 +37,10 @@ export const accionRevisarFraccion = (code: string, label = 'Revisar fracción')
 
 export const accionVerObligacion = (obligacionId: string, label = 'Ver obligación'): AccionAlerta =>
   ({ type: 'ver_obligacion', label, payload: { obligacionId, route: `/calendario/${obligacionId}` } });
+
+// Ola 2 origen-cuotas: certificado de proveedor (portal) → pestaña en Origen T-MEC.
+export const accionVerCertificadoProveedor = (certificadoId: string, label = 'Ver certificado del proveedor'): AccionAlerta =>
+  ({ type: 'ver_certificado_proveedor', label, payload: { certificadoId, route: `/origen-tmec?tab=proveedores&certificadoId=${encodeURIComponent(certificadoId)}` } });
 
 export const accionCotizar = (payload: Record<string, unknown>, label = 'Cotizar'): AccionAlerta =>
   ({ type: 'cotizar', label, payload: { ...payload, route: '/cotizador' } });
@@ -55,6 +60,8 @@ export function rutaDeAccion(a: AccionAlerta): string {
       return `/fracciones?code=${encodeURIComponent(String(p.fractionCode ?? ''))}`;
     case 'ver_obligacion':
       return `/calendario/${encodeURIComponent(String(p.obligacionId ?? ''))}`;
+    case 'ver_certificado_proveedor':
+      return `/origen-tmec?tab=proveedores&certificadoId=${encodeURIComponent(String(p.certificadoId ?? ''))}`;
     case 'cotizar': {
       const { route: _r, ...rest } = p;
       void _r;

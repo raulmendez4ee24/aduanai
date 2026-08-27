@@ -350,7 +350,13 @@ export async function determinarOrigenDesdeBOM(args: {
   let veredicto: DeterminacionBOM['veredicto'];
   let motivo: string;
   if (salto.resultado === 'cumple') { veredicto = 'cumple'; motivo = salto.mensaje; }
-  else if (salto.resultado === 'no_determinable') { veredicto = 'no_determinable'; motivo = salto.mensaje; }
+  else if (salto.resultado === 'no_determinable' || salto.resumen.noDeterminables > 0) {
+    // Un material sin fracción podría fallar el salto y sumar al de minimis: no se dictamina hasta tenerla.
+    veredicto = 'no_determinable';
+    motivo = salto.resumen.noCumplen > 0
+      ? `${salto.mensaje} Además ${salto.resumen.noDeterminables} material(es) sin fracción: captúrala en el catálogo antes de dictaminar.`
+      : salto.mensaje;
+  }
   else if (deMinimis.aplica === true) {
     veredicto = 'cumple_de_minimis';
     motivo = `${salto.mensaje} Los materiales que fallan valen ${deMinimis.porcentajeCalculado}% del valor de transacción ≤ ${deMinimis.porcentajeUmbral}% (de minimis, ${deMinimis.cotejo === 'pendiente' ? 'umbral pendiente de cotejo' : 'cotejado'}).`;

@@ -14,7 +14,7 @@
  */
 import { claveUnidadMedida, factorConversion, UNIDADES_MEDIDA, CLAVES_IMMEX } from '../lib/anexo22';
 import { getPreferentialRates } from './quoter';
-import { resolverTasaPorExportador, type AntidumpingCheckResult } from './antidumping';
+import { elegirCuotaAplicable, type AntidumpingCheckResult } from './antidumping';
 import type { EstimatedPriceMatch } from './price-validator';
 
 export type CruceCodigo = 'ORIGEN_TRATADO' | 'CUOTA_EXPORTADOR' | 'UMC_UMT' | 'PRECIO_ESTIMADO' | 'IDENTIFICADOR_AP8';
@@ -142,8 +142,11 @@ export function cruceCuotaExportador(input: CrucesInput, ctx: CrucesContexto): C
   if (ctx.cuotas.length === 0) {
     return { ...base, estado: 'evaluado', resultado: 'ok', mensaje: `Sin cuota compensatoria vigente para ${input.fractionCode} origen ${input.countryOrigin.toUpperCase()} en el corpus (match exacto de fracción).` };
   }
-  const c = ctx.cuotas[0]!;
-  const res = resolverTasaPorExportador(c.duty, input.exportadorNombre);
+  // Ola 2 origen-cuotas: misma función que el Cotizador (buscarCuotaAplicable)
+  // para que Pre-Glosa y Cotizador digan lo mismo ante los mismos datos.
+  const aplicable = elegirCuotaAplicable(ctx.cuotas, input.exportadorNombre)!;
+  const c = { duty: aplicable.duty };
+  const res = aplicable.tasa;
   const declarada = input.declaresAntidumping === true;
   const sev = res.origen === 'exportador' ? 'high' : 'critical';
   const ref = c.duty.resolutionNumber ?? c.duty.expedienteUPCI ?? 's/n';

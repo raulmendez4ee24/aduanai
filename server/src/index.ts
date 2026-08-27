@@ -96,6 +96,7 @@ import { establecerReporteDeIncidentes } from './lib/tenant-guard';
 import { calendarioRouter } from './routes/calendario';
 import { cambioRegimenRouter } from './routes/cambio-regimen';
 import { activoFijoRouter } from './routes/activo-fijo';
+import { originPortalRouter } from './routes/origin'; // Ola 2 origen-cuotas: portal público de proveedores
 
 // Incidentes de la guarda de tenant → logger (SystemLog), no solo stdout.
 establecerReporteDeIncidentes(inc => {
@@ -250,6 +251,7 @@ app.use('/api/inventory', anexo24Router); app.use('/api/ubicaciones', ubicacione
 app.use('/api/calendario', calendarioRouter);
 app.use('/api/cambio-regimen', cambioRegimenRouter);
 app.use('/api/inventory/activo-fijo', activoFijoRouter);
+app.use('/api/origin/portal', publicLimiter, originPortalRouter); // Ola 2 origen-cuotas: sin auth, solo por token
 
 // ── SPA fallback ──
 app.use((req, res, next) => {
@@ -477,6 +479,19 @@ armTimer('digest_semanal', 30 * 60000, async () => {
   const { enviarDigestsPendientes } = await import('./services/digest-semanal');
   const r = await enviarDigestsPendientes(ahora);
   logger.info(`Digest semanal: ${r.enviados}/${r.tenants} enviados`, { action: 'digest_cron', metadata: r });
+});
+
+// Ola 2 origen-cuotas: diario — vencimiento de certificados de proveedores (60/30/7) y regla de elusión por cliente.
+let _lastOrigenCuotasRun = '';
+armTimer('origen_cuotas_diario', 60 * 60000, async () => {
+  const today = new Date().toISOString().slice(0, 10);
+  if (_lastOrigenCuotasRun === today) return;
+  _lastOrigenCuotasRun = today;
+  const { procesarVencimientosCertificadosTodos } = await import('./services/origin-proveedores');
+  const { detectarElusionTodos } = await import('./services/antidumping-elusion');
+  const c = await procesarVencimientosCertificadosTodos();
+  const e = await detectarElusionTodos();
+  if (c.alertas > 0 || e.alertas > 0) logger.info(`Origen/cuotas: ${c.vencidos} certificados vencidos, ${c.alertas} alertas de vigencia, ${e.alertas} alertas de elusión`, { action: 'origen_cuotas_cron', metadata: { ...c, elusion: e } });
 });
 
 app.listen(PORT, () => {

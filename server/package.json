@@ -61,7 +61,9 @@
     "test:regulatorio": "tsx src/tests/regulatorio.test.ts",
     "test:calendario": "tsx src/tests/calendario.test.ts",
     "test:cambio-regimen": "tsx src/tests/cambio-regimen.test.ts",
-    "test:cotizador": "tsx src/tests/cotizador-operacion.test.ts"
+    "test:cotizador": "tsx src/tests/cotizador-operacion.test.ts",
+    "test:origen": "tsx src/tests/origen-reglas.test.ts",
+    "test:cuotas": "tsx src/tests/cuotas-operacion.test.ts"
   },
   "license": "UNLICENSED",
   "private": true,

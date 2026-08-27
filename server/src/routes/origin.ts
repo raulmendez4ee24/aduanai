@@ -1,5 +1,6 @@
-import { Router } from 'express';
-import { authenticate, AuthRequest } from '../middlewares/auth';
+import { Router, type Response, type NextFunction } from 'express';
+import { authenticate, requireRole, AuthRequest } from '../middlewares/auth';
+import { logger } from '../lib/logger';
 import { prisma } from '../lib/prisma';
 import { sinGuardaDeTenant } from '../lib/tenant-guard';
 import {
@@ -19,6 +20,17 @@ import {
   type OriginCountry,
 } from '../services/origin-certificate';
 import { clienteIdDe, filtroCliente, validarClienteDelTenant } from '../lib/cliente-contexto';
+// Ola 2 (origen-cuotas)
+import { prellenarCertificado, type TipoCertificador } from '../services/origin-certificate';
+import {
+  determinarOrigenDesdeBOM, evaluarSaltoArancelario, evaluarDeMinimis, reporteCobertura, importarReglasOrigen, plantillaReglasXlsx,
+  CODIGOS_SALTO, type CodigoSalto, type MaterialBOM,
+} from '../services/origin-reglas';
+import {
+  listar as listarCertProv, crear as crearCertProv, actualizar as actualizarCertProv, eliminar as eliminarCertProv,
+  solicitar as solicitarCertProv, portalVer, portalSubir, procesarVencimientosCertificados, ProveedorError,
+  type EntradaCertProveedor, type EstadoCert,
+} from '../services/origin-proveedores';
 
 export const originRouter = Router();
 
@@ -230,3 +242,170 @@ export async function verifyCertificate(certNumber: string): Promise<{ found: bo
     cert: { ...cert, signedDate: cert.signedDate.toISOString() },
   };
 }
+
+// ═══════════════════════════════════════════════════════════════════════════
+// Ola 2 (origen-cuotas): BOM, de minimis, reglas (importar/cobertura),
+// certificado 9 elementos, portal de proveedores.
+// ═══════════════════════════════════════════════════════════════════════════
+
+const adminOnly = [authenticate, requireRole('SUPERADMIN')];
+const errProveedor = (res: Response, err: unknown, next: NextFunction) => {
+  if (err instanceof ProveedorError) {
+    const code = err.code === 'NO_ENCONTRADO' || err.code === 'TOKEN_INVALIDO' ? 404 : 400;
+    return res.status(code).json({ status: 'error', code: err.code, message: err.message });
+  }
+  return next(err);
+};
+
+// POST /api/origin/bom/determinar — salto arancelario + de minimis + acumulación + LVC/SA desde el BOM del catálogo
+originRouter.post('/bom/determinar', authenticate, async (req: AuthRequest, res, next) => {
+  try {
+    const b = req.body as { productId?: string; tratado?: string; porcentajeDeMinimis?: number; valorTransaccionUSD?: number; valores?: Record<string, number>; highWageLaborCost?: number; totalSteelAluminumValue?: number; northAmericanSteelAluminumValue?: number };
+    if (!b.productId) return res.status(400).json({ status: 'error', message: 'productId requerido' });
+    const r = await determinarOrigenDesdeBOM({
+      tenantId: req.tenantId!, productId: String(b.productId), tratado: b.tratado,
+      porcentajeDeMinimis: b.porcentajeDeMinimis != null ? Number(b.porcentajeDeMinimis) : undefined,
+      valorTransaccionUSD: b.valorTransaccionUSD != null ? Number(b.valorTransaccionUSD) : null,
+      valores: b.valores && typeof b.valores === 'object' ? b.valores : undefined,
+      highWageLaborCost: b.highWageLaborCost != null ? Number(b.highWageLaborCost) : null,
+      totalSteelAluminumValue: b.totalSteelAluminumValue != null ? Number(b.totalSteelAluminumValue) : null,
+      northAmericanSteelAluminumValue: b.northAmericanSteelAluminumValue != null ? Number(b.northAmericanSteelAluminumValue) : null,
+    });
+    if (!r) return res.status(404).json({ status: 'error', message: 'Producto no encontrado en el catálogo del tenant' });
+    res.json({ status: 'ok', data: r });
+  } catch (err) { next(err); }
+});
+
+// POST /api/origin/salto — evaluación pura (materiales capturados a mano)
+originRouter.post('/salto', authenticate, async (req: AuthRequest, res, next) => {
+  try {
+    const b = req.body as { fraccionFinal?: string; codigo?: string; materiales?: MaterialBOM[]; valorTransaccionUSD?: number; porcentajeDeMinimis?: number };
+    if (!b.fraccionFinal || !Array.isArray(b.materiales)) return res.status(400).json({ status: 'error', message: 'fraccionFinal y materiales[] requeridos' });
+    const codigo = String(b.codigo ?? 'CTH').toUpperCase() as CodigoSalto;
+    if (!CODIGOS_SALTO.includes(codigo)) return res.status(400).json({ status: 'error', message: 'codigo debe ser CC, CTH o CTSH' });
+    const salto = evaluarSaltoArancelario({ fraccionFinal: b.fraccionFinal, materiales: b.materiales, codigo });
+    const deMinimis = evaluarDeMinimis({ valorTransaccionUSD: b.valorTransaccionUSD, materialesQueNoCumplen: salto.porMaterial.filter(m => m.salto === 'no_cumple').map(m => m.material), porcentajeUmbral: b.porcentajeDeMinimis, fraccionFinal: b.fraccionFinal });
+    res.json({ status: 'ok', data: { salto, deMinimis } });
+  } catch (err) { next(err); }
+});
+
+// GET /api/origin/productos — productos del catálogo con BOM (para elegir en la pestaña BOM)
+originRouter.get('/productos', authenticate, async (req: AuthRequest, res, next) => {
+  try {
+    const q = req.query.q ? String(req.query.q) : '';
+    const items = await prisma.product.findMany({
+      where: { tenantId: req.tenantId!, active: true, ...filtroCliente(req), ...(q ? { OR: [{ productCode: { contains: q, mode: 'insensitive' } }, { description: { contains: q, mode: 'insensitive' } }] } : {}) },
+      select: { id: true, productCode: true, description: true, fractionCode: true, paisOrigen: true, isFinished: true, clienteId: true, _count: { select: { components: true } } },
+      orderBy: [{ isFinished: 'desc' }, { productCode: 'asc' }], take: 200,
+    });
+    res.json({ status: 'ok', data: items.map(i => ({ ...i, componentes: i._count.components })) });
+  } catch (err) { next(err); }
+});
+
+// GET /api/origin/reglas/cobertura?tratado=TMEC&fracciones=85443001,73181599
+originRouter.get('/reglas/cobertura', authenticate, async (req: AuthRequest, res, next) => {
+  try {
+    const tratado = String(req.query.tratado ?? 'TMEC');
+    const fracciones = req.query.fracciones ? String(req.query.fracciones).split(',').map(s => s.trim()).filter(Boolean).slice(0, 50) : [];
+    res.json({ status: 'ok', data: await reporteCobertura(tratado, fracciones) });
+  } catch (err) { next(err); }
+});
+
+// GET /api/origin/reglas/plantilla.xlsx
+originRouter.get('/reglas/plantilla.xlsx', ...adminOnly, async (_req: AuthRequest, res, next) => {
+  try {
+    res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+    res.setHeader('Content-Disposition', 'attachment; filename="plantilla-reglas-origen.xlsx"');
+    res.send(plantillaReglasXlsx());
+  } catch (err) { next(err); }
+});
+
+// POST /api/origin/reglas/importar — { archivoBase64, nombreArchivo, dryRun } (SUPERADMIN)
+originRouter.post('/reglas/importar', ...adminOnly, async (req: AuthRequest, res, next) => {
+  try {
+    const b = req.body as { archivoBase64?: string; nombreArchivo?: string; dryRun?: boolean };
+    if (!b.archivoBase64) return res.status(400).json({ status: 'error', message: 'archivoBase64 requerido' });
+    const rep = await importarReglasOrigen({ archivoBase64: b.archivoBase64, nombreArchivo: b.nombreArchivo, dryRun: !!b.dryRun });
+    logger.info(`Reglas de origen importadas: ${rep.creadas} creadas, ${rep.actualizadas} actualizadas, ${rep.invalidas} rechazadas`, { action: 'origin_rules_import', userId: req.userId, metadata: { ...rep, filas: undefined } });
+    res.json({ status: 'ok', data: rep });
+  } catch (err) { next(err); }
+});
+
+// GET /api/origin/certificados/prellenar?analysisId=&productId=&clienteId=&certificadorTipo=
+originRouter.get('/certificados/prellenar', authenticate, async (req: AuthRequest, res, next) => {
+  try {
+    const tipo = req.query.certificadorTipo ? String(req.query.certificadorTipo) : undefined;
+    if (tipo && !['exportador', 'productor', 'importador'].includes(tipo)) return res.status(400).json({ status: 'error', message: 'certificadorTipo inválido' });
+    const r = await prellenarCertificado({
+      tenantId: req.tenantId!, userId: req.userId,
+      analysisId: req.query.analysisId ? String(req.query.analysisId) : null,
+      productId: req.query.productId ? String(req.query.productId) : null,
+      clienteId: req.query.clienteId ? String(req.query.clienteId) : clienteIdDe(req),
+      certificadorTipo: tipo as TipoCertificador | undefined,
+    });
+    res.json({ status: 'ok', data: r });
+  } catch (err) { next(err); }
+});
+
+// ── Certificados de proveedores ──────────────────────────────────────────
+
+originRouter.get('/proveedores/certificados', authenticate, async (req: AuthRequest, res, next) => {
+  try {
+    const f = filtroCliente(req);
+    const items = await listarCertProv(req.tenantId!, { clienteId: f.clienteId, estado: req.query.estado ? String(req.query.estado) : undefined });
+    res.json({ status: 'ok', data: items });
+  } catch (err) { next(err); }
+});
+
+originRouter.post('/proveedores/certificados', authenticate, async (req: AuthRequest, res, next) => {
+  try {
+    const b = req.body as EntradaCertProveedor;
+    const clienteId = await validarClienteDelTenant(req.tenantId!, b.clienteId ?? clienteIdDe(req));
+    const c = await crearCertProv(req.tenantId!, { ...b, clienteId });
+    res.status(201).json({ status: 'ok', data: c });
+  } catch (err) { errProveedor(res, err, next); }
+});
+
+originRouter.patch('/proveedores/certificados/:id', authenticate, async (req: AuthRequest, res, next) => {
+  try {
+    const c = await actualizarCertProv(req.tenantId!, String(req.params.id), req.body as Partial<EntradaCertProveedor> & { estado?: EstadoCert });
+    res.json({ status: 'ok', data: c });
+  } catch (err) { errProveedor(res, err, next); }
+});
+
+originRouter.delete('/proveedores/certificados/:id', authenticate, async (req: AuthRequest, res, next) => {
+  try {
+    await eliminarCertProv(req.tenantId!, String(req.params.id));
+    res.json({ status: 'ok' });
+  } catch (err) { errProveedor(res, err, next); }
+});
+
+// POST /api/origin/proveedores/certificados/:id/solicitar — genera token + correo (o dice que no hay canal)
+originRouter.post('/proveedores/certificados/:id/solicitar', authenticate, async (req: AuthRequest, res, next) => {
+  try {
+    const baseUrl = process.env.APP_URL || `${req.protocol}://${req.get('host')}`;
+    const tenant = await prisma.tenant.findUnique({ where: { id: req.tenantId! }, select: { name: true } });
+    const r = await solicitarCertProv(req.tenantId!, String(req.params.id), { baseUrl, remitente: tenant?.name });
+    res.json({ status: 'ok', data: r });
+  } catch (err) { errProveedor(res, err, next); }
+});
+
+// POST /api/origin/proveedores/vencimientos/procesar — corre el job para el tenant (manual)
+originRouter.post('/proveedores/vencimientos/procesar', authenticate, async (req: AuthRequest, res, next) => {
+  try { res.json({ status: 'ok', data: await procesarVencimientosCertificados(req.tenantId!) }); } catch (err) { next(err); }
+});
+
+// ── Portal PÚBLICO por token (sin auth; rate-limit aplicado al montar) ───
+export const originPortalRouter = Router();
+
+originPortalRouter.get('/:token', async (req, res, next) => {
+  try { res.json({ status: 'ok', data: await portalVer(String(req.params.token)) }); } catch (err) { errProveedor(res, err, next); }
+});
+
+originPortalRouter.post('/:token', async (req, res, next) => {
+  try {
+    const b = req.body as { archivoBase64?: string; mimeType?: string; nombreArchivo?: string; vigenciaDesde?: string; vigenciaHasta?: string; numeroCertificado?: string };
+    const r = await portalSubir(String(req.params.token), { archivoBase64: b.archivoBase64 ?? '', mimeType: b.mimeType, nombreArchivo: b.nombreArchivo, vigenciaDesde: b.vigenciaDesde, vigenciaHasta: b.vigenciaHasta, numeroCertificado: b.numeroCertificado });
+    res.json({ status: 'ok', data: r });
+  } catch (err) { errProveedor(res, err, next); }
+});
