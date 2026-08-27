@@ -339,6 +339,18 @@ async function parteDB(): Promise<void> {
       assert.equal((rejected.metadata as { motivo?: string }).motivo, 'Falta incoterm correcto');
       assert.ok(granted.hash && granted.hash.length === 64, 'encadenado (hash SHA-256)');
       assert.equal(await prisma.auditLog.count({ where: { tenantId: tB, action: { startsWith: 'APPROVAL_' } } }), 0, 'nada en B');
+
+      // Revisión B (P1): proponer exige ownership o permiso approve; un aprobado no se degrada sin `approve`.
+      const qRech = await prisma.quote.create({ data: { tenantId: tA, userId: capA, clienteId: c1, fractionCode: '84818099', customsValue: 700, origin: 'CN', result: '{}', status: 'rejected' } });
+      await assert.rejects(() => apro.proponer('cotizacion', qRech.id, tA, consA, { legacyRole: 'USER' }), (e: unknown) => e instanceof AppError && e.statusCode === 403, 'un tercero sin approve no re-propone lo ajeno');
+      assert.equal((await apro.proponer('cotizacion', qRech.id, tA, capA, { legacyRole: 'USER' })).status, 'pending_approval', 'el autor sí re-propone su rechazado');
+      await assert.rejects(() => apro.proponer('clasificacion', cls.id, tA, capA, { legacyRole: 'USER' }), (e: unknown) => e instanceof AppError && e.statusCode === 403, 'el autor sin approve no degrada su clasificación ya APROBADA');
+      const intacta = await prisma.classification.findFirst({ where: { id: cls.id, tenantId: tA } });
+      assert.equal(intacta?.status, 'approved');
+      assert.equal(intacta?.approvedById, glosA, 'approvedById se conserva');
+      const degradada = await apro.proponer('clasificacion', cls.id, tA, glosA, { legacyRole: 'USER', motivo: 'Reabrir por criterio nuevo' });
+      assert.equal(degradada.status, 'pending_approval', 'quien puede aprobar sí regresa un aprobado a pendiente');
+      assert.equal((await prisma.classification.findFirst({ where: { id: cls.id, tenantId: tA } }))?.approvedById, null);
     });
   } finally {
     // Limpieza: todo lo creado cuelga de los tenants de prueba.

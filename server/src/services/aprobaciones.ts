@@ -69,10 +69,21 @@ export async function puedeAprobar(tipo: TipoAprobacion, userId: string, tenantI
 /**
  * Propone: deja el recurso en `pending_approval` (limpia approvedAt/By).
  * Sirve para re-proponer un rechazado o para degradar un aprobado (con motivo).
+ *
+ * Ownership (revisión B, P1): solo el autor del recurso o quien tiene `approve`
+ * en el módulo. Degradar un APROBADO (borrar approvedAt/By) queda reservado a
+ * quien puede aprobar — un junior no deshace el dictamen del validador.
  */
-export async function proponer(tipo: TipoAprobacion, recursoId: string, tenantId: string, userId: string, opts: { motivo?: string; ip?: string | null } = {}) {
+export async function proponer(tipo: TipoAprobacion, recursoId: string, tenantId: string, userId: string, opts: { motivo?: string; legacyRole?: string; ip?: string | null } = {}) {
   const antes = await cargar(tipo, recursoId, tenantId);
   if (antes.status === 'pending_approval') return antes;
+  const aprobador = await puedeAprobar(tipo, userId, tenantId, opts.legacyRole);
+  if (antes.userId !== userId && !aprobador) {
+    throw new AppError('Solo el autor del recurso o un validador puede proponerlo', 403);
+  }
+  if (antes.status === 'approved' && !aprobador) {
+    throw new AppError('Ya está aprobado: solo un validador puede regresarlo a pendiente', 403);
+  }
   const r = await delegado(tipo).updateMany({
     where: { id: recursoId, tenantId },
     data: { status: 'pending_approval', approvedAt: null, approvedById: null },
