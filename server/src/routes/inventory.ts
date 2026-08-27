@@ -66,7 +66,6 @@ inventoryRouter.post('/imports', authenticate, requirePermission('inventory', 'a
 
     const imp = await prisma.temporaryImport.create({
       data: {
-        clienteId: await validarClienteDelTenant(req.tenantId!, clienteIdDe(req)),
         pedimento,
         fractionCode: fx.code,
         description: description || '',
