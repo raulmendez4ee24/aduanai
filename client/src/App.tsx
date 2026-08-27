@@ -53,6 +53,8 @@ import { InviteAcceptPage } from './pages/InviteAccept'
 import { BibliotecaLegalPage } from './pages/BibliotecaLegal'
 import { CuotasActivasPage } from './pages/CuotasActivas'
 import { CumplimientoPage } from './pages/Cumplimiento'
+// ── OPERACIÓN 2026-08 ── imports nuevos (una línea por módulo)
+import { ClasificadorLotePage } from './pages/ClasificadorLote'
 import { StatusPage } from './pages/Public/Status'
 import { PrecedentsPage } from './pages/Precedents'
 import { AdminLeadsPage } from './pages/Admin/AdminLeads'
@@ -244,6 +246,7 @@ export function App() {
         <Route path="/cuotas-activas" element={<CuotasActivasPage />} />
         <Route path="/cumplimiento" element={<CumplimientoPage />} />
         {/* ── OPERACIÓN 2026-08 ── rutas nuevas (una línea por módulo) */}
+        <Route path="/clasificador/lote" element={<ClasificadorLotePage />} />
         {/* Admin: mismo shell, guard adicional */}
         <Route element={<RequireSuperAdmin user={user}><Outlet /></RequireSuperAdmin>}>
           <Route path="/admin" element={<AdminDashboardPage />} />
