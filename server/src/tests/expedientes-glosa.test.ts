@@ -13,6 +13,12 @@
  */
 import { strict as assert } from 'node:assert';
 import { prisma } from '../lib/prisma';
+import type { Prisma } from '@prisma/client';
+import { filtroCliente, whereConAlcance } from '../lib/cliente-contexto';
+import type { Request } from 'express';
+
+const reqRestringida = (clienteIds: string[] | null): Request =>
+  ({ headers: {}, query: {}, clienteIdsPermitidos: clienteIds } as unknown as Request);
 import { glosarDocumentos, glosarOperacion, normalizarRfc, normalizarNombre, TOLERANCIAS_DEFAULT, type EntradaGlosaDocumental } from '../services/glosa-documental';
 import { construirChecklist, calcularRetencionHasta, FUNDAMENTO_RETENCION, INCISOS_59V, construirPaqueteAuditoria } from '../services/expediente-electronico';
 import { crearZip, listarEntradasZip, leerEntradaZip, crc32 } from '../lib/zip';
@@ -198,6 +204,46 @@ async function parteDB() {
     });
     await prueba('otro tenant no puede generar el paquete', async () => {
       await assert.rejects(construirPaqueteAuditoria('tenant-ajeno', op.id), /no encontrada/);
+    });
+    await prueba('alcance: usuario restringido a A no resuelve la operación de B (whereConAlcance); la de A y la compartida sí', async () => {
+      const cA = await prisma.cliente.create({ data: { tenantId: tenant.id, rfc: `EA${SUFIJO}`.slice(0, 13).toUpperCase(), razonSocial: 'A' } });
+      const cB = await prisma.cliente.create({ data: { tenantId: tenant.id, rfc: `EB${SUFIJO}`.slice(0, 13).toUpperCase(), razonSocial: 'B' } });
+      const opA = await prisma.operation.create({ data: { tenantId: tenant.id, userId: user.id, clienteId: cA.id, reference: `OPA-${SUFIJO}`, type: 'IMPORT' } });
+      const opB = await prisma.operation.create({ data: { tenantId: tenant.id, userId: user.id, clienteId: cB.id, reference: `OPB-${SUFIJO}`, type: 'IMPORT' } });
+      try {
+        const req = reqRestringida([cA.id]);
+        const busca = (id: string, r: Request) => prisma.operation.findFirst({ where: whereConAlcance(r, { id, tenantId: tenant.id }), select: { id: true } });
+        assert.equal(await busca(opB.id, req), null, 'operación de B invisible');
+        assert.ok(await busca(opA.id, req), 'operación de A visible');
+        assert.ok(await busca(op.id, req), 'operación sin cliente (compartida) visible');
+        assert.ok(await busca(opB.id, reqRestringida(null)), 'sin restricción ve B');
+        assert.equal(await busca(opB.id, reqRestringida([])), null, 'restringido a nada no ve B');
+      } finally {
+        await prisma.operation.deleteMany({ where: { id: { in: [opA.id, opB.id] } } });
+        await prisma.cliente.deleteMany({ where: { id: { in: [cA.id, cB.id] } } });
+      }
+    });
+    await prueba('alcance: /alerts/expiring con filtroCliente solo trae documentos de operaciones de A', async () => {
+      const cA = await prisma.cliente.create({ data: { tenantId: tenant.id, rfc: `FA${SUFIJO}`.slice(0, 13).toUpperCase(), razonSocial: 'A' } });
+      const cB = await prisma.cliente.create({ data: { tenantId: tenant.id, rfc: `FB${SUFIJO}`.slice(0, 13).toUpperCase(), razonSocial: 'B' } });
+      const pronto = new Date(Date.now() + 5 * 86400000);
+      const mk = (clienteId: string, ref: string) => prisma.operation.create({ data: {
+        tenantId: tenant.id, userId: user.id, clienteId, reference: ref, type: 'IMPORT',
+        documents: { create: [{ tenantId: tenant.id, name: 'Permiso', type: 'permiso', status: 'UPLOADED', expiresAt: pronto }] },
+      } });
+      const opA = await mk(cA.id, `EXA-${SUFIJO}`);
+      const opB = await mk(cB.id, `EXB-${SUFIJO}`);
+      try {
+        const where = (r: Request): Prisma.DocumentWhereInput => ({ operation: { tenantId: tenant.id, ...filtroCliente(r) }, expiresAt: { lte: new Date(Date.now() + 30 * 86400000) }, status: { in: ['UPLOADED' as const, 'VERIFIED' as const] } });
+        const deA = await prisma.document.findMany({ where: where(reqRestringida([cA.id])), select: { operationId: true } });
+        assert.deepEqual(deA.map(d => d.operationId), [opA.id]);
+        const todos = await prisma.document.findMany({ where: where(reqRestringida(null)), select: { operationId: true } });
+        assert.equal(todos.length, 2);
+      } finally {
+        await prisma.document.deleteMany({ where: { operationId: { in: [opA.id, opB.id] } } });
+        await prisma.operation.deleteMany({ where: { id: { in: [opA.id, opB.id] } } });
+        await prisma.cliente.deleteMany({ where: { id: { in: [cA.id, cB.id] } } });
+      }
     });
   } finally { await limpiar(); }
 }

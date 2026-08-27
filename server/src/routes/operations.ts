@@ -3,7 +3,7 @@ import { authenticate, AuthRequest } from '../middlewares/auth';
 import { requirePermission } from '../middlewares/requirePermission';
 import { prisma } from '../lib/prisma';
 import { getRequiredDocuments, calculateCompleteness, getMissingDocuments } from '../services/expediente';
-import { clienteIdDe, filtroCliente, validarClienteDelTenant } from '../lib/cliente-contexto';
+import { clienteIdDe, filtroCliente, validarClienteDelTenant, whereConAlcance } from '../lib/cliente-contexto';
 import crypto from 'crypto';
 import { extractDocument } from '../services/document-extractor';
 import { recordAudit } from '../services/audit-service';
@@ -92,7 +92,7 @@ operationsRouter.get('/:id', authenticate, async (req: AuthRequest, res, next) =
     const id = String(req.params.id);
 
     const operation = await prisma.operation.findFirst({
-      where: { id, tenantId: req.tenantId! },
+      where: whereConAlcance(req, { id, tenantId: req.tenantId! }),
       include: {
         documents: { orderBy: { createdAt: 'asc' } },
       },
@@ -131,12 +131,13 @@ operationsRouter.get('/:id', authenticate, async (req: AuthRequest, res, next) =
 
 // ── Ola 2 — expediente electrónico ──────────────────────────────────────
 
-async function operacionDelTenant(tenantId: string, id: string) {
-  return prisma.operation.findFirst({ where: { id, tenantId }, include: { documents: { orderBy: { createdAt: 'asc' } } } });
+// Revisión C: por {id, tenantId} Y alcance de cliente del usuario (whereConAlcance).
+async function operacionDelTenant(req: AuthRequest, tenantId: string, id: string) {
+  return prisma.operation.findFirst({ where: whereConAlcance(req, { id, tenantId }), include: { documents: { orderBy: { createdAt: 'asc' } } } });
 }
 
-async function recalcularYPersistir(opId: string, opType: string, noAplica: string[]) {
-  const docs = await prisma.document.findMany({ where: { operationId: opId } });
+async function recalcularYPersistir(tenantId: string, opId: string, opType: string, noAplica: string[]) {
+  const docs = await prisma.document.findMany({ where: { operationId: opId, tenantId } });
   const checklist = construirChecklist(opType, docs.map(d => ({ id: d.id, name: d.name, type: d.type, docType: d.docType, status: d.status })), noAplica);
   const completeness = calculateCompleteness(getRequiredDocuments(opType), docs);
   await prisma.operation.update({
@@ -153,12 +154,12 @@ async function recalcularYPersistir(opId: string, opType: string, noAplica: stri
 // POST /:id/checklist — recalcula y persiste; body { noAplica?: string[] } (ids de incisos condicionales)
 operationsRouter.post('/:id/checklist', authenticate, requirePermission('expedientes', 'create'), async (req: AuthRequest, res, next) => {
   try {
-    const op = await operacionDelTenant(req.tenantId!, String(req.params.id));
+    const op = await operacionDelTenant(req, req.tenantId!, String(req.params.id));
     if (!op) return res.status(404).json({ status: 'error', message: 'Operación no encontrada' });
     const body = (req.body ?? {}) as { noAplica?: unknown };
     const previo = ((op.checklist as ChecklistExpediente | null)?.noAplica) ?? [];
     const noAplica = Array.isArray(body.noAplica) ? body.noAplica.filter((x): x is string => typeof x === 'string').slice(0, 20) : previo;
-    const r = await recalcularYPersistir(op.id, op.type, noAplica);
+    const r = await recalcularYPersistir(req.tenantId!, op.id, op.type, noAplica);
     res.json({ status: 'ok', data: r });
   } catch (err) { next(err); }
 });
@@ -168,7 +169,7 @@ operationsRouter.post('/:id/checklist', authenticate, requirePermission('expedie
 // (default true) corre la extracción IA para poblar datos y la glosa.
 operationsRouter.post('/:id/documentos', authenticate, requirePermission('expedientes', 'create'), async (req: AuthRequest, res, next) => {
   try {
-    const op = await operacionDelTenant(req.tenantId!, String(req.params.id));
+    const op = await operacionDelTenant(req, req.tenantId!, String(req.params.id));
     if (!op) return res.status(404).json({ status: 'error', message: 'Operación no encontrada' });
     const body = (req.body ?? {}) as { fileName?: string; mimeType?: string; base64?: string; type?: string; extraer?: boolean; nombre?: string };
     if (!body.fileName || !body.mimeType || !body.base64) return res.status(400).json({ status: 'error', message: 'fileName, mimeType y base64 requeridos' });
@@ -204,7 +205,7 @@ operationsRouter.post('/:id/documentos', authenticate, requirePermission('expedi
           },
         });
     const noAplica = ((op.checklist as ChecklistExpediente | null)?.noAplica) ?? [];
-    const r = await recalcularYPersistir(op.id, op.type, noAplica);
+    const r = await recalcularYPersistir(req.tenantId!, op.id, op.type, noAplica);
     await recordAudit({
       tenantId: req.tenantId!, userId: req.userId!, action: 'expediente.documento', entity: 'Operation', entityId: op.id,
       endpoint: req.originalUrl, method: req.method, metadata: { documentId: doc.id, fileHash, type: doc.type, docType: doc.docType, slot: !!slot },
@@ -216,7 +217,7 @@ operationsRouter.post('/:id/documentos', authenticate, requirePermission('expedi
 // POST /:id/glosa — glosa documental automática (factura vs pedimento vs BL vs packing) con tolerancias explícitas.
 operationsRouter.post('/:id/glosa', authenticate, requirePermission('expedientes', 'create'), async (req: AuthRequest, res, next) => {
   try {
-    const op = await prisma.operation.findFirst({ where: { id: String(req.params.id), tenantId: req.tenantId! }, select: { id: true, reference: true } });
+    const op = await prisma.operation.findFirst({ where: whereConAlcance(req, { id: String(req.params.id), tenantId: req.tenantId! }), select: { id: true, reference: true } });
     if (!op) return res.status(404).json({ status: 'error', message: 'Operación no encontrada' });
     const body = (req.body ?? {}) as { tolerancias?: Partial<ToleranciasGlosa> };
     const tol: Partial<ToleranciasGlosa> = {};
@@ -238,7 +239,7 @@ operationsRouter.post('/:id/glosa', authenticate, requirePermission('expedientes
 // POST /:id/retencion — fija retencionHasta (fecha operación + 5 años) y crea el aviso en el calendario (tipo OTRA).
 operationsRouter.post('/:id/retencion', authenticate, requirePermission('expedientes', 'create'), async (req: AuthRequest, res, next) => {
   try {
-    const op = await prisma.operation.findFirst({ where: { id: String(req.params.id), tenantId: req.tenantId! } });
+    const op = await prisma.operation.findFirst({ where: whereConAlcance(req, { id: String(req.params.id), tenantId: req.tenantId! }) });
     if (!op) return res.status(404).json({ status: 'error', message: 'Operación no encontrada' });
     const body = (req.body ?? {}) as { fechaOperacion?: string };
     const base = body.fechaOperacion ? new Date(body.fechaOperacion) : (op.operationDate ?? op.createdAt);
@@ -269,7 +270,7 @@ operationsRouter.post('/:id/retencion', authenticate, requirePermission('expedie
 // POST /:id/vincular-pedimento — enlaza el Pedimento importado (M3/Data Stage) al expediente.
 operationsRouter.post('/:id/vincular-pedimento', authenticate, requirePermission('expedientes', 'create'), async (req: AuthRequest, res, next) => {
   try {
-    const op = await prisma.operation.findFirst({ where: { id: String(req.params.id), tenantId: req.tenantId! }, select: { id: true } });
+    const op = await prisma.operation.findFirst({ where: whereConAlcance(req, { id: String(req.params.id), tenantId: req.tenantId! }), select: { id: true } });
     if (!op) return res.status(404).json({ status: 'error', message: 'Operación no encontrada' });
     const { pedimentoId } = (req.body ?? {}) as { pedimentoId?: string | null };
     if (pedimentoId) {
@@ -285,7 +286,7 @@ operationsRouter.post('/:id/vincular-pedimento', authenticate, requirePermission
 operationsRouter.get('/:id/paquete-auditoria.zip', authenticate, async (req: AuthRequest, res, next) => {
   try {
     const id = String(req.params.id);
-    const existe = await prisma.operation.findFirst({ where: { id, tenantId: req.tenantId! }, select: { id: true } });
+    const existe = await prisma.operation.findFirst({ where: whereConAlcance(req, { id, tenantId: req.tenantId! }), select: { id: true } });
     if (!existe) return res.status(404).json({ status: 'error', message: 'Operación no encontrada' });
     const { zip, certificado, nombreArchivo } = await construirPaqueteAuditoria(req.tenantId!, id);
     await recordAudit({
@@ -308,7 +309,7 @@ operationsRouter.patch('/:opId/documents/:docId', authenticate, requirePermissio
 
     // Verificar que la operación pertenece al tenant
     const op = await prisma.operation.findFirst({
-      where: { id: opId, tenantId: req.tenantId! },
+      where: whereConAlcance(req, { id: opId, tenantId: req.tenantId! }),
     });
     if (!op) {
       return res.status(404).json({ status: 'error', message: 'Operación no encontrada' });
@@ -340,7 +341,7 @@ operationsRouter.patch('/:opId/documents/:docId', authenticate, requirePermissio
     });
 
     // Recalcular completeness
-    const docs = await prisma.document.findMany({ where: { operationId: opId } });
+    const docs = await prisma.document.findMany({ where: { operationId: opId, tenantId: req.tenantId! } });
     const completeness = calculateCompleteness(getRequiredDocuments(op.type), docs);
 
     const noAplica = ((op.checklist as ChecklistExpediente | null)?.noAplica) ?? [];
@@ -368,7 +369,7 @@ operationsRouter.get('/alerts/expiring', authenticate, async (req: AuthRequest, 
 
     const expiringDocs = await prisma.document.findMany({
       where: {
-        operation: { tenantId: req.tenantId! },
+        operation: { tenantId: req.tenantId!, ...filtroCliente(req) },
         expiresAt: { lte: thirtyDaysFromNow },
         status: { in: ['UPLOADED', 'VERIFIED'] },
       },
@@ -390,7 +391,7 @@ operationsRouter.delete('/:id', authenticate, requirePermission('expedientes', '
     const id = String(req.params.id);
 
     const op = await prisma.operation.findFirst({
-      where: { id, tenantId: req.tenantId! },
+      where: whereConAlcance(req, { id, tenantId: req.tenantId! }),
     });
     if (!op) {
       return res.status(404).json({ status: 'error', message: 'Operación no encontrada' });
