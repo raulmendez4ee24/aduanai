@@ -29,7 +29,7 @@ export function BotonAyudaModulo() {
       const t = e.target as HTMLElement | null
       const enCampo = !!t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || t.isContentEditable)
       if (e.key === '?' && !enCampo && guia) { e.preventDefault(); setAbierta(true) }
-      if (e.key === 'Escape') setAbierta(false)
+      if (e.key === 'Escape') { if (guia) marcarAyudaVista(guia.slug); setAbierta(false) }
     }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
