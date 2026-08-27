@@ -19,6 +19,10 @@ quoteRouter.post('/', authenticate, requirePermission('quoter', 'create'), async
         message: 'Fracción arancelaria, valor y origen son requeridos',
       });
     }
+    const rangoInvalidoSimple = validarRangosQuoteSimple(req.body);
+    if (rangoInvalidoSimple) {
+      return res.status(422).json({ status: 'error', message: rangoInvalidoSimple });
+    }
 
     const result = await calculateQuote({
       fractionCode,
@@ -71,6 +75,27 @@ quoteRouter.post('/', authenticate, requirePermission('quoter', 'create'), async
 // esquivar esto). $1,000 millones USD por partida/concepto; nada negativo;
 // TC override dentro de un rango plausible.
 const MAX_PARTIDA_USD = 1_000_000_000;
+/** Rango del cotizador simple (POST /api/quote). Prod 27-ago: una cotización
+ *  con customsValue=1e23 (prueba manual) reventó Analytics (total 1e+23 USD).
+ *  Mismo tope que las partidas del multi. Exportada para test. */
+export function validarRangosQuoteSimple(b: { customsValue?: unknown; exchangeRate?: unknown; igiRateOverride?: unknown; quantity?: unknown; weightKg?: unknown }): string | null {
+  const v = Number(b.customsValue);
+  if (!(Number.isFinite(v) && v > 0 && v <= MAX_PARTIDA_USD)) {
+    return 'Valor en aduana fuera de rango: debe ser mayor a 0 y a lo sumo $1,000,000,000 USD.';
+  }
+  if (b.exchangeRate != null && !(Number.isFinite(Number(b.exchangeRate)) && Number(b.exchangeRate) > 0 && Number(b.exchangeRate) <= 100)) {
+    return 'Tipo de cambio manual fuera de rango (debe ser mayor a 0 y a lo sumo 100 MXN/USD).';
+  }
+  if (b.igiRateOverride != null && !(Number.isFinite(Number(b.igiRateOverride)) && Number(b.igiRateOverride) >= 0 && Number(b.igiRateOverride) <= 100)) {
+    return 'Override de IGI fuera de rango (0-100%).';
+  }
+  for (const [k, lbl] of [['quantity', 'Cantidad'], ['weightKg', 'Peso']] as const) {
+    const x = b[k];
+    if (x != null && !(Number.isFinite(Number(x)) && Number(x) >= 0 && Number(x) <= MAX_PARTIDA_USD)) return `${lbl} fuera de rango (0 a 1,000,000,000).`;
+  }
+  return null;
+}
+
 function validarRangosMultiQuote(input: MultiQuoteInput): string | null {
   const noNegativo = (v: number | undefined) => v === undefined || (Number.isFinite(v) && v >= 0 && v <= MAX_PARTIDA_USD);
   for (let i = 0; i < input.items.length; i++) {
