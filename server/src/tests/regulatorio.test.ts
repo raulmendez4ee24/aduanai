@@ -118,6 +118,27 @@ function fetchFixture(): typeof fetch {
     const f = extraerFracciones('7208.25.01 y 64039901 y 20260825 y 0101.21.01');
     assert.deepEqual(f, ['72082501', '64039901', '01012101']);
   });
+  await prueba('fecha con puntos (2026.08.27) NO es fracción; 2001.10.01 y 1901.10.01 sí (partidas reales)', () => {
+    assert.deepEqual(extraerFracciones('vigente a partir del 2026.08.27 y del 2026.09.01; fracción 2001.10.01 y 1901.10.01'), ['20011001', '19011001']);
+    assert.deepEqual(extraerFracciones('publicado el 20260827'), []);
+  });
+  await prueba('tabla LIGIE de 5 columnas (Fracción|Descripción|Unidad|IMP|EXP): toma IMP, no la última (EXP)', () => {
+    const t = extraerTasas([
+      '7208.25.01 | Laminados planos de hierro. | Kg | 25 | Ex. |',
+      '8471.30.01 | Máquinas automáticas portátiles. | Pza | Ex. | Ex. |',
+      '6403.99.01 | Calzado con suela de caucho. | Par | 35% | Ex.',
+      '| 3926.90.99 | Las demás manufacturas de plástico. | Kg | 10 | 5 |',
+    ].join('\n'));
+    assert.equal(t['72082501'], 25, 'IMP=25, no EXP=Ex.');
+    assert.equal(t['84713001'], 0);
+    assert.equal(t['64039901'], 35);
+    assert.equal(t['39269099'], 10);
+    // 4 columnas (con unidad, sin EXP) y 3 columnas siguen tomando la última.
+    assert.equal(extraerTasas('7208.25.01 | Laminados | Kg | 15')['72082501'], 15);
+    assert.equal(extraerTasas('7208.25.01 | Laminados | 15 %')['72082501'], 15);
+    // Sin pipes: último número de la línea.
+    assert.equal(extraerTasas('7208.25.01 Laminados planos 25%')['72082501'], 25);
+  });
   await prueba('tasas parseables: 25%, Ex., 35', () => {
     const texto = HTML_NOTA.replace(/<\/t[dh]>/gi, ' | ').replace(/<\/tr>/gi, '\n').replace(/<[^>]+>/g, ' ');
     const t = extraerTasas(texto);

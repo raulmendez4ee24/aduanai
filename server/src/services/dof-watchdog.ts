@@ -114,33 +114,64 @@ export function extraerFracciones(texto: string): string[] {
   let m: RegExpExecArray | null;
   while ((m = re.exec(texto)) !== null) {
     const code = `${m[1]}${m[2]}${m[3]}`;
-    // Capítulo 01-99 y no una fecha tipo 2026.08.27 ni un año repetido.
+    // Capítulo 01-99 y no una fecha (20260827 / 2026.08.27). Con puntos solo se
+    // conserva si la partida existe en la Tarifa: 19.01-19.05 y 20.01-20.09
+    // (1901.10.01, 2001.10.01 son fracciones reales; 2026.08.27 no puede serlo).
     const cap = Number(code.slice(0, 2));
     if (cap < 1 || cap > 99) continue;
-    if (/^(19|20)\d{2}(0[1-9]|1[0-2])(0[1-9]|[12]\d|3[01])$/.test(code) && !m[0].includes('.')) continue; // parece fecha yyyymmdd
+    const pareceFecha = /^(19|20)\d{2}(0[1-9]|1[0-2])(0[1-9]|[12]\d|3[01])$/.test(code);
+    if (pareceFecha) {
+      const partida = Number(code.slice(0, 4));
+      const partidaExiste = (partida >= 1901 && partida <= 1905) || (partida >= 2001 && partida <= 2009);
+      if (!m[0].includes('.') || !partidaExiste) continue;
+    }
     out.add(code);
   }
   return [...out];
 }
 
 /**
- * Tasas por fracción cuando la nota trae tabla "fracción | descripción | tasa".
- * Reconoce "Ex." (exento = 0) y "N" / "N%" al final de la fila. Best-effort:
- * lo que no encaje simplemente no aparece (→ impacto null).
+ * Tasas por fracción cuando la nota trae tabla. Reconoce "Ex." (exento = 0) y
+ * "N" / "N%". Con celdas separadas por `|`:
+ *   - 3-4 celdas (`fracción | descripción | [unidad] | tasa`) → la última;
+ *   - ≥5 celdas (tabla LIGIE real `Fracción | Descripción | Unidad | IMP | EXP`)
+ *     → la PENÚLTIMA (IMP); la última es Exportación (casi siempre "Ex.") y
+ *     tomarla daba tasa 0 → falso "ahorro".
+ * Sin `|` se toma el último número/Ex. de la línea. Best-effort: lo que no
+ * encaje no aparece (→ impacto null).
  */
 export function extraerTasas(texto: string): Record<string, number> {
   const out: Record<string, number> = {};
   const lineas = texto.split('\n');
-  const reFila = /(?<![\d.])(\d{4})\.?(\d{2})\.?(\d{2})(?![\d.])\s*\|?\s*(?:[^|\n]*\|\s*)*?(Ex\.?|\d{1,3}(?:\.\d+)?\s*%?)\s*\|?\s*$/i;
+  const reCodigo = /(?<![\d.])(\d{4})\.?(\d{2})\.?(\d{2})(?![\d.])/;
+  const reTasa = /^(Ex\.?|\d{1,3}(?:\.\d+)?\s*%?)$/i;
+  const reFilaSinPipes = /(?<![\d.])(\d{4})\.?(\d{2})\.?(\d{2})(?![\d.])\s+(?:.*\s)?(Ex\.?|\d{1,3}(?:\.\d+)?\s*%?)\s*$/i;
+  const aTasa = (txt: string): number | null => {
+    const t = txt.trim();
+    if (!reTasa.test(t)) return null;
+    const n = /^ex/i.test(t) ? 0 : Number(t.replace('%', '').trim());
+    return Number.isFinite(n) && n >= 0 && n <= 100 ? n : null;
+  };
   for (const l of lineas) {
     const linea = l.trim();
     if (!linea) continue;
-    const m = reFila.exec(linea);
-    if (!m) continue;
-    const code = `${m[1]}${m[2]}${m[3]}`;
-    const tasaTxt = m[4]!.trim();
-    const tasa = /^ex/i.test(tasaTxt) ? 0 : Number(tasaTxt.replace('%', '').trim());
-    if (Number.isFinite(tasa) && tasa >= 0 && tasa <= 100) out[code] = tasa;
+    let code: string | null = null;
+    let tasa: number | null = null;
+    if (linea.includes('|')) {
+      const celdas = linea.split('|').map(c => c.trim()).filter(c => c.length > 0);
+      if (celdas.length < 2) continue;
+      const mc = reCodigo.exec(celdas[0]!);
+      if (!mc) continue;
+      code = `${mc[1]}${mc[2]}${mc[3]}`;
+      const idx = celdas.length >= 5 ? celdas.length - 2 : celdas.length - 1;
+      tasa = aTasa(celdas[idx]!);
+    } else {
+      const m = reFilaSinPipes.exec(linea);
+      if (!m) continue;
+      code = `${m[1]}${m[2]}${m[3]}`;
+      tasa = aTasa(m[4]!);
+    }
+    if (code && tasa !== null) out[code] = tasa;
   }
   return out;
 }
@@ -435,7 +466,8 @@ export async function alertarTenant(tenantId: string, decretos: DecretoExtraido[
       const impacto = await impactoEstimado(tenantId, grupo.clienteId, d, afectadas, tc);
       const severity = severidadPorImpacto({ tipo: 'tariff_change', impactoMXN: impacto.impactoMXN, diasParaVencer: null });
       const lista = afectadas.slice(0, 8).map(f => `${f.slice(0, 4)}.${f.slice(4, 6)}.${f.slice(6)}`).join(', ') + (afectadas.length > 8 ? ` y ${afectadas.length - 8} más` : '');
-      await prisma.alert.create({
+      try {
+        await prisma.alert.create({
         data: {
           tenantId,
           clienteId: grupo.clienteId,
@@ -457,8 +489,13 @@ export async function alertarTenant(tenantId: string, decretos: DecretoExtraido[
           suggestedAction: accionRevisarFraccion(afectadas[0]!) as unknown as object,
           fingerprint,
         },
-      });
-      creadas++;
+        });
+        creadas++;
+      } catch (err) {
+        // Carrera con otra réplica sobre @@unique([tenantId, fingerprint]): ya existe, seguir.
+        if ((err as { code?: string }).code === 'P2002') { existentes++; continue; }
+        throw err;
+      }
     }
   }
   return { creadas, existentes };
