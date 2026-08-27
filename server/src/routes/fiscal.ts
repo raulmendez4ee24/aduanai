@@ -5,10 +5,12 @@ import {
   getFiscalAccount,
   getFiscalDashboard,
   detectFiscalRisks,
-  simulateCertificationLoss,
   getGuaranteeAlerts,
 } from '../services/fiscal-guardian';
 import { applyTaxCreditAtomic } from '../services/fiscal-ledger';
+import { montarFiscalOla2 } from './fiscal-ola2';
+import { simuladorPerdida } from '../services/fiscal-certificacion';
+import { clienteIdDe } from '../lib/cliente-contexto';
 
 export const fiscalRouter = Router();
 
@@ -203,7 +205,8 @@ fiscalRouter.get('/risks', authenticate, async (req: AuthRequest, res, next) => 
 
 fiscalRouter.post('/simulate-loss', authenticate, async (req: AuthRequest, res, next) => {
   try {
-    const result = await simulateCertificationLoss(req.tenantId!);
+    // Ola 2: el simulador viejo (estimación '×4' sin base) se retiró; delega al real.
+    const result = await simuladorPerdida(req.tenantId!, clienteIdDe(req), { pctGarantia: null });
     res.json({ status: 'ok', data: result });
   } catch (err) {
     next(err);
@@ -348,3 +351,6 @@ fiscalRouter.put('/certification', authenticate, async (req: AuthRequest, res, n
     next(err);
   }
 });
+
+// ── OLA 2 — CALENDARIO VIVO DE LA CERTIFICACIÓN (ver fiscal-ola2.ts) ──
+montarFiscalOla2(fiscalRouter);

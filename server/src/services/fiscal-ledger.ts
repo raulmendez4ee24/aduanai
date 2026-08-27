@@ -31,7 +31,7 @@ async function lockTaxCredit(
 export async function applyTaxCreditAtomic(input: ApplyTaxCreditInput) {
   return prisma.$transaction(async (tx) => {
     await lockTaxCredit(tx, input.creditId, input.tenantId);
-    const credit = await tx.taxCredit.findUnique({ where: { id: input.creditId } });
+    const credit = await tx.taxCredit.findFirst({ where: { id: input.creditId, tenantId: input.tenantId } });
     if (!credit) throw new AppError('Credito no encontrado', 404);
     if (!OPEN_CREDIT_STATUSES.has(credit.status)) {
       throw new AppError(`El crédito no admite aplicaciones en estado ${credit.status}`, 409);
