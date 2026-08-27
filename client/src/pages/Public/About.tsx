@@ -425,7 +425,7 @@ export function AboutPage() {
                 Clasifica en minutos, con fuentes — y pruébalo tú mismo
               </h2>
               <p className="text-[14px] text-[#666] leading-relaxed mb-6">
-                Escribe cualquier producto (laptop, tequila, camiseta…) y la IA te propone una fracción arancelaria fundamentada, con sus aranceles, NOMs y base legal para que la valides. Sin registro, tres usos gratis.
+                Describe tu producto con material, uso y características (p. ej. "laptop 15 pulgadas Intel i7", "tequila añejo 100% agave", "camiseta de algodón para hombre") y la IA te propone una fracción arancelaria fundamentada, con sus aranceles, NOMs y base legal para que la valides. Sin registro, tres usos gratis.
               </p>
               <div className="flex flex-col gap-3">
                 {[
