@@ -85,9 +85,15 @@ async function partePura(): Promise<void> {
     assert.equal(a.ieps, 640.24); // (1000 + 200 + 8) × 0.53
   });
   await prueba('específica MXN/L → monto por cantidad; sin cantidad → 0 y pide cantidad', () => {
+    // Parte A: "verificado" SOLO con cotejadoPor + fechaCotejo explícitos; la
+    // palabra "cotejado" en notes (o "no cotejado") ya no decide.
     const t = { fractionCode: '22021000', matchType: 'exact', productCategory: 'soda', rate: 1.6451, rateType: 'specific', unit: 'MXN/L', description: null, decree: null, notes: 'cotejado DOF', effectiveDate: new Date('2026-01-01'), expiryDate: null };
     const r = aplicarTasaIEPS(t, { quantity: 1000, unit: 'litros' });
-    assert.equal(r.montoEspecificoMXN, 1645.1); assert.equal(r.pct, 0); assert.equal(r.cotejo, 'verificado');
+    assert.equal(r.montoEspecificoMXN, 1645.1); assert.equal(r.pct, 0); assert.equal(r.cotejo, 'sin_verificar', 'notes "cotejado DOF" no basta');
+    assert.equal(aplicarTasaIEPS({ ...t, notes: 'no cotejado' }, { quantity: 1 }).cotejo, 'sin_verificar');
+    const rv = aplicarTasaIEPS({ ...t, cotejadoPor: 'auditor', fechaCotejo: new Date('2026-08-01') }, { quantity: 1000, unit: 'litros' });
+    assert.equal(rv.cotejo, 'verificado'); assert.match(rv.nota, /cotejada contra LIEPS\/DOF por auditor el 2026-08-01/);
+    assert.equal(aplicarTasaIEPS({ ...t, cotejadoPor: 'auditor' }, { quantity: 1 }).cotejo, 'sin_verificar', 'sin fechaCotejo no es verificado');
     const a = computeQuoteAmounts({ valueUSD: 100, exchangeRate: 10, rates: { igiPct: 0, dtaPct: 0, iepsAbsoluteMXN: 1645.1 } });
     assert.equal(a.ieps, 1645.1); assert.equal(a.baseIVA, 2645.1);
     const r0 = aplicarTasaIEPS(t, { quantity: 0 });

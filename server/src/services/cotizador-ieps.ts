@@ -3,9 +3,12 @@
  *
  * Fuente: tabla `IEPSRate` (sembrada en prisma/seed/regimes-programs.ts —
  * combustibles, alcohol, tabaco, bebidas saborizadas, alta densidad calórica,
- * plaguicidas). Esa siembra NO trae nota de cotejo contra la LIEPS/DOF, así
- * que cada tasa aplicada se etiqueta `cotejo: 'sin_verificar'` salvo que la
- * fila diga lo contrario en `notes` ("cotejado"). Si la fracción no tiene
+ * plaguicidas). Esa siembra NO trae cotejo contra la LIEPS/DOF, así que cada
+ * tasa aplicada se etiqueta `cotejo: 'sin_verificar'` salvo que la fila traiga
+ * `cotejadoPor` + `fechaCotejo` EXPLÍCITOS. `IEPSRate` no tiene esas columnas
+ * (SCHEMA REQUERIDO); mientras tanto ninguna fila de DB llega como
+ * `verificado` — antes bastaba la palabra "cotejado" en `notes` (una nota
+ * "no cotejado" marcaba la tasa como verificada). Si la fracción no tiene
  * tasa cargada → 0 con la nota "IEPS: sin tasa cargada para esta fracción".
  * Nunca se inventa una tasa.
  *
@@ -27,6 +30,10 @@ export interface TasaIEPSCargada {
   notes: string | null;
   effectiveDate: Date;
   expiryDate: Date | null;
+  /** Cotejo explícito (SCHEMA REQUERIDO en IEPSRate). Solo con AMBOS la tasa
+   *  se etiqueta `verificado`; nunca por texto libre en `notes`. */
+  cotejadoPor?: string | null;
+  fechaCotejo?: Date | null;
 }
 
 export interface IEPSResuelto {
@@ -55,9 +62,11 @@ export function aplicarTasaIEPS(
   if (!tasa) {
     return { aplica: false, pct: 0, montoEspecificoMXN: 0, categoria: null, tasa: 0, tipoTasa: null, unidad: null, matchType: null, cotejo: 'sin_tasa', nota: NOTA_SIN_TASA, fundamento: null };
   }
-  const cotejado = /cotejad/i.test(tasa.notes ?? '');
+  const cotejado = !!(tasa.cotejadoPor && tasa.fechaCotejo);
   const cotejo: IEPSResuelto['cotejo'] = cotejado ? 'verificado' : 'sin_verificar';
-  const sufijoCotejo = cotejado ? '' : ' · tasa de catálogo sin cotejo contra LIEPS/DOF — verifica antes de declarar';
+  const sufijoCotejo = cotejado
+    ? ` · cotejada contra LIEPS/DOF por ${tasa.cotejadoPor} el ${tasa.fechaCotejo!.toISOString().slice(0, 10)}`
+    : ' · tasa de catálogo sin cotejo contra LIEPS/DOF — verifica antes de declarar';
   const fundamento = tasa.decree ?? 'LIEPS Art. 2 (tasas) y Art. 14 (base en importación)';
   if (tasa.rateType === 'specific') {
     const qty = ctx.quantity ?? 0;

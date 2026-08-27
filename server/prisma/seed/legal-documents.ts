@@ -245,11 +245,17 @@ export const LEGAL_DOCUMENTS: LegalDocSeed[] = [
     topics: ['certificacion', 'iva_ieps'], keywords: ['IVA-IEPS', 'rubro A', 'rubro AA', 'rubro AAA', 'modalidades', 'IMMEX', 'certificación', 'esquema de certificación de empresas', 'crédito fiscal'],
   },
   {
-    type: 'rgce', source: 'RGCE_2026', title: 'RGCE 2026 — Plazos de permanencia IMMEX',
+    type: 'rgce', source: 'RGCE_2026', title: 'RGCE 2026 — Regla 4.3.1: información mínima del control de inventarios (Anexo 24) — NO fija plazos de permanencia',
     reference: 'Regla 4.3.1 RGCE 2026',
-    content: 'Las mercancías importadas temporalmente bajo IMMEX tienen plazo de permanencia: 18 meses general; 36 meses para empresas certificadas IVA-IEPS modalidad AAA. Vencido el plazo sin retorno, el importador debe regularizar (cambio de régimen) pagando contribuciones + recargos, o sufrirá determinación oficiosa con sanciones.',
-    officialUrl: `${DOF}/nota_detalle.php?codigo=RGCE_2026`, effectiveDate: '2026-01-01',
-    topics: ['regimen', 'inmex'], keywords: ['IMMEX', 'temporal', '18 meses', '36 meses', 'plazo', 'regularización'],
+    // Corregido 27-ago-2026: el resumen anterior atribuía a la 4.3.1 "18 meses
+    // general; 36 meses AAA". Cotejado contra el texto íntegro del repo
+    // (prisma/seed/corpus-integro/lote2-rgce-2026.json): la 4.3.1 regula el
+    // control de inventarios (Anexo 24); los plazos son del Art. 108 LA y los
+    // 36 meses de la Regla 7.3.3 fr. XXV (beneficio OEA). Registro conservado
+    // (prod puede referenciarlo); contenido reescrito con honestidad.
+    content: 'RESUMEN (no es el texto literal — el texto íntegro de la regla está en el corpus verbatim, lote2 RGCE 2026): la Regla 4.3.1 RGCE 2026, "Información mínima del control de inventarios (Anexo 24)", obliga a las empresas con Programa IMMEX que importen temporalmente mercancías (Arts. 59 fr. I, 108, 109 y 112 LA; Art. 24 fr. IX Decreto IMMEX) a llevar el control de inventarios en forma automatizada con la información mínima del Anexo 24. Esta regla NO establece plazos de permanencia. Los plazos de las importaciones temporales IMMEX están en el Art. 108 LA (texto íntegro en el corpus): fr. I hasta dieciocho meses (insumos, combustibles, envases, etc.); fr. II hasta dos años (contenedores y cajas de trailers); fr. III por la vigencia del programa (maquinaria, equipo, herramientas, moldes, refacciones, equipo de control de calidad/ambiental y de desarrollo administrativo). La ampliación a treinta y seis meses aparece únicamente en la Regla 7.3.3 fr. XXV RGCE 2026 como beneficio de la modalidad Operador Económico Autorizado — no del rubro AAA de la certificación IVA/IEPS (Reglas 7.1.1-7.1.3). Vencido el plazo sin retorno, el importador debe regularizar (cambio de régimen o regularización, Capítulo 2.5 RGCE 2026; claves A3/F4 del Anexo 22) o enfrentar determinación con contribuciones, actualización y recargos.',
+    officialUrl: 'https://www.sat.gob.mx/minisitio/NormatividadRMFyRGCE/documentos2026/rgce/rgce/ReglasGeneralesComercioExteriorpara2026.pdf', effectiveDate: '2026-01-01',
+    topics: ['regimen', 'inmex', 'anexo24'], keywords: ['IMMEX', 'Anexo 24', 'control de inventarios', 'temporal', 'plazo', 'Art. 108 LA', '18 meses', '36 meses OEA', 'regularización'],
   },
 
   // ════════════════════════════════════════════════════════════════════

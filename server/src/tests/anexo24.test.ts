@@ -49,13 +49,19 @@ function baseLocalSegura(): boolean {
 // ── PURA ──────────────────────────────────────────────────────────────────
 async function pura() {
   console.log('\n— plazoMeses: tabla de casos —');
-  await prueba('insumo sin certificación → 18 meses (corpus Regla 4.3.1)', () => {
+  await prueba('insumo sin certificación → 18 meses (corpus: Art. 108 fr. I LA verbatim, no "Regla 4.3.1")', () => {
     const r = plazoMeses({ tipo: 'INSUMO' });
     assert.equal(r.meses, 18); assert.equal(r.cotejo, 'corpus'); assert.equal(r.aviso, null); assert.equal(r.vigenciaPrograma, false);
+    assert.match(r.fundamento, /Art\. 108 fr\. I/); assert.doesNotMatch(r.fundamento, /4\.3\.1/);
   });
-  await prueba('insumo AAA → 36 meses (corpus)', () => {
+  await prueba('insumo AAA → 36 meses NO respaldados (7.3.3-XXV es OEA): general 18, cotejo pendiente, aviso visible', () => {
     const r = plazoMeses({ tipo: 'INSUMO', certificacion: 'AAA' });
-    assert.equal(r.meses, 36); assert.equal(r.cotejo, 'corpus'); assert.equal(r.regla, 'INSUMO_CERT_AAA');
+    assert.equal(r.meses, PLAZO_GENERAL_MESES); assert.equal(r.cotejo, 'pendiente'); assert.equal(r.regla, 'INSUMO_CERT_AAA');
+    assert.ok(r.aviso && /36 meses/.test(r.aviso) && /pendiente|NO está respaldada/i.test(r.aviso));
+    assert.match(r.fundamento, /7\.3\.3 fr\. XXV/); assert.doesNotMatch(r.fundamento, /4\.3\.1|7\.1\.5/);
+    const e = CATALOGO_PLAZOS_IMMEX.find(x => x.clave === 'INSUMO_CERT_AAA')!;
+    assert.equal(e.cotejo, 'pendiente'); assert.equal(e.meses, null);
+    assert.ok(CATALOGO_PLAZOS_IMMEX.every(x => !/4\.3\.1|7\.1\.5/.test(x.fundamento)), 'ninguna entrada cita 4.3.1 ni 7.1.5');
   });
   await prueba('insumo A / AA → general 18 con cotejo pendiente y aviso (no se inventa ampliación)', () => {
     for (const c of ['A', 'AA'] as const) {
@@ -66,6 +72,7 @@ async function pura() {
   await prueba('activo fijo → vigencia del programa, sin meses (incluso con AAA)', () => {
     const r = plazoMeses({ tipo: 'ACTIVO_FIJO', certificacion: 'AAA' });
     assert.equal(r.meses, null); assert.equal(r.vigenciaPrograma, true); assert.match(r.fundamento, /108 fr\. III/);
+    assert.equal(r.cotejo, 'corpus', 'Art. 108 fr. III está verbatim en lote1-ley-aduanera.json'); assert.equal(r.aviso, null);
   });
   await prueba('Anexo I BIS / I TER → sin fuente: general 18, cotejo pendiente, aviso visible', () => {
     for (const k of ['esAnexoIBis', 'esAnexoITer'] as const) {

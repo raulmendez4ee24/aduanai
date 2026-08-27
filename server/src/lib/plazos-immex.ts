@@ -8,12 +8,21 @@
  * está PENDIENTE. Cuando el cotejo está pendiente, el sistema aplica el plazo
  * general (18 meses) y devuelve un aviso visible para el usuario.
  *
- * Fuentes en el repo (27-ago-2026):
- *  - LegalDocument "Regla 4.3.1 RGCE 2026" (resumen en corpus): "18 meses
- *    general; 36 meses para empresas certificadas IVA-IEPS modalidad AAA".
- *  - LegalDocument "Regla 7.1.5 RGCE 2026": modalidades A / AA / AAA.
- *  - Ninguna entrada del corpus contiene el texto del Art. 108 LA ni de los
- *    Anexos I BIS / I TER del Decreto IMMEX: esos plazos quedan `pendiente`.
+ * Fuentes en el repo (cotejo 27-ago-2026 contra el corpus VERBATIM):
+ *  - Art. 108 LA, texto íntegro en
+ *    `prisma/seed/corpus-integro/lote1-ley-aduanera.json`: fr. I "Hasta por
+ *    dieciocho meses" (insumos); fr. III "Por la vigencia del programa"
+ *    (maquinaria, equipo, herramientas, moldes, refacciones…).
+ *  - Regla 4.3.1 RGCE 2026 (lote2, texto íntegro) es "Información mínima del
+ *    control de inventarios (Anexo 24)": NO fija plazos. El resumen legacy
+ *    que le atribuía "18/36 meses" era incorrecto.
+ *  - Los 36 meses existen SOLO en la Regla 7.3.3 fr. XXV RGCE 2026 (lote2,
+ *    texto íntegro) = beneficio de la modalidad Operador Económico
+ *    Autorizado, NO del rubro AAA de la certificación IVA/IEPS (Reglas
+ *    7.1.1-7.1.3). Mientras no se cotejen los beneficios del rubro AAA,
+ *    `INSUMO_CERT_AAA` queda `pendiente` → se aplica el general con aviso.
+ *  - Los Anexos I BIS / I TER del Decreto IMMEX no están en el corpus:
+ *    esos plazos quedan `pendiente`.
  */
 
 export type TipoTemporal = 'INSUMO' | 'ACTIVO_FIJO';
@@ -67,25 +76,29 @@ export const CATALOGO_PLAZOS_IMMEX: EntradaCatalogoPlazo[] = [
     descripcion: 'Materias primas, partes, componentes, envases, empaques, combustibles (insumos del proceso productivo)',
     meses: 18,
     vigenciaPrograma: false,
-    fundamento: 'Art. 108 fr. I Ley Aduanera; Regla 4.3.1 RGCE 2026',
-    fuenteRepo: 'LegalDocument "Regla 4.3.1 RGCE 2026" (corpus, resumen: "18 meses general")',
+    fundamento: 'Art. 108 fr. I Ley Aduanera ("Hasta por dieciocho meses")',
+    fuenteRepo: 'Art. 108 LA texto íntegro en prisma/seed/corpus-integro/lote1-ley-aduanera.json (fr. I)',
     cotejo: 'corpus',
   },
   {
     clave: 'INSUMO_CERT_AAA',
     descripcion: 'Insumos de empresa con certificación IVA/IEPS modalidad AAA',
-    meses: 36,
+    // 36 meses NO respaldados para el rubro AAA: el único "treinta y seis
+    // meses" del corpus es la Regla 7.3.3 fr. XXV (beneficio OEA). Hasta
+    // cotejar los beneficios del rubro AAA (Reglas 7.1.1-7.1.3 / 7.3.1) se
+    // aplica el general de 18 meses con aviso.
+    meses: null,
     vigenciaPrograma: false,
-    fundamento: 'Regla 4.3.1 RGCE 2026 (beneficio de la certificación IVA/IEPS AAA)',
-    fuenteRepo: 'LegalDocument "Regla 4.3.1 RGCE 2026" (corpus, resumen: "36 meses para empresas certificadas IVA-IEPS modalidad AAA")',
-    cotejo: 'corpus',
+    fundamento: 'Art. 108 fr. I LA (general). Ampliación a 36 meses: Regla 7.3.3 fr. XXV RGCE 2026 = beneficio de Operador Económico Autorizado, no del rubro AAA IVA/IEPS (Reglas 7.1.1-7.1.3)',
+    fuenteRepo: null,
+    cotejo: 'pendiente',
   },
   {
     clave: 'INSUMO_CERT_A_AA',
     descripcion: 'Insumos de empresa con certificación IVA/IEPS modalidad A o AA',
     meses: null,
     vigenciaPrograma: false,
-    fundamento: 'Reglas 7.3.1 / 7.3.3 RGCE 2026 (beneficios por modalidad) — el corpus solo respalda la ampliación para AAA',
+    fundamento: 'Reglas 7.1.1-7.1.3 RGCE 2026 (rubros A/AA/AAA) y 7.3.1 (beneficios) — el corpus no respalda ampliación de plazo por rubro',
     fuenteRepo: null,
     cotejo: 'pendiente',
   },
@@ -112,9 +125,9 @@ export const CATALOGO_PLAZOS_IMMEX: EntradaCatalogoPlazo[] = [
     descripcion: 'Maquinaria, equipo, herramientas, moldes, refacciones y equipo de control de calidad/ambiental (activo fijo)',
     meses: null,
     vigenciaPrograma: true,
-    fundamento: 'Art. 108 fr. III Ley Aduanera (permanencia por la vigencia del programa IMMEX)',
-    fuenteRepo: null,
-    cotejo: 'pendiente',
+    fundamento: 'Art. 108 fr. III Ley Aduanera ("Por la vigencia del programa de maquila o de exportación")',
+    fuenteRepo: 'Art. 108 LA texto íntegro en prisma/seed/corpus-integro/lote1-ley-aduanera.json (fr. III incisos a-c)',
+    cotejo: 'corpus',
   },
 ];
 
@@ -164,7 +177,17 @@ export function plazoMeses(input: PlazoInput): PlazoResult {
   const cert = (input.certificacion ?? '').toString().trim().toUpperCase();
   if (cert === 'AAA') {
     const e = entrada('INSUMO_CERT_AAA');
-    return { meses: e.meses, vigenciaPrograma: false, regla: e.clave, fundamento: e.fundamento, cotejo: e.cotejo, aviso: null };
+    if (e.meses != null && e.cotejo === 'corpus') {
+      return { meses: e.meses, vigenciaPrograma: false, regla: e.clave, fundamento: e.fundamento, cotejo: e.cotejo, aviso: null };
+    }
+    return {
+      meses: PLAZO_GENERAL_MESES,
+      vigenciaPrograma: false,
+      regla: e.clave,
+      fundamento: e.fundamento,
+      cotejo: 'pendiente',
+      aviso: `Certificación AAA: la ampliación a 36 meses NO está respaldada para este rubro (${e.fundamento}); se aplicó el general de ${PLAZO_GENERAL_MESES} meses. Verifique el plazo real antes de confiar en la fecha de vencimiento.`,
+    };
   }
   if (cert === 'A' || cert === 'AA') {
     const e = entrada('INSUMO_CERT_A_AA');

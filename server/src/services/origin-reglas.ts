@@ -441,10 +441,13 @@ export async function reporteCobertura(tratado = 'TMEC', fracciones: string[] = 
   const reglas = await prisma.originRule.findMany({ where: { agreement: tratado }, select: { fractionCode: true, matchType: true, agreement: true, ruleType: true, tariffShiftCode: true, active: true, notes: true } });
   const resumen = coberturaPorCapitulo(reglas, tratado);
   const consultas = fracciones.map(f => coberturaDeFraccion(reglas, f, tratado));
-  const conFuente = reglas.filter(r => /fuente:\s*https?:\/\//i.test(r.notes ?? '') || /cotejad[oa]/i.test(r.notes ?? '')).length;
+  // Cotejada = atestación explícita `cotejadoPor: <quién>` (marcador
+  // estructurado que escribe el importador). Ni una URL ni la palabra
+  // "cotejado" suelta en una nota cuentan como revisión humana.
+  const conFuente = reglas.filter(r => MARCADOR_COTEJADO_POR.test(r.notes ?? '')).length;
   return {
     resumen, consultas,
-    cotejo: { reglasConFuente: conFuente, reglasSinFuente: reglas.length - conFuente, nota: 'OriginRule no tiene columna de fuente/cotejo (SCHEMA REQUERIDO); mientras tanto se detecta "Fuente: http…" o "cotejado" en notes.' },
+    cotejo: { reglasConFuente: conFuente, reglasSinFuente: reglas.length - conFuente, nota: 'OriginRule no tiene columna de cotejo (SCHEMA REQUERIDO: cotejadoPor/fechaCotejo); mientras tanto cuenta como cotejada solo la regla cuyo notes trae el marcador "cotejadoPor: …" que escribe el importador con la columna cotejadoPor. Una "Fuente: http…" sola es fuente declarada, pendiente de cotejo.' },
   };
 }
 
@@ -452,8 +455,11 @@ export async function reporteCobertura(tratado = 'TMEC', fracciones: string[] = 
 
 export const COLUMNAS_REGLAS = [
   'fractionCode', 'matchType', 'agreement', 'ruleType', 'description', 'tariffShiftCode', 'tariffShift',
-  'rvcRequired', 'rvcRequiredNetCost', 'rvcMethod', 'annex', 'isAutomotive', 'autoCategory', 'laborValueContent', 'steelAluminumPercent', 'notes', 'fuente',
+  'rvcRequired', 'rvcRequiredNetCost', 'rvcMethod', 'annex', 'isAutomotive', 'autoCategory', 'laborValueContent', 'steelAluminumPercent', 'notes', 'fuente', 'cotejadoPor', 'fechaCotejo',
 ] as const;
+
+/** Marcador estructurado en `notes` que deja el importador cuando la fila trae `cotejadoPor`. */
+export const MARCADOR_COTEJADO_POR = /(?:^|\|)\s*cotejadoPor:\s*\S/;
 
 const RULE_TYPES = ['wholly_obtained', 'tariff_shift', 'rvc', 'specific_process', 'combined'];
 const RVC_METHODS = ['transaction_value', 'net_cost', 'either', 'build_up', 'build_down'];
@@ -474,7 +480,8 @@ export interface FilaReglaValidada {
 const txt = (v: unknown) => (v == null ? '' : String(v)).trim();
 const num = (v: unknown): number | null => { const s = txt(v); if (!s) return null; const n = Number(s.replace('%', '').replace(',', '.')); return Number.isFinite(n) ? n : NaN; };
 
-/** Valida una fila (pura). `cotejo: 'ok'` SOLO si trae fuente http(s). */
+/** Valida una fila (pura). `cotejo: 'ok'` SOLO con `cotejadoPor` explícito
+ *  (+ `fuente` http(s) contra la que se cotejó); una URL sola = pendiente. */
 export function validarFilaRegla(f: Record<string, unknown>, fila: number): FilaReglaValidada {
   const errores: string[] = [];
   const fractionCode = txt(f.fractionCode).replace(/[^0-9]/g, '');
@@ -485,6 +492,8 @@ export function validarFilaRegla(f: Record<string, unknown>, fila: number): Fila
   const tariffShiftCode = txt(f.tariffShiftCode).toUpperCase() || null;
   const rvcMethod = txt(f.rvcMethod).toLowerCase() || null;
   const fuente = txt(f.fuente);
+  const cotejadoPor = txt(f.cotejadoPor);
+  const fechaCotejoTxt = txt(f.fechaCotejo);
 
   if (!fractionCode || ![2, 4, 6, 8].includes(fractionCode.length)) errores.push('fractionCode debe tener 2, 4, 6 u 8 dígitos');
   if (!['exact', 'prefix'].includes(matchTypeRaw)) errores.push('matchType debe ser exact o prefix');
@@ -501,10 +510,19 @@ export function validarFilaRegla(f: Record<string, unknown>, fila: number): Fila
   if ((ruleType === 'rvc' || ruleType === 'combined') && rvcRequired == null) errores.push('rvc/combined exige rvcRequired');
   if (rvcMethod && !RVC_METHODS.includes(rvcMethod)) errores.push(`rvcMethod inválido (${RVC_METHODS.join('/')})`);
   if (fuente && !/^https?:\/\//i.test(fuente)) errores.push('fuente debe ser una URL http(s) (DOF/SE/USITC) o quedar vacía');
-  const cotejo: 'ok' | 'pendiente' = fuente && /^https?:\/\//i.test(fuente) ? 'ok' : 'pendiente';
+  if (fechaCotejoTxt && !/^\d{4}-\d{2}-\d{2}$/.test(fechaCotejoTxt)) errores.push('fechaCotejo inválida (AAAA-MM-DD)');
+  if (fechaCotejoTxt && !cotejadoPor) errores.push('fechaCotejo requiere cotejadoPor (quién cotejó)');
+  if (cotejadoPor && !/^https?:\/\//i.test(fuente)) errores.push('cotejadoPor requiere fuente http(s) (contra qué se cotejó)');
+  // 'ok' SOLO con atestación explícita; la URL sola es fuente declarada.
+  const cotejo: 'ok' | 'pendiente' = cotejadoPor ? 'ok' : 'pendiente';
   const isAutomotive = /^(1|true|s[ií]|x|yes)$/i.test(txt(f.isAutomotive));
   const notesBase = txt(f.notes);
-  const notes = [notesBase, fuente ? `Fuente: ${fuente}` : null, `cotejo: ${cotejo}`].filter(Boolean).join(' | ') || null;
+  const notes = [
+    notesBase,
+    fuente ? `Fuente: ${fuente}` : null,
+    cotejadoPor ? `cotejadoPor: ${cotejadoPor}${fechaCotejoTxt ? ` (${fechaCotejoTxt})` : ''}` : null,
+    `cotejo: ${cotejo}`,
+  ].filter(Boolean).join(' | ') || null;
   if (errores.length > 0) return { fila, ok: false, errores, cotejo, data: null };
   return {
     fila, ok: true, errores: [], cotejo,
@@ -531,6 +549,7 @@ export function leerFilasReglas(archivoBase64: string, nombreArchivo?: string): 
     tariffshiftcode: 'tariffShiftCode', salto: 'tariffShiftCode', 'codigo salto': 'tariffShiftCode', tariffshift: 'tariffShift', 'texto salto': 'tariffShift',
     rvcrequired: 'rvcRequired', vcr: 'rvcRequired', 'vcr vt': 'rvcRequired', rvcrequirednetcost: 'rvcRequiredNetCost', 'vcr cn': 'rvcRequiredNetCost',
     rvcmethod: 'rvcMethod', metodo: 'rvcMethod', anexo: 'annex', annex: 'annex', notas: 'notes', notes: 'notes', fuente: 'fuente', source: 'fuente', url: 'fuente',
+    'cotejado por': 'cotejadoPor', cotejadopor: 'cotejadoPor', 'fecha cotejo': 'fechaCotejo', 'fecha de cotejo': 'fechaCotejo', fechacotejo: 'fechaCotejo',
     isautomotive: 'isAutomotive', automotriz: 'isAutomotive', autocategory: 'autoCategory', laborvaluecontent: 'laborValueContent', lvc: 'laborValueContent',
     steelaluminumpercent: 'steelAluminumPercent', 'acero aluminio': 'steelAluminumPercent',
   };
@@ -562,7 +581,9 @@ export function plantillaReglasXlsx(): Buffer {
     ['tariffShiftCode', 'si tariff_shift/combined', 'CC | CTH | CTSH'],
     ['rvcRequired / rvcRequiredNetCost', 'si rvc/combined', '% 0-100 (VT / CN)'],
     ['rvcMethod', 'no', 'transaction_value | net_cost | either | build_up | build_down'],
-    ['fuente', 'no, pero decide el cotejo', 'URL http(s) oficial (DOF/SE/USITC). Sin fuente la regla queda "pendiente de cotejo".'],
+    ['fuente', 'no', 'URL http(s) oficial (DOF/SE/USITC). Una URL sola = fuente declarada; la regla sigue "pendiente de cotejo".'],
+    ['cotejadoPor', 'no, pero decide el cotejo', 'Nombre/usuario de quien cotejó la regla contra la fuente. Requiere fuente. Con él la regla queda "cotejada".'],
+    ['fechaCotejo', 'no', 'AAAA-MM-DD de la revisión. Requiere cotejadoPor.'],
   ]);
   XLSX.utils.book_append_sheet(wb, doc, 'instrucciones');
   return XLSX.write(wb, { type: 'buffer', bookType: 'xlsx' }) as Buffer;

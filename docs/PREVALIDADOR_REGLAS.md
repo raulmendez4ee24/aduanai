@@ -79,7 +79,7 @@ Cotejo del fundamento: ✅ verificado en repo · ⏳ pendiente.
 | `PERMIT_REQUIRED` | Fracción con permiso previo sin permiso declarado | Art. 36-A LA; Anexo 2.2.1 SE | E | ⏳ |
 | `SECTORAL_REGISTRY` | Fracción con padrón sectorial | Art. 59-IV LA; Anexo 10 RGCE 2026 (DOF 14-01-2026) | I | ✅ |
 | `NOMS_MISSING` | NOM aplicable sin declarar en permisos | Art. 36-A LA; Anexo 2.4.1 SE | W | ⏳ |
-| `ANTIDUMPING_NOT_DECLARED` | Cuota vigente (match exacto fracción+país) sin identificador CC/EE | Arts. 62-63 LCE; Arts. 178 y 151 LA; Anexo 22 Ap. 8 | E | ✅ |
+| `ANTIDUMPING_NOT_DECLARED` | Cuota vigente (match exacto fracción+país) sin identificador CC/EE | Arts. 62-63 LCE; Arts. 178 y 151 LA; Anexo 22 Ap. 8 | E | ⏳ (el corpus solo tiene Art. 62 LCE; Art. 151 LA es resumen) |
 | `ANTIDUMPING_DECLARED` | Informativo: cuota declarada, verificar monto | Anexo 22 Ap. 8 | I | ⏳ |
 | `VINCULACION_DESC_MISSING` | Vinculación sin descripción | Arts. 68 y 71 LA | E | ⏳ |
 | `QTY_ZERO` | Cantidad ≤ 0 | Anexo 22 (UMC/UMT) | E | ⏳ |

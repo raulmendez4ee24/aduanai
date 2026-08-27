@@ -10,8 +10,10 @@
  *     fechas, tasas por exportador "Empresa=tasa; Empresa=tasa").
  *   - Dedupe por (fractionCode, countryOfOrigin, resolutionNumber): si existe
  *     se ACTUALIZA, si no se crea. Duplicados dentro del archivo se rechazan.
- *   - `cotejadoAt` SOLO cuando la fila trae `fuenteUrl` http(s). Sin fuente
- *     la fila entra como "pendiente de cotejo" y así se muestra.
+ *   - `cotejadoAt` SOLO cuando la fila trae `cotejadoPor` (quién cotejó contra
+ *     el DOF) — con `fechaCotejo` opcional (default hoy). Una `fuenteUrl` sola
+ *     es "fuente declarada, pendiente de cotejo": una URL no es una revisión
+ *     humana (revisión adversarial 27-ago-2026).
  *   - `dryRun` valida sin escribir.
  *
  * NO agrega resoluciones por sí mismo: sin archivo no hay filas nuevas.
@@ -26,7 +28,7 @@ export const COLUMNAS_UPCI = [
   'resolutionNumber', 'expedienteUPCI', 'resolutionType', 'fractionCode', 'countryOfOrigin', 'productDesc',
   'rateType', 'rate', 'rateUnit', 'exportadorTasas', 'specificProducer',
   'publishDateDOF', 'effectiveDate', 'expiryDate', 'examenSunsetFecha',
-  'status', 'investigationType', 'esAntielusion', 'dofUrl', 'fuenteUrl', 'notes',
+  'status', 'investigationType', 'esAntielusion', 'dofUrl', 'fuenteUrl', 'cotejadoPor', 'fechaCotejo', 'notes',
 ] as const;
 
 const RATE_TYPES = ['percentage', 'specific_USD_kg', 'specific_USD_unit'];
@@ -70,6 +72,8 @@ export interface FilaUPCIValidada {
     rateType: string; rate: number; rateUnit: string; exportadorTasas: ExportadorTasa[] | null; specificProducer: string | null;
     publishDateDOF: Date | null; effectiveDate: Date | null; expiryDate: Date | null; examenSunsetFecha: Date | null;
     status: string; investigationType: string | null; esAntielusion: boolean; dofUrl: string | null; fuenteUrl: string | null; notes: string | null;
+    /** Cotejo explícito: quién cotejó y cuándo. Solo con `cotejadoPor` se fija `cotejadoAt`. */
+    cotejadoPor: string | null; fechaCotejo: Date | null;
   } | null;
 }
 
@@ -88,6 +92,8 @@ export function validarFilaUPCI(f: Record<string, unknown>, fila: number): FilaU
   const resolutionType = txt(f.resolutionType) || 'definitiva';
   const fuenteUrl = txt(f.fuenteUrl) || null;
   const dofUrl = txt(f.dofUrl) || null;
+  const cotejadoPor = txt(f.cotejadoPor) || null;
+  const fechaCotejo = fecha(f.fechaCotejo);
 
   if (!resolutionNumber) errores.push('resolutionNumber es obligatorio (clave de dedupe)');
   if (fractionCode.length !== 8) errores.push('fractionCode debe tener 8 dígitos');
@@ -106,7 +112,12 @@ export function validarFilaUPCI(f: Record<string, unknown>, fila: number): FilaU
   const et = parsearExportadorTasas(f.exportadorTasas, rateUnit);
   if (et.error) errores.push(et.error);
   const esAntielusion = /^(1|true|s[ií]|x|yes)$/i.test(txt(f.esAntielusion)) || investigationType === 'elusion';
-  const cotejo: 'cotejada' | 'pendiente' = fuenteUrl ? 'cotejada' : 'pendiente';
+  if (fechaCotejo === undefined) errores.push('fechaCotejo inválida (AAAA-MM-DD)');
+  if (fechaCotejo && !cotejadoPor) errores.push('fechaCotejo requiere cotejadoPor (quién cotejó)');
+  if (cotejadoPor && !fuenteUrl) errores.push('cotejadoPor requiere fuenteUrl (contra qué se cotejó)');
+  // Cotejada SOLO con atestación explícita (`cotejadoPor`); la URL sola es
+  // fuente declarada, no revisión humana.
+  const cotejo: 'cotejada' | 'pendiente' = cotejadoPor ? 'cotejada' : 'pendiente';
   if (errores.length > 0) return { fila, ok: false, errores, cotejo, clave: null, data: null };
   return {
     fila, ok: true, errores: [], cotejo, clave: `${fractionCode}|${countryOfOrigin}|${resolutionNumber.toUpperCase()}`,
@@ -115,6 +126,7 @@ export function validarFilaUPCI(f: Record<string, unknown>, fila: number): FilaU
       rateType, rate, rateUnit, exportadorTasas: et.lista.length > 0 ? et.lista : null, specificProducer: txt(f.specificProducer) || null,
       publishDateDOF: fechas.publishDateDOF ?? null, effectiveDate: fechas.effectiveDate ?? null, expiryDate: fechas.expiryDate ?? null, examenSunsetFecha: fechas.examenSunsetFecha ?? null,
       status, investigationType, esAntielusion, dofUrl, fuenteUrl, notes: txt(f.notes) || null,
+      cotejadoPor, fechaCotejo: cotejadoPor ? (fechaCotejo ?? null) : null,
     },
   };
 }
@@ -141,6 +153,7 @@ export function leerFilasUPCI(archivoBase64: string, nombreArchivo?: string): Re
     'vigente hasta': 'expiryDate', expirydate: 'expiryDate', 'examen sunset': 'examenSunsetFecha', examensunsetfecha: 'examenSunsetFecha', sunset: 'examenSunsetFecha',
     estado: 'status', status: 'status', 'tipo de investigacion': 'investigationType', investigationtype: 'investigationType',
     antielusion: 'esAntielusion', esantielusion: 'esAntielusion', 'url dof': 'dofUrl', dofurl: 'dofUrl', fuente: 'fuenteUrl', fuenteurl: 'fuenteUrl', notas: 'notes', notes: 'notes',
+    'cotejado por': 'cotejadoPor', cotejadopor: 'cotejadoPor', 'fecha cotejo': 'fechaCotejo', 'fecha de cotejo': 'fechaCotejo', fechacotejo: 'fechaCotejo',
   };
   const norm = (s: string) => s.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/[_\-]+/g, ' ').replace(/\s+/g, ' ').trim();
   return filas.map(f => {
@@ -155,7 +168,7 @@ export function plantillaUPCIXlsx(): Buffer {
     resolutionNumber: 'EJEMPLO-BORRAR', expedienteUPCI: 'UPCI-AD-00-0000', resolutionType: 'definitiva', fractionCode: '7318.15.99', countryOfOrigin: 'CN',
     productDesc: 'Ejemplo — borra esta fila antes de importar', rateType: 'specific_USD_kg', rate: 2.07, rateUnit: 'USD/kg',
     exportadorTasas: 'Empresa A Co Ltd=1.25; Empresa B=0.90', specificProducer: '', publishDateDOF: '2024-03-15', effectiveDate: '2024-03-16', expiryDate: '2029-03-15', examenSunsetFecha: '2028-09-15',
-    status: 'vigente', investigationType: 'nueva', esAntielusion: '', dofUrl: 'https://www.dof.gob.mx/nota_detalle.php?codigo=…', fuenteUrl: 'https://www.dof.gob.mx/nota_detalle.php?codigo=…', notes: '',
+    status: 'vigente', investigationType: 'nueva', esAntielusion: '', dofUrl: 'https://www.dof.gob.mx/nota_detalle.php?codigo=…', fuenteUrl: 'https://www.dof.gob.mx/nota_detalle.php?codigo=…', cotejadoPor: '', fechaCotejo: '', notes: '',
   };
   const ws = XLSX.utils.json_to_sheet([ejemplo], { header: [...COLUMNAS_UPCI] });
   const wb = XLSX.utils.book_new();
@@ -172,7 +185,9 @@ export function plantillaUPCIXlsx(): Buffer {
     ['status', 'no', 'vigente (default) | suspendida | revocada | en_revision'],
     ['investigationType', 'no', 'elusion | examen_vigencia | revision | nueva'],
     ['esAntielusion', 'no', '1/sí cuando la resolución extiende una cuota a un tercer país'],
-    ['fuenteUrl', 'no, pero decide el cotejo', 'URL http(s) del DOF/SE. CON fuente → cotejadoAt = hoy. SIN fuente → "pendiente de cotejo".'],
+    ['fuenteUrl', 'no', 'URL http(s) del DOF/SE. Una URL sola = fuente declarada, la resolución sigue "pendiente de cotejo".'],
+    ['cotejadoPor', 'no, pero decide el cotejo', 'Nombre/usuario de quien cotejó la fila contra el DOF. Requiere fuenteUrl. CON cotejadoPor → cotejadoAt = fechaCotejo (o hoy). SIN él → "pendiente de cotejo".'],
+    ['fechaCotejo', 'no', 'AAAA-MM-DD de la revisión (default: hoy). Requiere cotejadoPor.'],
   ]);
   XLSX.utils.book_append_sheet(wb, doc, 'instrucciones');
   return XLSX.write(wb, { type: 'buffer', bookType: 'xlsx' }) as Buffer;
@@ -201,7 +216,16 @@ export async function importarUPCI(d: { archivoBase64: string; nombreArchivo?: s
     rep.validas++;
     if (v.cotejo === 'cotejada') rep.cotejadas++; else rep.pendientesCotejo++;
     if (d.dryRun) { rep.filas.push({ fila: v.fila, clave: v.clave, ok: true, errores: [], cotejo: v.cotejo, accion: 'validada' }); continue; }
-    const data = { ...v.data, exportadorTasas: v.data.exportadorTasas as unknown as object | null ?? undefined, cotejadoAt: v.data.fuenteUrl ? ahora : null, active: true };
+    const { cotejadoPor, fechaCotejo, ...columnas } = v.data;
+    // cotejadoAt SOLO con atestación explícita; la fuenteUrl se guarda como
+    // fuente declarada sin marcar cotejo. Quién cotejó queda en notes.
+    const data = {
+      ...columnas,
+      exportadorTasas: v.data.exportadorTasas as unknown as object | null ?? undefined,
+      cotejadoAt: cotejadoPor ? (fechaCotejo ?? ahora) : null,
+      notes: cotejadoPor ? [columnas.notes, `cotejadoPor: ${cotejadoPor}`].filter(Boolean).join(' | ') : columnas.notes,
+      active: true,
+    };
     const existente = await prisma.antidumpingDuty.findFirst({
       where: { fractionCode: v.data.fractionCode, countryOfOrigin: v.data.countryOfOrigin, resolutionNumber: { equals: v.data.resolutionNumber, mode: 'insensitive' } },
       select: { id: true, cotejadoAt: true },

@@ -143,7 +143,12 @@ export const FUNDAMENTO_RETENCION: FundamentoExpediente = {
   fuente: 'Código Fiscal de la Federación / Ley Aduanera',
   url: 'https://www.diputados.gob.mx/LeyesBiblio/pdf/CFF.pdf',
   fechaCotejo: null,
-  cotejo: 'pendiente', // el corpus LegalDocument no contiene Art. 30 CFF ni Art. 146 LA verbatim (27-ago-2026)
+  // Cotejo 27-ago-2026: el Art. 146 LA SÍ está verbatim en
+  // prisma/seed/corpus-integro/lote1-ley-aduanera.json, pero regula el amparo
+  // de la tenencia/transporte de mercancía extranjera (documentación que la
+  // acredita), NO fija el plazo de conservación de 5 años. Ese plazo sale del
+  // Art. 30 CFF, que NO está en el corpus → sigue `pendiente`.
+  cotejo: 'pendiente',
 };
 
 export function calcularRetencionHasta(fechaOperacion: Date): Date {

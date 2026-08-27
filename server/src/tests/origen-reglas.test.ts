@@ -120,10 +120,15 @@ const mat = (fractionCode: string | null, paisOrigen: string | null, valorUSD?: 
   });
 
   console.log('— importación de reglas: validación por fila —');
-  await prueba('validarFilaRegla: rechaza fracción/tipos inválidos; cotejo ok solo con fuente http(s)', () => {
+  await prueba('validarFilaRegla: rechaza fracción/tipos inválidos; cotejo ok SOLO con cotejadoPor explícito (una URL sola = pendiente)', () => {
     assert.equal(validarFilaRegla({ fractionCode: '8544.30', ruleType: 'combined', description: 'x', tariffShiftCode: 'CTSH', rvcRequired: 60 }, 2).ok, true);
     assert.equal(validarFilaRegla({ fractionCode: '8544.30', ruleType: 'combined', description: 'x', tariffShiftCode: 'CTSH', rvcRequired: 60 }, 2).cotejo, 'pendiente');
-    assert.equal(validarFilaRegla({ fractionCode: '8544.30', ruleType: 'combined', description: 'x', tariffShiftCode: 'CTSH', rvcRequired: 60, fuente: 'https://hts.usitc.gov' }, 2).cotejo, 'ok');
+    const soloUrl = validarFilaRegla({ fractionCode: '8544.30', ruleType: 'combined', description: 'x', tariffShiftCode: 'CTSH', rvcRequired: 60, fuente: 'https://hts.usitc.gov' }, 2);
+    assert.equal(soloUrl.cotejo, 'pendiente', 'una URL no es revisión humana'); assert.match(soloUrl.data!.notes ?? '', /Fuente: https/); assert.doesNotMatch(soloUrl.data!.notes ?? '', /cotejadoPor/);
+    const cotejada = validarFilaRegla({ fractionCode: '8544.30', ruleType: 'combined', description: 'x', tariffShiftCode: 'CTSH', rvcRequired: 60, fuente: 'https://hts.usitc.gov', cotejadoPor: 'auditor', fechaCotejo: '2026-08-27' }, 2);
+    assert.equal(cotejada.cotejo, 'ok'); assert.match(cotejada.data!.notes ?? '', /cotejadoPor: auditor \(2026-08-27\)/);
+    assert.ok(validarFilaRegla({ fractionCode: '8544.30', ruleType: 'combined', description: 'x', tariffShiftCode: 'CTSH', rvcRequired: 60, cotejadoPor: 'auditor' }, 2).errores.some(e => /requiere fuente/.test(e)), 'cotejadoPor sin fuente');
+    assert.ok(validarFilaRegla({ fractionCode: '8544.30', ruleType: 'combined', description: 'x', tariffShiftCode: 'CTSH', rvcRequired: 60, fuente: 'https://x', fechaCotejo: '2026-08-27' }, 2).errores.some(e => /requiere cotejadoPor/.test(e)), 'fechaCotejo sin cotejadoPor');
     const mal = validarFilaRegla({ fractionCode: '123', ruleType: 'magic', description: '', tariffShiftCode: 'XX', rvcRequired: 150, fuente: 'dof' }, 3);
     assert.equal(mal.ok, false);
     assert.ok(mal.errores.length >= 5, mal.errores.join('; '));
@@ -132,7 +137,7 @@ const mat = (fractionCode: string | null, paisOrigen: string | null, valorUSD?: 
   });
   await prueba('importarReglasOrigen dryRun: cuenta válidas/inválidas, detecta duplicadas y NO escribe', async () => {
     const filas = [
-      { fraccion: '99.99', tipo: 'prefix', tratado: 'TMEC', ruleType: 'tariff_shift', descripcion: 'prueba', salto: 'CTH', fuente: 'https://example.org/dof' },
+      { fraccion: '99.99', tipo: 'prefix', tratado: 'TMEC', ruleType: 'tariff_shift', descripcion: 'prueba', salto: 'CTH', fuente: 'https://example.org/dof', 'cotejado por': 'auditor', 'fecha cotejo': '2026-08-27' },
       { fraccion: '99.99', tipo: 'prefix', tratado: 'TMEC', ruleType: 'tariff_shift', descripcion: 'dup', salto: 'CTH' },
       { fraccion: 'abc', ruleType: 'rvc', descripcion: 'mala' },
     ];

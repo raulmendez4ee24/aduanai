@@ -82,11 +82,15 @@ const duty = (over: Partial<AntidumpingCheckResult['duty']> = {}): AntidumpingCh
     assert.ok(parsearExportadorTasas('sin igual', '%').error);
     assert.equal(parsearExportadorTasas('', '%').lista.length, 0);
   });
-  await prueba('validarFilaUPCI: obligatorios, tipos, fechas; cotejada SOLO con fuenteUrl http(s)', () => {
+  await prueba('validarFilaUPCI: obligatorios, tipos, fechas; cotejada SOLO con cotejadoPor explícito (fuenteUrl sola = pendiente)', () => {
     const ok = validarFilaUPCI({ resolutionNumber: 'R-1', fractionCode: '7318.15.99', countryOfOrigin: 'China', rateType: 'specific_USD_kg', rate: '2.07', rateUnit: 'USD/kg', publishDateDOF: '2024-03-15', expiryDate: '2029-03-15' }, 2);
     assert.equal(ok.ok, true, ok.errores.join(';')); assert.equal(ok.cotejo, 'pendiente'); assert.equal(ok.data!.countryOfOrigin, 'CN'); assert.equal(ok.clave, '73181599|CN|R-1');
-    const cot = validarFilaUPCI({ resolutionNumber: 'R-1', fractionCode: '73181599', countryOfOrigin: 'CN', rate: 10, fuenteUrl: 'https://www.dof.gob.mx/x' }, 3);
-    assert.equal(cot.cotejo, 'cotejada');
+    const soloUrl = validarFilaUPCI({ resolutionNumber: 'R-1', fractionCode: '73181599', countryOfOrigin: 'CN', rate: 10, fuenteUrl: 'https://www.dof.gob.mx/x' }, 3);
+    assert.equal(soloUrl.cotejo, 'pendiente', 'una URL no es revisión humana'); assert.equal(soloUrl.ok, true);
+    const cot = validarFilaUPCI({ resolutionNumber: 'R-1', fractionCode: '73181599', countryOfOrigin: 'CN', rate: 10, fuenteUrl: 'https://www.dof.gob.mx/x', cotejadoPor: 'auditor', fechaCotejo: '2026-08-20' }, 3);
+    assert.equal(cot.cotejo, 'cotejada'); assert.equal(cot.data!.fechaCotejo!.toISOString().slice(0, 10), '2026-08-20');
+    assert.ok(validarFilaUPCI({ resolutionNumber: 'R-1', fractionCode: '73181599', countryOfOrigin: 'CN', rate: 10, cotejadoPor: 'auditor' }, 3).errores.some(e => /requiere fuenteUrl/.test(e)));
+    assert.ok(validarFilaUPCI({ resolutionNumber: 'R-1', fractionCode: '73181599', countryOfOrigin: 'CN', rate: 10, fuenteUrl: 'https://x', fechaCotejo: '2026-08-20' }, 3).errores.some(e => /requiere cotejadoPor/.test(e)));
     const mal = validarFilaUPCI({ fractionCode: '123', countryOfOrigin: '', rateType: 'x', rate: 'abc', status: 'muerta', investigationType: 'z', publishDateDOF: '15/03', fuenteUrl: 'dof', exportadorTasas: 'nada' }, 4);
     assert.equal(mal.ok, false); assert.ok(mal.errores.length >= 8, mal.errores.join(' | '));
     assert.ok(validarFilaUPCI({ resolutionNumber: 'R', fractionCode: '73181599', countryOfOrigin: 'CN', rate: 1, effectiveDate: '2025-01-01', expiryDate: '2024-01-01' }, 5).errores.some(e => /anterior/.test(e)));
@@ -119,21 +123,22 @@ const duty = (over: Partial<AntidumpingCheckResult['duty']> = {}): AntidumpingCh
     return (XLSX.write(wb, { type: 'buffer', bookType: 'xlsx' }) as Buffer).toString('base64');
   };
   try {
-    await prueba('importarUPCI: crea con cotejadoAt solo si hay fuente; dedupe por (fracción, país, resolución) actualiza sin borrar cotejo previo; dryRun no escribe', async () => {
+    await prueba('importarUPCI: crea con cotejadoAt solo con cotejadoPor (fuenteUrl sola = pendiente); dedupe por (fracción, país, resolución) actualiza sin borrar cotejo previo; dryRun no escribe', async () => {
       const base = { fractionCode: FRAC, countryOfOrigin: 'CN', rateType: 'percentage', rate: 30, rateUnit: '%', publishDateDOF: '2026-01-10', effectiveDate: '2026-01-11', expiryDate: '2031-01-10', exportadorTasas: 'Zhejiang Fastener Co Ltd=12.5; Ningbo Bolts Manufacturing=7', examenSunsetFecha: '2030-07-10' };
       const dry = await importarUPCI({ archivoBase64: xlsxB64([{ ...base, resolutionNumber: `${RES}-A` }]), nombreArchivo: 'c.xlsx', dryRun: true });
       assert.equal(dry.validas, 1); assert.equal(dry.creadas, 0);
       assert.equal(await prisma.antidumpingDuty.count({ where: { resolutionNumber: `${RES}-A` } }), 0);
       const r1 = await importarUPCI({ archivoBase64: xlsxB64([
-        { ...base, resolutionNumber: `${RES}-A`, fuenteUrl: 'https://www.dof.gob.mx/nota_detalle.php?codigo=1' },
-        { ...base, resolutionNumber: `${RES}-B`, countryOfOrigin: 'VN', investigationType: 'elusion', rate: 30, exportadorTasas: '' },
+        { ...base, resolutionNumber: `${RES}-A`, fuenteUrl: 'https://www.dof.gob.mx/nota_detalle.php?codigo=1', cotejadoPor: 'auditor', fechaCotejo: '2026-08-20' },
+        { ...base, resolutionNumber: `${RES}-B`, countryOfOrigin: 'VN', investigationType: 'elusion', rate: 30, exportadorTasas: '', fuenteUrl: 'https://www.dof.gob.mx/nota_detalle.php?codigo=2' },
         { ...base, resolutionNumber: `${RES}-A` }, // duplicada en archivo
         { ...base, resolutionNumber: '', rate: 'x' }, // inválida
       ]), nombreArchivo: 'c.xlsx' });
       assert.equal(r1.creadas, 2); assert.equal(r1.invalidas, 2); assert.equal(r1.duplicadasEnArchivo, 1); assert.equal(r1.cotejadas, 1); assert.equal(r1.pendientesCotejo, 1);
       const a = await prisma.antidumpingDuty.findFirst({ where: { resolutionNumber: `${RES}-A` } });
       const b = await prisma.antidumpingDuty.findFirst({ where: { resolutionNumber: `${RES}-B` } });
-      assert.ok(a!.cotejadoAt); assert.equal(b!.cotejadoAt, null); assert.equal(b!.esAntielusion, true);
+      assert.equal(a!.cotejadoAt!.toISOString().slice(0, 10), '2026-08-20', 'cotejadoAt = fechaCotejo explícita'); assert.match(a!.notes ?? '', /cotejadoPor: auditor/);
+      assert.equal(b!.cotejadoAt, null, 'B trae fuenteUrl pero nadie la cotejó'); assert.equal(b!.fuenteUrl, 'https://www.dof.gob.mx/nota_detalle.php?codigo=2'); assert.equal(b!.esAntielusion, true);
       assert.equal((a!.exportadorTasas as unknown[]).length, 2); assert.equal(a!.examenSunsetFecha!.toISOString().slice(0, 10), '2030-07-10');
       // Re-importar A sin fuente: actualiza (rate 35) y conserva el cotejo previo; no crea otra fila
       const r2 = await importarUPCI({ archivoBase64: xlsxB64([{ ...base, resolutionNumber: `${RES}-a`, rate: 35 }]), nombreArchivo: 'c.xlsx' });
