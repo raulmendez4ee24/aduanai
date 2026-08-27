@@ -29,6 +29,7 @@
  */
 
 import { prisma } from '../lib/prisma';
+import { enLotes } from '../lib/lotes';
 import { logger } from '../lib/logger';
 import { parsearReformasLigie, URL_REFORMAS_LIGIE, type DecretoDetectado } from './tarifa-vigilante';
 import { tipoCambioMXN } from './frontera-canonica';
@@ -392,10 +393,17 @@ export async function correrWatchdogDOF(opts: OpcionesWatchdog = {}): Promise<Re
       ? opts.tenantIds.map(id => ({ id }))
       : await prisma.tenant.findMany({ where: { status: { in: ['ACTIVE', 'PILOT', 'TRIAL'] } }, select: { id: true } });
     const tc = opts.tc !== undefined ? opts.tc : (await tipoCambioMXN()).valor;
-    for (const t of tenants) {
-      const r = await alertarTenant(t.id, conFracciones, tc);
-      alertasCreadas += r.creadas;
-      alertasExistentes += r.existentes;
+    // Revisión C: tenants en lotes de 50; un tenant que falla no tumba el tick.
+    for (const lote of enLotes(tenants)) {
+      for (const t of lote) {
+        try {
+          const r = await alertarTenant(t.id, conFracciones, tc);
+          alertasCreadas += r.creadas;
+          alertasExistentes += r.existentes;
+        } catch (err) {
+          logger.error('Watchdog DOF: alertar tenant falló', { action: 'dof_watchdog_tenant_fail', tenantId: t.id, errorMessage: err instanceof Error ? err.message : String(err) });
+        }
+      }
     }
   }
 

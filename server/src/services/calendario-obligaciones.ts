@@ -18,6 +18,7 @@
  */
 
 import { prisma } from '../lib/prisma';
+import { enLotes } from '../lib/lotes';
 import { logger } from '../lib/logger';
 import { accionVerObligacion } from './alert-acciones';
 import { severidadPorImpacto } from './alert-severity';
@@ -391,9 +392,15 @@ export async function procesarVencimientos(tenantId: string, ahora = new Date())
 export async function procesarVencimientosTodos(ahora = new Date()): Promise<{ tenants: number; vencidas: number; alertas: number }> {
   const tenants = await prisma.tenant.findMany({ where: { status: { in: ['ACTIVE', 'PILOT', 'TRIAL'] } }, select: { id: true } });
   let vencidas = 0, alertas = 0;
-  for (const t of tenants) {
-    const r = await procesarVencimientos(t.id, ahora).catch(() => ({ vencidas: 0, alertas: 0 }));
-    vencidas += r.vencidas; alertas += r.alertas;
+  // Revisión C: tenants en lotes de 50; un tenant que falla se loguea y no tumba el tick.
+  for (const lote of enLotes(tenants)) {
+    for (const t of lote) {
+      const r = await procesarVencimientos(t.id, ahora).catch(err => {
+        logger.error('Calendario: vencimientos fallaron', { action: 'calendario_vencimientos_fail', tenantId: t.id, errorMessage: err instanceof Error ? err.message : String(err) });
+        return { vencidas: 0, alertas: 0 };
+      });
+      vencidas += r.vencidas; alertas += r.alertas;
+    }
   }
   return { tenants: tenants.length, vencidas, alertas };
 }

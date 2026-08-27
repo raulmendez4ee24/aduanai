@@ -5,6 +5,7 @@ dotenv.config();
 // sin fallback) antes de servir. Si falta o es inválida, el proceso termina con
 // un mensaje claro y NO sensible en vez de arrancar con un secreto por defecto.
 import { assertConfig } from './lib/config';
+import { conCandadoJob } from './lib/candado-job';
 try {
   assertConfig();
 } catch (err) {
@@ -455,11 +456,19 @@ armTimer('tarifa_vigilante', 60 * 60000, async () => {
 // ── OPERACIÓN 2026-08 ── timers nuevos (regulatorio / calendario) ──
 // Watchdog DOF real: cada 6 h (Diputados + índice DOF → alertas por catálogo del cliente).
 let _lastWatchdogDOF = 0;
+// Revisión C: cada tick multi-tenant corre bajo candado distribuido (pg_try_advisory_lock)
+// para que con >1 réplica solo una lo ejecute; los errores se loguean sin tumbar el proceso.
 armTimer('dof_watchdog', 30 * 60000, async () => {
   if (Date.now() - _lastWatchdogDOF < 6 * 3600000) return;
   _lastWatchdogDOF = Date.now();
-  const { correrWatchdogDOF } = await import('./services/dof-watchdog');
-  await correrWatchdogDOF();
+  await conCandadoJob('dof_watchdog', async () => {
+    try {
+      const { correrWatchdogDOF } = await import('./services/dof-watchdog');
+      await correrWatchdogDOF();
+    } catch (err) {
+      logger.error('[job] dof_watchdog falló', { action: 'job_failed', metadata: { name: 'dof_watchdog' }, errorMessage: err instanceof Error ? err.message : String(err) });
+    }
+  });
 });
 // Calendario de obligaciones: diario marca vencidas y crea alertas `ver_obligacion`.
 let _lastCalendarioRun = '';
@@ -467,9 +476,15 @@ armTimer('calendario_vencimientos', 60 * 60000, async () => {
   const today = new Date().toISOString().slice(0, 10);
   if (_lastCalendarioRun === today) return;
   _lastCalendarioRun = today;
-  const { procesarVencimientosTodos } = await import('./services/calendario-obligaciones');
-  const r = await procesarVencimientosTodos();
-  if (r.vencidas > 0 || r.alertas > 0) logger.info(`Calendario: ${r.tenants} tenants → ${r.vencidas} vencidas, ${r.alertas} alertas`, { action: 'calendario_cron', metadata: r });
+  await conCandadoJob('calendario_vencimientos', async () => {
+    try {
+      const { procesarVencimientosTodos } = await import('./services/calendario-obligaciones');
+      const r = await procesarVencimientosTodos();
+      if (r.vencidas > 0 || r.alertas > 0) logger.info(`Calendario: ${r.tenants} tenants → ${r.vencidas} vencidas, ${r.alertas} alertas`, { action: 'calendario_cron', metadata: r });
+    } catch (err) {
+      logger.error('[job] calendario_vencimientos falló', { action: 'job_failed', metadata: { name: 'calendario_vencimientos' }, errorMessage: err instanceof Error ? err.message : String(err) });
+    }
+  });
 });
 // Digest semanal: lunes 13:00 UTC (7am CDMX); envía a tenants con canal configurado sin envío en 6 días.
 let _lastDigestRun = '';
@@ -478,9 +493,15 @@ armTimer('digest_semanal', 30 * 60000, async () => {
   const tag = ahora.toISOString().slice(0, 10);
   if (_lastDigestRun === tag || ahora.getUTCDay() !== 1 || ahora.getUTCHours() !== 13) return;
   _lastDigestRun = tag;
-  const { enviarDigestsPendientes } = await import('./services/digest-semanal');
-  const r = await enviarDigestsPendientes(ahora);
-  logger.info(`Digest semanal: ${r.enviados}/${r.tenants} enviados`, { action: 'digest_cron', metadata: r });
+  await conCandadoJob('digest_semanal', async () => {
+    try {
+      const { enviarDigestsPendientes } = await import('./services/digest-semanal');
+      const r = await enviarDigestsPendientes(ahora);
+      logger.info(`Digest semanal: ${r.enviados}/${r.tenants} enviados`, { action: 'digest_cron', metadata: r });
+    } catch (err) {
+      logger.error('[job] digest_semanal falló', { action: 'job_failed', metadata: { name: 'digest_semanal' }, errorMessage: err instanceof Error ? err.message : String(err) });
+    }
+  });
 });
 
 // Ola 2 origen-cuotas: diario — vencimiento de certificados de proveedores (60/30/7) y regla de elusión por cliente.
@@ -489,11 +510,17 @@ armTimer('origen_cuotas_diario', 60 * 60000, async () => {
   const today = new Date().toISOString().slice(0, 10);
   if (_lastOrigenCuotasRun === today) return;
   _lastOrigenCuotasRun = today;
-  const { procesarVencimientosCertificadosTodos } = await import('./services/origin-proveedores');
-  const { detectarElusionTodos } = await import('./services/antidumping-elusion');
-  const c = await procesarVencimientosCertificadosTodos();
-  const e = await detectarElusionTodos();
-  if (c.alertas > 0 || e.alertas > 0) logger.info(`Origen/cuotas: ${c.vencidos} certificados vencidos, ${c.alertas} alertas de vigencia, ${e.alertas} alertas de elusión`, { action: 'origen_cuotas_cron', metadata: { ...c, elusion: e } });
+  await conCandadoJob('origen_cuotas_diario', async () => {
+    try {
+      const { procesarVencimientosCertificadosTodos } = await import('./services/origin-proveedores');
+      const { detectarElusionTodos } = await import('./services/antidumping-elusion');
+      const c = await procesarVencimientosCertificadosTodos();
+      const e = await detectarElusionTodos();
+      if (c.alertas > 0 || e.alertas > 0) logger.info(`Origen/cuotas: ${c.vencidos} certificados vencidos, ${c.alertas} alertas de vigencia, ${e.alertas} alertas de elusión`, { action: 'origen_cuotas_cron', metadata: { ...c, elusion: e } });
+    } catch (err) {
+      logger.error('[job] origen_cuotas_diario falló', { action: 'job_failed', metadata: { name: 'origen_cuotas_diario' }, errorMessage: err instanceof Error ? err.message : String(err) });
+    }
+  });
 });
 
 app.listen(PORT, () => {

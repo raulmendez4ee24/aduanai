@@ -13,7 +13,8 @@ import {
   recolectarDecretos, alertarTenant, correrWatchdogDOF, catalogoPorCliente, fraccionesAfectadas,
 } from '../services/dof-watchdog';
 import { URL_REFORMAS_LIGIE } from '../services/tarifa-vigilante';
-import { armarDigest, enviarDigest, renderDigestTexto } from '../services/digest-semanal';
+import { armarDigest, enviarDigest, renderDigestTexto, destinatariosSinRestriccion } from '../services/digest-semanal';
+import { conCandadoJob } from '../lib/candado-job';
 
 let pasadas = 0, falladas = 0;
 async function prueba(nombre: string, fn: () => void | Promise<void>) {
@@ -235,6 +236,42 @@ function fetchFixture(): typeof fetch {
       assert.deepEqual(tos, [user.email]);
       const t = await prisma.tenant.findUnique({ where: { id: tenant.id } });
       assert.equal(t!.digestUltimoEnvioAt?.toISOString(), AHORA.toISOString());
+    });
+    await prueba('digest: un usuario restringido a un cliente NO recibe el digest del tenant; el no restringido sí', async () => {
+      const restringido = await prisma.user.create({ data: { email: `r-${SUFIJO}@test.local`, password: 'x', name: 'R', tenantId: tenant.id, role: 'USER', emailVerified: true } });
+      const libre = await prisma.user.create({ data: { email: `l-${SUFIJO}@test.local`, password: 'x', name: 'L', tenantId: tenant.id, role: 'USER', emailVerified: true } });
+      const rol = await prisma.tenantRole.create({ data: { tenantId: tenant.id, code: `CONSULTA-${SUFIJO}`, name: `CONSULTA-${SUFIJO}`, permissions: {} } });
+      await prisma.userTenantRole.create({ data: { userId: restringido.id, tenantId: tenant.id, roleId: rol.id, assignedBy: user.id, active: true, scopeRestrictions: { clienteIds: [cliente.id] } } });
+      try {
+        const todos = await prisma.user.findMany({ where: { tenantId: tenant.id, active: true }, select: { id: true, email: true, phone: true, emailVerified: true, role: true } });
+        const dest = await destinatariosSinRestriccion(tenant.id, todos);
+        const emails = dest.map(u => u.email).sort();
+        assert.ok(emails.includes(user.email), 'admin incluido');
+        assert.ok(emails.includes(libre.email), 'usuario sin restricción incluido');
+        assert.ok(!emails.includes(restringido.email), 'usuario restringido excluido');
+        // Sin admins: cae a los no restringidos, nunca al restringido.
+        const sinAdmins = await destinatariosSinRestriccion(tenant.id, todos.filter(u => u.role !== 'ADMIN'));
+        assert.deepEqual(sinAdmins.map(u => u.email), [libre.email]);
+      } finally {
+        await prisma.userTenantRole.deleteMany({ where: { tenantId: tenant.id } });
+        await prisma.tenantRole.deleteMany({ where: { id: rol.id } });
+        await prisma.user.deleteMany({ where: { id: { in: [restringido.id, libre.id] } } });
+      }
+    });
+    await prueba('candado de jobs: dos ticks concurrentes del mismo job → solo uno corre; el otro devuelve null', async () => {
+      let corridas = 0;
+      const lento = async () => { corridas++; await new Promise(r => setTimeout(r, 300)); return 'ok' as const; };
+      const [a, b] = await Promise.all([conCandadoJob(`test_${SUFIJO}`, lento), conCandadoJob(`test_${SUFIJO}`, lento)]);
+      assert.equal(corridas, 1);
+      assert.deepEqual([a, b].filter(x => x === 'ok').length, 1);
+      assert.deepEqual([a, b].filter(x => x === null).length, 1);
+      // Liberado: una tercera llamada sí corre; otro nombre no compite.
+      assert.equal(await conCandadoJob(`test_${SUFIJO}`, async () => 'de_nuevo'), 'de_nuevo');
+      assert.equal(await conCandadoJob(`otro_${SUFIJO}`, async () => 'otro'), 'otro');
+    });
+    await prueba('candado de jobs: si fn lanza, el candado se libera y el error sube', async () => {
+      await assert.rejects(conCandadoJob(`err_${SUFIJO}`, async () => { throw new Error('boom'); }), /boom/);
+      assert.equal(await conCandadoJob(`err_${SUFIJO}`, async () => 1), 1);
     });
     await prueba('digest canal whatsapp sin teléfonos → no envía y lo dice', async () => {
       await prisma.tenant.update({ where: { id: tenant.id }, data: { digestSemanalCanal: 'whatsapp' } });
