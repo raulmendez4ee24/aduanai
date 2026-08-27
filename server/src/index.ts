@@ -386,11 +386,13 @@ armTimer('verification_expiry', 24 * 3600000, async () => {
 
 // ── Alertas inteligentes (diario) — regenera por tenant con datos reales ──
 let _lastAlertRun = '';
+let _alertRegenCorriendo = false; // si el barrido tarda >30 min, el tick de 7:30 no re-entra
 armTimer('alert_regen', 30 * 60000, async () => {
   const today = new Date().toISOString().slice(0, 10);
-  if (_lastAlertRun === today) return;
+  if (_lastAlertRun === today || _alertRegenCorriendo) return;
   const hourUTC = new Date().getUTCHours();
   if (hourUTC !== 7) return; // 7am UTC = 1am CST, ventana de poca carga
+  _alertRegenCorriendo = true;
   try {
     const { regenerateAlerts } = await import('./services/alert-generator');
     const tenants = await prisma.tenant.findMany({ select: { id: true }, where: { status: { in: ['ACTIVE', 'PILOT', 'TRIAL'] } } });
@@ -406,6 +408,8 @@ armTimer('alert_regen', 30 * 60000, async () => {
     });
   } catch (err) {
     logger.error('Alert regen cron failed', { errorMessage: err instanceof Error ? err.message : String(err) });
+  } finally {
+    _alertRegenCorriendo = false;
   }
 }); // chequea cada 30 min; corre una vez al día a las 7 UTC
 
@@ -470,20 +474,25 @@ armTimer('dof_watchdog', 30 * 60000, async () => {
   });
 });
 // Calendario de obligaciones: diario marca vencidas y crea alertas `ver_obligacion`.
+// La marca del día se fija al FINAL del tick (como fx_refresh): si la DB falla un
+// instante, el siguiente tick horario reintenta en vez de esperar a mañana.
 let _lastCalendarioRun = '';
 armTimer('calendario_vencimientos', 60 * 60000, async () => {
   const today = new Date().toISOString().slice(0, 10);
   if (_lastCalendarioRun === today) return;
-  _lastCalendarioRun = today;
-  await conCandadoJob('calendario_vencimientos', async () => {
+  const ok = await conCandadoJob('calendario_vencimientos', async () => {
     try {
       const { procesarVencimientosTodos } = await import('./services/calendario-obligaciones');
       const r = await procesarVencimientosTodos();
       if (r.vencidas > 0 || r.alertas > 0) logger.info(`Calendario: ${r.tenants} tenants → ${r.vencidas} vencidas, ${r.alertas} alertas`, { action: 'calendario_cron', metadata: r });
+      return true;
     } catch (err) {
       logger.error('[job] calendario_vencimientos falló', { action: 'job_failed', metadata: { name: 'calendario_vencimientos' }, errorMessage: err instanceof Error ? err.message : String(err) });
+      return false;
     }
   });
+  // null = otra réplica lo tiene (ella marca el día en su proceso; aquí también, para no re-correr por hora).
+  if (ok === true || ok === null) _lastCalendarioRun = today;
 });
 // Digest semanal: lunes 13:00 UTC (7am CDMX); envía a tenants con canal configurado sin envío en 6 días.
 let _lastDigestRun = '';
@@ -504,22 +513,33 @@ armTimer('digest_semanal', 30 * 60000, async () => {
 });
 
 // Ola 2 origen-cuotas: diario — vencimiento de certificados de proveedores (60/30/7) y regla de elusión por cliente.
+// Trys separados: que fallen los certificados no impide correr la elusión ese día. Marca al final.
 let _lastOrigenCuotasRun = '';
 armTimer('origen_cuotas_diario', 60 * 60000, async () => {
   const today = new Date().toISOString().slice(0, 10);
   if (_lastOrigenCuotasRun === today) return;
-  _lastOrigenCuotasRun = today;
-  await conCandadoJob('origen_cuotas_diario', async () => {
+  const ok = await conCandadoJob('origen_cuotas_diario', async () => {
+    let todoBien = true;
+    let c: { vencidos: number; alertas: number } | null = null;
     try {
       const { procesarVencimientosCertificadosTodos } = await import('./services/origin-proveedores');
-      const { detectarElusionTodos } = await import('./services/antidumping-elusion');
-      const c = await procesarVencimientosCertificadosTodos();
-      const e = await detectarElusionTodos();
-      if (c.alertas > 0 || e.alertas > 0) logger.info(`Origen/cuotas: ${c.vencidos} certificados vencidos, ${c.alertas} alertas de vigencia, ${e.alertas} alertas de elusión`, { action: 'origen_cuotas_cron', metadata: { ...c, elusion: e } });
+      c = await procesarVencimientosCertificadosTodos();
     } catch (err) {
-      logger.error('[job] origen_cuotas_diario falló', { action: 'job_failed', metadata: { name: 'origen_cuotas_diario' }, errorMessage: err instanceof Error ? err.message : String(err) });
+      todoBien = false;
+      logger.error('[job] origen_cuotas_diario (certificados) falló', { action: 'job_failed', metadata: { name: 'origen_cuotas_diario', paso: 'certificados' }, errorMessage: err instanceof Error ? err.message : String(err) });
     }
+    let e: { alertas: number } | null = null;
+    try {
+      const { detectarElusionTodos } = await import('./services/antidumping-elusion');
+      e = await detectarElusionTodos();
+    } catch (err) {
+      todoBien = false;
+      logger.error('[job] origen_cuotas_diario (elusión) falló', { action: 'job_failed', metadata: { name: 'origen_cuotas_diario', paso: 'elusion' }, errorMessage: err instanceof Error ? err.message : String(err) });
+    }
+    if ((c?.alertas ?? 0) > 0 || (e?.alertas ?? 0) > 0) logger.info(`Origen/cuotas: ${c?.vencidos ?? 0} certificados vencidos, ${c?.alertas ?? 0} alertas de vigencia, ${e?.alertas ?? 0} alertas de elusión`, { action: 'origen_cuotas_cron', metadata: { ...(c ?? {}), elusion: e } });
+    return todoBien;
   });
+  if (ok === true || ok === null) _lastOrigenCuotasRun = today;
 });
 
 app.listen(PORT, () => {

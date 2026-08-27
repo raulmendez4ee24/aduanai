@@ -7,7 +7,7 @@
 import { strict as assert } from 'node:assert';
 import { prisma } from '../lib/prisma';
 import {
-  CATALOGO_BASE, ultimoDiaHabilDelMes, siguienteMensual, siguienteFechaRecurrente, semaforo, validarEntrada,
+  CATALOGO_BASE, ultimoDiaHabilDelMes, siguienteMensual, siguienteFechaRecurrente, proximaFechaDeObligacion, diasParaVencer, estaVencida, semaforo, validarEntrada,
   sembrarBase, crearObligacion, marcarCumplida, procesarVencimientos, listarObligaciones, actualizarObligacion, eliminarObligacion,
 } from '../services/calendario-obligaciones';
 import { clienteIdDe, filtroCliente, enAlcance, validarClienteEnAlcance } from '../lib/cliente-contexto';
@@ -36,6 +36,29 @@ const AHORA = new Date('2026-08-27T12:00:00Z');
     assert.equal(siguienteFechaRecurrente(f, 'ANUAL')!.toISOString().slice(0, 10), '2027-05-29');
     assert.equal(siguienteFechaRecurrente(f, 'MENSUAL')!.toISOString().slice(0, 10), '2026-06-29');
     assert.equal(siguienteFechaRecurrente(f, 'UNICA'), null);
+  });
+  await prueba('recurrencia día 31: clamp al último día del mes (no desborda a marzo) y 29-feb → 28-feb', () => {
+    assert.equal(siguienteFechaRecurrente(new Date('2026-01-31T12:00:00Z'), 'MENSUAL')!.toISOString().slice(0, 10), '2026-02-28');
+    assert.equal(siguienteFechaRecurrente(new Date('2026-02-28T12:00:00Z'), 'MENSUAL')!.toISOString().slice(0, 10), '2026-03-28');
+    assert.equal(siguienteFechaRecurrente(new Date('2026-03-31T12:00:00Z'), 'MENSUAL')!.toISOString().slice(0, 10), '2026-04-30');
+    assert.equal(siguienteFechaRecurrente(new Date('2028-02-29T12:00:00Z'), 'ANUAL')!.toISOString().slice(0, 10), '2029-02-28');
+    assert.equal(siguienteMensual(new Date('2026-02-10T12:00:00Z'), 31).toISOString().slice(0, 10), '2026-02-28');
+  });
+  await prueba('recurrencia usa la regla del catálogo: REPORTE_ANUAL_SE cumplido 29-may-2026 → 31-may-2027 (último hábil), no 29-may (sábado)', () => {
+    const f = new Date('2026-05-29T12:00:00Z');
+    assert.equal(proximaFechaDeObligacion({ tipo: 'REPORTE_ANUAL_SE', fechaLimite: f, recurrencia: 'ANUAL' })!.toISOString().slice(0, 10), '2027-05-31');
+    assert.equal(proximaFechaDeObligacion({ tipo: 'OTRA', fechaLimite: f, recurrencia: 'ANUAL' })!.toISOString().slice(0, 10), '2027-05-29', 'tipo libre: aritmética');
+    assert.equal(proximaFechaDeObligacion({ tipo: 'ANEXO_24', fechaLimite: f, recurrencia: 'ANUAL' })!.toISOString().slice(0, 10), '2027-05-29', 'recurrencia distinta a la del catálogo: aritmética');
+    assert.equal(proximaFechaDeObligacion({ tipo: 'ANEXO_24', fechaLimite: f, recurrencia: 'UNICA' }), null);
+  });
+  await prueba('vencimiento por fin de día: a las 02:00Z del día límite aún NO está vencida (1 día); al día siguiente sí', () => {
+    const limite = new Date('2026-09-05'); // como la guarda crearObligacion: T00:00:00Z
+    const madrugada = new Date('2026-09-05T02:00:00Z');
+    assert.equal(estaVencida(limite, madrugada), false);
+    assert.equal(diasParaVencer(limite, madrugada), 1);
+    assert.equal(semaforo(limite, 'pendiente', madrugada), 'rojo');
+    assert.equal(estaVencida(limite, new Date('2026-09-06T00:00:01Z')), true);
+    assert.equal(diasParaVencer(limite, new Date('2026-09-06T00:00:01Z')), 0);
   });
   await prueba('semáforo: ≤7 rojo, ≤30 ámbar, >30 verde, cumplida gris, vencida rojo', () => {
     const d = (n: number) => new Date(AHORA.getTime() + n * 86400000);
@@ -106,6 +129,33 @@ const AHORA = new Date('2026-08-27T12:00:00Z');
       assert.equal(r2!.siguiente, null);
       assert.equal(await prisma.obligacionCalendario.count({ where: { tenantId: tenant.id, tipo: 'ANEXO_24', clienteId: cliente.id, fechaLimite: new Date('2026-10-05T12:00:00Z') } }), 1);
     });
+    // Tenant limpio (sin siembra) para los casos de recurrencia y fin de día: no toca los conteos de los demás.
+    const limpio = await prisma.tenant.create({ data: { name: `Limpio ${SUFIJO}`, status: 'ACTIVE' } });
+    try {
+      await prueba('REPORTE_ANUAL_SE cumplido se regenera con la regla del catálogo (31-may-2027)', async () => {
+        const rep = await crearObligacion(limpio.id, { tipo: 'REPORTE_ANUAL_SE', titulo: 'Reporte anual 2026', fechaLimite: '2026-05-29T12:00:00Z', recurrencia: 'ANUAL' });
+        const r = await marcarCumplida(limpio.id, rep.id, null, AHORA);
+        assert.equal(r!.siguiente!.fechaLimite.toISOString().slice(0, 10), '2027-05-31');
+      });
+      await prueba('job diario: obligación del 5-sep NO se marca vencida a las 02:00Z del 5-sep (avisa "vence en 1 día"); sí al día siguiente', async () => {
+        const o = await crearObligacion(limpio.id, { tipo: 'OTRA', titulo: 'Vence hoy', fechaLimite: '2026-09-05' });
+        const r1 = await procesarVencimientos(limpio.id, new Date('2026-09-05T02:00:00Z'));
+        assert.equal(r1.vencidas, 0);
+        const o1 = await prisma.obligacionCalendario.findFirst({ where: { id: o.id, tenantId: limpio.id } });
+        assert.equal(o1!.estado, 'pendiente');
+        const prox = await prisma.alert.findFirst({ where: { tenantId: limpio.id, fingerprint: `obligacion_proxima|${o.id}` } });
+        assert.ok(prox, 'aviso de próxima');
+        assert.ok(prox!.title.includes('vence en 1 día'), prox!.title);
+        assert.equal(await prisma.alert.count({ where: { tenantId: limpio.id, fingerprint: `obligacion_vencida|${o.id}` } }), 0);
+        const r2 = await procesarVencimientos(limpio.id, new Date('2026-09-06T00:30:00Z'));
+        assert.equal(r2.vencidas, 1);
+        assert.equal(await prisma.alert.count({ where: { tenantId: limpio.id, fingerprint: `obligacion_vencida|${o.id}` } }), 1);
+      });
+    } finally {
+      await prisma.alert.deleteMany({ where: { tenantId: limpio.id } });
+      await prisma.obligacionCalendario.deleteMany({ where: { tenantId: limpio.id } });
+      await prisma.tenant.deleteMany({ where: { id: limpio.id } });
+    }
     await prueba('evidencia de otro tenant se rechaza', async () => {
       const ajena = await prisma.document.create({ data: { tenantId: otro.id, name: 'Ajeno', type: 'evidencia', status: 'VERIFIED' } });
       const o = await crearObligacion(tenant.id, { tipo: 'OTRA', titulo: 'Con evidencia ajena', fechaLimite: '2026-12-01' });

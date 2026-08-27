@@ -62,17 +62,40 @@ export function siguienteAnual(desde: Date, mes0: number, calc: (y: number) => D
   return esteAnio > desde ? esteAnio : calc(y + 1);
 }
 
+/** Días que tiene el mes (m0 puede desbordar el año: Date.UTC lo normaliza). */
+export const diasDelMes = (y: number, m0: number): number => new Date(Date.UTC(y, m0 + 1, 0, 12)).getUTCDate();
+
+/** Día del mes con tope al último día real (día 31 → 28/29/30 según el mes; no se desborda al mes siguiente). */
+export const diaUTCClamp = (y: number, m0: number, d: number): Date => diaUTC(y, m0, Math.min(d, diasDelMes(y, m0)));
+
 export function siguienteMensual(desde: Date, dia: number): Date {
   const y = desde.getUTCFullYear();
   const m = desde.getUTCMonth();
-  const esteMes = diaUTC(y, m, dia);
-  return esteMes > desde ? esteMes : diaUTC(y, m + 1, dia);
+  const esteMes = diaUTCClamp(y, m, dia);
+  return esteMes > desde ? esteMes : diaUTCClamp(y, m + 1, dia);
 }
 
+/**
+ * Siguiente ocurrencia "aritmética" (+1 año / +1 mes) con clamp de día:
+ * 31-ene → 28-feb, 29-feb → 28-feb del año siguiente. Sin clamp, Date.UTC
+ * desbordaba (31-ene + 1 mes = 3-mar) y marzo se perdía.
+ */
 export function siguienteFechaRecurrente(fechaLimite: Date, recurrencia: string | null): Date | null {
-  if (recurrencia === 'ANUAL') return new Date(Date.UTC(fechaLimite.getUTCFullYear() + 1, fechaLimite.getUTCMonth(), fechaLimite.getUTCDate(), 12));
-  if (recurrencia === 'MENSUAL') return new Date(Date.UTC(fechaLimite.getUTCFullYear(), fechaLimite.getUTCMonth() + 1, fechaLimite.getUTCDate(), 12));
+  const y = fechaLimite.getUTCFullYear(), m = fechaLimite.getUTCMonth(), d = fechaLimite.getUTCDate();
+  if (recurrencia === 'ANUAL') return diaUTCClamp(y + 1, m, d);
+  if (recurrencia === 'MENSUAL') return diaUTCClamp(y, m + 1, d);
   return null;
+}
+
+/**
+ * Siguiente fecha de una obligación: si es un tipo del catálogo base con la
+ * misma recurrencia, manda la regla del catálogo (p. ej. REPORTE_ANUAL_SE =
+ * último día HÁBIL de mayo, no "mismo día +1 año"); si no, la aritmética con clamp.
+ */
+export function proximaFechaDeObligacion(o: { tipo: string; fechaLimite: Date; recurrencia: string | null }): Date | null {
+  if (!o.recurrencia || o.recurrencia === 'UNICA') return null;
+  const base = CATALOGO_BASE.find(b => b.tipo === o.tipo && b.recurrencia === o.recurrencia);
+  return base?.proximaFecha(o.fechaLimite) ?? siguienteFechaRecurrente(o.fechaLimite, o.recurrencia);
 }
 
 // ── Catálogo base ─────────────────────────────────────────────────────────
@@ -241,10 +264,20 @@ export async function listarObligaciones(tenantId: string, f: FiltroLista = {}) 
   });
 }
 
-/** Semáforo: rojo ≤7 días (o vencida), ámbar ≤30, verde >30, gris cumplida. */
+/** Días hasta el FIN del día límite (la obligación vence al terminar el día, no a las 00:00Z). */
+export function diasParaVencer(fechaLimite: Date, ahora: Date): number {
+  return Math.ceil((finDia(fechaLimite).getTime() - ahora.getTime()) / 86400000) || 0; // `|| 0` evita el -0 de Math.ceil
+}
+
+/** ¿Ya pasó el día límite completo? */
+export function estaVencida(fechaLimite: Date, ahora: Date): boolean {
+  return finDia(fechaLimite).getTime() < ahora.getTime();
+}
+
+/** Semáforo: rojo ≤7 días (o vencida), ámbar ≤30, verde >30, gris cumplida. Cuenta por fin de día. */
 export function semaforo(fechaLimite: Date, estado: string, ahora = new Date()): 'rojo' | 'ambar' | 'verde' | 'gris' {
   if (estado === 'cumplida') return 'gris';
-  const dias = Math.ceil((fechaLimite.getTime() - ahora.getTime()) / 86400000);
+  const dias = diasParaVencer(fechaLimite, ahora);
   if (estado === 'vencida' || dias <= 7) return 'rojo';
   if (dias <= 30) return 'ambar';
   return 'verde';
@@ -300,7 +333,7 @@ export async function marcarCumplida(tenantId: string, id: string, evidenciaDocu
 
 /** Regenera la siguiente ocurrencia de una recurrente ya cumplida. Idempotente. */
 export async function regenerarSiguiente(o: { id: string; tenantId: string; clienteId: string | null; tipo: string; titulo: string; descripcion: string | null; fundamento: string | null; fechaLimite: Date; recurrencia: string | null; responsableUserId: string | null; consecuencia: string | null; isDemoData: boolean }) {
-  const prox = siguienteFechaRecurrente(o.fechaLimite, o.recurrencia);
+  const prox = proximaFechaDeObligacion(o);
   if (!prox) return null;
   if (await existeObligacion(o.tenantId, o.clienteId, o.tipo, prox)) return null;
   return prisma.obligacionCalendario.create({
@@ -355,9 +388,12 @@ export async function sembrarBase(tenantId: string, opts: OpcionesSiembra = {}):
 // ── Job diario: vencidas → alerta ────────────────────────────────────────
 
 /**
- * Marca vencidas las pendientes/en_curso con fechaLimite < ahora y crea una
+ * Marca vencidas las pendientes/en_curso cuyo DÍA límite ya terminó (fin de
+ * día UTC: a las 02:00Z del propio día aún vence, no está vencida) y crea una
  * Alert `obligacion_vencida` (fingerprint = obligación) con acción
  * `ver_obligacion`. También avisa `obligacion_proxima` a ≤7 días (una vez).
+ * Un P2002 por fingerprint (otra réplica ganó) se cuenta como existente y se
+ * sigue con la siguiente fila.
  */
 export async function procesarVencimientos(tenantId: string, ahora = new Date()): Promise<{ vencidas: number; alertas: number }> {
   const pendientes = await prisma.obligacionCalendario.findMany({
@@ -365,8 +401,8 @@ export async function procesarVencimientos(tenantId: string, ahora = new Date())
   });
   let vencidas = 0, alertas = 0;
   for (const o of pendientes) {
-    const dias = Math.ceil((o.fechaLimite.getTime() - ahora.getTime()) / 86400000);
-    const vencida = o.fechaLimite.getTime() < ahora.getTime();
+    const dias = diasParaVencer(o.fechaLimite, ahora);
+    const vencida = estaVencida(o.fechaLimite, ahora);
     if (vencida) {
       await prisma.obligacionCalendario.update({ where: { id: o.id }, data: { estado: 'vencida' } });
       vencidas++;
@@ -375,7 +411,8 @@ export async function procesarVencimientos(tenantId: string, ahora = new Date())
     const fingerprint = `${tipo}|${o.id}`;
     const ya = await prisma.alert.findFirst({ where: { tenantId, fingerprint }, select: { id: true } });
     if (ya) continue;
-    await prisma.alert.create({
+    try {
+      await prisma.alert.create({
       data: {
         tenantId,
         clienteId: o.clienteId,
@@ -391,8 +428,12 @@ export async function procesarVencimientos(tenantId: string, ahora = new Date())
         impactType: 'risk',
         fingerprint,
       },
-    });
-    alertas++;
+      });
+      alertas++;
+    } catch (err) {
+      if ((err as { code?: string }).code === 'P2002') continue; // ya existe (carrera con otra réplica): seguir con la siguiente
+      throw err;
+    }
   }
   if (vencidas > 0 || alertas > 0) {
     logger.info(`Calendario: tenant ${tenantId} → ${vencidas} vencida(s), ${alertas} alerta(s)`, { action: 'calendario_vencimientos', tenantId, metadata: { vencidas, alertas } });
