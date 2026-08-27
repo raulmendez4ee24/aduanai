@@ -146,6 +146,14 @@ async function main() {
     assert.deepEqual(cruzarCitas('Regla 1.3.8 RGCE 2026.', ['Reglas 1.3.2 a 1.3.7 RGCE 2026']).noRespaldadas, ['Regla 1.3.8 RGCE 2026']);
   });
 
+  await test('cruzarCitas: cita sin cuerpo con DOS docs del MISMO precepto (misma clave) sí respalda; dos cuerpos distintos no', () => {
+    // Prod 27-ago: "Art. 86-A de la Ley" con docs "Art. 86-A LA" y "Art. 28-A … · Art. 86-A fr. I LA" → ambigüedad falsa → degradación.
+    const ok = cruzarCitas('Conforme al Art. 86-A de la Ley.', ['Art. 86-A LA', 'Art. 28-A párr. final LIVA · Art. 86-A fr. I LA']);
+    assert.deepEqual(ok.noRespaldadas, []);
+    const amb = cruzarCitas('Conforme al Art. 54.', ['Art. 54 LA', 'Art. 54 LFD']);
+    assert.deepEqual(amb.noRespaldadas, ['Art. 54']);
+  });
+
   await test('cruzarCitas: cita sin cuerpo — único match respalda, ambigüedad NO', () => {
     const unico = cruzarCitas('Ver el Art. 54.', ['Art. 54 LA', 'Art. 27 LIVA']);
     assert.equal(unico.noRespaldadas.length, 0);

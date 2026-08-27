@@ -285,10 +285,15 @@ export function cruzarCitas(answer: string, docReferences: string[]): ResultadoC
   const noRespaldadas: string[] = [];
   for (const c of citadas) {
     const matches: number[] = [];
+    const clavesDistintas = new Set<string>();
     for (const cd of clavesDocs) {
-      if (clavesIguales(c.clave, cd.clave) && !matches.includes(cd.doc)) matches.push(cd.doc);
+      if (!clavesIguales(c.clave, cd.clave)) continue;
+      if (!matches.includes(cd.doc)) matches.push(cd.doc);
+      clavesDistintas.add(`${cd.clave.tipo}|${cd.clave.numero}|${cd.clave.cuerpo ?? ''}`);
     }
-    if (matches.length === 1 || (matches.length > 1 && c.clave.cuerpo)) {
+    // Ambigüedad = la cita sin cuerpo cruza con PRECEPTOS distintos (Art. 54 LA
+    // vs Art. 54 LFD), no con varios docs del mismo precepto.
+    if (matches.length >= 1 && (clavesDistintas.size === 1 || c.clave.cuerpo)) {
       respaldadas.set(c.texto, matches[0]!);
     } else {
       noRespaldadas.push(c.texto);

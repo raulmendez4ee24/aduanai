@@ -308,7 +308,8 @@ export async function buscarDocsPorCita(citas: string[], excluirIds: string[]): 
   });
   const ids = refs
     .filter(r => clavesDeReferencia(r.reference).some(cd => claves.some(c => clavesIguales(c, cd))))
-    .map(r => r.id);
+    .map(r => r.id)
+    .slice(0, 4); // tope: no inflar el contexto (prod trajo 7 por "Art. 106")
   if (ids.length === 0) return [];
   const filas = await prisma.legalDocument.findMany({ where: { id: { in: ids } } });
   return filas.map(d => ({
