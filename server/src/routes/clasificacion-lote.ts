@@ -8,6 +8,7 @@
  *   GET  /api/clasificacion-lote/:id/filas?semaforo=verde|ambar|rojo|pendiente
  *   GET  /api/clasificacion-lote/:id/export.xlsx
  *   POST /api/clasificacion-lote/:id/filas/:filaId/revisar   { fractionCode?, nota? }
+ *   POST /api/clasificacion-lote/:id/reanudar      retoma un lote detenido (failed con filas pendientes) o huérfano
  *
  * Permisos: crear lote = classifier.create + features.bulkOperations; el resto
  * classifier.view. Todo scoped por tenantId (lote ajeno → 404).
@@ -19,8 +20,8 @@ import { prisma } from '../lib/prisma';
 import { clienteIdDe, enAlcance, filtroCliente, validarClienteDelTenant } from '../lib/cliente-contexto';
 import { getUserPermissions, hasPermission } from './../services/permissions';
 import {
-  importarLote, exportarLoteXlsx, generarPlantillaXlsx, ErrorLote, limpiarFraccion,
-  MAX_FILAS_LOTE, UMBRAL_CONFIANZA_ALTA, UMBRAL_CONFIANZA_MEDIA,
+  importarLote, exportarLoteXlsx, generarPlantillaXlsx, procesarLote, ErrorLote, limpiarFraccion,
+  MAX_FILAS_LOTE, UMBRAL_CONFIANZA_ALTA, UMBRAL_CONFIANZA_MEDIA, LOTE_HEARTBEAT_VENCIDO_MS,
 } from '../services/clasificacion-lote';
 
 export const clasificacionLoteRouter = Router();
@@ -87,6 +88,26 @@ clasificacionLoteRouter.get('/:id', requirePermission('classifier', 'view'), asy
     });
     if (!lote || !enAlcance(req, lote.clienteId)) return res.status(404).json({ status: 'error', message: 'Lote no encontrado.' });
     res.json({ status: 'ok', data: { ...lote, pendientes: lote.totalFilas - lote.procesadas } });
+  } catch (err) { next(err); }
+});
+
+// POST /:id/reanudar — el lote detenido por fallas del proveedor deja sus filas sin
+// semáforo; aquí se retoma sin esperar un reinicio. El claim atómico de procesarLote
+// decide: un lote vivo en otro proceso (heartbeat fresco) no se toca.
+clasificacionLoteRouter.post('/:id/reanudar', requirePermission('classifier', 'create'), async (req: AuthRequest, res, next) => {
+  try {
+    const lote = await prisma.classificationBatch.findFirst({
+      where: { id: String(req.params.id), tenantId: req.tenantId! },
+      select: { id: true, status: true, startedAt: true, clienteId: true, _count: { select: { filas: { where: { semaforo: null, revisado: false } } } } },
+    });
+    if (!lote || !enAlcance(req, lote.clienteId)) return res.status(404).json({ status: 'error', message: 'Lote no encontrado.' });
+    const pendientes = lote._count.filas;
+    if (lote.status === 'done' || pendientes === 0) return res.status(409).json({ status: 'error', message: 'El lote no tiene filas pendientes.' });
+    if (lote.status === 'running' && lote.startedAt && lote.startedAt.getTime() > Date.now() - LOTE_HEARTBEAT_VENCIDO_MS) {
+      return res.status(409).json({ status: 'error', message: 'El lote sigue procesándose.' });
+    }
+    void procesarLote(lote.id).catch(() => {});
+    res.json({ status: 'ok', data: { id: lote.id, pendientes } });
   } catch (err) { next(err); }
 });
 
