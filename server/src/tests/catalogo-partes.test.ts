@@ -20,7 +20,7 @@ import {
   promoverDesdeClasificacion, consultarCatalogoParaClasificar, buscarPorDescripcion,
   importarPartes, exportarPartesXlsx, CatalogoError,
 } from '../services/catalogo-partes';
-import { agruparHistorial, aciertoPorCapitulo } from '../services/historial-clasificaciones';
+import { agruparHistorial, aciertoPorCapitulo, exportarHistorialXlsx } from '../services/historial-clasificaciones';
 import { clienteIdDe, filtroCliente, enAlcance, validarClienteEnAlcance } from '../lib/cliente-contexto';
 import type { Request } from 'express';
 
@@ -199,6 +199,18 @@ async function main() {
     await assert.rejects(() => validarClienteEnAlcance(reqAB, tA.id, clienteC.id), (e: unknown) => (e as { statusCode?: number }).statusCode === 403, 'validarClienteEnAlcance rechaza clienteId del body fuera del alcance (403)');
     ok++; console.log('  ✓ validarClienteEnAlcance rechaza clienteId del body fuera del alcance (403)');
     check((await validarClienteEnAlcance(reqAB, tA.id, clienteB.id)) === clienteB.id, 'validarClienteEnAlcance acepta un cliente del alcance');
+    // Historial: whereHistorial acepta { in } (agrupado, Excel y acierto-por-capítulo comparten el filtro)
+    await prisma.classification.createMany({ data: [
+      { tenantId: tA.id, userId: uA.id, clienteId: clienteB.id, inputDescription: 'Motor eléctrico del cliente B', fractionCode: '85011099', confidence: 80, griApplied: ['1'], feedback: 'correct' },
+      { tenantId: tA.id, userId: uA.id, clienteId: clienteC.id, inputDescription: 'Motor eléctrico del cliente C', fractionCode: '85011099', confidence: 80, griApplied: ['1'], feedback: 'incorrect' },
+    ] });
+    const agrAB = await agruparHistorial(tA.id, { ...filtroCliente(reqAB) }, 1, 100);
+    check(agrAB.data.some(g => g.descripcion === 'Motor eléctrico del cliente B') && !agrAB.data.every(g => g.descripcion !== 'Motor eléctrico del cliente B') && !agrAB.data.some(g => g.descripcion === 'Motor eléctrico del cliente C'), 'historial agrupado con { in: [A,B] } excluye las clasificaciones del cliente C');
+    const acAB = await aciertoPorCapitulo(tA.id, { ...filtroCliente(reqAB), capitulo: '85' });
+    check(acAB.capitulos.find(c => c.capitulo === '85')?.acierto === 100, 'acierto cap. 85 con alcance [A,B] = 100% (la ✗ del cliente C no cuenta)');
+    const xH = XLSX.read(await exportarHistorialXlsx(tA.id, { ...filtroCliente(reqAB) }), { type: 'buffer' });
+    const descs = XLSX.utils.sheet_to_json<Record<string, string>>(xH.Sheets[xH.SheetNames[0]]!).map(r => Object.values(r).join(' '));
+    check(descs.some(d => d.includes('cliente B')) && !descs.some(d => d.includes('cliente C')), 'Excel del historial con { in } excluye al cliente C');
   } finally {
     await prisma.productClassificationVersion.deleteMany({ where: { product: { tenantId: { in: [tA.id, tB.id] } } } }).catch(() => {});
     await prisma.product.deleteMany({ where: { tenantId: { in: [tA.id, tB.id] } } }).catch(() => {});

@@ -15,6 +15,7 @@ import { authenticate, AuthRequest } from '../middlewares/auth';
 import { requirePermission } from '../middlewares/requirePermission';
 import { prisma } from '../lib/prisma';
 import { limpiarFraccion } from '../services/clasificacion-lote';
+import { filtroCliente } from '../lib/cliente-contexto';
 
 /** Se monta bajo /api/classify. */
 export const solicitarDictamenRouter = Router();
@@ -59,8 +60,18 @@ dictamenesRouter.get('/', requirePermission('classifier', 'view'), async (req: A
     if (estado && !(ESTADOS as readonly string[]).includes(estado)) {
       return res.status(400).json({ status: 'error', message: `estado debe ser uno de: ${ESTADOS.join(', ')}` });
     }
+    // Alcance por cliente: la solicitud cuelga de una Classification con clienteId
+    // (sin relación Prisma → se resuelven primero las clasificaciones en alcance).
+    const alcance = filtroCliente(req);
+    const enAlcance = 'clienteId' in alcance
+      ? (await prisma.classification.findMany({ where: { tenantId: req.tenantId!, clienteId: alcance.clienteId }, select: { id: true } })).map(c => c.id)
+      : null;
     const solicitudes = await prisma.solicitudDictamen.findMany({
-      where: { tenantId: req.tenantId!, ...(estado ? { estado } : {}) },
+      where: {
+        tenantId: req.tenantId!,
+        ...(estado ? { estado } : {}),
+        ...(enAlcance ? { classificationId: { in: enAlcance } } : {}),
+      },
       orderBy: { createdAt: 'desc' },
       take: 200,
     });

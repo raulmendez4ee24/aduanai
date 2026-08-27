@@ -9,7 +9,7 @@ import { reconciliarClasificacion } from '../services/clasificador-reconciliacio
 import { createClassificationJob, JOB_RUNNING_TIMEOUT_MS, type ClassificationJobInputs } from '../services/classification-job-runner';
 import { prisma } from '../lib/prisma';
 import { sinGuardaDeTenant } from '../lib/tenant-guard';
-import { clienteIdDe, validarClienteDelTenant } from '../lib/cliente-contexto';
+import { clienteIdDe, filtroCliente, validarClienteDelTenant } from '../lib/cliente-contexto';
 // ── OPERACIÓN 2026-08 ── catálogo maestro: consultar antes de correr; historial agrupado
 import { consultarCatalogoParaClasificar } from '../services/catalogo-partes';
 import { agruparHistorial, exportarHistorialXlsx, aciertoPorCapitulo, whereHistorial, type FiltrosHistorial } from '../services/historial-clasificaciones';
@@ -267,7 +267,8 @@ function filtrosHistorialDe(req: AuthRequest): FiltrosHistorial {
   const fb = s('feedback');
   return {
     search: s('search'),
-    clienteId: clienteIdDe(req),
+    // filtroCliente (no clienteIdDe): con 2+ clientes permitidos devuelve { in: [...] } en vez de null.
+    ...filtroCliente(req),
     fractionCode: s('fractionCode'),
     capitulo: s('capitulo'),
     desde: s('desde'),

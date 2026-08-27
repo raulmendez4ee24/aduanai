@@ -11,7 +11,8 @@ import { normalizarDescripcion, formatearFraccion } from './catalogo-partes';
 
 export interface FiltrosHistorial {
   search?: string;
-  clienteId?: string | null;
+  /** id concreto o `{ in: [...] }` (usuario restringido a varios clientes — ver filtroCliente). */
+  clienteId?: string | { in: string[] } | null;
   fractionCode?: string;
   capitulo?: string;
   desde?: string;
