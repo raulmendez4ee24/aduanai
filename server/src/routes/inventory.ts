@@ -13,7 +13,10 @@ import {
 import { recordAssembly, traceImport } from '../services/bom-service';
 import { validateFraction, FRACTION_UNVERIFIED_MESSAGE } from '../services/fraction-validator';
 import { createDischargeAtomic, deleteDischargeAtomic } from '../services/inventory-ledger';
+import { assertPeriodoAbierto } from '../services/anexo24-cierre';
 import { clienteIdDe, filtroCliente, validarClienteDelTenant } from '../lib/cliente-contexto';
+import { plazoMeses, fechaVencimiento } from '../lib/plazos-immex';
+import { certificacionAplicable } from '../services/anexo24-alta';
 
 export const inventoryRouter = Router();
 
@@ -47,9 +50,19 @@ inventoryRouter.post('/imports', authenticate, requirePermission('inventory', 'a
     }
 
     const entry = new Date(entryDate);
-    const months = expirationMonths || 18;
-    const expiration = new Date(entry);
-    expiration.setMonth(expiration.getMonth() + months);
+    if (Number.isNaN(entry.getTime())) {
+      return res.status(400).json({ status: 'error', message: 'entryDate inválida' });
+    }
+    // Anexo 24 real: candado de cierre mensual + cliente/RFC + tipo y plazo por catálogo.
+    await assertPeriodoAbierto(prisma, req.tenantId!, entry, 'dar de alta una importación');
+    const clienteId = await validarClienteDelTenant(req.tenantId!, clienteIdDe(req));
+    const tipo = req.body.tipo === 'ACTIVO_FIJO' ? 'ACTIVO_FIJO' : 'INSUMO';
+    const plazo = plazoMeses({ tipo, certificacion: await certificacionAplicable(req.tenantId!, clienteId), esAnexoIBis: !!req.body.esAnexoIBis, esAnexoITer: !!req.body.esAnexoITer });
+    // Compatibilidad: si el capturista manda expirationMonths explícito para un insumo, se respeta.
+    const months = tipo === 'INSUMO' && expirationMonths ? Number(expirationMonths) : (plazo.meses ?? 0);
+    const expiration = tipo === 'INSUMO' && expirationMonths
+      ? (() => { const d = new Date(entry); d.setMonth(d.getMonth() + months); return d; })()
+      : fechaVencimiento(entry, plazo);
 
     const imp = await prisma.temporaryImport.create({
       data: {
@@ -66,13 +79,19 @@ inventoryRouter.post('/imports', authenticate, requirePermission('inventory', 'a
         entryDate: entry,
         expirationDate: expiration,
         expirationMonths: months,
-        notes,
+        notes: plazo.aviso ? `${notes ? `${notes}\n` : ''}[plazo] ${plazo.aviso}` : notes,
         tenantId: req.tenantId!,
         userId: req.userId!,
+        clienteId,
+        tipo,
+        claveDocumento: tipo === 'ACTIVO_FIJO' ? 'AF' : 'IN',
+        vidaUtilMeses: tipo === 'ACTIVO_FIJO' && req.body.vidaUtilMeses ? Number(req.body.vidaUtilMeses) : null,
+        productId: typeof req.body.productId === 'string' && req.body.productId ? req.body.productId : null,
+        ubicacionId: typeof req.body.ubicacionId === 'string' && req.body.ubicacionId ? req.body.ubicacionId : null,
       },
     });
 
-    res.status(201).json({ status: 'ok', data: imp });
+    res.status(201).json({ status: 'ok', data: imp, plazo: { meses: plazo.meses, vigenciaPrograma: plazo.vigenciaPrograma, fundamento: plazo.fundamento, cotejo: plazo.cotejo, aviso: plazo.aviso } });
   } catch (err) {
     next(err);
   }

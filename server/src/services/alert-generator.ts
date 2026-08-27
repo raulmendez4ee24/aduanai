@@ -118,8 +118,9 @@ export async function generateImportExpiringAlerts(tenantId: string, isDemoData 
       actionRequired: severity === 'critical' ? 'Acción inmediata: descargar, retornar o cambiar régimen' : 'Plan de descargo o retorno',
       suggestedAction: {
         type: 'review_operation',
-        label: 'Ver inventario IMMEX',
-        payload: { importId: imp.id, route: '/inventario' },
+        label: 'Ver exposición en pesos (¿qué pasa si no descargo?)',
+        // Anexo 24 real: la alerta cuelga del simulador de exposición del pedimento real.
+        payload: { importId: imp.id, temporaryImportId: imp.id, route: `/inventario?exposicion=${imp.id}`, exposicionEndpoint: `/api/inventory/exposicion/${imp.id}` },
       },
       dueDate: imp.expirationDate,
       fractionCodes: [imp.fractionCode],

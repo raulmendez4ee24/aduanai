@@ -1,6 +1,7 @@
 import type { DischargeType, Prisma } from '@prisma/client';
 import { prisma } from '../lib/prisma';
 import { AppError } from '../middlewares/error';
+import { assertPeriodoAbierto } from './anexo24-cierre';
 
 const EPSILON = 1e-9;
 const OPEN_IMPORT_STATUSES = new Set(['ACTIVE', 'PARTIALLY_DISCHARGED']);
@@ -20,6 +21,11 @@ export interface CreateDischargeInput {
   buyerName?: string | null;
   taxesPaid?: number | null;
   notes?: string | null;
+  // Fase 0 (Anexo 24 real): descargo ligado al retorno/transferencia real.
+  constanciaTransferencia?: string | null;
+  pedimentoPartidaId?: string | null;
+  assemblyId?: string | null;
+  clienteId?: string | null;
 }
 
 /**
@@ -50,53 +56,69 @@ function openStatus(quantityDischarged: number, quantity: number): 'ACTIVE' | 'P
   return 'PARTIALLY_DISCHARGED';
 }
 
+/**
+ * Descargo dentro de una transacción YA abierta. Es la única forma de escribir
+ * `quantityDischarged`: bloquea la fila, valida estado/unidad/saldo/periodo
+ * cerrado y crea el Discharge. `createDischargeAtomic` la envuelve en su
+ * propia transacción; PEPS y el retorno desde BOM la reutilizan para descargar
+ * N lotes en UNA sola transacción (todo o nada).
+ */
+export async function createDischargeInTx(tx: Prisma.TransactionClient, input: CreateDischargeInput) {
+  await lockTemporaryImport(tx, input.temporaryImportId, input.tenantId);
+  const imp = await tx.temporaryImport.findFirst({ where: { id: input.temporaryImportId, tenantId: input.tenantId } });
+  if (!imp) throw new AppError('Importación temporal no encontrada', 404);
+
+  // Candado de cierre mensual: nada se mueve con fecha dentro de un periodo sellado.
+  await assertPeriodoAbierto(tx, input.tenantId, input.dischargeDate, 'registrar un descargo');
+
+  if (!OPEN_IMPORT_STATUSES.has(imp.status)) {
+    throw new AppError(`La importación no admite descargos en estado ${imp.status}`, 409);
+  }
+  if (!sameUnit(input.unit, imp.unit)) {
+    throw new AppError(`Unidad del descargo (${input.unit}) no coincide con la importación (${imp.unit})`, 400);
+  }
+
+  const nextDischarged = imp.quantityDischarged + input.quantity;
+  if (nextDischarged - imp.quantity > EPSILON) {
+    const available = Math.max(0, imp.quantity - imp.quantityDischarged);
+    throw new AppError(`Cantidad excede disponible. Disponible: ${available} ${imp.unit}`, 409);
+  }
+  const normalizedDischarged = imp.quantity - nextDischarged <= EPSILON ? imp.quantity : nextDischarged;
+
+  const discharge = await tx.discharge.create({
+    data: {
+      type: input.type,
+      pedimento: input.pedimento,
+      quantity: input.quantity,
+      unit: imp.unit,
+      customsValue: input.customsValue,
+      dischargeDate: input.dischargeDate,
+      destinationCountry: input.destinationCountry,
+      buyerName: input.buyerName,
+      taxesPaid: input.taxesPaid,
+      notes: input.notes,
+      temporaryImportId: imp.id,
+      tenantId: input.tenantId,
+      userId: input.userId,
+      constanciaTransferencia: input.constanciaTransferencia ?? null,
+      pedimentoPartidaId: input.pedimentoPartidaId ?? imp.pedimentoPartidaId ?? null,
+      assemblyId: input.assemblyId ?? null,
+      clienteId: input.clienteId ?? imp.clienteId ?? null,
+    },
+  });
+
+  await tx.temporaryImport.update({
+    where: { id: imp.id },
+    data: {
+      quantityDischarged: normalizedDischarged,
+      status: openStatus(normalizedDischarged, imp.quantity),
+    },
+  });
+  return discharge;
+}
+
 export async function createDischargeAtomic(input: CreateDischargeInput) {
-  return prisma.$transaction(async (tx) => {
-    await lockTemporaryImport(tx, input.temporaryImportId, input.tenantId);
-    const imp = await tx.temporaryImport.findUnique({ where: { id: input.temporaryImportId } });
-    if (!imp) throw new AppError('Importación temporal no encontrada', 404);
-
-    if (!OPEN_IMPORT_STATUSES.has(imp.status)) {
-      throw new AppError(`La importación no admite descargos en estado ${imp.status}`, 409);
-    }
-    if (!sameUnit(input.unit, imp.unit)) {
-      throw new AppError(`Unidad del descargo (${input.unit}) no coincide con la importación (${imp.unit})`, 400);
-    }
-
-    const nextDischarged = imp.quantityDischarged + input.quantity;
-    if (nextDischarged - imp.quantity > EPSILON) {
-      const available = Math.max(0, imp.quantity - imp.quantityDischarged);
-      throw new AppError(`Cantidad excede disponible. Disponible: ${available} ${imp.unit}`, 409);
-    }
-    const normalizedDischarged = imp.quantity - nextDischarged <= EPSILON ? imp.quantity : nextDischarged;
-
-    const discharge = await tx.discharge.create({
-      data: {
-        type: input.type,
-        pedimento: input.pedimento,
-        quantity: input.quantity,
-        unit: imp.unit,
-        customsValue: input.customsValue,
-        dischargeDate: input.dischargeDate,
-        destinationCountry: input.destinationCountry,
-        buyerName: input.buyerName,
-        taxesPaid: input.taxesPaid,
-        notes: input.notes,
-        temporaryImportId: imp.id,
-        tenantId: input.tenantId,
-        userId: input.userId,
-      },
-    });
-
-    await tx.temporaryImport.update({
-      where: { id: imp.id },
-      data: {
-        quantityDischarged: normalizedDischarged,
-        status: openStatus(normalizedDischarged, imp.quantity),
-      },
-    });
-    return discharge;
-  }, { maxWait: 5_000, timeout: 15_000 });
+  return prisma.$transaction(async (tx) => createDischargeInTx(tx, input), { maxWait: 5_000, timeout: 15_000 });
 }
 
 export async function deleteDischargeAtomic(dischargeId: string, tenantId: string) {
@@ -112,8 +134,11 @@ export async function deleteDischargeAtomic(dischargeId: string, tenantId: strin
     await lockTemporaryImport(tx, probe.temporaryImportId, tenantId);
     const discharge = await tx.discharge.findFirst({ where: { id: dischargeId, tenantId } });
     if (!discharge) throw new AppError('Descargo no encontrado', 404);
-    const imp = await tx.temporaryImport.findUnique({ where: { id: discharge.temporaryImportId } });
+    const imp = await tx.temporaryImport.findFirst({ where: { id: discharge.temporaryImportId, tenantId } });
     if (!imp) throw new AppError('Importación temporal no encontrada', 404);
+
+    // Candado de cierre mensual: borrar un descargo sellado alteraría el saldo del periodo.
+    await assertPeriodoAbierto(tx, tenantId, discharge.dischargeDate, 'eliminar un descargo');
 
     if (discharge.quantity - imp.quantityDischarged > EPSILON) {
       throw new AppError('El saldo acumulado es menor al descargo; se requiere conciliación antes de eliminar', 409);

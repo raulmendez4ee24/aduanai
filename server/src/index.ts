@@ -71,6 +71,8 @@ import { settingsRouter } from './routes/settings';
 import { glosaRouter, glosaAdminRouter } from './routes/glosa';
 import { permissionsRouter } from './routes/permissions';
 import { statusRouter } from './routes/status';
+import { anexo24Router } from './routes/anexo24'; // ola1/anexo24-real
+import { ubicacionesRouter } from './routes/ubicaciones'; // ola1/anexo24-real
 import { performBackup, cleanupExpiredBackups } from './services/backup';
 import { seedAllTenantsRoles, migrateTenantsWithoutAdmin } from './services/permissions';
 // ── OPERACIÓN 2026-08 ── imports nuevos (una línea por módulo)
@@ -240,6 +242,7 @@ app.use('/api/clientes', clientesRouter);
 app.use('/api/aprobaciones', aprobacionesRouter);
 app.use('/api/catalogo', catalogoRouter);
 app.use('/api/traceability', defensaRouter); // Ola 3 — Defensa (paquete + certificado)
+app.use('/api/inventory', anexo24Router); app.use('/api/ubicaciones', ubicacionesRouter); // ola1/anexo24-real
 
 // ── SPA fallback ──
 app.use((req, res, next) => {
