@@ -75,6 +75,11 @@ import { performBackup, cleanupExpiredBackups } from './services/backup';
 import { seedAllTenantsRoles, migrateTenantsWithoutAdmin } from './services/permissions';
 import { backfillAntidumpingDates } from './services/antidumping-backfill';
 import { recoverInterruptedClassificationJobs } from './services/classification-job-runner';
+// ── OPERACIÓN 2026-08 ── imports nuevos (una línea por módulo)
+import { clasificacionLoteRouter } from './routes/clasificacion-lote';
+import { clasificacionAdjuntosRouter } from './routes/clasificacion-adjuntos';
+import { solicitarDictamenRouter, dictamenesRouter } from './routes/dictamenes';
+import { reanudarLotesInterrumpidos } from './services/clasificacion-lote';
 import {
   ipBlockGuard, authLimiter, classifierLimiter, quoterLimiter,
   copilotLimiter as copilotLim, leadLimiter, publicLimiter, adminLimiter,
@@ -221,6 +226,12 @@ app.use('/api/admin/glosa', glosaAdminRouter);
 app.use('/api/admin', adminLimiter, adminRouter);
 app.use('/api/status', statusRouter);
 // ── OPERACIÓN 2026-08 ── montajes nuevos (una línea por módulo)
+app.use('/api/clasificacion-lote', clasificacionLoteRouter);
+app.use('/api/classify', clasificacionAdjuntosRouter); // adjuntos ≤ ~3.5 MB (tope 5 MB del body en /api/classify)
+app.use('/api/documents/clasificacion', clasificacionAdjuntosRouter); // mismo router bajo el tope de 50 MB (adjuntos hasta 10 MB)
+app.use('/api/classify', solicitarDictamenRouter);
+app.use('/api/dictamenes', dictamenesRouter);
+void reanudarLotesInterrumpidos().catch(() => {}); // lotes que quedaron en vuelo en el proceso anterior
 
 // ── SPA fallback ──
 app.use((req, res, next) => {

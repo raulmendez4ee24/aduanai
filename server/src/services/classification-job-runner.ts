@@ -22,6 +22,7 @@ import { recordConsult, getActiveVersions } from './traceability';
 import { isDomesticOrigin, DOMESTIC_ORIGIN_NOTE } from '../lib/origin';
 import { reconciliarClasificacion } from './clasificador-reconciliacion';
 import { getUserPermissions, hasPermission } from './permissions';
+import { subpartidasHermanas } from './subpartidas-hermanas';
 
 export interface ClassificationJobInputs {
   description: string;
@@ -237,10 +238,15 @@ export async function runClassificationJob(jobId: string): Promise<void> {
     const { checkRequiredPadrones } = await import('./padron-checker');
     const padronCheck = domestic ? null : await checkRequiredPadrones(job.tenantId, result.fraction.code, 'classify', record.id);
 
-    // Payload idéntico al que la ruta síncrona devolvía en `data`.
+    // Ola 1 (Operación 2026-08): subpartidas hermanas de la misma partida —
+    // capa de presentación/contraste desde el catálogo; nunca bloquea el job.
+    const hermanas = await subpartidasHermanas(result.fraction.code).catch(() => []);
+
+    // Payload idéntico al que la ruta síncrona devolvía en `data` (+ hermanas).
     const payload = {
       ...result,
       _trace: undefined,
+      hermanas,
       alerts,
       datosCanonicos,
       discrepanciasLLM: discrepancias,
