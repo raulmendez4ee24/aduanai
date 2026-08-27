@@ -76,6 +76,7 @@ import { AdminMetricasPage } from './pages/Admin/AdminMetricas'
 import { AdminDemoPage } from './pages/Admin/AdminDemo'
 import { AdminAuditPage } from './pages/Admin/AdminAudit'
 import { ExpedientesAIPage } from './pages/ExpedientesAI'
+import { CotizacionImprimirPage } from './pages/CotizacionImprimir' // Ola 2 — cotizador
 import { OnboardingWizard } from './components/OnboardingWizard'
 import { api } from './lib/api'
 
@@ -265,6 +266,7 @@ export function App() {
         <Route path="/cambio-regimen" element={<CambioRegimenPage />} />
         <Route path="/activo-fijo" element={<ActivoFijoPage />} />
         <Route path="/settings/digest" element={<DigestSettingsPage />} />
+        <Route path="/cotizador/:id/imprimir" element={<CotizacionImprimirPage />} />{/* Ola 2 — cotización imprimible */}
         {/* Admin: mismo shell, guard adicional */}
         <Route element={<RequireSuperAdmin user={user}><Outlet /></RequireSuperAdmin>}>
           <Route path="/admin" element={<AdminDashboardPage />} />
