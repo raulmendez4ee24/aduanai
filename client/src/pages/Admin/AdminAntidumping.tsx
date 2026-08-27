@@ -1,11 +1,12 @@
 import { useEffect, useState } from 'react'
-import { AlertTriangle, ExternalLink, Search, Clock, TrendingDown } from 'lucide-react'
+import { AlertTriangle, ExternalLink, Search, Clock, TrendingDown, Upload, Download } from 'lucide-react'
+import { cuotasApi, archivoABase64, type ReporteImport, type CoberturaCuotas } from '../../lib/api/origen'
 import { api } from '../../lib/api'
 import type { AntidumpingDutyRecord, ExposureReport } from '../../lib/api'
 
 const GLASS = 'bg-white/70 backdrop-blur-xl border border-white/50 shadow-[0_8px_30px_rgb(0,0,0,0.04)]'
 
-type Tab = 'list' | 'expiring' | 'exposure'
+type Tab = 'list' | 'expiring' | 'exposure' | 'importar'
 
 export function AdminAntidumpingPage() {
   const [tab, setTab] = useState<Tab>('list')
@@ -18,9 +19,9 @@ export function AdminAntidumpingPage() {
         </div>
         <p className="text-[12px] text-slate-500 mb-4">Resoluciones antidumping vigentes. Cada cuota se SUMA al arancel y la multa por omisión es 130-150% (Art. 178 LA).</p>
         <div className="flex gap-2 flex-wrap">
-          {(['list', 'expiring', 'exposure'] as Tab[]).map(t => (
+          {(['list', 'expiring', 'exposure', 'importar'] as Tab[]).map(t => (
             <button key={t} onClick={() => setTab(t)} className={`text-[12px] font-medium px-3 py-1.5 rounded-full transition ${tab === t ? 'bg-slate-900 text-white' : 'bg-white border border-slate-200 text-slate-700 hover:bg-slate-50'}`}>
-              {t === 'list' ? 'Listado' : t === 'expiring' ? 'Por expirar' : 'Exposición tenant'}
+              {t === 'list' ? 'Listado' : t === 'expiring' ? 'Por expirar' : t === 'exposure' ? 'Exposición tenant' : 'Importar UPCI'}
             </button>
           ))}
         </div>
@@ -28,6 +29,7 @@ export function AdminAntidumpingPage() {
       {tab === 'list' && <ListTab/>}
       {tab === 'expiring' && <ExpiringTab/>}
       {tab === 'exposure' && <ExposureTab/>}
+      {tab === 'importar' && <ImportarTab/>}
     </div>
   )
 }
@@ -225,6 +227,44 @@ function ExposureTab() {
               </table>
             </div>
           )}
+        </div>
+      )}
+    </div>
+  )
+}
+
+// ── Ola 2 origen-cuotas: pipeline de carga UPCI (estructura, sin inventar) ──
+function ImportarTab() {
+  const [dryRun, setDryRun] = useState(true)
+  const [rep, setRep] = useState<(ReporteImport & { duplicadasEnArchivo: number }) | null>(null)
+  const [cob, setCob] = useState<CoberturaCuotas | null>(null)
+  const [error, setError] = useState('')
+  const [busy, setBusy] = useState(false)
+  useEffect(() => { cuotasApi.cobertura().then(r => setCob(r.data)).catch(() => setCob(null)) }, [rep])
+
+  async function importar(f: File) {
+    setBusy(true); setError('')
+    try { setRep((await cuotasApi.importarUPCI({ archivoBase64: await archivoABase64(f), nombreArchivo: f.name, dryRun })).data) }
+    catch (e) { setError(e instanceof Error ? e.message : 'Error') }
+    setBusy(false)
+  }
+  return (
+    <div className={`${GLASS} rounded-2xl p-5 space-y-3`}>
+      <p className="text-[12px] font-semibold text-slate-800 flex items-center gap-1.5"><Upload className="w-3.5 h-3.5"/> Importar resoluciones UPCI (Excel/CSV)</p>
+      <p className="text-[11px] text-slate-600">Columnas: resolutionNumber, expedienteUPCI, resolutionType, fractionCode, countryOfOrigin, productDesc, rateType, rate, rateUnit, exportadorTasas ("Empresa=tasa; Empresa=tasa"), specificProducer, publishDateDOF, effectiveDate, expiryDate, examenSunsetFecha, status, investigationType, esAntielusion, dofUrl, <strong>fuenteUrl</strong>, notes. Dedupe por (fracción, país, resolución): si existe se actualiza. <strong>cotejadoAt solo cuando la fila trae fuenteUrl</strong>; sin fuente entra como "pendiente de cotejo".</p>
+      {cob && <p className="text-[11px] text-slate-700">Estado actual: {cob.total} resoluciones · {cob.cotejadas} cotejadas · {cob.pendientesCotejo} pendientes de cotejo · {cob.conTasasPorExportador} con tasas por empresa · {cob.antielusion} antielusión · {cob.inactivas} inactivas.</p>}
+      <div className="flex gap-3 items-center flex-wrap text-[11px]">
+        <a href={cuotasApi.plantillaUPCIURL} className="flex items-center gap-1 text-emerald-700 hover:underline" download><Download className="w-3 h-3"/> Descargar plantilla</a>
+        <label className="flex items-center gap-1"><input type="checkbox" checked={dryRun} onChange={e => setDryRun(e.target.checked)}/> Solo validar (no escribir)</label>
+        <input type="file" accept=".xlsx,.xls,.csv" disabled={busy} onChange={e => { const f = e.target.files?.[0]; if (f) importar(f); e.target.value = '' }} className="text-[11px]"/>
+        {error && <span className="text-rose-700">{error}</span>}
+      </div>
+      {rep && (
+        <div className="text-[11px] space-y-1">
+          <p className="font-semibold">{rep.dryRun ? 'Validación (sin escribir)' : 'Importación'}: {rep.total} filas · {rep.validas} válidas · {rep.invalidas} rechazadas ({rep.duplicadasEnArchivo} duplicadas en archivo) · {rep.creadas} creadas · {rep.actualizadas} actualizadas · {rep.cotejadas} cotejadas · {rep.pendientesCotejo} pendientes de cotejo</p>
+          <div className="max-h-64 overflow-y-auto space-y-0.5">
+            {rep.filas.map(f => <div key={f.fila} className={`rounded px-2 py-0.5 ${f.ok ? 'bg-emerald-50' : 'bg-rose-50'}`}>fila {f.fila} · {f.clave ?? '—'} · {f.accion} · {f.cotejo}{f.errores.length > 0 ? ` · ${f.errores.join('; ')}` : ''}</div>)}
+          </div>
         </div>
       )}
     </div>

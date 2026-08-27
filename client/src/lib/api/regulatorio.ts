@@ -4,7 +4,7 @@
  */
 import { request } from '../api-core'
 
-export type TipoAccionAlerta = 'armar_rt' | 'cambio_regimen' | 'revisar_fraccion' | 'ver_obligacion' | 'cotizar'
+export type TipoAccionAlerta = 'armar_rt' | 'cambio_regimen' | 'revisar_fraccion' | 'ver_obligacion' | 'cotizar' | 'ver_certificado_proveedor'
 export interface AccionAlerta {
   type: TipoAccionAlerta
   label: string

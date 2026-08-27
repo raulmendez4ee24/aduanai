@@ -65,6 +65,7 @@ import { AprobacionesPage } from './pages/Aprobaciones'
 import { CatalogoPage } from './pages/Catalogo'
 import { DefensaPage } from './pages/Defensa' // Ola 3
 import { StatusPage } from './pages/Public/Status'
+import { PortalProveedorPage } from './pages/Public/PortalProveedor' // Ola 2 origen-cuotas: portal público por token
 import { PrecedentsPage } from './pages/Precedents'
 import { AdminLeadsPage } from './pages/Admin/AdminLeads'
 import { AdminKnowledgePage } from './pages/Admin/AdminKnowledge'
@@ -293,6 +294,7 @@ export function App() {
       </Route>
 
       <Route path="/status" element={<StatusPage />} />
+      <Route path="/proveedor/:token" element={<PortalProveedorPage />} />{/* Ola 2 origen-cuotas: público, sin sesión */}
 
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>
