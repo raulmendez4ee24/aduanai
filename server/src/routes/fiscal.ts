@@ -10,7 +10,8 @@ import {
 import { applyTaxCreditAtomic } from '../services/fiscal-ledger';
 import { montarFiscalOla2 } from './fiscal-ola2';
 import { simuladorPerdida } from '../services/fiscal-certificacion';
-import { clienteIdDe } from '../lib/cliente-contexto';
+import { clienteIdDe, filtroCliente, alcanceDe, validarClienteDelTenant } from '../lib/cliente-contexto';
+import { requirePermission } from '../middlewares/requirePermission';
 
 export const fiscalRouter = Router();
 
@@ -19,7 +20,7 @@ export const fiscalRouter = Router();
 // ============================================
 
 // Registrar crédito
-fiscalRouter.post('/credits', authenticate, async (req: AuthRequest, res, next) => {
+fiscalRouter.post('/credits', authenticate, requirePermission('fiscalGuardian', 'create'), async (req: AuthRequest, res, next) => {
   try {
     const {
       pedimento, fractionCode, ivaAmount, iepsAmount,
@@ -47,6 +48,7 @@ fiscalRouter.post('/credits', authenticate, async (req: AuthRequest, res, next) 
         relatedImportId,
         notes,
         tenantId: req.tenantId!,
+        clienteId: await validarClienteDelTenant(req.tenantId!, clienteIdDe(req)),
       },
     });
 
@@ -63,7 +65,7 @@ fiscalRouter.get('/credits', authenticate, async (req: AuthRequest, res, next) =
     const page = Math.max(1, Number(req.query.page) || 1);
     const limit = Math.min(100, Math.max(1, Number(req.query.limit) || 20));
 
-    const where: Record<string, unknown> = { tenantId: req.tenantId! };
+    const where: Record<string, unknown> = { tenantId: req.tenantId!, ...filtroCliente(req) };
     if (status && ['ACTIVE', 'PARTIALLY_USED', 'FULLY_USED', 'EXPIRED', 'IRREGULAR'].includes(status)) {
       where.status = status;
     }
@@ -106,7 +108,7 @@ fiscalRouter.get('/credits/:id', authenticate, async (req: AuthRequest, res, nex
 });
 
 // Registrar uso de crédito
-fiscalRouter.post('/credits/:id/use', authenticate, async (req: AuthRequest, res, next) => {
+fiscalRouter.post('/credits/:id/use', authenticate, requirePermission('fiscalGuardian', 'create'), async (req: AuthRequest, res, next) => {
   try {
     const creditId = String(req.params.id);
     const { pedimentoDescargo, ivaApplied, iepsApplied, usageDate } = req.body;
@@ -144,7 +146,7 @@ fiscalRouter.post('/credits/:id/use', authenticate, async (req: AuthRequest, res
 });
 
 // Eliminar crédito
-fiscalRouter.delete('/credits/:id', authenticate, async (req: AuthRequest, res, next) => {
+fiscalRouter.delete('/credits/:id', authenticate, requirePermission('fiscalGuardian', 'delete'), async (req: AuthRequest, res, next) => {
   try {
     const credit = await prisma.taxCredit.findFirst({
       where: { id: String(req.params.id), tenantId: req.tenantId! },
@@ -206,7 +208,7 @@ fiscalRouter.get('/risks', authenticate, async (req: AuthRequest, res, next) => 
 fiscalRouter.post('/simulate-loss', authenticate, async (req: AuthRequest, res, next) => {
   try {
     // Ola 2: el simulador viejo (estimación '×4' sin base) se retiró; delega al real.
-    const result = await simuladorPerdida(req.tenantId!, clienteIdDe(req), { pctGarantia: null });
+    const result = await simuladorPerdida(req.tenantId!, alcanceDe(req), { pctGarantia: null });
     res.json({ status: 'ok', data: result });
   } catch (err) {
     next(err);
@@ -217,7 +219,7 @@ fiscalRouter.post('/simulate-loss', authenticate, async (req: AuthRequest, res, 
 // GARANTÍAS — CRUD
 // ============================================
 
-fiscalRouter.post('/guarantees', authenticate, async (req: AuthRequest, res, next) => {
+fiscalRouter.post('/guarantees', authenticate, requirePermission('fiscalGuardian', 'create'), async (req: AuthRequest, res, next) => {
   try {
     const { type, amount, institution, referenceNumber, issueDate, expiryDate, notes } = req.body;
 
@@ -256,7 +258,7 @@ fiscalRouter.get('/guarantees', authenticate, async (req: AuthRequest, res, next
   }
 });
 
-fiscalRouter.patch('/guarantees/:id', authenticate, async (req: AuthRequest, res, next) => {
+fiscalRouter.patch('/guarantees/:id', authenticate, requirePermission('fiscalGuardian', 'create'), async (req: AuthRequest, res, next) => {
   try {
     const existing = await prisma.guarantee.findFirst({
       where: { id: String(req.params.id), tenantId: req.tenantId! },
@@ -284,7 +286,7 @@ fiscalRouter.patch('/guarantees/:id', authenticate, async (req: AuthRequest, res
   }
 });
 
-fiscalRouter.delete('/guarantees/:id', authenticate, async (req: AuthRequest, res, next) => {
+fiscalRouter.delete('/guarantees/:id', authenticate, requirePermission('fiscalGuardian', 'delete'), async (req: AuthRequest, res, next) => {
   try {
     const existing = await prisma.guarantee.findFirst({
       where: { id: String(req.params.id), tenantId: req.tenantId! },
@@ -315,7 +317,7 @@ fiscalRouter.get('/certification', authenticate, async (req: AuthRequest, res, n
   }
 });
 
-fiscalRouter.put('/certification', authenticate, async (req: AuthRequest, res, next) => {
+fiscalRouter.put('/certification', authenticate, requirePermission('fiscalGuardian', 'create'), async (req: AuthRequest, res, next) => {
   try {
     const { modality, certNumber, issueDate, expiryDate, renewalDeadline, status, notes } = req.body;
 

@@ -228,6 +228,34 @@ async function main(): Promise<void> {
       assert.equal(s.ivaMensualMXN.promedio3Meses, 0);
       assert.equal(s.tipoCambio.warning, 'TC manual');
     });
+    await test('alcance por cliente (revisión A): otro cliente del tenant no ve avisos/créditos; {in} de varios sí; null = todo el tenant', async () => {
+      const cliente2 = await prisma.cliente.create({ data: { tenantId: tenant.id, rfc: 'FIS020202BBB', razonSocial: 'Fiscal Test 2', isDemoData: true } });
+      assert.equal((await listarAvisos(tenant.id, cliente2.id)).length, 0, 'restringido a cliente2 no ve los avisos de cliente1');
+      assert.equal((await listarAvisos(tenant.id, { in: [cliente.id, cliente2.id] })).length, 3, 'alcance de varios clientes = filtro IN');
+      assert.equal((await listarAvisos(tenant.id, null)).length, 3);
+      const c2 = await conciliacionPeriodo(tenant.id, cliente2.id, '2026-Q3');
+      assert.equal(c2.creditos.descargadoEnPeriodo, 0, 'el crédito de cliente1 no cuenta para cliente2');
+      const cIn = await conciliacionPeriodo(tenant.id, { in: [cliente.id, cliente2.id] }, '2026-Q3');
+      assert.equal(cIn.creditos.descargadoEnPeriodo, 1200);
+      const sem = await semaforoCertificacion(tenant.id, { in: [cliente.id, cliente2.id] }, HOY);
+      assert.equal(sem.obligaciones.find((o) => o.clave === 'AVISOS_CAMBIOS')!.estado, 'ambar');
+    });
+
+    await test('permisos: fiscalGuardian.create/delete existen en todos los roles del seed (TENANT_ADMIN sí, VIEWER/CLIENTE_CONSULTA no)', async () => {
+      const { SYSTEM_ROLES, hasPermission } = await import('../services/permissions');
+      for (const r of SYSTEM_ROLES) {
+        const fg = r.permissions.modules.fiscalGuardian!;
+        assert.equal(typeof fg.create, 'boolean', `${r.code}: create definido`);
+        assert.equal(typeof fg.delete, 'boolean', `${r.code}: delete definido`);
+      }
+      const de = (code: string) => SYSTEM_ROLES.find(r => r.code === code)!.permissions;
+      assert.equal(hasPermission(de('TENANT_ADMIN'), 'fiscalGuardian', 'create'), true);
+      assert.equal(hasPermission(de('TENANT_ADMIN'), 'fiscalGuardian', 'delete'), true);
+      assert.equal(hasPermission(de('GERENTE'), 'fiscalGuardian', 'delete'), true);
+      assert.equal(hasPermission(de('VIEWER'), 'fiscalGuardian', 'create'), false);
+      assert.equal(hasPermission(de('CLIENTE_CONSULTA'), 'fiscalGuardian', 'create'), false);
+      assert.equal(hasPermission(de('CAPTURISTA'), 'fiscalGuardian', 'delete'), false);
+    });
   } finally {
     await prisma.auditLog.deleteMany({ where: { tenantId: tenant.id } });
     await prisma.creditUsage.deleteMany({ where: { tenantId: tenant.id } });

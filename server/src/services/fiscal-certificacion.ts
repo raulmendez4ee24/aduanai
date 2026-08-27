@@ -12,6 +12,7 @@
  */
 import * as XLSX from 'xlsx';
 import { prisma } from '../lib/prisma';
+import { whereCliente, type AlcanceCliente } from '../lib/cliente-contexto';
 import { AppError } from '../middlewares/error';
 import { recordAudit } from './audit-service';
 import { applyTaxCreditAtomic } from './fiscal-ledger';
@@ -31,8 +32,9 @@ function periodoDe(d: Date): string { return `${d.getUTCFullYear()}-Q${Math.floo
 // 6. Semáforo por rubro
 // ────────────────────────────────────────────────────────────────────────────
 
-export async function contextoCertificacion(tenantId: string, clienteId: string | null, hoy = new Date()): Promise<ContextoCertificacion> {
-  const cli = clienteId ? { clienteId } : {};
+export async function contextoCertificacion(tenantId: string, alcance: AlcanceCliente, hoy = new Date()): Promise<ContextoCertificacion> {
+  const cli = whereCliente(alcance);
+  const clienteId = typeof alcance === 'string' ? alcance : null;
   const [perfil, cliente, padrones, primerImport, garantias, garantiasPorVencer, creditosVencidos, anexo30, avisosVencidos, avisosPendientes, movimientos, opinion] = await Promise.all([
     prisma.certificationProfile.findUnique({ where: { tenantId } }),
     clienteId ? prisma.cliente.findFirst({ where: { id: clienteId, tenantId } }) : Promise.resolve(null),
@@ -79,8 +81,8 @@ export async function contextoCertificacion(tenantId: string, clienteId: string 
   };
 }
 
-export async function semaforoCertificacion(tenantId: string, clienteId: string | null, hoy = new Date()): Promise<SemaforoCertificacion & { contexto: Omit<ContextoCertificacion, 'hoy'> }> {
-  const ctx = await contextoCertificacion(tenantId, clienteId, hoy);
+export async function semaforoCertificacion(tenantId: string, alcance: AlcanceCliente, hoy = new Date()): Promise<SemaforoCertificacion & { contexto: Omit<ContextoCertificacion, 'hoy'> }> {
+  const ctx = await contextoCertificacion(tenantId, alcance, hoy);
   const { hoy: _h, ...resto } = ctx; void _h;
   return { ...evaluarCertificacion(ctx), contexto: resto };
 }
@@ -145,9 +147,9 @@ export async function sincronizarRenovacion(tenantId: string, clienteId: string 
   return { ...r, motivo: null };
 }
 
-export async function listarAvisos(tenantId: string, clienteId: string | null) {
+export async function listarAvisos(tenantId: string, alcance: AlcanceCliente) {
   return prisma.obligacionCalendario.findMany({
-    where: { tenantId, tipo: { in: ['CERT_IVA_IEPS', 'AVISO_IMMEX'] }, ...(clienteId ? { clienteId } : {}) },
+    where: { tenantId, tipo: { in: ['CERT_IVA_IEPS', 'AVISO_IMMEX'] }, ...whereCliente(alcance) },
     orderBy: { fechaLimite: 'asc' },
   });
 }
@@ -261,10 +263,10 @@ export function conciliar(
   };
 }
 
-export async function conciliacionPeriodo(tenantId: string, clienteId: string | null, periodo: string): Promise<Conciliacion> {
+export async function conciliacionPeriodo(tenantId: string, alcance: AlcanceCliente, periodo: string): Promise<Conciliacion> {
   const rango = rangoDePeriodo(periodo);
   const [creditos, anexo] = await Promise.all([
-    prisma.taxCredit.findMany({ where: { tenantId, ...(clienteId ? { clienteId } : {}), creditDate: { lte: rango.fin } }, include: { usages: { select: { ivaApplied: true, iepsApplied: true, usageDate: true } } } }),
+    prisma.taxCredit.findMany({ where: { tenantId, ...whereCliente(alcance), creditDate: { lte: rango.fin } }, include: { usages: { select: { ivaApplied: true, iepsApplied: true, usageDate: true } } } }),
     prisma.annex30Account.findFirst({ where: { tenantId, period: rango.periodo } }),
   ]);
   return conciliar(rango, creditos, anexo);
@@ -349,11 +351,11 @@ export function calcularSimulador(args: {
   };
 }
 
-export async function simuladorPerdida(tenantId: string, clienteId: string | null, opts: { pctGarantia?: number | null; tc?: OfficialRate; hoy?: Date } = {}): Promise<SimuladorPerdida> {
+export async function simuladorPerdida(tenantId: string, alcance: AlcanceCliente, opts: { pctGarantia?: number | null; tc?: OfficialRate; hoy?: Date } = {}): Promise<SimuladorPerdida> {
   const hoy = opts.hoy ?? new Date();
   const ini3 = new Date(Date.UTC(hoy.getUTCFullYear(), hoy.getUTCMonth() - 3, 1));
   const [importaciones, tc] = await Promise.all([
-    prisma.temporaryImport.findMany({ where: { tenantId, ...(clienteId ? { clienteId } : {}), entryDate: { gte: ini3 } }, select: { entryDate: true, customsValue: true } }),
+    prisma.temporaryImport.findMany({ where: { tenantId, ...whereCliente(alcance), entryDate: { gte: ini3 } }, select: { entryDate: true, customsValue: true } }),
     opts.tc ? Promise.resolve(opts.tc) : getOfficialRate(),
   ]);
   return calcularSimulador({ hoy, importaciones, tc, pctGarantia: opts.pctGarantia ?? null });
@@ -417,8 +419,8 @@ export async function descargarCredito(input: DescargoInput) {
   return { usage, credito: despues };
 }
 
-export async function reporteCreditosXlsx(tenantId: string, clienteId: string | null): Promise<Buffer> {
-  const creditos = await prisma.taxCredit.findMany({ where: { tenantId, ...(clienteId ? { clienteId } : {}) }, include: { usages: { orderBy: { usageDate: 'asc' } } }, orderBy: { creditDate: 'asc' } });
+export async function reporteCreditosXlsx(tenantId: string, alcance: AlcanceCliente): Promise<Buffer> {
+  const creditos = await prisma.taxCredit.findMany({ where: { tenantId, ...whereCliente(alcance) }, include: { usages: { orderBy: { usageDate: 'asc' } } }, orderBy: { creditDate: 'asc' } });
   const hoy = new Date();
   const filas = creditos.map((c) => ({
     Pedimento: c.pedimento, Fracción: c.fractionCode, 'Fecha crédito': c.creditDate.toISOString().slice(0, 10), 'Vence descargo': c.dischargeDeadline.toISOString().slice(0, 10),

@@ -4,7 +4,8 @@
  */
 import type { Router } from 'express';
 import { authenticate, AuthRequest } from '../middlewares/auth';
-import { clienteIdDe, validarClienteDelTenant } from '../lib/cliente-contexto';
+import { clienteIdDe, alcanceDe, validarClienteDelTenant } from '../lib/cliente-contexto';
+import { requirePermission } from '../middlewares/requirePermission';
 import { OBLIGACIONES_CERT, AVISOS } from '../lib/certificacion-iva-ieps';
 import {
   semaforoCertificacion, registrarAviso, sincronizarRenovacion, listarAvisos,
@@ -15,7 +16,7 @@ export function montarFiscalOla2(fiscalRouter: Router): void {
   // 6. Semáforo por obligación (rubro A/AA/AAA)
   fiscalRouter.get('/certificacion/semaforo', authenticate, async (req: AuthRequest, res, next) => {
     try {
-      res.json({ status: 'ok', data: await semaforoCertificacion(req.tenantId!, clienteIdDe(req)) });
+      res.json({ status: 'ok', data: await semaforoCertificacion(req.tenantId!, alcanceDe(req)) });
     } catch (err) { next(err); }
   });
 
@@ -26,11 +27,11 @@ export function montarFiscalOla2(fiscalRouter: Router): void {
   // 7. Avisos → ObligacionCalendario (idempotente por tenant + tipo + fecha)
   fiscalRouter.get('/avisos', authenticate, async (req: AuthRequest, res, next) => {
     try {
-      res.json({ status: 'ok', data: await listarAvisos(req.tenantId!, clienteIdDe(req)) });
+      res.json({ status: 'ok', data: await listarAvisos(req.tenantId!, alcanceDe(req)) });
     } catch (err) { next(err); }
   });
 
-  fiscalRouter.post('/avisos', authenticate, async (req: AuthRequest, res, next) => {
+  fiscalRouter.post('/avisos', authenticate, requirePermission('fiscalGuardian', 'create'), async (req: AuthRequest, res, next) => {
     try {
       const { tipo, fechaEvento, descripcion } = req.body ?? {};
       const clienteId = await validarClienteDelTenant(req.tenantId!, clienteIdDe(req));
@@ -50,7 +51,7 @@ export function montarFiscalOla2(fiscalRouter: Router): void {
     try {
       const periodo = String(req.query.periodo || '').trim();
       if (!periodo) return res.status(400).json({ status: 'error', message: 'periodo requerido (AAAA-Qn, AAAA-MM o AAAA)' });
-      res.json({ status: 'ok', data: await conciliacionPeriodo(req.tenantId!, clienteIdDe(req), periodo) });
+      res.json({ status: 'ok', data: await conciliacionPeriodo(req.tenantId!, alcanceDe(req), periodo) });
     } catch (err) { next(err); }
   });
 
@@ -58,7 +59,7 @@ export function montarFiscalOla2(fiscalRouter: Router): void {
     try {
       const periodo = String(req.query.periodo || '').trim();
       if (!periodo) return res.status(400).json({ status: 'error', message: 'periodo requerido' });
-      const c = await conciliacionPeriodo(req.tenantId!, clienteIdDe(req), periodo);
+      const c = await conciliacionPeriodo(req.tenantId!, alcanceDe(req), periodo);
       res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
       res.setHeader('Content-Disposition', `attachment; filename="conciliacion-anexo30-${c.periodo.periodo}.xlsx"`);
       res.send(conciliacionAXlsx(c));
@@ -71,12 +72,12 @@ export function montarFiscalOla2(fiscalRouter: Router): void {
       const raw = req.query.pctGarantia;
       const pct = raw === undefined || raw === '' ? null : Number(raw);
       if (pct !== null && (!Number.isFinite(pct) || pct < 0 || pct > 100)) return res.status(400).json({ status: 'error', message: 'pctGarantia debe estar entre 0 y 100' });
-      res.json({ status: 'ok', data: await simuladorPerdida(req.tenantId!, clienteIdDe(req), { pctGarantia: pct }) });
+      res.json({ status: 'ok', data: await simuladorPerdida(req.tenantId!, alcanceDe(req), { pctGarantia: pct }) });
     } catch (err) { next(err); }
   });
 
   // 10. Descargo del crédito como flujo (+ audit trail) y reporte
-  fiscalRouter.post('/creditos/:id/descargar', authenticate, async (req: AuthRequest, res, next) => {
+  fiscalRouter.post('/creditos/:id/descargar', authenticate, requirePermission('fiscalGuardian', 'create'), async (req: AuthRequest, res, next) => {
     try {
       const { monto, ivaApplied, iepsApplied, pedimentoDescargo, fecha } = req.body ?? {};
       if (!pedimentoDescargo || !fecha) return res.status(400).json({ status: 'error', message: 'pedimentoDescargo y fecha requeridos' });
@@ -93,7 +94,7 @@ export function montarFiscalOla2(fiscalRouter: Router): void {
     try {
       res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
       res.setHeader('Content-Disposition', 'attachment; filename="creditos-fiscales-descargos.xlsx"');
-      res.send(await reporteCreditosXlsx(req.tenantId!, clienteIdDe(req)));
+      res.send(await reporteCreditosXlsx(req.tenantId!, alcanceDe(req)));
     } catch (err) { next(err); }
   });
 }
