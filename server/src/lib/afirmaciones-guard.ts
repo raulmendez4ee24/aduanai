@@ -84,13 +84,16 @@ export const LISTA_BLANCA: ExcepcionPermitida[] = [
 
 const REPO_ROOT = path.resolve(__dirname, '../../..');
 
-// Superficies de cara al usuario.
+// Superficies de cara al usuario. server/src/lib entró el 25-ago-2026: las
+// plantillas de email transaccional (email.ts) son superficie de usuario y
+// estaban fuera del barrido — un "asesores" sobrevivió ahí a la misión del CTA.
 const SCAN_ROOTS = [
   'client/src/pages',
   'client/src/components',
   'client/src/lib',
   'server/src/services',
   'server/src/routes',
+  'server/src/lib',
 ];
 const SCAN_EXTENSIONS = new Set(['.ts', '.tsx']);
 

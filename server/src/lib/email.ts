@@ -351,7 +351,7 @@ export async function sendLeadThankYouEmail(to: string, name: string): Promise<v
   const subject = 'Gracias por tu interés — ADUANAI';
   const body = `
     <h2 style="margin:0 0 8px;color:#1a1a1a;font-size:24px;font-weight:700;">Hola, ${name}</h2>
-    <p style="margin:0 0 20px;color:#555555;font-size:15px;line-height:1.6;">Gracias por tu interés en ADUANAI. Uno de nuestros asesores se pondrá en contacto contigo en las próximas 24 horas para agendar una demo personalizada.</p>
+    <p style="margin:0 0 20px;color:#555555;font-size:15px;line-height:1.6;">Gracias por tu interés en ADUANAI. El fundador se pondrá en contacto contigo en las próximas 24 horas para agendar una demo personalizada.</p>
     <p style="margin:0 0 20px;color:#555555;font-size:15px;line-height:1.6;">Mientras tanto, prueba nuestro clasificador de fracciones arancelarias con IA:</p>
     <div style="text-align:center;margin:0 0 28px;">
       <a href="${APP_URL}/#demo-clasificador" style="display:inline-block;background:#1a1a1a;color:#ffffff;font-size:15px;font-weight:600;padding:14px 32px;border-radius:6px;text-decoration:none;">Probar Clasificador IA</a>

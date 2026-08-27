@@ -62,7 +62,7 @@ const STEPS = [
 ]
 
 const MAIN_MODULES = [
-  { icon: Boxes, title: 'Clasificador IA', desc: 'Hipótesis arancelaria documentada en minutos' },
+  { icon: Boxes, title: 'Clasificador IA', desc: 'Hipótesis arancelaria documentada, con fuentes' },
   { icon: Calculator, title: 'Cotizador', desc: 'Desglose de impuestos en segundos' },
   { icon: Bot, title: 'Copilot', desc: 'Consultas normativas con citas de su biblioteca legal' },
   { icon: Warehouse, title: 'Inventario IMMEX', desc: 'Control de Anexo 24/30 con alertas' },
@@ -91,7 +91,7 @@ const EXTRA_MODULES = [
 // públicas sin artefacto — vigilada por el guard de afirmaciones.
 const POSICIONAMIENTO = [
   { icon: Boxes, title: 'Hipótesis con fuentes, no corazonadas', body: 'Cada clasificación llega con su razonamiento, alternativas descartadas y el estado de verificación de cada dato del catálogo.' },
-  { icon: Puzzle, title: '19 módulos en una sola plataforma', body: 'Clasificar, cotizar, prevalidar, inventario IMMEX, fiscal, MVE/COVE, origen y alertas comparten los mismos datos — sin exportar archivos entre sistemas.' },
+  { icon: Puzzle, title: 'Una sola plataforma, todos los módulos', body: 'Clasificar, cotizar, prevalidar, inventario IMMEX, fiscal, MVE/COVE, origen y alertas comparten los mismos datos — sin exportar archivos entre sistemas.' },
   { icon: RefreshCw, title: 'Vigilancia de cambios del DOF', body: 'Los decretos de tarifa se detectan y se alertan para cotejo; el catálogo registra la fecha de cotejo de cada dato.' },
   { icon: ShieldCheck, title: 'Trazabilidad verificable', body: 'Acciones en bitácora con cadena de hashes y expedientes con hash público verificable por terceros.' },
 ]
@@ -99,7 +99,7 @@ const POSICIONAMIENTO = [
 const TRUST_PILLS = [
   '8,183 fracciones TIGIE activas',
   'Aranceles LIGIE actualizados',
-  'Basado en fuentes oficiales (DOF · SAT · T-MEC)',
+  'Basado en fuentes oficiales (DOF · SAT · TIGIE · T-MEC)',
   'Formatos alineados al Anexo 22 (RGCE)',
   'Reforma aduanera 2026 incluida',
   'Datos cifrados en tránsito (HTTPS)',
@@ -120,13 +120,13 @@ const FOR_WHO = [
     icon: Building2,
     tag: 'Empresas medianas',
     title: 'Deja de pagar de más por software obsoleto',
-    body: 'Un plan, 19 módulos, sin licencias por usuario escondidas en cada esquina.',
+    body: 'Un plan, todos los módulos, sin licencias por usuario escondidas en cada esquina.',
   },
   {
     icon: Factory,
     tag: 'Maquilas IMMEX',
     title: 'Control de Anexo 24/30 con alertas de vencimiento',
-    body: 'Descarga pedimentos, evita vencimientos y genera reportes al SAT en minutos.',
+    body: 'Descarga pedimentos, evita vencimientos y genera reportes al SAT sin captura manual.',
   },
   {
     icon: Plane,
@@ -159,7 +159,7 @@ const FAQ_ITEMS = [
   },
   {
     q: '¿Puedo probarlo antes de contratar?',
-    a: 'Tres caminos: (1) el clasificador demo en esta misma página, (2) una demo personalizada de 30 minutos con tus productos reales, (3) un piloto gratuito de 30 días con acceso completo a los 19 módulos.',
+    a: 'Tres caminos: (1) el clasificador demo en esta misma página, (2) una demo personalizada de 30 minutos con tus productos reales, (3) un piloto gratuito de 30 días con acceso completo a todos los módulos.',
   },
   {
     q: '¿Qué pasa si la IA se equivoca?',
@@ -191,7 +191,7 @@ export function AboutPage() {
               <a href="#problema" className="text-[13px] text-[#666] hover:text-[#1a1a1a] transition-colors">Problema</a>
               <a href="#como" className="text-[13px] text-[#666] hover:text-[#1a1a1a] transition-colors">Cómo funciona</a>
               <a href="#modulos" className="text-[13px] text-[#666] hover:text-[#1a1a1a] transition-colors">Módulos</a>
-              <a href="#comparativa" className="text-[13px] text-[#666] hover:text-[#1a1a1a] transition-colors">Por qué ADUANAI</a>
+              <a href="#por-que" className="text-[13px] text-[#666] hover:text-[#1a1a1a] transition-colors">Por qué ADUANAI</a>
               <a href="#demo" className="text-[13px] text-[#666] hover:text-[#1a1a1a] transition-colors">Demo</a>
               <a href="#faq" className="text-[13px] text-[#666] hover:text-[#1a1a1a] transition-colors">FAQ</a>
             </div>
@@ -212,7 +212,7 @@ export function AboutPage() {
               <a href="#problema" onClick={() => setMobileOpen(false)} className="block text-sm text-[#666] py-2">Problema</a>
               <a href="#como" onClick={() => setMobileOpen(false)} className="block text-sm text-[#666] py-2">Cómo funciona</a>
               <a href="#modulos" onClick={() => setMobileOpen(false)} className="block text-sm text-[#666] py-2">Módulos</a>
-              <a href="#comparativa" onClick={() => setMobileOpen(false)} className="block text-sm text-[#666] py-2">Por qué ADUANAI</a>
+              <a href="#por-que" onClick={() => setMobileOpen(false)} className="block text-sm text-[#666] py-2">Por qué ADUANAI</a>
               <a href="#demo" onClick={() => setMobileOpen(false)} className="block text-sm text-[#666] py-2">Demo</a>
               <a href="#faq" onClick={() => setMobileOpen(false)} className="block text-sm text-[#666] py-2">FAQ</a>
               <Link to="/login" onClick={() => setMobileOpen(false)} className="block text-center text-sm text-[#1a1a1a] py-2.5 border border-[#e0e0e0] rounded-full mt-2">Iniciar sesión</Link>
@@ -333,11 +333,46 @@ export function AboutPage() {
           </div>
         </FadeIn>
 
+        {/* ═══ CÓMO TE REVISA (la estrella: escudo, no cronómetro) ═══════ */}
+        <FadeIn>
+          <div id="como-te-revisa" className="bg-white rounded-2xl md:rounded-3xl px-6 md:px-10 py-10 md:py-14">
+            <div className="max-w-2xl mb-10">
+              <p className="text-[11px] uppercase tracking-[0.15em] text-[#999] font-medium mb-3">/CÓMO TE REVISA</p>
+              <h2 className="text-3xl md:text-[2.5rem] font-bold text-[#1a1a1a] tracking-tight leading-tight" style={{ fontFamily: "'Outfit', sans-serif" }}>
+                Tu exposición, revisada con reglas reproducibles — antes de transmitir
+              </h2>
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div className="bg-[#f8f8f6] rounded-2xl p-7">
+                <div className="w-10 h-10 rounded-xl bg-emerald-50 flex items-center justify-center mb-5">
+                  <ShieldCheck className="w-5 h-5 text-emerald-600" />
+                </div>
+                <h3 className="text-[15px] font-semibold text-[#1a1a1a] mb-2">Risk Scorer: exposición vs escudo</h3>
+                <p className="text-[13px] text-[#666] leading-relaxed">26 reglas deterministas — 69-B, perfil, valor, expediente — cada una con artículo citado, cita textual y fecha de cotejo. Separa cuánto estás expuesto de cuánta evidencia te respalda, y declara qué señal quedó sin evaluar y por qué.</p>
+              </div>
+              <div className="bg-[#f8f8f6] rounded-2xl p-7">
+                <div className="w-10 h-10 rounded-xl bg-emerald-50 flex items-center justify-center mb-5">
+                  <FileCheck2 className="w-5 h-5 text-emerald-600" />
+                </div>
+                <h3 className="text-[15px] font-semibold text-[#1a1a1a] mb-2">Pre-validador: el pedimento contra el Anexo 22</h3>
+                <p className="text-[13px] text-[#666] leading-relaxed">Claves, régimen, RFC, pesos, tipo de cambio del DOF y partidas contra los catálogos oficiales del Anexo 22 — los errores de forma se detectan antes del despacho, no en el reconocimiento.</p>
+              </div>
+              <div className="bg-[#f8f8f6] rounded-2xl p-7">
+                <div className="w-10 h-10 rounded-xl bg-emerald-50 flex items-center justify-center mb-5">
+                  <FolderOpen className="w-5 h-5 text-emerald-600" />
+                </div>
+                <h3 className="text-[15px] font-semibold text-[#1a1a1a] mb-2">El expediente que te van a pedir</h3>
+                <p className="text-[13px] text-[#666] leading-relaxed">Checklist del expediente 59-V y 162: qué documento falta en qué operación, con su fundamento. Trazabilidad con cadena de hashes y verificación pública de cada expediente emitido.</p>
+              </div>
+            </div>
+          </div>
+        </FadeIn>
+
         {/* ═══ SOLUCIÓN — CÓMO FUNCIONA ══════════════════════════════════ */}
         <FadeIn>
           <div id="como" className="bg-white rounded-2xl md:rounded-3xl px-6 md:px-10 py-10 md:py-14">
             <div className="max-w-2xl mb-10">
-              <p className="text-[11px] uppercase tracking-[0.15em] text-[#999] font-medium mb-3">/CÓMO FUNCIONA</p>
+              <p className="text-[11px] uppercase tracking-[0.15em] text-[#999] font-medium mb-3">/HERRAMIENTA DE APOYO: CÓMO FUNCIONA EL CLASIFICADOR</p>
               <h2 className="text-3xl md:text-[2.5rem] font-bold text-[#1a1a1a] tracking-tight leading-tight" style={{ fontFamily: "'Outfit', sans-serif" }}>
                 Así de simple
               </h2>
@@ -377,41 +412,6 @@ export function AboutPage() {
               <p className="text-[15px] text-[#666] leading-relaxed">
                 Si llega una revisión, la diferencia la hace <strong className="text-[#1a1a1a]">el expediente que ya tienes</strong>. ADUANAI te muestra hoy qué te falta y con qué fundamento.
               </p>
-            </div>
-          </div>
-        </FadeIn>
-
-        {/* ═══ CÓMO TE REVISA (la estrella: escudo, no cronómetro) ═══════ */}
-        <FadeIn>
-          <div id="como-te-revisa" className="bg-white rounded-2xl md:rounded-3xl px-6 md:px-10 py-10 md:py-14">
-            <div className="max-w-2xl mb-10">
-              <p className="text-[11px] uppercase tracking-[0.15em] text-[#999] font-medium mb-3">/CÓMO TE REVISA</p>
-              <h2 className="text-3xl md:text-[2.5rem] font-bold text-[#1a1a1a] tracking-tight leading-tight" style={{ fontFamily: "'Outfit', sans-serif" }}>
-                Tu exposición, revisada con reglas reproducibles — antes de transmitir
-              </h2>
-            </div>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              <div className="bg-[#f8f8f6] rounded-2xl p-7">
-                <div className="w-10 h-10 rounded-xl bg-emerald-50 flex items-center justify-center mb-5">
-                  <ShieldCheck className="w-5 h-5 text-emerald-600" />
-                </div>
-                <h3 className="text-[15px] font-semibold text-[#1a1a1a] mb-2">Risk Scorer: exposición vs escudo</h3>
-                <p className="text-[13px] text-[#666] leading-relaxed">26 reglas deterministas — 69-B, perfil, valor, expediente — cada una con artículo citado, cita textual y fecha de cotejo. Separa cuánto estás expuesto de cuánta evidencia te respalda, y declara qué señal quedó sin evaluar y por qué.</p>
-              </div>
-              <div className="bg-[#f8f8f6] rounded-2xl p-7">
-                <div className="w-10 h-10 rounded-xl bg-emerald-50 flex items-center justify-center mb-5">
-                  <FileCheck2 className="w-5 h-5 text-emerald-600" />
-                </div>
-                <h3 className="text-[15px] font-semibold text-[#1a1a1a] mb-2">Pre-validador: el pedimento contra el Anexo 22</h3>
-                <p className="text-[13px] text-[#666] leading-relaxed">Claves, régimen, RFC, pesos, tipo de cambio del DOF y partidas contra los catálogos oficiales del Anexo 22 — los errores de forma se detectan antes del despacho, no en el reconocimiento.</p>
-              </div>
-              <div className="bg-[#f8f8f6] rounded-2xl p-7">
-                <div className="w-10 h-10 rounded-xl bg-emerald-50 flex items-center justify-center mb-5">
-                  <FolderOpen className="w-5 h-5 text-emerald-600" />
-                </div>
-                <h3 className="text-[15px] font-semibold text-[#1a1a1a] mb-2">El expediente que te van a pedir</h3>
-                <p className="text-[13px] text-[#666] leading-relaxed">Checklist del expediente 59-V y 162: qué documento falta en qué operación, con su fundamento. Trazabilidad con cadena de hashes y verificación pública de cada expediente emitido.</p>
-              </div>
             </div>
           </div>
         </FadeIn>
@@ -504,7 +504,7 @@ export function AboutPage() {
                 onClick={() => setShowAllModules(v => !v)}
                 className="inline-flex items-center gap-2 text-[13px] text-[#1a1a1a] px-6 py-2.5 rounded-full border border-[#e0e0e0] hover:border-[#ccc] hover:bg-[#f5f5f3] transition-all font-medium"
               >
-                {showAllModules ? 'Ocultar módulos' : `Ver los 19 módulos`}
+                {showAllModules ? 'Ocultar módulos' : `Ver los ${MAIN_MODULES.length + EXTRA_MODULES.length} módulos`}
                 <ArrowRight className={`w-3.5 h-3.5 transition-transform ${showAllModules ? 'rotate-90' : ''}`} />
               </button>
             </div>
@@ -513,7 +513,7 @@ export function AboutPage() {
 
         {/* ═══ POR QUÉ ADUANAI (posicionamiento propio, sin terceros) ═══ */}
         <FadeIn>
-          <div id="comparativa" className="bg-white rounded-2xl md:rounded-3xl px-6 md:px-10 py-10 md:py-14">
+          <div id="por-que" className="bg-white rounded-2xl md:rounded-3xl px-6 md:px-10 py-10 md:py-14">
             <div className="max-w-2xl mb-10">
               <p className="text-[11px] uppercase tracking-[0.15em] text-[#999] font-medium mb-3">/POR QUÉ ADUANAI</p>
               <h2 className="text-3xl md:text-[2.5rem] font-bold text-[#1a1a1a] tracking-tight leading-tight" style={{ fontFamily: "'Outfit', sans-serif" }}>
@@ -533,7 +533,7 @@ export function AboutPage() {
             </div>
             <div className="mt-8 bg-emerald-50 border border-emerald-100 rounded-2xl p-5 text-center">
               <p className="text-[13px] text-emerald-800">
-                <strong>Piloto gratuito de 30 días</strong> — sin tarjeta, sin contrato, acceso a los 19 módulos.
+                <strong>Piloto gratuito de 30 días</strong> — sin tarjeta, sin contrato, acceso a todos los módulos.
               </p>
             </div>
           </div>
@@ -678,7 +678,7 @@ export function AboutPage() {
                 </div>
                 <span className="text-lg font-semibold text-[#1a1a1a] tracking-tight">ADUANAI</span>
               </div>
-              <p className="text-[13px] text-[#888] leading-relaxed mb-5">Software mexicano de comercio exterior con IA — 19 módulos en una sola plataforma.</p>
+              <p className="text-[13px] text-[#888] leading-relaxed mb-5">Software mexicano de comercio exterior con IA — cumplimiento aduanero en una sola plataforma.</p>
               <div className="flex items-center gap-3">
                 <a href="https://linkedin.com" target="_blank" rel="noopener noreferrer" className="w-8 h-8 bg-[#f5f5f3] rounded-lg flex items-center justify-center hover:bg-[#eaeae7] transition-colors" aria-label="LinkedIn">
                   <svg className="w-3.5 h-3.5 text-[#666]" fill="currentColor" viewBox="0 0 24 24"><path d="M20.447 20.452h-3.554v-5.569c0-1.328-.027-3.037-1.852-3.037-1.853 0-2.136 1.445-2.136 2.939v5.667H9.351V9h3.414v1.561h.046c.477-.9 1.637-1.85 3.37-1.85 3.601 0 4.267 2.37 4.267 5.455v6.286zM5.337 7.433a2.062 2.062 0 01-2.063-2.065 2.064 2.064 0 112.063 2.065zm1.782 13.019H3.555V9h3.564v11.452zM22.225 0H1.771C.792 0 0 .774 0 1.729v20.542C0 23.227.792 24 1.771 24h20.451C23.2 24 24 23.227 24 22.271V1.729C24 .774 23.2 0 22.222 0h.003z"/></svg>
@@ -707,7 +707,7 @@ export function AboutPage() {
               <p className="text-[12px] font-semibold text-[#1a1a1a] uppercase tracking-wider mb-4">Empresa</p>
               <div className="space-y-2.5">
                 <a href="#como" className="block text-[13px] text-[#888] hover:text-[#1a1a1a] transition-colors">Cómo funciona</a>
-                <a href="#comparativa" className="block text-[13px] text-[#888] hover:text-[#1a1a1a] transition-colors">Por qué ADUANAI</a>
+                <a href="#por-que" className="block text-[13px] text-[#888] hover:text-[#1a1a1a] transition-colors">Por qué ADUANAI</a>
                 <a href="#demo" className="block text-[13px] text-[#888] hover:text-[#1a1a1a] transition-colors">Contacto</a>
                 <span className="block text-[13px] text-[#ccc]">Blog (próximamente)</span>
               </div>

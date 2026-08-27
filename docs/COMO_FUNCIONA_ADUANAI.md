@@ -562,13 +562,13 @@ Al cambiar un flujo central o desplegar una nueva fase:
 | Censo legacy restantes documentadas | 1 | CERRADO (censo) | 12 legacy activas por cotejar (migración 20260824234500) + 13 subpartidas pre-HS2022 (migración 20260813193051) |
 | D10: una empresa demo, una historia | 1 | ABIERTO | 3 identidades demo divergentes; Pre-Glosa no lee CertificationProfile ni tiene datos demo; TC fijo 17.85; narrativa aduanas incoherente; Analytics ya deriva del historial (OK) |
 | Hero (eyebrow/H1/sub/CTA/WhatsApp) | 2 | CERRADO `23c2c95` | H1 en 3ª persona ("el agente aduanal responde sin excluyentes") por precisión legal de la revisión adversarial — Art. 54 LA aplica al agente; no se revierte a la redacción en 2ª persona pedida por la misión (sería afirmación imprecisa sin artefacto). Resto del hero conforme |
-| Orden narrativo + "en minutos" fuera de sección | 2 | ABIERTO | `/CÓMO FUNCIONA` (pasos del clasificador) precede a `/CÓMO TE REVISA`; "en minutos" ×3 fuera de sección |
-| Muere "19 módulos" | 2 | ABIERTO | ×5 en About.tsx (94,123,162,507,681) |
+| Orden narrativo + "en minutos" fuera de sección | 2 | CERRADO (Bloque 2) | `/CÓMO TE REVISA` ahora precede a `/CÓMO FUNCIONA` (relabelada `HERRAMIENTA DE APOYO`); "en minutos" solo sobrevive dentro de las 2 secciones del clasificador (paso 2 y header demo), donde es afirmación verdadera (1-3 min); fuera de sección: 0 |
+| Muere "19 módulos" | 2 | CERRADO (Bloque 2) | 0 ocurrencias en client/; botón usa `MAIN_MODULES.length + EXTRA_MODULES.length`; ancla `#comparativa` → `#por-que` |
 | Contadores de constante única con unidad | 2 | CERRADO `dba111b` | FALLBACK_STATS + /api/stats/public desde DB viva; nota: fuentes reales = 17 (la misión decía 44 = conteo de docs `resumen`, no de fuentes; se publica el real) |
 | Refresh 69-B con CSV vigente + pipeline v1.3.0 | 2 | CERRADO `dba111b` | reingesta 25-ago 17:07Z ANTES del deploy: corte CSV 31-jul-2026, 14,522 filas válidas → 14,438 RFC únicos (dedup por fecha); prod: DEFINITIVO 11,823 · SENTENCIA_FAVORABLE 1,461 · PRESUNTO 814 · DESVIRTUADO 340; artefacto `ingesta-69b-2026-08-25.json`; falta evidencia Risk real → factor EVALUADO (EN CURSO) |
 | Comparativa fuera + VUCEM + logos | 2 | CERRADO `223badd`/`c3f9d56` | residuo menor: ancla `#comparativa` y "en minutos"/TIGIE en strings (ver ítems abiertos) |
 | Guard extendido (terceros + compatible-gubernamental) | 2 | CERRADO `23c2c95` | 18 patrones, `soloEn` público, gate en Dockerfile |
-| Email de lead dice "asesores" | 2 | ABIERTO | `email.ts:354`; contradice CTA fundador; email.ts fuera de SCAN_ROOTS del guard |
+| Email de lead dice "asesores" | 2 | CERRADO (Bloque 2) | `email.ts:354` → "El fundador"; `server/src/lib` añadido a SCAN_ROOTS del guard (3/3 verde); AuthLayout + TRUST_PILLS incluyen TIGIE en fuentes |
 | Biblioteca Legal: login intencional + qué ve demo | 2 | ABIERTO (reporte) | ruta protegida en App.tsx:240 |
 | consultHash por tenant (hash+unicidad+upsert+feedback+test) | 3 | ABIERTO | `@unique` simple; hash sin tenant; feedback cross-tenant sin scope |
 | Tenant guard a estricto (censo modelos + incidentes + flag) | 3 | ABIERTO | falta ClassificationJob; `sinGuardaDeTenant` sin uso; incidentes solo console.error; TENANT_GUARD_STRICT ausente en prod |
