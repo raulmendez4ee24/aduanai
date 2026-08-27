@@ -38,7 +38,7 @@ export function ExposicionPanel({ temporaryImportId, onClose }: { temporaryImpor
                 <p className="text-13 uppercase tracking-wide text-tinta-suave">Tipo de cambio</p>
                 <p className="font-sello-mono text-tinta">{data.tipoCambio.valor != null ? data.tipoCambio.valor.toFixed(4) : '—'} MXN/USD</p>
                 <div className="mt-1"><SelloVerificacion estado={data.tipoCambio.estado === 'verificado' ? 'verificado' : 'sin_verificar'} fuenteNombre={data.tipoCambio.fuente ?? undefined} fechaPublicacion={data.tipoCambio.fecha ?? undefined} /></div>
-                <p className="text-tinta-suave mt-2">IGI {data.tasas.igiPct != null ? `${data.tasas.igiPct}%` : 'no disponible'} ({data.tasas.igiFuente}) · DTA {data.tasas.dtaPct}% · IVA {data.tasas.ivaPct}%{data.tasas.iepsPct ? ` · IEPS ${data.tasas.iepsPct}%` : ''}</p>
+                <p className="text-tinta-suave mt-2">IGI {data.tasas.igiPct != null ? `${data.tasas.igiPct}%` : 'no disponible'} ({data.tasas.igiFuente}) · DTA {data.tasas.dtaPct}% (general; ver cotejo en Cotizador) · IVA {data.tasas.ivaPct}%{data.tasas.iepsPct ? ` · IEPS ${data.tasas.iepsPct}%` : ''}</p>
               </div>
             </div>
 
@@ -66,7 +66,7 @@ export function ExposicionPanel({ temporaryImportId, onClose }: { temporaryImpor
             <div className="border border-linea rounded-sello p-3 space-y-2">
               <p className="text-13 uppercase tracking-wide text-tinta-suave">Multas</p>
               {data.multa.rangoOmision ? (
-                <p className="text-tinta">Por omisión de contribuciones: <span className="font-sello-mono">{fmtMXN(data.multa.rangoOmision.min)}</span> a <span className="font-sello-mono">{fmtMXN(data.multa.rangoOmision.max)}</span> ({data.multa.rangoOmision.minPct}%–{data.multa.rangoOmision.maxPct}%) · {data.multa.rangoOmision.fundamento} <Badge tono="petroleo">cotejado</Badge></p>
+                <p className="text-tinta">Por omisión de contribuciones: <span className="font-sello-mono">{fmtMXN(data.multa.rangoOmision.min)}</span> a <span className="font-sello-mono">{fmtMXN(data.multa.rangoOmision.max)}</span> ({data.multa.rangoOmision.minPct}%–{data.multa.rangoOmision.maxPct}%) · {data.multa.rangoOmision.fundamento} <Badge tono="ambar">cotejo: {data.multa.rangoOmision.cotejo}</Badge></p>
               ) : <p className="text-tinta-suave">Rango de multa por omisión no calculable sin impuestos.</p>}
               <p className="text-tinta-suave">Multa específica por exceder el plazo de retorno ({data.multa.plazoRetorno.fundamento}): <Badge tono="ambar">pendiente de fuente</Badge> — {data.multa.plazoRetorno.nota}</p>
               <p className="text-tinta-suave">{data.recargos.nota}</p>
