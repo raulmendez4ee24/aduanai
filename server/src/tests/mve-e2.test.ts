@@ -282,6 +282,18 @@ async function main(): Promise<void> {
       // Otro tenant no puede marcarla.
       await assert.rejects(marcarTransmitidaPorUsuario('tenant-ajeno', m.id, 'VUCEM-1', '2026-08-26'), /no encontrada/);
     });
+
+    await test('alcance por cliente (revisión A): restringido a otro cliente no ve vigencias ni marca transmitida; {in} de varios sí', async () => {
+      const clienteB = await prisma.cliente.create({ data: { tenantId: tenant.id, rfc: 'CLB990101AB1', razonSocial: 'Cliente B', isDemoData: true } });
+      const hoy = new Date('2026-08-27T12:00:00Z');
+      assert.equal((await vigenciasPorProveedor(tenant.id, clienteB.id, hoy)).proveedores.length, 0, 'B no ve proveedores de A');
+      assert.equal((await vigenciasPorProveedor(tenant.id, { in: [cliente.id, clienteB.id] }, hoy)).proveedores.length, 3, 'alcance IN ve los de A');
+      const pendiente = await prisma.manifestacionValor.findFirst({ where: { tenantId: tenant.id, clienteId: cliente.id, estadoTransmision: 'lista_para_transmitir' } });
+      assert.ok(pendiente);
+      await assert.rejects(marcarTransmitidaPorUsuario(tenant.id, pendiente.id, 'VUCEM-999999', '2026-08-26', clienteB.id), /no encontrada/);
+      const ok = await marcarTransmitidaPorUsuario(tenant.id, pendiente.id, 'VUCEM-999999', '2026-08-26', { in: [clienteB.id, cliente.id] });
+      assert.equal(ok.estadoTransmision, 'transmitida_por_usuario');
+    });
   } finally {
     await prisma.manifestacionValor.deleteMany({ where: { tenantId: tenant.id } });
     await prisma.mVEPlantillaProveedor.deleteMany({ where: { tenantId: tenant.id } });

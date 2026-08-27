@@ -7,6 +7,7 @@
  * camino de código la pone en "transmitida" automáticamente.
  */
 import { prisma } from '../lib/prisma';
+import { whereCliente, whereIdConAlcance, type AlcanceCliente } from '../lib/cliente-contexto';
 import { AppError } from '../middlewares/error';
 import {
   CONCEPTOS_INCREMENTABLES, CONCEPTOS_DECREMENTABLES,
@@ -300,9 +301,9 @@ export interface VigenciaProveedor {
   estadoTransmision: string;
 }
 
-export async function vigenciasPorProveedor(tenantId: string, clienteId: string | null, hoy = new Date()): Promise<{ proveedores: VigenciaProveedor[]; nota: string; resumen: Record<Semaforo, number> }> {
+export async function vigenciasPorProveedor(tenantId: string, alcance: AlcanceCliente, hoy = new Date()): Promise<{ proveedores: VigenciaProveedor[]; nota: string; resumen: Record<Semaforo, number> }> {
   const mves = await prisma.manifestacionValor.findMany({
-    where: { tenantId, ...(clienteId ? { clienteId } : {}) },
+    where: { tenantId, ...whereCliente(alcance) },
     orderBy: { invoiceDate: 'desc' },
     select: { id: true, providerName: true, providerCountry: true, invoiceNumber: true, vigenciaHasta: true, estadoTransmision: true },
   });
@@ -329,8 +330,8 @@ export async function vigenciasPorProveedor(tenantId: string, clienteId: string 
 // Transmisión honesta
 // ────────────────────────────────────────────────────────────────────────────
 
-export async function marcarTransmitidaPorUsuario(tenantId: string, mveId: string, folioVucem: string, fechaTransmision: string) {
-  const existing = await prisma.manifestacionValor.findFirst({ where: { id: mveId, tenantId } });
+export async function marcarTransmitidaPorUsuario(tenantId: string, mveId: string, folioVucem: string, fechaTransmision: string, alcance: AlcanceCliente = null) {
+  const existing = await prisma.manifestacionValor.findFirst({ where: whereIdConAlcance(alcance, { id: mveId, tenantId }) });
   if (!existing) throw new AppError('MVE no encontrada', 404);
   const folio = folioVucem.trim();
   if (folio.length < 4) throw new AppError('Folio VUCEM requerido (mínimo 4 caracteres)', 400);

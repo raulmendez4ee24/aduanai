@@ -3,7 +3,7 @@ import { Prisma } from '@prisma/client';
 import { authenticate, AuthRequest } from '../middlewares/auth';
 import { requirePermission } from '../middlewares/requirePermission';
 import { prisma } from '../lib/prisma';
-import { clienteIdDe, filtroCliente, validarClienteDelTenant } from '../lib/cliente-contexto';
+import { clienteIdDe, filtroCliente, validarClienteDelTenant, alcanceDe, whereConAlcance } from '../lib/cliente-contexto';
 import { logger } from '../lib/logger';
 import {
   extractInvoiceData,
@@ -73,7 +73,7 @@ mveRouter.get('/plantillas', authenticate, async (req: AuthRequest, res, next) =
 
 mveRouter.get('/vigencias', authenticate, async (req: AuthRequest, res, next) => {
   try {
-    res.json({ status: 'ok', data: await vigenciasPorProveedor(req.tenantId!, clienteIdDe(req)) });
+    res.json({ status: 'ok', data: await vigenciasPorProveedor(req.tenantId!, alcanceDe(req)) });
   } catch (err) { next(err); }
 });
 
@@ -130,7 +130,13 @@ mveRouter.post('/', authenticate, requirePermission('autoMVE', 'create'), async 
   try {
     const clienteId = await validarClienteDelTenant(req.tenantId!, clienteIdDe(req));
     const rfc = await rfcDeContexto(req.tenantId!, clienteId);
-    const datos = construirDatosMVE(req.body as CuerpoMVE, rfc);
+    const cuerpo = req.body as CuerpoMVE;
+    if (cuerpo?.plantillaId) {
+      // La plantilla debe ser del tenant; si no, se ignora (crearMVE la deriva del proveedor).
+      const pl = await prisma.mVEPlantillaProveedor.findFirst({ where: { id: String(cuerpo.plantillaId), tenantId: req.tenantId! }, select: { id: true } });
+      if (!pl) return res.status(400).json({ status: 'error', message: 'plantillaId inválida: no pertenece a tu empresa' });
+    }
+    const datos = construirDatosMVE(cuerpo, rfc);
     const mve = await crearMVE(req.tenantId!, clienteId, datos, await nombreTenant(req.tenantId!));
     res.status(201).json({ status: 'ok', data: mve, cuadre: datos.cuadre });
   } catch (err) {
@@ -172,7 +178,7 @@ mveRouter.get('/', authenticate, async (req: AuthRequest, res, next) => {
 // Detalle MVE
 mveRouter.get('/dashboard', authenticate, async (req: AuthRequest, res, next) => {
   try {
-    const dashboard = await getMVEDashboard(req.tenantId!, clienteIdDe(req));
+    const dashboard = await getMVEDashboard(req.tenantId!, alcanceDe(req));
     res.json({ status: 'ok', data: dashboard });
   } catch (err) {
     next(err);
@@ -182,7 +188,7 @@ mveRouter.get('/dashboard', authenticate, async (req: AuthRequest, res, next) =>
 mveRouter.get('/:id', authenticate, async (req: AuthRequest, res, next) => {
   try {
     const mve = await prisma.manifestacionValor.findFirst({
-      where: { id: String(req.params.id), tenantId: req.tenantId! },
+      where: whereConAlcance(req, { id: String(req.params.id), tenantId: req.tenantId! }),
       include: { coves: true },
     });
     if (!mve) {
@@ -195,10 +201,10 @@ mveRouter.get('/:id', authenticate, async (req: AuthRequest, res, next) => {
 });
 
 // Editar MVE
-mveRouter.patch('/:id', authenticate, async (req: AuthRequest, res, next) => {
+mveRouter.patch('/:id', authenticate, requirePermission('autoMVE', 'create'), async (req: AuthRequest, res, next) => {
   try {
     const existing = await prisma.manifestacionValor.findFirst({
-      where: { id: String(req.params.id), tenantId: req.tenantId! },
+      where: whereConAlcance(req, { id: String(req.params.id), tenantId: req.tenantId! }),
     });
     if (!existing) {
       return res.status(404).json({ status: 'error', message: 'MVE no encontrada' });
@@ -273,7 +279,7 @@ mveRouter.patch('/:id', authenticate, async (req: AuthRequest, res, next) => {
 mveRouter.delete('/:id', authenticate, requirePermission('autoMVE', 'delete'), async (req: AuthRequest, res, next) => {
   try {
     const existing = await prisma.manifestacionValor.findFirst({
-      where: { id: String(req.params.id), tenantId: req.tenantId! },
+      where: whereConAlcance(req, { id: String(req.params.id), tenantId: req.tenantId! }),
     });
     if (!existing) {
       return res.status(404).json({ status: 'error', message: 'MVE no encontrada' });
@@ -293,6 +299,8 @@ mveRouter.delete('/:id', authenticate, requirePermission('autoMVE', 'delete'), a
 
 mveRouter.post('/:id/validate', authenticate, async (req: AuthRequest, res, next) => {
   try {
+    const visible = await prisma.manifestacionValor.findFirst({ where: whereConAlcance(req, { id: String(req.params.id), tenantId: req.tenantId! }), select: { id: true } });
+    if (!visible) return res.status(404).json({ status: 'error', message: 'MVE no encontrada' });
     const validation = await validateMVE(String(req.params.id), req.tenantId!);
     res.json({ status: 'ok', data: validation });
   } catch (err) {
@@ -303,7 +311,7 @@ mveRouter.post('/:id/validate', authenticate, async (req: AuthRequest, res, next
 mveRouter.post('/:id/sign', authenticate, requirePermission('autoMVE', 'sign'), async (req: AuthRequest, res, next) => {
   try {
     const existing = await prisma.manifestacionValor.findFirst({
-      where: { id: String(req.params.id), tenantId: req.tenantId! },
+      where: whereConAlcance(req, { id: String(req.params.id), tenantId: req.tenantId! }),
     });
     if (!existing) {
       return res.status(404).json({ status: 'error', message: 'MVE no encontrada' });
@@ -331,7 +339,7 @@ mveRouter.post('/:id/marcar-transmitida', authenticate, requirePermission('autoM
     if (typeof folioVucem !== 'string' || !folioVucem.trim() || !fechaTransmision) {
       return res.status(400).json({ status: 'error', message: 'folioVucem y fechaTransmision son obligatorios (transmisión hecha por el usuario en VUCEM)' });
     }
-    const updated = await marcarTransmitidaPorUsuario(req.tenantId!, String(req.params.id), folioVucem, String(fechaTransmision));
+    const updated = await marcarTransmitidaPorUsuario(req.tenantId!, String(req.params.id), folioVucem, String(fechaTransmision), alcanceDe(req));
     logger.info('[mve] marcada transmitida por usuario', { entity: 'ManifestacionValor', entityId: updated.id, tenantId: req.tenantId });
     res.json({ status: 'ok', data: updated });
   } catch (err) {
@@ -347,7 +355,7 @@ mveRouter.post('/:id/transmit', authenticate, (_req, res) => {
 mveRouter.get('/:id/pdf', authenticate, async (req: AuthRequest, res, next) => {
   try {
     const mve = await prisma.manifestacionValor.findFirst({
-      where: { id: String(req.params.id), tenantId: req.tenantId! },
+      where: whereConAlcance(req, { id: String(req.params.id), tenantId: req.tenantId! }),
     });
     if (!mve) {
       return res.status(404).json({ status: 'error', message: 'MVE no encontrada' });
@@ -364,7 +372,7 @@ mveRouter.get('/:id/pdf', authenticate, async (req: AuthRequest, res, next) => {
 mveRouter.get('/:id/layout', authenticate, async (req: AuthRequest, res, next) => {
   try {
     const mve = await prisma.manifestacionValor.findFirst({
-      where: { id: String(req.params.id), tenantId: req.tenantId! },
+      where: whereConAlcance(req, { id: String(req.params.id), tenantId: req.tenantId! }),
     });
     if (!mve) {
       return res.status(404).json({ status: 'error', message: 'MVE no encontrada' });
@@ -400,7 +408,7 @@ mveRouter.post('/coves', authenticate, async (req: AuthRequest, res, next) => {
     }
 
     const mve = await prisma.manifestacionValor.findFirst({
-      where: { id: mveId, tenantId: req.tenantId! },
+      where: whereConAlcance(req, { id: mveId, tenantId: req.tenantId! }),
     });
     if (!mve) {
       return res.status(404).json({ status: 'error', message: 'MVE no encontrada' });

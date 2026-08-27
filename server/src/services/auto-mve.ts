@@ -1,4 +1,5 @@
 import { prisma } from '../lib/prisma';
+import { whereCliente, type AlcanceCliente } from '../lib/cliente-contexto';
 import { getAnthropicClient } from '../lib/anthropic';
 import {
   METODOS_VALORACION, CONCEPTOS_INCREMENTABLES, CONCEPTOS_DECREMENTABLES, FORMAS_PAGO,
@@ -486,8 +487,8 @@ Responde UNICAMENTE con JSON valido:
 // Dashboard KPIs
 // ============================================
 
-export async function getMVEDashboard(tenantId: string, clienteId?: string | null) {
-  const base = { tenantId, ...(clienteId ? { clienteId } : {}) };
+export async function getMVEDashboard(tenantId: string, alcance: AlcanceCliente = null) {
+  const base = { tenantId, ...whereCliente(alcance) };
   const [total, draft, validated, signed, transmitted] = await Promise.all([
     prisma.manifestacionValor.count({ where: base }),
     prisma.manifestacionValor.count({ where: { ...base, status: 'DRAFT' } }),
