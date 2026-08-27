@@ -17,7 +17,7 @@ import { z } from 'zod';
 import { authenticate, type AuthRequest } from '../middlewares/auth';
 import { prisma } from '../lib/prisma';
 import { evaluate } from '../services/risk-scorer/engine';
-import { buildVerifiedSignals, normalizarOperacion } from '../services/risk-scorer/signals';
+import { buildVerifiedSignals, normalizarOperacion, prefetchSenales } from '../services/risk-scorer/signals';
 import { DEFAULT_WEIGHTS } from '../services/risk-scorer/rules';
 import type { Signals } from '../services/risk-scorer/types';
 import { parseArchivoM, ArchivoMError } from '../services/pedimento-reader/parser';
@@ -301,10 +301,13 @@ router.post('/radar', async (req: AuthRequest, res: Response) => {
     advertenciasIntegridad: archivo.advertenciasIntegridad,
   };
 
+  // Prefetch por lote: fracciones y cuotas con `in` (2 queries) en vez de 2 por partida.
+  const opsNormalizadas = operaciones.map(opx => normalizarOperacion(opx.operacion));
+  const pre = await prefetchSenales(opsNormalizadas);
   const filas = [];
-  for (const opx of operaciones) {
-    const op = normalizarOperacion(opx.operacion);
-    const verificado = await buildVerifiedSignals(req.tenantId!, op);
+  for (const [i, opx] of operaciones.entries()) {
+    const op = opsNormalizadas[i]!;
+    const verificado = await buildVerifiedSignals(req.tenantId!, op, pre);
     // fechaEvaluacion = hoy, igual que /api/risk/assess: sin ella el motor hace
     // fail-safe (MVE exigible) y el radar contradiría la tarjeta "Criterios
     // actualizados" que lee vigencias.ts en la misma pantalla.

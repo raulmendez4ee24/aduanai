@@ -51,7 +51,50 @@ export function buildTemporalesWhere(
   };
 }
 
-export async function buildVerifiedSignals(tenantId: string, op: OperacionInput): Promise<VerificadoSignals> {
+// ── Prefetch por lote (radar): fracciones y cuotas con `code: { in }` ──
+export interface FraccionPrefetch { nicos: string[]; noms: string[] }
+export interface CuotaPrefetch { rate: number; rateUnit: string; countryOfOrigin: string }
+/** Mapas por código (fracciones) y por `código|PAÍS` (cuotas). Solo cubre lo pedido: un miss se resuelve con su query puntual. */
+export interface SenalesPrefetch {
+  fracciones: Map<string, FraccionPrefetch>;
+  cuotas: Map<string, CuotaPrefetch>;
+}
+
+export const claveCuota = (code: string, pais: string) => `${code}|${pais.trim().toUpperCase()}`;
+
+/** Pura: indexa filas ya leídas en los mapas que consume `buildVerifiedSignals`. La primera cuota por clave gana (= findFirst). */
+export function indexarPrefetch(
+  fracciones: Array<{ code: string } & FraccionPrefetch>,
+  cuotas: Array<{ fractionCode: string } & CuotaPrefetch>,
+): SenalesPrefetch {
+  const f = new Map<string, FraccionPrefetch>();
+  for (const x of fracciones) f.set(x.code, { nicos: x.nicos, noms: x.noms });
+  const c = new Map<string, CuotaPrefetch>();
+  for (const x of cuotas) {
+    const k = claveCuota(x.fractionCode, x.countryOfOrigin);
+    if (!c.has(k)) c.set(k, { rate: x.rate, rateUnit: x.rateUnit, countryOfOrigin: x.countryOfOrigin });
+  }
+  return { fracciones: f, cuotas: c };
+}
+
+/** Dos queries para todo el lote (en vez de dos por partida). Las operaciones deben venir normalizadas. */
+export async function prefetchSenales(ops: OperacionInput[]): Promise<SenalesPrefetch> {
+  const codes = [...new Set(ops.map(o => o.fraccion).filter((c): c is string => !!c && c.length === 8))];
+  const paises = [...new Set(ops.map(o => o.paisOrigen?.trim().toUpperCase()).filter((p): p is string => !!p))];
+  if (codes.length === 0) return indexarPrefetch([], []);
+  const [fracciones, cuotas] = await Promise.all([
+    prisma.fraction.findMany({ where: { code: { in: codes } }, select: { code: true, nicos: true, noms: true } }),
+    paises.length
+      ? prisma.antidumpingDuty.findMany({
+          where: { active: true, fractionCode: { in: codes }, countryOfOrigin: { in: paises } },
+          select: { fractionCode: true, rate: true, rateUnit: true, countryOfOrigin: true },
+        })
+      : Promise.resolve([]),
+  ]);
+  return indexarPrefetch(fracciones, cuotas);
+}
+
+export async function buildVerifiedSignals(tenantId: string, op: OperacionInput, pre?: SenalesPrefetch | null): Promise<VerificadoSignals> {
   const out: VerificadoSignals = {};
 
   // ── F6: fracción contra el catálogo (sin LLM) ──
@@ -60,7 +103,8 @@ export async function buildVerifiedSignals(tenantId: string, op: OperacionInput)
     out.fraccionValida = v.valid;
     out.fraccionClasificadorCoincide = null; // v1: sin invocación al Clasificador (CERO LLM en el cálculo)
     if (v.valid) {
-      const f = await prisma.fraction.findUnique({ where: { code: v.code }, select: { nicos: true, noms: true } });
+      const f = pre?.fracciones.get(v.code)
+        ?? await prisma.fraction.findUnique({ where: { code: v.code }, select: { nicos: true, noms: true } });
       if (op.nico) {
         out.nicoExiste = (f?.nicos?.length ?? 0) === 0 ? null : f!.nicos.includes(op.nico);
       }
@@ -69,10 +113,14 @@ export async function buildVerifiedSignals(tenantId: string, op: OperacionInput)
       out.sectoresRequeridos = (await resolveSectorsForFraction(v.code)).map(s => s.sectorialCode);
       // ── F3: cuota compensatoria exact-match (fracción + país de origen) ──
       if (op.paisOrigen) {
-        const ad = await prisma.antidumpingDuty.findFirst({
-          where: { active: true, fractionCode: v.code, countryOfOrigin: op.paisOrigen.toUpperCase() },
-          select: { rate: true, rateUnit: true, countryOfOrigin: true },
-        });
+        const pais = op.paisOrigen.toUpperCase();
+        // Con prefetch, la ausencia en el mapa ES la respuesta (el mapa cubrió fracción+país del lote).
+        const ad = pre
+          ? (pre.cuotas.get(claveCuota(v.code, pais)) ?? null)
+          : await prisma.antidumpingDuty.findFirst({
+              where: { active: true, fractionCode: v.code, countryOfOrigin: pais },
+              select: { rate: true, rateUnit: true, countryOfOrigin: true },
+            });
         out.cuotaActiva = ad ? { tasa: `${ad.rate} ${ad.rateUnit}`, pais: ad.countryOfOrigin } : null;
       }
     }

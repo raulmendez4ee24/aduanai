@@ -16,11 +16,24 @@ import { evaluate } from '../services/risk-scorer/engine';
 import { DEFAULT_WEIGHTS, RISK_RULES } from '../services/risk-scorer/rules';
 import { e2Exigible } from '../services/risk-scorer/vigencias';
 import type { Signals } from '../services/risk-scorer/types';
+import { indexarPrefetch, claveCuota } from '../services/risk-scorer/signals';
 
 let ok = 0;
 function check(cond: boolean, msg: string) { assert.ok(cond, msg); ok++; console.log(`  ✓ ${msg}`); }
 
 async function main() {
+  // 0. Prefetch por lote (perf): mapas por código y por fracción|PAÍS, primera cuota gana (= findFirst)
+  const pre = indexarPrefetch(
+    [{ code: '84715001', nicos: ['01'], noms: ['NOM-019'] }],
+    [
+      { fractionCode: '72104999', rate: 25.5, rateUnit: '%', countryOfOrigin: 'CN' },
+      { fractionCode: '72104999', rate: 99, rateUnit: '%', countryOfOrigin: 'CN' },
+    ],
+  );
+  check(pre.fracciones.get('84715001')?.noms[0] === 'NOM-019', 'prefetch: fracción indexada por código con nicos/noms');
+  check(pre.cuotas.get(claveCuota('72104999', 'cn '))?.rate === 25.5, 'prefetch: cuota por fracción|PAÍS (país normalizado) y la primera fila gana');
+  check(pre.cuotas.size === 1 && !pre.cuotas.has(claveCuota('72104999', 'US')), 'prefetch: sin cuota para otro país (ausencia = sin cuota activa)');
+
   // 1. Límite configurable
   delete process.env.RADAR_MAX_PARTIDAS;
   check(maxPartidasLote() === DEFAULT_MAX_PARTIDAS_LOTE && DEFAULT_MAX_PARTIDAS_LOTE === 200, 'sin env → 200 (constante nombrada)');
