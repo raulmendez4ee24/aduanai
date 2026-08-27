@@ -52,7 +52,9 @@
     "test:ficha": "tsx src/tests/fracciones-ficha.test.ts",
     "test:analytics": "tsx src/tests/analytics-real.test.ts",
     "test:defensa": "tsx src/tests/defensa.test.ts",
-    "test:anexo24": "tsx src/tests/anexo24.test.ts"
+    "test:anexo24": "tsx src/tests/anexo24.test.ts",
+    "test:mve": "tsx src/tests/mve-e2.test.ts",
+    "test:fiscal": "tsx src/tests/fiscal-guardian.test.ts"
   },
   "license": "UNLICENSED",
   "private": true,
