@@ -545,7 +545,7 @@ Al cambiar un flujo central o desplegar una nueva fase:
 
 ## Pendientes — libro de estado (Misión CIERRE TOTAL PRE-VALIDACIÓN)
 
-**Censo:** 25-ago-2026 contra `main` (`23c2c95`) y prod servido (deploy SUCCESS 25-ago 11:15, bundle `index-C9wR085f.js`, DB viva vía ssh). Esta tabla es el punto de reanudación de la misión: se actualiza al cierre de cada bloque. Estados: ABIERTO / EN CURSO / CERRADO+commit / BLOQUEADO+causa.
+**Censo:** 25-ago-2026 contra `main` (`23c2c95`); **verificación integral 27-ago-2026** contra `main` `f19fcd4` y prod (todas las filas CERRADO re-comprobadas en código y en prod, no solo en la tabla) y prod servido (deploy SUCCESS 25-ago 11:15, bundle `index-C9wR085f.js`, DB viva vía ssh). Esta tabla es el punto de reanudación de la misión: se actualiza al cierre de cada bloque. Estados: ABIERTO / EN CURSO / CERRADO+commit / BLOQUEADO+causa.
 
 | Ítem | Bloque | Estado | Evidencia |
 |---|---|---|---|
@@ -571,6 +571,7 @@ Al cambiar un flujo central o desplegar una nueva fase:
 | Guard extendido (terceros + compatible-gubernamental) | 2 | CERRADO `23c2c95` | 18 patrones, `soloEn` público, gate en Dockerfile |
 | Copilot: sugerencia sin respaldo en corpus | — | CERRADO `198df6d` | "¿Qué NOM aplica para alimentos?" → reranker descartaba 12/12 (corpus sin NOM de alimentos); sustituida por excepciones a NOMs (Anexo 2.4.1); `test:copilot-sugeridas` 3/3 con reranker real |
 | Demo público: ejemplos que el validador rechaza | — | CERRADO `267e1f1` | copy "laptop, tequila, camiseta" → 422 (<8 chars útiles / <2 palabras); copy alineado a la regla |
+| Analytics: total en aduana 1e+23 USD | — | CERRADO `f19fcd4` (fila borrada en prod 27-ago) | `POST /api/quote` no acotaba `customsValue`; una prueba manual del 24-ago con 1e23 inflaba Analytics del demo. Validador `validarRangosQuoteSimple` (>0, ≤1e9 USD, TC 0-100, IGI 0-100) → 422; `test:quote-rangos` 7/7; prod: 1e23 → 422, 12,500 → 200, Analytics total $2.87M / 82 cotizaciones |
 | Login por aduanaia.lat/www (P0 26-ago) | — | CERRADO `e193691`+`9b26a08` | CORS rechazaba Origin del dominio propio (500); same-origin siempre permitido + CLIENT_URL/APP_URL en Railway; verificado 401/200 por www y apex |
 | Email de lead dice "asesores" | 2 | CERRADO (Bloque 2) | `email.ts:354` → "El fundador"; `server/src/lib` añadido a SCAN_ROOTS del guard (3/3 verde); AuthLayout + TRUST_PILLS incluyen TIGIE en fuentes |
 | Biblioteca Legal: login intencional + qué ve demo | 2 | ABIERTO (reporte) | ruta protegida en App.tsx:240 |
