@@ -1,8 +1,8 @@
 import { PrismaClient } from '@prisma/client';
 
-// Servicio de generación de alertas regulatorias
-// En producción: scrapea DOF diariamente
-// Por ahora: genera alertas de ejemplo para demo
+// Servicio de generación de alertas regulatorias DEMO (sin llamadas en el
+// código: nadie invoca generateDemoAlerts). SUSTITUIDO por el watchdog real
+// `dof-watchdog.ts` (Operación 2026-08) — se conserva solo como fixture.
 
 const SAMPLE_ALERTS = [
   {
