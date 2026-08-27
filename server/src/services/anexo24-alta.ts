@@ -139,7 +139,7 @@ export async function altaDesdePedimento(input: AltaDesdePedimentoInput): Promis
         description: partida.descripcion,
         quantity: partida.cantidad,
         unit: partida.unidadMedida,
-        customsValue: Math.round(customsValue * 100) / 100,
+        customsValue: aDosDecimales(customsValue),
         valueMXN,
         originCountry: partida.pais,
         entryDate: fechaEntrada,
@@ -217,4 +217,9 @@ export async function pedimentosParaAlta(tenantId: string, clienteId?: string | 
     partidas: p.partidas.length,
     partidasEnInventario: p.partidas.filter(x => dadas.has(x.id)).length,
   }));
+}
+
+/** Redondeo a centavos (no es tipo de cambio: ver guard de frontera canónica). */
+function aDosDecimales(v: number): number {
+  return Number(v.toFixed(2));
 }
