@@ -244,7 +244,6 @@ app.use('/api/classify', clasificacionAdjuntosRouter); // adjuntos ≤ ~3.5 MB (
 app.use('/api/documents/clasificacion', clasificacionAdjuntosRouter); // mismo router bajo el tope de 50 MB (adjuntos hasta 10 MB)
 app.use('/api/classify', solicitarDictamenRouter);
 app.use('/api/dictamenes', dictamenesRouter);
-void reanudarLotesInterrumpidos().catch(() => {}); // lotes que quedaron en vuelo en el proceso anterior
 app.use('/api/clientes', clientesRouter);
 app.use('/api/aprobaciones', aprobacionesRouter);
 app.use('/api/catalogo', catalogoRouter);
@@ -525,6 +524,12 @@ armTimer('origen_cuotas_diario', 60 * 60000, async () => {
 
 app.listen(PORT, () => {
   console.log(`🚀 ADUANAI server running on port ${PORT}`);
+  // Lotes de clasificación que quedaron en vuelo en el proceso anterior: se
+  // reanudan DESPUÉS de escuchar (el health check responde primero) y de a 2 a
+  // la vez; solo se toman lotes con heartbeat vencido (rolling deploy seguro).
+  void reanudarLotesInterrumpidos()
+    .then(n => { if (n > 0) logger.info(`[lotes] ${n} lote(s) de clasificación reanudados tras el arranque`, { action: 'lotes_reanudados', metadata: { lotes: n } }); })
+    .catch(err => logger.error('[lotes] reanudación al arrancar falló', { errorMessage: err instanceof Error ? err.message : String(err) }));
 });
 
 // Idempotent: garantiza que cada tenant tenga los 6 roles del sistema sembrados

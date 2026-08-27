@@ -82,7 +82,7 @@ const ALIAS_COLUMNAS: Record<CampoLote, string[]> = {
   productCode: ['productcode', 'codigo', 'codigoproducto', 'codigodeproducto', 'sku', 'numerodeparte', 'numeroparte', 'noparte', 'parte', 'partnumber', 'clave', 'claveproducto', 'codigointerno'],
   contexto: ['contexto', 'context', 'notas', 'observaciones', 'detalle', 'detalles', 'especificaciones'],
   paisOrigen: ['paisorigen', 'paisdeorigen', 'pais', 'origen', 'countryoforigin', 'country', 'origin'],
-  valorUSD: ['valorusd', 'valor', 'valorunitariousd', 'valorunitario', 'preciousd', 'precio', 'preciounitario', 'unitvalueusd', 'unitvalue', 'value', 'valorenusd'],
+  valorUSD: ['valorusd', 'valorunitariousd', 'valorenusd', 'unitvalueusd', 'valorunitario', 'preciousd', 'preciounitario', 'unitvalue', 'precio', 'value', 'valor'],
   usoDestino: ['usodestino', 'usoodestino', 'uso', 'destino', 'usecase', 'tipodeuso', 'regimen'],
 };
 
@@ -94,21 +94,25 @@ export function normalizarEncabezado(h: unknown): string {
     .replace(/[^a-z0-9]/g, '');
 }
 
-/** Mapea encabezados del archivo a campos canónicos (primer alias que coincide gana). */
+/**
+ * Mapea encabezados del archivo a campos canónicos. Se recorre por CAMPO y,
+ * dentro de cada campo, por PRIORIDAD de alias (no por orden de encabezado):
+ * con `Item | Descripción | Cantidad`, "Descripción" gana a "Item" aunque
+ * venga después; con `Valor | Valor unitario USD`, gana el específico.
+ * Un encabezado solo puede alimentar un campo y un campo solo toma un encabezado.
+ */
 export function detectarColumnas(encabezados: unknown[]): Record<string, CampoLote> {
   const mapa: Record<string, CampoLote> = {};
-  const usados = new Set<CampoLote>();
-  for (const h of encabezados) {
-    const original = String(h ?? '').trim();
-    if (!original) continue;
-    const norm = normalizarEncabezado(original);
-    for (const campo of Object.keys(ALIAS_COLUMNAS) as CampoLote[]) {
-      if (usados.has(campo)) continue;
-      if (ALIAS_COLUMNAS[campo].includes(norm)) {
-        mapa[original] = campo;
-        usados.add(campo);
-        break;
-      }
+  const originales = encabezados.map(h => String(h ?? '').trim());
+  const normalizados = originales.map(normalizarEncabezado);
+  const encabezadosUsados = new Set<number>();
+  for (const campo of Object.keys(ALIAS_COLUMNAS) as CampoLote[]) {
+    for (const alias of ALIAS_COLUMNAS[campo]) {
+      const i = normalizados.findIndex((n, idx) => n === alias && !encabezadosUsados.has(idx) && originales[idx] !== '');
+      if (i === -1) continue;
+      encabezadosUsados.add(i);
+      mapa[originales[i]!] = campo;
+      break;
     }
   }
   return mapa;
@@ -155,7 +159,7 @@ export function parsearArchivoLote(base64: string, nombreArchivo?: string): Resu
   }
   const hoja = wb.Sheets[wb.SheetNames[0]];
   if (!hoja) throw new ErrorLote('El archivo no tiene hojas.', 400);
-  const matriz = XLSX.utils.sheet_to_json<unknown[]>(hoja, { header: 1, defval: '', blankrows: false });
+  const matriz = XLSX.utils.sheet_to_json<unknown[]>(hoja, { header: 1, defval: '', blankrows: true });
   if (matriz.length === 0) throw new ErrorLote('El archivo no tiene filas.', 400);
 
   const encabezados = matriz[0] as unknown[];
@@ -180,7 +184,7 @@ export function parsearArchivoLote(base64: string, nombreArchivo?: string): Resu
   };
   for (let r = 1; r < matriz.length; r++) {
     const fila = matriz[r] as unknown[];
-    const numeroFila = r + 1; // 1-based como en Excel (fila 1 = encabezado)
+    const numeroFila = r + 1; // 1-based como en Excel (fila 1 = encabezado); blankrows:true conserva las vacías para no desfasar el número
     const descripcion = aTexto(celda(fila, 'descripcion'));
     if (!descripcion) {
       // Fila completamente vacía → se ignora sin ruido; con datos pero sin descripción → se informa.
@@ -421,8 +425,23 @@ interface PayloadJob {
 }
 
 /**
+ * Heartbeat del lote: `startedAt` se renueva en cada fila (no hay columna
+ * `heartbeatAt` en el schema). Un lote `running` cuyo `startedAt` tiene más
+ * de este umbral pertenece a un proceso muerto y puede reclamarse.
+ */
+export const LOTE_HEARTBEAT_VENCIDO_MS = 10 * 60 * 1000;
+
+/** Tope de lotes reanudándose a la vez al arrancar (p-limit manual). */
+export const REANUDACION_CONCURRENCIA = 2;
+
+/**
  * Procesa el lote completo, fila por fila. Idempotente respecto a filas ya
  * procesadas (con semáforo) — permite reanudar tras un reinicio.
+ *
+ * Claim exclusivo: solo se reclama un lote `queued`, uno `failed` (detenido
+ * por fallas del proveedor: sus filas pendientes siguen sin semáforo) o uno
+ * `running` con heartbeat vencido. Dos `procesarLote` concurrentes sobre el
+ * mismo lote (rolling deploy, doble arranque) → el segundo no reclama nada.
  */
 export async function procesarLote(batchId: string, deps: DependenciasLote = DEPENDENCIAS_REALES): Promise<void> {
   // Worker de fondo: llega solo el id (importarLote lo encola; reanudarLotesInterrumpidos
@@ -435,11 +454,21 @@ export async function procesarLote(batchId: string, deps: DependenciasLote = DEP
     select: { id: true, tenantId: true, userId: true, clienteId: true, status: true },
   }));
   if (!batch) return;
-  if (batch.status === 'done' || batch.status === 'failed') return;
+  if (batch.status === 'done') return;
 
+  const ahora = new Date();
+  const heartbeatVencido = new Date(ahora.getTime() - LOTE_HEARTBEAT_VENCIDO_MS);
   const claimed = await prisma.classificationBatch.updateMany({
-    where: { id: batchId, tenantId: batch.tenantId, status: { in: ['queued', 'running'] } },
-    data: { status: 'running', startedAt: new Date() },
+    where: {
+      id: batchId,
+      tenantId: batch.tenantId,
+      OR: [
+        { status: 'queued' },
+        { status: 'failed', filas: { some: { semaforo: null, revisado: false } } },
+        { status: 'running', OR: [{ startedAt: null }, { startedAt: { lt: heartbeatVencido } }] },
+      ],
+    },
+    data: { status: 'running', startedAt: ahora, errorMsg: null, finishedAt: null },
   });
   if (claimed.count === 0) return;
 
@@ -447,18 +476,23 @@ export async function procesarLote(batchId: string, deps: DependenciasLote = DEP
   const userRole = usuario?.role ?? undefined;
 
   const filas = await prisma.classificationBatchRow.findMany({
-    where: { batchId, batch: { tenantId: batch.tenantId }, semaforo: null },
+    where: { batchId, batch: { tenantId: batch.tenantId }, semaforo: null, revisado: false },
     orderBy: { numeroFila: 'asc' },
   });
 
   let fallasConsecutivas = 0;
-  let detenido: string | null = null;
+  let detenido = false;
+  let pendientesSinProcesar = 0;
 
   for (const fila of filas) {
     if (detenido) {
-      await registrarFila(batch.tenantId, batchId, fila.id, { semaforo: 'rojo', error: detenido });
+      // Rama "detenido": la fila NO se toca (semáforo null) — la reanudación la retoma.
+      pendientesSinProcesar++;
       continue;
     }
+
+    // Heartbeat: renueva startedAt por fila para que otro proceso no reclame un lote vivo.
+    await prisma.classificationBatch.updateMany({ where: { id: batchId, tenantId: batch.tenantId }, data: { startedAt: new Date() } });
 
     // Validación barata: texto basura → rojo sin gastar una llamada de IA.
     const val = validateClassifyInput(fila.descripcion);
@@ -507,15 +541,17 @@ export async function procesarLote(batchId: string, deps: DependenciasLote = DEP
       }
     } else {
       const err = job.error;
-      const esValidacion = err?.code === 'VALIDACION';
-      if (!esValidacion) fallasConsecutivas++;
+      // VALIDACION (422) es culpa de la fila; TIMEOUT es que el usuario tiene otra
+      // clasificación manual en curso — ninguno de los dos es falla del proveedor.
+      const esDelProveedor = err?.code !== 'VALIDACION' && err?.code !== 'TIMEOUT';
+      if (esDelProveedor) fallasConsecutivas++;
       await registrarFila(batch.tenantId, batchId, fila.id, {
         semaforo: 'rojo',
         error: err?.message ?? 'La clasificación falló.',
         jobId,
       });
       if (fallasConsecutivas >= MAX_FALLAS_CONSECUTIVAS) {
-        detenido = `Lote detenido: ${MAX_FALLAS_CONSECUTIVAS} fallas consecutivas del servicio de clasificación (crédito/cuota del proveedor de IA o error interno). Las filas restantes no se procesaron — reintenta más tarde.`;
+        detenido = true;
         logger.warn('lote detenido por fallas consecutivas', { tenantId: batch.tenantId, entity: 'ClassificationBatch', entityId: batchId, metadata: { fallasConsecutivas } });
       }
     }
@@ -523,12 +559,22 @@ export async function procesarLote(batchId: string, deps: DependenciasLote = DEP
     if (deps.pausaEntreFilasMs) await new Promise(r => setTimeout(r, deps.pausaEntreFilasMs));
   }
 
+  const errorMsg = detenido
+    ? `Lote detenido: ${MAX_FALLAS_CONSECUTIVAS} fallas consecutivas del servicio de clasificación (crédito/cuota del proveedor de IA o error interno). ${pendientesSinProcesar} fila(s) quedaron pendientes sin clasificar; se retoman automáticamente al reanudar el lote (reinicio del servidor o "Reanudar").`
+    : null;
   await prisma.classificationBatch.updateMany({
     where: { id: batchId, tenantId: batch.tenantId },
-    data: { status: detenido ? 'failed' : 'done', errorMsg: detenido, finishedAt: new Date() },
+    data: { status: detenido ? 'failed' : 'done', errorMsg, finishedAt: new Date() },
   });
 }
 
+/**
+ * Registra el resultado de UNA fila de forma atómica: solo escribe si la fila
+ * sigue sin semáforo y sin revisión humana (`semaforo: null, revisado: false`)
+ * y solo entonces mueve los contadores del lote. Dos procesos sobre la misma
+ * fila, o una revisión humana que llegó antes, no duplican ni pisan nada.
+ * Devuelve true si esta llamada fue la que registró la fila.
+ */
 async function registrarFila(tenantId: string, batchId: string, filaId: string, data: {
   semaforo: Semaforo;
   error?: string | null;
@@ -539,10 +585,10 @@ async function registrarFila(tenantId: string, batchId: string, filaId: string, 
   classificationId?: string | null;
   jobId?: string | null;
   productId?: string | null;
-}): Promise<void> {
-  await prisma.$transaction([
-    prisma.classificationBatchRow.updateMany({
-      where: { id: filaId, batchId, batch: { tenantId } },
+}): Promise<boolean> {
+  return prisma.$transaction(async tx => {
+    const { count } = await tx.classificationBatchRow.updateMany({
+      where: { id: filaId, batchId, batch: { tenantId }, semaforo: null, revisado: false },
       data: {
         semaforo: data.semaforo,
         error: data.error ?? null,
@@ -554,17 +600,20 @@ async function registrarFila(tenantId: string, batchId: string, filaId: string, 
         jobId: data.jobId ?? null,
         productId: data.productId ?? null,
       },
-    }),
-    prisma.classificationBatch.updateMany({
+    });
+    if (count !== 1) return false;
+    await tx.classificationBatch.updateMany({
       where: { id: batchId, tenantId },
       data: {
+        startedAt: new Date(),
         procesadas: { increment: 1 },
         ...(data.semaforo === 'verde' ? { verdes: { increment: 1 } } : {}),
         ...(data.semaforo === 'ambar' ? { ambar: { increment: 1 } } : {}),
         ...(data.semaforo === 'rojo' ? { rojas: { increment: 1 } } : {}),
       },
-    }),
-  ]);
+    });
+    return true;
+  });
 }
 
 /** Importa (parsea + crea + arranca en background). Devuelve el lote creado. */
@@ -592,7 +641,7 @@ export async function importarLote(params: {
       logger.error('lote: procesamiento reventó', { tenantId: params.tenantId, entity: 'ClassificationBatch', entityId: lote.id, metadata: { error: err instanceof Error ? err.message : String(err) } });
       void prisma.classificationBatch.updateMany({
         where: { id: lote.id, tenantId: params.tenantId, status: { in: ['queued', 'running'] } },
-        data: { status: 'failed', errorMsg: 'El procesamiento del lote falló por un error interno.', finishedAt: new Date() },
+        data: { status: 'failed', errorMsg: 'El procesamiento del lote falló por un error interno. Las filas pendientes se retoman al reanudar.', finishedAt: new Date() },
       }).catch(() => {});
     });
   }
@@ -600,18 +649,36 @@ export async function importarLote(params: {
 }
 
 /**
- * Al arrancar el servidor: los lotes que quedaron 'running' pertenecen a un
- * proceso muerto. Se reanudan (las filas ya procesadas se respetan).
+ * Al arrancar el servidor (callback de `listen`): reanuda los lotes que
+ * quedaron en vuelo en un proceso muerto. Candidatos: `queued`, `running` con
+ * heartbeat vencido (`startedAt` > 10 min — un lote vivo en otra réplica del
+ * rolling deploy NO se toca) y `failed` con filas pendientes (detenido por el
+ * proveedor). Se procesan de a REANUDACION_CONCURRENCIA a la vez, no todos en
+ * paralelo, para que el health check responda mientras tanto. `procesarLote`
+ * vuelve a comprobar el claim de forma atómica.
  */
-export async function reanudarLotesInterrumpidos(deps: DependenciasLote = DEPENDENCIAS_REALES): Promise<number> {
+export async function reanudarLotesInterrumpidos(deps: DependenciasLote = DEPENDENCIAS_REALES, ahora = new Date()): Promise<number> {
   const { sinGuardaDeTenant } = await import('../lib/tenant-guard');
+  const heartbeatVencido = new Date(ahora.getTime() - LOTE_HEARTBEAT_VENCIDO_MS);
   const pendientes = await sinGuardaDeTenant(() => prisma.classificationBatch.findMany({
-    where: { status: { in: ['queued', 'running'] } },
+    where: {
+      OR: [
+        { status: 'queued' },
+        { status: 'running', OR: [{ startedAt: null }, { startedAt: { lt: heartbeatVencido } }] },
+        { status: 'failed', filas: { some: { semaforo: null, revisado: false } } },
+      ],
+    },
     select: { id: true },
+    orderBy: { createdAt: 'asc' },
   }));
-  for (const b of pendientes) {
-    void procesarLote(b.id, deps).catch(err => logger.error('lote: reanudación falló', { entity: 'ClassificationBatch', entityId: b.id, metadata: { error: String(err) } }));
-  }
+  const cola = [...pendientes];
+  const worker = async () => {
+    for (let b = cola.shift(); b; b = cola.shift()) {
+      const id = b.id;
+      await procesarLote(id, deps).catch(err => logger.error('lote: reanudación falló', { entity: 'ClassificationBatch', entityId: id, metadata: { error: String(err) } }));
+    }
+  };
+  await Promise.all(Array.from({ length: Math.min(REANUDACION_CONCURRENCIA, cola.length) }, worker));
   return pendientes.length;
 }
 

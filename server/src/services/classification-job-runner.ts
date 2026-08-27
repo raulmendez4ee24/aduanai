@@ -335,9 +335,10 @@ export async function runClassificationJob(jobId: string): Promise<void> {
 }
 
 /**
- * Al arrancar el servidor: cualquier job que quedó en vuelo pertenece a un
- * proceso que ya no existe (deploy/reinicio). Se marca interrumpido —
- * fail-closed honesto, no se finge que sobrevivió.
+ * Al arrancar el servidor: los jobs del proceso anterior cuyo `startedAt`
+ * venció (JOB_RUNNING_TIMEOUT_MS) pertenecen a un proceso muerto y se marcan
+ * interrumpidos — fail-closed honesto. Los recientes pueden seguir vivos en la
+ * otra instancia de un rolling deploy: se revisan de nuevo pasado el timeout.
  */
 export async function recoverInterruptedClassificationJobs(): Promise<number> {
   // Purga de retención en cada arranque: el borrado perezoso al crear jobs no
@@ -345,13 +346,37 @@ export async function recoverInterruptedClassificationJobs(): Promise<number> {
   const cutoffRetention = new Date(Date.now() - JOB_RETENTION_DAYS * 24 * 60 * 60 * 1000);
   await prisma.classificationJob.deleteMany({ where: { createdAt: { lt: cutoffRetention } } }).catch(() => {});
 
+  const count = await marcarJobsVencidosComoInterrumpidos();
+  // Los jobs del proceso anterior que aún no vencieron pueden estar vivos en la
+  // otra réplica (rolling deploy). Si de verdad murieron, un segundo barrido
+  // pasado el timeout los recoge; si terminaron bien, ya no están activos.
+  const t = setTimeout(() => { void marcarJobsVencidosComoInterrumpidos().catch(() => {}); }, JOB_RUNNING_TIMEOUT_MS + 5_000);
+  if (typeof t.unref === 'function') t.unref();
+  if (count > 0) console.warn(`[classification-job] ${count} job(s) en vuelo marcados como interrumpidos al arrancar`);
+  return count;
+}
+
+/**
+ * Marca `error/INTERRUMPIDO` solo los jobs activos creados antes de este
+ * proceso cuyo `startedAt` (o `createdAt` si nunca arrancaron) supera
+ * JOB_RUNNING_TIMEOUT_MS. Un job reciente puede estar corriendo en otra
+ * instancia durante un rolling deploy: no se mata, y así su `running→done`
+ * condicional no se descarta.
+ */
+export async function marcarJobsVencidosComoInterrumpidos(ahora = new Date()): Promise<number> {
+  const vencido = new Date(ahora.getTime() - JOB_RUNNING_TIMEOUT_MS);
   const { count } = await prisma.classificationJob.updateMany({
-    // Solo jobs creados ANTES de que este proceso arrancara: los del proceso
-    // anterior (muerto). Un job creado por este proceso tiene runner vivo.
-    where: { status: { in: ACTIVE_STATUSES }, createdAt: { lt: PROCESS_BOOT } },
+    where: {
+      createdAt: { lt: PROCESS_BOOT },
+      OR: [
+        { status: 'running', startedAt: { lt: vencido } },
+        { status: 'running', startedAt: null, createdAt: { lt: vencido } },
+        { status: 'queued', createdAt: { lt: vencido } },
+      ],
+    },
     data: {
       status: 'error',
-      finishedAt: new Date(),
+      finishedAt: ahora,
       error: {
         code: 'INTERRUMPIDO',
         message: 'El servidor se reinició mientras corría la clasificación. Reintenta.',
@@ -359,6 +384,5 @@ export async function recoverInterruptedClassificationJobs(): Promise<number> {
       } as unknown as object,
     },
   });
-  if (count > 0) console.warn(`[classification-job] ${count} job(s) en vuelo marcados como interrumpidos al arrancar`);
   return count;
 }

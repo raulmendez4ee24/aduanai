@@ -24,6 +24,7 @@ import {
   UMBRAL_CONFIANZA_ALTA,
   UMBRAL_CONFIANZA_MEDIA,
   MAX_FALLAS_CONSECUTIVAS,
+  LOTE_HEARTBEAT_VENCIDO_MS,
   type DependenciasLote,
   type Semaforo,
 } from '../services/clasificacion-lote';
@@ -111,6 +112,26 @@ async function main() {
       assert.equal(mapa['Uso/Destino'], 'usoDestino');
       assert.equal(mapa['Observaciones'], 'contexto');
       assert.equal(mapa['ColumnaRara'], undefined);
+    });
+
+    await test('alias por prioridad: "Item" no secuestra la descripción y "Valor" no gana a "Valor unitario USD"', () => {
+      const m1 = detectarColumnas(['Item', 'Descripción', 'Cantidad']);
+      assert.equal(m1['Descripción'], 'descripcion');
+      assert.equal(m1['Item'], undefined, 'Item queda libre: la descripción real ya tomó el campo');
+      const m2 = detectarColumnas(['Valor', 'Valor unitario USD', 'Descripción']);
+      assert.equal(m2['Valor unitario USD'], 'valorUSD');
+      assert.equal(m2['Valor'], undefined);
+      // Sin descripción real, "Item" sí sirve de descripción.
+      assert.equal(detectarColumnas(['Item', 'Cantidad'])['Item'], 'descripcion');
+      const b64 = xlsxBase64([['Item', 'Descripción', 'Cantidad'], [1, 'Tornillo de acero inoxidable M8', 10]]);
+      assert.equal(parsearArchivoLote(b64, 'x.xlsx').filas[0].descripcion, 'Tornillo de acero inoxidable M8');
+    });
+
+    await test('fila vacía real intermedia no desfasa numeroFila (blankrows)', () => {
+      const b64 = xlsxBase64([['descripcion'], ['Tornillo de acero inoxidable M8'], [], ['Válvula de bronce para agua']]);
+      const r = parsearArchivoLote(b64, 'x.xlsx');
+      assert.deepEqual(r.filas.map(f => f.numeroFila), [2, 4], 'la fila vacía (3) se salta pero cuenta');
+      assert.deepEqual(r.omitidas, []);
     });
 
     await test('xlsx con columnas en desorden → filas correctas, filas vacías ignoradas', () => {
@@ -239,7 +260,7 @@ async function main() {
       assert.equal(deps.llamadas, antes);
     });
 
-    await test(`${MAX_FALLAS_CONSECUTIVAS} fallas consecutivas del proveedor detienen el lote (filas restantes en rojo, status failed)`, async () => {
+    await test(`${MAX_FALLAS_CONSECUTIVAS} fallas consecutivas del proveedor detienen el lote: restantes quedan PENDIENTES (semáforo null), status failed con mensaje honesto`, async () => {
       const filas: unknown[][] = [['descripcion']];
       for (let i = 0; i < 6; i++) filas.push([`Producto de prueba número ${i} con material acero`]);
       const depsFalla = runnerFalso(() => ({ error: { code: 'ERROR_INTERNO', message: 'cuota 429' } }));
@@ -248,9 +269,85 @@ async function main() {
       const lote = await prisma.classificationBatch.findFirst({ where: { id: r.id, tenantId: tenant.id }, include: { filas: true } });
       assert.equal(lote?.status, 'failed');
       assert.match(lote?.errorMsg ?? '', /detenido/);
+      assert.match(lote?.errorMsg ?? '', /3 fila\(s\) quedaron pendientes/);
       assert.equal(depsFalla.llamadas, MAX_FALLAS_CONSECUTIVAS);
-      assert.equal(lote?.rojas, 6);
-      assert.equal(lote?.filas.filter(f => /detenido/.test(f.error ?? '')).length, 6 - MAX_FALLAS_CONSECUTIVAS);
+      assert.equal(lote?.rojas, MAX_FALLAS_CONSECUTIVAS, 'solo las filas que sí fallaron cuentan como rojas');
+      assert.equal(lote?.procesadas, MAX_FALLAS_CONSECUTIVAS);
+      assert.equal(lote?.filas.filter(f => f.semaforo === null).length, 6 - MAX_FALLAS_CONSECUTIVAS, 'las restantes no se marcan');
+      assert.equal(lote?.filas.filter(f => /detenido/.test(f.error ?? '')).length, 0);
+
+      // Reanudación: el lote failed con pendientes se reclama y termina con un runner sano.
+      const depsOk = runnerFalso(() => ({ payload: { fraction: { code: '7318.15.99' }, confidence: 95, alerts: [] } }));
+      await procesarLote(r.id, depsOk);
+      const lote2 = await prisma.classificationBatch.findFirst({ where: { id: r.id, tenantId: tenant.id }, include: { filas: true } });
+      assert.equal(lote2?.status, 'done');
+      assert.equal(lote2?.errorMsg, null);
+      assert.equal(depsOk.llamadas, 6 - MAX_FALLAS_CONSECUTIVAS, 'solo las pendientes');
+      assert.equal(lote2?.procesadas, 6);
+      assert.equal(lote2?.verdes, 3);
+      assert.equal(lote2?.rojas, 3);
+    });
+
+    await test('TIMEOUT (otra clasificación manual en curso) NO cuenta como falla del proveedor: filas rojas pero el lote no se detiene', async () => {
+      // Job activo del usuario → el índice parcial bloquea el create de cada fila → TIMEOUT.
+      const bloqueo = await prisma.classificationJob.create({ data: { tenantId: tenant.id, userId: user.id, status: 'running', inputs: { description: 'manual en curso' } } });
+      try {
+        const filas: unknown[][] = [['descripcion']];
+        for (let i = 0; i < 4; i++) filas.push([`Bomba centrífuga de prueba número ${i} de acero`]);
+        const d = runnerFalso(() => { throw new Error('no debía correr: la fila no se pudo encolar'); });
+        const r = await importarLote({ tenantId: tenant.id, userId: user.id, nombreArchivo: 'timeout.xlsx', base64: xlsxBase64(filas), arrancar: false });
+        await procesarLote(r.id, d);
+        const lote = await prisma.classificationBatch.findFirst({ where: { id: r.id, tenantId: tenant.id }, include: { filas: true } });
+        assert.equal(d.llamadas, 0);
+        assert.equal(lote?.status, 'done', 'no se declara falla del proveedor');
+        assert.equal(lote?.errorMsg, null);
+        assert.equal(lote?.rojas, 4);
+        assert.ok(lote?.filas.every(f => /otra clasificación en curso/.test(f.error ?? '')));
+      } finally {
+        await prisma.classificationJob.delete({ where: { id: bloqueo.id } });
+      }
+    });
+
+    await test('dos procesarLote concurrentes sobre el mismo lote: claim exclusivo → una sola pasada, contadores exactos', async () => {
+      const filas: unknown[][] = [['descripcion']];
+      for (let i = 0; i < 3; i++) filas.push([`Motor eléctrico de prueba número ${i} trifásico`]);
+      const d = runnerFalso(() => ({ payload: { fraction: { code: '8501.52.01' }, confidence: 90, alerts: [] } }));
+      const r = await importarLote({ tenantId: tenant.id, userId: user.id, nombreArchivo: 'concurrente.xlsx', base64: xlsxBase64(filas), arrancar: false });
+      await Promise.all([procesarLote(r.id, d), procesarLote(r.id, d)]);
+      const lote = await prisma.classificationBatch.findFirst({ where: { id: r.id, tenantId: tenant.id }, include: { filas: true } });
+      assert.equal(lote?.status, 'done');
+      assert.equal(d.llamadas, 3, 'cada fila se clasifica UNA vez');
+      assert.equal(lote?.procesadas, 3);
+      assert.equal(lote?.verdes, 3);
+      assert.equal(await prisma.classificationJob.count({ where: { tenantId: tenant.id, userId: user.id, inputs: { path: ['description'], string_contains: 'Motor eléctrico de prueba' } } }), 3);
+    });
+
+    await test('lote running con heartbeat fresco NO se reclama; con heartbeat vencido sí', async () => {
+      const d = runnerFalso(() => ({ payload: { fraction: { code: '7318.15.99' }, confidence: 95, alerts: [] } }));
+      const r = await importarLote({ tenantId: tenant.id, userId: user.id, nombreArchivo: 'vivo.xlsx', base64: xlsxBase64([['descripcion'], ['Tornillo de acero inoxidable M8 cabeza hexagonal']]), arrancar: false });
+      await prisma.classificationBatch.update({ where: { id: r.id }, data: { status: 'running', startedAt: new Date() } });
+      await procesarLote(r.id, d);
+      assert.equal(d.llamadas, 0, 'otro proceso lo tiene vivo (rolling deploy)');
+      await prisma.classificationBatch.update({ where: { id: r.id }, data: { startedAt: new Date(Date.now() - LOTE_HEARTBEAT_VENCIDO_MS - 60_000) } });
+      await procesarLote(r.id, d);
+      assert.equal(d.llamadas, 1);
+      const lote = await prisma.classificationBatch.findFirst({ where: { id: r.id, tenantId: tenant.id } });
+      assert.equal(lote?.status, 'done');
+    });
+
+    await test('revisión humana previa no se sobrescribe: fila revisada (sin semáforo) se salta y no suma contadores', async () => {
+      const d = runnerFalso(() => ({ payload: { fraction: { code: '7318.15.99' }, confidence: 95, alerts: [] } }));
+      const r = await importarLote({ tenantId: tenant.id, userId: user.id, nombreArchivo: 'revisada.xlsx', base64: xlsxBase64([['descripcion'], ['Tornillo de acero inoxidable M8 cabeza hexagonal'], ['Válvula de bronce para agua potable']]), arrancar: false });
+      const fila = await prisma.classificationBatchRow.findFirst({ where: { batchId: r.id, numeroFila: 2 } });
+      await prisma.classificationBatchRow.update({ where: { id: fila!.id }, data: { revisado: true, fractionCode: '73181502', semaforo: 'verde', confidence: 100 } });
+      await prisma.classificationBatch.update({ where: { id: r.id }, data: { verdes: 1, procesadas: 1 } });
+      await procesarLote(r.id, d);
+      const lote = await prisma.classificationBatch.findFirst({ where: { id: r.id, tenantId: tenant.id }, include: { filas: { orderBy: { numeroFila: 'asc' } } } });
+      assert.equal(d.llamadas, 1, 'la fila revisada no se reclasifica');
+      assert.equal(lote?.filas[0].fractionCode, '73181502');
+      assert.equal(lote?.filas[0].confidence, 100);
+      assert.equal(lote?.procesadas, 2);
+      assert.equal(lote?.verdes, 2);
     });
 
     await test('procesarLote termina el lote con TENANT_GUARD_STRICT=1 (worker por id: bypass explícito, resto acotado)', async () => {
