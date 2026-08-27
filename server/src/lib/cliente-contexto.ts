@@ -71,3 +71,22 @@ export function whereConAlcance<T extends Record<string, unknown>>(req: Request,
   if (!('clienteId' in f)) return base;
   return { ...base, OR: [{ clienteId: f.clienteId }, { clienteId: null }] };
 }
+
+/** Alcance de cliente para pasar a servicios: un cliente, varios (`{ in }`) o sin restricción (null). */
+export type AlcanceCliente = string | { in: string[] } | null;
+
+/** `filtroCliente(req)` en forma de valor, para firmas de servicio `(tenantId, alcance)`. */
+export function alcanceDe(req: Request): AlcanceCliente {
+  return filtroCliente(req).clienteId ?? null;
+}
+
+/** Where Prisma a partir de un alcance: `{ ...whereCliente(alcance) }`. */
+export function whereCliente(alcance: AlcanceCliente): { clienteId?: string | { in: string[] } } {
+  return alcance ? { clienteId: alcance } : {};
+}
+
+/** Versión pura de `whereConAlcance` para servicios que reciben el alcance como valor. */
+export function whereIdConAlcance<T extends Record<string, unknown>>(alcance: AlcanceCliente, base: T): T & { OR?: Array<Record<string, unknown>> } {
+  if (!alcance) return base;
+  return { ...base, OR: [{ clienteId: alcance }, { clienteId: null }] };
+}

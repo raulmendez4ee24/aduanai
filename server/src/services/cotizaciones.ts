@@ -12,6 +12,7 @@
 import * as XLSX from 'xlsx';
 import type { Prisma } from '@prisma/client';
 import { prisma } from '../lib/prisma';
+import { whereIdConAlcance, type AlcanceCliente } from '../lib/cliente-contexto';
 import { AppError } from '../middlewares/error';
 import { esTipoOperacionDTA, type TipoOperacionDTA } from '../lib/dta';
 import type { MultiQuoteInput, MultiQuoteResult, ScenarioVariant } from './quoter-multi';
@@ -221,8 +222,8 @@ export function inputDe(q: QuoteConItems, result: Record<string, unknown> | null
   };
 }
 
-export async function obtenerCotizacion(tenantId: string, id: string): Promise<CotizacionCompleta> {
-  const q = await prisma.quote.findFirst({ where: { id, tenantId }, include: { items: true, user: { select: { name: true } } } });
+export async function obtenerCotizacion(tenantId: string, id: string, alcance: AlcanceCliente = null): Promise<CotizacionCompleta> {
+  const q = await prisma.quote.findFirst({ where: whereIdConAlcance(alcance, { id, tenantId }), include: { items: true, user: { select: { name: true } } } });
   if (!q) throw new AppError('Cotización no encontrada', 404);
   const [tenant, cliente, raiz] = await Promise.all([
     prisma.tenant.findUnique({ where: { id: tenantId }, select: { name: true, rfc: true } }),
@@ -289,8 +290,8 @@ async function raizDe(id: string, tenantId: string): Promise<string> {
 
 /** Crea la versión N+1 con el MISMO contenido (editable después). Queda en
  *  `pending_approval` si el usuario no aprueba; el original no se toca. */
-export async function duplicarCotizacion(tenantId: string, id: string, userId: string, opts: { puedeAprobar: boolean; nombre?: string | null }) {
-  const orig = await prisma.quote.findFirst({ where: { id, tenantId }, include: { items: true } });
+export async function duplicarCotizacion(tenantId: string, id: string, userId: string, opts: { puedeAprobar: boolean; nombre?: string | null }, alcance: AlcanceCliente = null) {
+  const orig = await prisma.quote.findFirst({ where: whereIdConAlcance(alcance, { id, tenantId }), include: { items: true } });
   if (!orig) throw new AppError('Cotización no encontrada', 404);
   const ultima = await prisma.quote.aggregate({ where: { tenantId, OR: [{ id: await raizDe(orig.id, tenantId) }, { parentQuoteId: await raizDe(orig.id, tenantId) }, { parentQuoteId: orig.id }] }, _max: { version: true } });
   const version = Math.max(orig.version, ultima._max.version ?? 0) + 1;
@@ -356,14 +357,15 @@ export function validarPatch(body: PatchCotizacion): { data: Prisma.QuoteUpdateI
   return { data, error: null };
 }
 
-export async function actualizarCotizacion(tenantId: string, id: string, body: PatchCotizacion) {
-  const existing = await prisma.quote.findFirst({ where: { id, tenantId }, select: { id: true, status: true } });
+export async function actualizarCotizacion(tenantId: string, id: string, body: PatchCotizacion, alcance: AlcanceCliente = null) {
+  const existing = await prisma.quote.findFirst({ where: whereIdConAlcance(alcance, { id, tenantId }), select: { id: true, status: true } });
   if (!existing) throw new AppError('Cotización no encontrada', 404);
   const { data, error } = validarPatch(body);
   if (error) throw new AppError(error, 422);
   if (body.clienteId !== undefined) {
     if (body.clienteId === null) data.clienteId = null;
     else {
+      if (alcance && !(typeof alcance === 'string' ? alcance === String(body.clienteId) : alcance.in.includes(String(body.clienteId)))) throw new AppError('Cliente fuera de tu alcance', 403);
       const c = await prisma.cliente.findFirst({ where: { id: String(body.clienteId), tenantId, activo: true }, select: { id: true } });
       if (!c) throw new AppError('Cliente no encontrado en este tenant', 422);
       data.clienteId = c.id;
@@ -371,7 +373,7 @@ export async function actualizarCotizacion(tenantId: string, id: string, body: P
   }
   // El estado de aprobación NO se toca desde aquí (usa /approve o /api/aprobaciones).
   await prisma.quote.updateMany({ where: { id, tenantId }, data: data as Prisma.QuoteUpdateManyMutationInput });
-  return obtenerCotizacion(tenantId, id);
+  return obtenerCotizacion(tenantId, id, alcance);
 }
 
 // ── Escenarios guardables ──
@@ -461,8 +463,8 @@ export function resumirEscenarios(cmp: { base: MultiQuoteResult; scenarios: { na
 
 // ── Excel ──
 
-export async function exportarCotizacionXlsx(tenantId: string, id: string): Promise<{ buffer: Buffer; folio: string }> {
-  const c = await obtenerCotizacion(tenantId, id);
+export async function exportarCotizacionXlsx(tenantId: string, id: string, alcance: AlcanceCliente = null): Promise<{ buffer: Buffer; folio: string }> {
+  const c = await obtenerCotizacion(tenantId, id, alcance);
   const r = c.result;
   const items = (r?.items as MultiQuoteResult['items'] | undefined) ?? [];
   const wb = XLSX.utils.book_new();

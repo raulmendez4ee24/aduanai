@@ -6,7 +6,8 @@ import { calculateQuote } from '../services/quoter';
 import { calculateMultiQuote, compareScenarios, type MultiQuoteInput, type ScenarioVariant } from '../services/quoter-multi';
 import { getRecentRates, seedSyntheticHistory, getOfficialRate, refreshOfficialRate } from '../services/exchange-rate';
 import { prisma } from '../lib/prisma';
-import { clienteIdDe, filtroCliente, validarClienteDelTenant } from '../lib/cliente-contexto';
+import { clienteIdDe, filtroCliente, validarClienteDelTenant, alcanceDe, whereConAlcance } from '../lib/cliente-contexto';
+import { requireRole } from '../middlewares/auth';
 // ── OPERACIÓN 2026-08 (Ola 2 cotizador) ──
 import type { Prisma } from '@prisma/client';
 import { esTipoOperacionDTA } from '../lib/dta';
@@ -294,7 +295,7 @@ quoteRouter.get('/exchange-rate/current', authenticate, async (_req: AuthRequest
 });
 
 // POST /api/quote/exchange-rate/refresh — fuerza pull a Banxico (admin/debug)
-quoteRouter.post('/exchange-rate/refresh', authenticate, async (_req: AuthRequest, res, next) => {
+quoteRouter.post('/exchange-rate/refresh', authenticate, requireRole('SUPERADMIN'), async (_req: AuthRequest, res, next) => {
   try {
     const data = await refreshOfficialRate();
     if (!data) return res.status(503).json({ status: 'error', message: 'No se pudo obtener el TC de ningún proveedor' });
@@ -316,7 +317,7 @@ quoteRouter.get('/exchange-rate/recent', authenticate, async (req: AuthRequest, 
 });
 
 // POST /api/quote/exchange-rate/seed-history — sembrar histórico sintético
-quoteRouter.post('/exchange-rate/seed-history', authenticate, async (req: AuthRequest, res, next) => {
+quoteRouter.post('/exchange-rate/seed-history', authenticate, requireRole('SUPERADMIN'), async (req: AuthRequest, res, next) => {
   try {
     const days = Math.max(1, Math.min(365, Number(req.body?.days) || 90));
     const inserted = await seedSyntheticHistory(days);
@@ -377,13 +378,13 @@ quoteRouter.get('/', authenticate, requirePermission('quoter', 'view'), async (r
 
 // GET /api/quote/:id — cotización completa (resultado + entrada + versiones + folio)
 quoteRouter.get('/:id', authenticate, requirePermission('quoter', 'view'), async (req: AuthRequest, res, next) => {
-  try { res.json({ status: 'ok', data: await obtenerCotizacion(req.tenantId!, String(req.params.id)) }); } catch (err) { next(err); }
+  try { res.json({ status: 'ok', data: await obtenerCotizacion(req.tenantId!, String(req.params.id), alcanceDe(req)) }); } catch (err) { next(err); }
 });
 
 // GET /api/quote/:id/export.xlsx
 quoteRouter.get('/:id/export.xlsx', authenticate, requirePermission('quoter', 'view'), async (req: AuthRequest, res, next) => {
   try {
-    const { buffer, folio } = await exportarCotizacionXlsx(req.tenantId!, String(req.params.id));
+    const { buffer, folio } = await exportarCotizacionXlsx(req.tenantId!, String(req.params.id), alcanceDe(req));
     res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
     res.setHeader('Content-Disposition', `attachment; filename="cotizacion-${folio}.xlsx"`);
     res.send(buffer);
@@ -397,7 +398,7 @@ quoteRouter.post('/:id/duplicar', authenticate, requirePermission('quoter', 'cre
     const nueva = await duplicarCotizacion(req.tenantId!, String(req.params.id), req.userId!, {
       puedeAprobar: hasPermission(perms, 'quoter', 'approve'),
       nombre: typeof req.body?.nombre === 'string' ? req.body.nombre.slice(0, 160) : null,
-    });
+    }, alcanceDe(req));
     res.status(201).json({ status: 'ok', data: { id: nueva.id, version: nueva.version, parentQuoteId: nueva.parentQuoteId, folio: await folioDe(nueva), status: nueva.status } });
   } catch (err) { next(err); }
 });
@@ -409,14 +410,14 @@ quoteRouter.patch('/:id', authenticate, requirePermission('quoter', 'create'), a
     if ('status' in b || 'approvedAt' in b || 'approvedById' in b) {
       return res.status(422).json({ status: 'error', message: 'El estado de aprobación se cambia con /approve o en Aprobaciones, no con PATCH.' });
     }
-    res.json({ status: 'ok', data: await actualizarCotizacion(req.tenantId!, String(req.params.id), b) });
+    res.json({ status: 'ok', data: await actualizarCotizacion(req.tenantId!, String(req.params.id), b, alcanceDe(req)) });
   } catch (err) { next(err); }
 });
 
 // POST /api/quote/:id/escenarios — recalcula escenarios sobre la entrada guardada y los persiste
 quoteRouter.post('/:id/escenarios', authenticate, requirePermission('quoter', 'create'), async (req: AuthRequest, res, next) => {
   try {
-    const c = await obtenerCotizacion(req.tenantId!, String(req.params.id));
+    const c = await obtenerCotizacion(req.tenantId!, String(req.params.id), alcanceDe(req));
     const variantesRaw = Array.isArray(req.body?.variants) && req.body.variants.length ? req.body.variants : ESCENARIOS_VENTA;
     const vv = validarVariantes(variantesRaw);
     if (vv.error) return res.status(422).json({ status: 'error', message: vv.error });
@@ -439,7 +440,7 @@ quoteRouter.post('/:id/approve', authenticate, requirePermission('quoter', 'appr
   try {
     const id = String(req.params.id);
     const existing = await prisma.quote.findFirst({
-      where: { id, tenantId: req.tenantId! },
+      where: whereConAlcance(req, { id, tenantId: req.tenantId! }),
     });
     if (!existing) return res.status(404).json({ status: 'error', message: 'Cotización no encontrada' });
     if (existing.status === 'approved') {

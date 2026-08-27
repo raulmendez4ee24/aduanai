@@ -248,6 +248,30 @@ async function parteDB(): Promise<void> {
       const pag = await listarCotizaciones(tA, { page: 2, pageSize: 3 });
       assert.equal(pag.filas.length, 1);
     });
+    await prueba('alcance por cliente (revisión A): restringido a c1 no ve/edita/duplica/exporta la cotización de c2; {in} sí la ve; mover a cliente fuera del alcance → 403', async () => {
+      // El alcance es lo que `alcanceDe(req)` manda desde la ruta (string | {in} | null).
+      await assert.rejects(obtenerCotizacion(tA, q2.id, c1.id), /no encontrada/);
+      await assert.rejects(actualizarCotizacion(tA, q2.id, { name: 'hack' }, c1.id), /no encontrada/);
+      await assert.rejects(duplicarCotizacion(tA, q2.id, uA, { puedeAprobar: true }, c1.id), /no encontrada/);
+      await assert.rejects(exportarCotizacionXlsx(tA, q2.id, c1.id), /no encontrada/);
+      assert.equal((await obtenerCotizacion(tA, q1.id, c1.id)).id, q1.id);
+      assert.equal((await obtenerCotizacion(tA, q2.id, { in: [c1.id, c2.id] })).id, q2.id);
+      await assert.rejects(actualizarCotizacion(tA, q1.id, { clienteId: c2.id }, c1.id), (e: unknown) => (e as { statusCode?: number }).statusCode === 403);
+      assert.equal((await prisma.quote.findFirst({ where: { id: q1.id, tenantId: tA } }))!.clienteId, c1.id, 'no se movió');
+    });
+    await prueba('exchange-rate/seed-history y /refresh: requireRole(SUPERADMIN) rechaza a ADMIN con 403 (middleware montado en routes/quote.ts)', async () => {
+      const { requireRole } = await import('../middlewares/auth');
+      const mw = requireRole('SUPERADMIN');
+      const corre = (userRole: string) => new Promise<unknown>((resolve) => { mw({ userRole } as never, {} as never, (err?: unknown) => resolve(err)); });
+      const denegado = await corre('ADMIN');
+      assert.equal((denegado as { statusCode?: number }).statusCode, 403);
+      assert.equal(await corre('SUPERADMIN'), undefined);
+      // La cadena de la ruta lleva un middleware más que la de /exchange-rate/current (authenticate + requireRole).
+      const { quoteRouter } = await import('../routes/quote');
+      const capa = (path: string) => (quoteRouter.stack as Array<{ route?: { path: string; stack: unknown[] } }>).find(l => l.route?.path === path)!.route!.stack.length;
+      assert.equal(capa('/exchange-rate/seed-history'), capa('/exchange-rate/current') + 1);
+      assert.equal(capa('/exchange-rate/refresh'), capa('/exchange-rate/current') + 1);
+    });
     await prueba('multi-tenant: B no ve ni duplica ni edita ni exporta cotizaciones de A', async () => {
       assert.equal((await listarCotizaciones(tB, {})).total, 1);
       await assert.rejects(obtenerCotizacion(tB, q1.id), /no encontrada/);
