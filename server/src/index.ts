@@ -51,7 +51,7 @@ import { auditAdminRouter, auditPublicRouter, auditUserRouter } from './routes/a
 import { documentsRouter } from './routes/documents';
 import { originRouter } from './routes/origin';
 import { nomsRouter } from './routes/noms';
-import { verifyPublicRouter, dictamenRouter, complianceReportRouter } from './routes/traceability';
+import { verifyPublicRouter, dictamenRouter, complianceReportRouter, defensaRouter } from './routes/traceability';
 import { precedentsRouter } from './routes/precedents';
 import { monitoringRouter, runRetentionPurge } from './routes/monitoring';
 import { requestLogger, errorLogger } from './middlewares/logging';
@@ -239,6 +239,7 @@ void reanudarLotesInterrumpidos().catch(() => {}); // lotes que quedaron en vuel
 app.use('/api/clientes', clientesRouter);
 app.use('/api/aprobaciones', aprobacionesRouter);
 app.use('/api/catalogo', catalogoRouter);
+app.use('/api/traceability', defensaRouter); // Ola 3 — Defensa (paquete + certificado)
 
 // ── SPA fallback ──
 app.use((req, res, next) => {

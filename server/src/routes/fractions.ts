@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import { authenticate } from '../middlewares/auth';
 import { prisma } from '../lib/prisma';
+import { construirFicha, navegarArbol } from '../services/fraction-ficha';
 
 export const fractionsRouter = Router();
 
@@ -36,6 +37,27 @@ fractionsRouter.get('/search', authenticate, async (req, res, next) => {
     });
 
     res.json({ status: 'ok', data: fractions });
+  } catch (err) {
+    next(err);
+  }
+});
+
+// Ola 3 — árbol perezoso: ?nodo= '' | 'XVI' | '84' | '8471' | '847130'
+fractionsRouter.get('/arbol', authenticate, async (req, res, next) => {
+  try {
+    const nodo = String(req.query.nodo ?? '');
+    res.json({ status: 'ok', data: await navegarArbol(nodo) });
+  } catch (err) {
+    next(err);
+  }
+});
+
+// Ola 3 — ficha completa: cada bloque con fuente/fechaDOF y vacío honesto
+fractionsRouter.get('/:code/ficha', authenticate, async (req, res, next) => {
+  try {
+    const ficha = await construirFicha(String(req.params.code));
+    if (!ficha) return res.status(404).json({ status: 'error', message: 'Fracción no encontrada' });
+    res.json({ status: 'ok', data: ficha });
   } catch (err) {
     next(err);
   }

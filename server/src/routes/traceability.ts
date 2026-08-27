@@ -11,6 +11,8 @@ import crypto from 'crypto';
 import { authenticate, AuthRequest } from '../middlewares/auth';
 import { prisma } from '../lib/prisma';
 import { verifyConsult, getActiveVersions } from '../services/traceability';
+import { armarPaqueteDefensa, listarEntidadesDefensa, TIPOS_DEFENSA, type PaqueteDefensa } from '../services/defensa';
+import { clienteIdDe } from '../lib/cliente-contexto';
 
 export const verifyPublicRouter = Router();
 export const dictamenRouter = Router();
@@ -358,3 +360,92 @@ complianceReportRouter.get('/compliance-report/:tenantId', authenticate, async (
     });
   } catch (err) { next(err); }
 });
+
+// ──────────────────────────────────────────────────────────────────────────
+// Ola 3 — DEFENSA: paquete por entidad + certificado de integridad imprimible
+//   GET /api/traceability/defensa?tipo=classification|quote|operation|glosa|risk[&limit=]
+//   GET /api/traceability/defensa/:tipo/:id
+//   GET /api/traceability/defensa/:tipo/:id/certificado.html
+// ──────────────────────────────────────────────────────────────────────────
+
+export const defensaRouter = Router();
+
+defensaRouter.get('/defensa', authenticate, async (req: AuthRequest, res, next) => {
+  try {
+    const tipo = String(req.query.tipo ?? 'classification');
+    if (!(TIPOS_DEFENSA as readonly string[]).includes(tipo)) return res.status(400).json({ status: 'error', message: `tipo inválido; usa ${TIPOS_DEFENSA.join('|')}` });
+    const limit = Math.min(100, Math.max(1, Number(req.query.limit) || 20));
+    const data = await listarEntidadesDefensa(req.tenantId!, tipo, clienteIdDe(req) ?? undefined, limit);
+    res.json({ status: 'ok', data, tipos: TIPOS_DEFENSA });
+  } catch (err) { next(err); }
+});
+
+defensaRouter.get('/defensa/:tipo/:id', authenticate, async (req: AuthRequest, res, next) => {
+  try {
+    const tipo = String(req.params.tipo);
+    if (!(TIPOS_DEFENSA as readonly string[]).includes(tipo)) return res.status(400).json({ status: 'error', message: `tipo inválido; usa ${TIPOS_DEFENSA.join('|')}` });
+    const baseUrl = `${req.protocol}://${req.get('host')}`;
+    const p = await armarPaqueteDefensa({ tenantId: req.tenantId!, tipo, id: String(req.params.id), baseUrl });
+    if (!p) return res.status(404).json({ status: 'error', message: 'Entidad no encontrada en tu empresa' });
+    res.json({ status: 'ok', data: p });
+  } catch (err) { next(err); }
+});
+
+defensaRouter.get('/defensa/:tipo/:id/certificado.html', authenticate, async (req: AuthRequest, res, next) => {
+  try {
+    const tipo = String(req.params.tipo);
+    if (!(TIPOS_DEFENSA as readonly string[]).includes(tipo)) return res.status(400).json({ status: 'error', message: 'tipo inválido' });
+    const baseUrl = `${req.protocol}://${req.get('host')}`;
+    const p = await armarPaqueteDefensa({ tenantId: req.tenantId!, tipo, id: String(req.params.id), baseUrl });
+    if (!p) return res.status(404).json({ status: 'error', message: 'Entidad no encontrada en tu empresa' });
+    const tenant = await prisma.tenant.findUnique({ where: { id: req.tenantId! }, select: { name: true, rfc: true } });
+    res.setHeader('Content-Type', 'text/html; charset=utf-8');
+    res.setHeader('Content-Disposition', `inline; filename="${p.certificado.folio}.html"`);
+    res.send(renderCertificadoDefensa(p, tenant ?? { name: '', rfc: null }));
+  } catch (err) { next(err); }
+});
+
+function renderCertificadoDefensa(p: PaqueteDefensa, tenant: { name: string; rfc: string | null }): string {
+  const e = escapeHTML;
+  const hoy = new Date(p.certificado.emitidoAt).toLocaleDateString('es-MX', { day: '2-digit', month: 'long', year: 'numeric' });
+  const filas = (pares: [string, string | null | undefined][]) => pares.map(([k, v]) => `<tr><th>${e(k)}</th><td>${e(v ?? '—')}</td></tr>`).join('');
+  const eventos = p.bitacora.eventos.slice(-12).map(ev => `<tr><td>${e(ev.createdAt.replace('T', ' ').slice(0, 19))}</td><td>${e(ev.action)}</td><td class="mono">${e(ev.hash.slice(0, 16))}…</td></tr>`).join('');
+  return `<!DOCTYPE html><html lang="es"><head><meta charset="UTF-8"><title>${e(p.certificado.folio)} — Certificado de integridad</title>
+<style>
+@page { size: letter; margin: 1.8cm; }
+body { font-family: Georgia, "Times New Roman", serif; color: #1f2937; line-height: 1.5; max-width: 760px; margin: 0 auto; padding: 24px; }
+.header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 18px; }
+.brand { font-size: 22px; font-weight: 700; color: #0f4c5c; } .brand-sub { font-size: 11px; color: #6b7280; }
+.meta { text-align: right; font-size: 12px; color: #4b5563; }
+h1 { font-size: 17px; text-align: center; text-transform: uppercase; letter-spacing: 1px; margin: 18px 0 10px; border-bottom: 2px solid #0f4c5c; padding-bottom: 6px; }
+h2 { font-size: 12px; text-transform: uppercase; letter-spacing: .8px; color: #4b5563; margin: 18px 0 6px; }
+table { width: 100%; border-collapse: collapse; font-size: 12px; margin: 6px 0; }
+th { text-align: left; background: #f3f4f6; padding: 6px 8px; border: 1px solid #d1d5db; width: 36%; font-weight: 600; }
+td { padding: 6px 8px; border: 1px solid #d1d5db; word-break: break-all; }
+.mono { font-family: ui-monospace, Menlo, monospace; font-size: 11px; }
+.folio { font-family: ui-monospace, Menlo, monospace; font-size: 20px; font-weight: 700; color: #0f4c5c; text-align: center; margin: 8px 0; }
+.hash { font-family: ui-monospace, Menlo, monospace; font-size: 11px; background: #f9fafb; border: 1px solid #e5e7eb; padding: 8px; word-break: break-all; }
+.ok { color: #047857; font-weight: 700 } .bad { color: #b91c1c; font-weight: 700 }
+.aviso { font-size: 11px; color: #92400e; background: #fffbeb; border-left: 3px solid #f59e0b; padding: 8px 12px; margin-top: 16px; }
+.footer { margin-top: 24px; padding-top: 10px; border-top: 1px solid #e5e7eb; font-size: 10px; color: #6b7280; text-align: center; }
+button { margin: 12px auto; display: block; padding: 8px 16px; font: inherit; }
+@media print { body { padding: 0 } button { display: none } }
+</style></head><body>
+<button onclick="window.print()">Imprimir / guardar como PDF</button>
+<div class="header"><div><div class="brand">ADUANAI</div><div class="brand-sub">Certificado de integridad — vista Defensa</div></div>
+<div class="meta"><strong>${e(tenant.name)}</strong><br>${tenant.rfc ? `RFC: ${e(tenant.rfc)}<br>` : ''}${e(hoy)}</div></div>
+<h1>Certificado de integridad</h1>
+<div class="folio">${e(p.certificado.folio)}</div>
+<h2>Entidad</h2><table>${filas([['Tipo', p.entidad.tipo], ['Identificador', p.entidad.id], ['Resumen', p.entidad.resumen], ['Fecha de creación (UTC)', p.entidad.fecha], ['Fracción', p.entidad.fractionCode]])}</table>
+<h2>Versiones normativas usadas</h2><table>${filas([['TIGIE', p.versiones.usadas.tigie], ['LIGIE', p.versiones.usadas.ligie], ['RGCE', p.versiones.usadas.rgce], ['Acuerdo NOMs', p.versiones.usadas.acuerdoNoms], ['T-MEC', p.versiones.usadas.tmec], ['TIGIE vigente hoy', p.versiones.vigentesHoy.tigie], ['¿Desactualizada?', p.versiones.desactualizada === null ? 'sin versión registrada' : p.versiones.desactualizada ? 'sí' : 'no']])}</table>
+<h2>Reglas que corrieron</h2><table>${filas([['Descripción', p.reglas.descripcion], ['Fuente', p.reglas.fuente]])}</table>
+<h2>Aprobaciones</h2><table>${filas([['Estado', p.aprobaciones.status], ['Creado por', p.aprobaciones.creadoPor ? `${p.aprobaciones.creadoPor.nombre} <${p.aprobaciones.creadoPor.email}>` : null], ['Aprobado por', p.aprobaciones.aprobadoPor ? `${p.aprobaciones.aprobadoPor.nombre} <${p.aprobaciones.aprobadoPor.email}>` : 'sin aprobación registrada'], ['Fecha de aprobación (UTC)', p.aprobaciones.approvedAt]])}</table>
+<h2>Bitácora encadenada</h2>
+<p style="font-size:12px">Cadena del tenant: <span class="${p.bitacora.cadena.valid ? 'ok' : 'bad'}">${p.bitacora.cadena.valid ? 'ÍNTEGRA' : 'ROTA'}</span> · ${p.bitacora.cadena.checkedCount} registros verificados${p.bitacora.cadena.brokenAt ? ` · ruptura en ${e(p.bitacora.cadena.brokenAt)}` : ''}</p>
+${eventos ? `<table><tr><th style="width:30%">Fecha (UTC)</th><th style="width:40%">Acción</th><th>Hash</th></tr>${eventos}</table>` : '<p style="font-size:12px;color:#6b7280">Sin eventos de bitácora ligados a esta entidad.</p>'}
+<h2>Hash del paquete (SHA-256)</h2><div class="hash">${e(p.certificado.hashPaquete)}</div>
+<h2>Verificación pública</h2><table>${filas([['Consulta IA', p.certificado.verifyConsultUrl ?? 'sin consultHash'], ['Último evento de bitácora', p.certificado.verifyAuditUrl ?? 'sin eventos con hash'], ['NOM-151', p.certificado.nom151]])}</table>
+<div class="aviso">${e(p.certificado.sellado)} Este certificado acredita la integridad de los registros de ADUANAI a la fecha de emisión; no sustituye el dictamen de un agente aduanal ni una resolución de la autoridad.</div>
+<div class="footer">ADUANAI · ${e(p.certificado.folio)} · emitido ${e(p.certificado.emitidoAt)}</div>
+</body></html>`;
+}

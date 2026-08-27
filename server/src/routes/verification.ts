@@ -17,6 +17,7 @@
 import { Router, type Response, type NextFunction } from 'express';
 import { authenticate, AuthRequest, requireRole } from '../middlewares/auth';
 import { prisma } from '../lib/prisma';
+import { infraInfo } from '../lib/infra-info';
 import {
   lookupPatente, submitVerification, approveVerification, rejectVerification,
   type ProfessionalType,
@@ -78,6 +79,13 @@ verificationRouter.post('/submit', authenticate, async (req: AuthRequest, res: R
       notes: body.notes,
     });
     res.status(201).json({ status: 'ok', data: result });
+  } catch (err) { next(err); }
+});
+
+// Ola 3 — "Tus datos": dónde viven, cómo se protegen (solo lo que se puede afirmar).
+verificationRouter.get('/confianza', authenticate, async (_req: AuthRequest, res: Response, next: NextFunction) => {
+  try {
+    res.json({ status: 'ok', data: infraInfo() });
   } catch (err) { next(err); }
 });
 
