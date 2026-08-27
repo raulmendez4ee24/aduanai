@@ -191,9 +191,18 @@ export async function existeObligacion(tenantId: string, clienteId: string | nul
   return n > 0;
 }
 
+/** El responsable debe ser un usuario activo DEL TENANT (revisión B, P3): no se asigna gente ajena. */
+async function validarResponsable(tenantId: string, responsableUserId: string | null | undefined): Promise<string | null> {
+  if (!responsableUserId) return null;
+  const u = await prisma.user.findFirst({ where: { id: responsableUserId, tenantId, active: true }, select: { id: true } });
+  if (!u) throw new Error('responsableUserId inválido: no es un usuario activo de este despacho');
+  return u.id;
+}
+
 export async function crearObligacion(tenantId: string, e: EntradaObligacion) {
   const err = validarEntrada(e);
   if (err) throw new Error(err);
+  const responsableUserId = await validarResponsable(tenantId, e.responsableUserId);
   const fechaLimite = new Date(e.fechaLimite);
   return prisma.obligacionCalendario.create({
     data: {
@@ -205,7 +214,7 @@ export async function crearObligacion(tenantId: string, e: EntradaObligacion) {
       fundamento: e.fundamento ?? null,
       fechaLimite,
       recurrencia: e.recurrencia ?? 'UNICA',
-      responsableUserId: e.responsableUserId ?? null,
+      responsableUserId,
       consecuencia: e.consecuencia ?? null,
       estado: e.estado ?? 'pendiente',
     },
@@ -213,7 +222,8 @@ export async function crearObligacion(tenantId: string, e: EntradaObligacion) {
 }
 
 export interface FiltroLista {
-  clienteId?: string | null;
+  /** id concreto o `{ in: [...] }` (usuario restringido a varios clientes — ver filtroCliente). */
+  clienteId?: string | { in: string[] } | null;
   estado?: string;
   desde?: Date;
   hasta?: Date;
@@ -246,6 +256,7 @@ export async function actualizarObligacion(tenantId: string, id: string, cambios
   const merged = { ...actual, ...cambios, fechaLimite: cambios.fechaLimite ?? actual.fechaLimite } as EntradaObligacion;
   const err = validarEntrada(merged);
   if (err) throw new Error(err);
+  const responsableUserId = cambios.responsableUserId !== undefined ? await validarResponsable(tenantId, cambios.responsableUserId) : undefined;
   return prisma.obligacionCalendario.update({
     where: { id },
     data: {
@@ -255,7 +266,7 @@ export async function actualizarObligacion(tenantId: string, id: string, cambios
       ...(cambios.fundamento !== undefined ? { fundamento: cambios.fundamento } : {}),
       ...(cambios.fechaLimite !== undefined ? { fechaLimite: new Date(cambios.fechaLimite) } : {}),
       ...(cambios.recurrencia !== undefined ? { recurrencia: cambios.recurrencia } : {}),
-      ...(cambios.responsableUserId !== undefined ? { responsableUserId: cambios.responsableUserId } : {}),
+      ...(responsableUserId !== undefined ? { responsableUserId } : {}),
       ...(cambios.consecuencia !== undefined ? { consecuencia: cambios.consecuencia } : {}),
       ...(cambios.estado !== undefined ? { estado: cambios.estado } : {}),
       ...(cambios.clienteId !== undefined ? { clienteId: cambios.clienteId } : {}),

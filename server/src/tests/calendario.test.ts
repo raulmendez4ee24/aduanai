@@ -10,6 +10,8 @@ import {
   CATALOGO_BASE, ultimoDiaHabilDelMes, siguienteMensual, siguienteFechaRecurrente, semaforo, validarEntrada,
   sembrarBase, crearObligacion, marcarCumplida, procesarVencimientos, listarObligaciones, actualizarObligacion, eliminarObligacion,
 } from '../services/calendario-obligaciones';
+import { clienteIdDe, filtroCliente, enAlcance, validarClienteEnAlcance } from '../lib/cliente-contexto';
+import type { Request } from 'express';
 
 let pasadas = 0, falladas = 0;
 async function prueba(nombre: string, fn: () => void | Promise<void>) {
@@ -115,7 +117,7 @@ const AHORA = new Date('2026-08-27T12:00:00Z');
       const r = await procesarVencimientos(tenant.id, AHORA);
       assert.equal(r.vencidas, 1);
       assert.equal(r.alertas, 2);
-      const v = await prisma.obligacionCalendario.findUnique({ where: { id: vencida.id } });
+      const v = await prisma.obligacionCalendario.findFirst({ where: { id: vencida.id, tenantId: tenant.id } });
       assert.equal(v!.estado, 'vencida');
       const a = await prisma.alert.findFirst({ where: { tenantId: tenant.id, type: 'obligacion_vencida' } });
       assert.ok(a);
@@ -138,6 +140,31 @@ const AHORA = new Date('2026-08-27T12:00:00Z');
       assert.equal(await eliminarObligacion(otro.id, vencidas[0]!.id), false);
       assert.equal(await eliminarObligacion(tenant.id, vencidas[0]!.id), true);
       assert.equal(await prisma.obligacionCalendario.count({ where: { tenantId: otro.id } }), 0);
+    });
+    await prueba('alcance por cliente (revisión B): usuario restringido a [A,B] lista con { in } y no ve las del cliente C', async () => {
+      const cB = await prisma.cliente.create({ data: { tenantId: tenant.id, rfc: `RFB${SUFIJO}`.slice(0, 13).toUpperCase(), razonSocial: 'Cliente B' } });
+      const cC = await prisma.cliente.create({ data: { tenantId: tenant.id, rfc: `RFD${SUFIJO}`.slice(0, 13).toUpperCase(), razonSocial: 'Cliente C' } });
+      const oB = await crearObligacion(tenant.id, { tipo: 'OTRA', titulo: 'Solo del cliente B', fechaLimite: '2026-12-01', clienteId: cB.id });
+      const oC = await crearObligacion(tenant.id, { tipo: 'OTRA', titulo: 'Solo del cliente C', fechaLimite: '2026-12-01', clienteId: cC.id });
+      const req = { headers: {}, query: {}, clienteIdsPermitidos: [cliente.id, cB.id] } as unknown as Request;
+      assert.equal(clienteIdDe(req), null, 'con 2 permitidos clienteIdDe es null (el bug original dejaba la lista sin filtro)');
+      const rows = await listarObligaciones(tenant.id, { ...filtroCliente(req) });
+      assert.ok(rows.some(o => o.id === oB.id), 'incluye la del cliente B');
+      assert.ok(!rows.some(o => o.id === oC.id), 'excluye la del cliente C');
+      assert.equal(enAlcance(req, oC.clienteId), false, 'detalle de C fuera de alcance → la ruta responde 404');
+      await assert.rejects(() => validarClienteEnAlcance(req, tenant.id, cC.id), (e: unknown) => (e as { statusCode?: number }).statusCode === 403, 'clienteId del body fuera del alcance → 403');
+    });
+    await prueba('responsableUserId debe ser usuario activo del tenant (crear y actualizar)', async () => {
+      const uOtro = await prisma.user.create({ data: { email: `ajeno-${SUFIJO}@test.local`, password: 'x', name: 'Ajeno', tenantId: otro.id } });
+      const uPropio = await prisma.user.create({ data: { email: `propio-${SUFIJO}@test.local`, password: 'x', name: 'Propio', tenantId: tenant.id } });
+      await assert.rejects(() => crearObligacion(tenant.id, { tipo: 'OTRA', titulo: 'Responsable ajeno', fechaLimite: '2026-12-01', responsableUserId: uOtro.id }), /responsableUserId/);
+      const o = await crearObligacion(tenant.id, { tipo: 'OTRA', titulo: 'Responsable propio', fechaLimite: '2026-12-01', responsableUserId: uPropio.id });
+      assert.equal(o.responsableUserId, uPropio.id);
+      await assert.rejects(() => actualizarObligacion(tenant.id, o.id, { responsableUserId: uOtro.id }), /responsableUserId/);
+      const sin = await actualizarObligacion(tenant.id, o.id, { responsableUserId: null });
+      assert.equal(sin?.responsableUserId, null, 'null desasigna');
+      await prisma.obligacionCalendario.deleteMany({ where: { tenantId: tenant.id, id: o.id } });
+      await prisma.user.deleteMany({ where: { id: { in: [uOtro.id, uPropio.id] } } });
     });
   } finally {
     await limpiar();

@@ -17,7 +17,7 @@ import * as XLSX from 'xlsx';
 import { authenticate, AuthRequest } from '../middlewares/auth';
 import { requirePermission } from '../middlewares/requirePermission';
 import { prisma } from '../lib/prisma';
-import { clienteIdDe, validarClienteDelTenant } from '../lib/cliente-contexto';
+import { clienteIdDe, enAlcance, filtroCliente, validarClienteEnAlcance } from '../lib/cliente-contexto';
 import {
   CATALOGO_BASE, TIPOS_OBLIGACION, RECURRENCIAS, ESTADOS,
   listarObligaciones, crearObligacion, actualizarObligacion, eliminarObligacion,
@@ -29,12 +29,18 @@ calendarioRouter.use(authenticate);
 
 const conSemaforo = <T extends { fechaLimite: Date; estado: string }>(o: T) => ({ ...o, semaforo: semaforo(o.fechaLimite, o.estado) });
 
-calendarioRouter.get('/', async (req: AuthRequest, res, next) => {
+/** Obligación del tenant que además cae en el alcance de cliente del usuario; null ⇒ 404 (no revela existencia). */
+async function obligacionEnAlcance(req: AuthRequest) {
+  const o = await prisma.obligacionCalendario.findFirst({ where: { id: String(req.params.id), tenantId: req.tenantId! } });
+  return o && enAlcance(req, o.clienteId) ? o : null;
+}
+
+calendarioRouter.get('/', requirePermission('calendario', 'view'), async (req: AuthRequest, res, next) => {
   try {
     const desde = typeof req.query.desde === 'string' ? new Date(req.query.desde) : undefined;
     const hasta = typeof req.query.hasta === 'string' ? new Date(req.query.hasta) : undefined;
     const rows = await listarObligaciones(req.tenantId!, {
-      clienteId: clienteIdDe(req),
+      ...filtroCliente(req),
       estado: typeof req.query.estado === 'string' ? req.query.estado : undefined,
       desde: desde && !Number.isNaN(desde.getTime()) ? desde : undefined,
       hasta: hasta && !Number.isNaN(hasta.getTime()) ? hasta : undefined,
@@ -54,7 +60,7 @@ calendarioRouter.get('/catalogo-base', (_req, res) => {
 
 calendarioRouter.get('/export.xlsx', requirePermission('calendario', 'generateReport'), async (req: AuthRequest, res, next) => {
   try {
-    const rows = await listarObligaciones(req.tenantId!, { clienteId: clienteIdDe(req) });
+    const rows = await listarObligaciones(req.tenantId!, { ...filtroCliente(req) });
     const filas = rows.map(o => ({
       Tipo: o.tipo, Título: o.titulo, 'Fecha límite': o.fechaLimite.toISOString().slice(0, 10), Estado: o.estado,
       Semáforo: semaforo(o.fechaLimite, o.estado), Recurrencia: o.recurrencia ?? '', Fundamento: o.fundamento ?? '',
@@ -72,7 +78,7 @@ calendarioRouter.get('/export.xlsx', requirePermission('calendario', 'generateRe
 
 calendarioRouter.post('/', requirePermission('calendario', 'create'), async (req: AuthRequest, res, next) => {
   try {
-    const clienteId = await validarClienteDelTenant(req.tenantId!, req.body?.clienteId ?? clienteIdDe(req));
+    const clienteId = await validarClienteEnAlcance(req, req.tenantId!, req.body?.clienteId ?? clienteIdDe(req));
     const o = await crearObligacion(req.tenantId!, { ...req.body, clienteId });
     res.status(201).json({ status: 'ok', data: conSemaforo(o) });
   } catch (err) {
@@ -83,7 +89,7 @@ calendarioRouter.post('/', requirePermission('calendario', 'create'), async (req
 
 calendarioRouter.post('/sembrar-base', requirePermission('calendario', 'create'), async (req: AuthRequest, res, next) => {
   try {
-    const clienteId = await validarClienteDelTenant(req.tenantId!, req.body?.clienteId ?? clienteIdDe(req));
+    const clienteId = await validarClienteEnAlcance(req, req.tenantId!, req.body?.clienteId ?? clienteIdDe(req));
     const r = await sembrarBase(req.tenantId!, {
       clienteId,
       tieneIMMEX: typeof req.body?.tieneIMMEX === 'boolean' ? req.body.tieneIMMEX : undefined,
@@ -97,9 +103,9 @@ calendarioRouter.post('/procesar-vencimientos', requirePermission('calendario', 
   try { res.json({ status: 'ok', data: await procesarVencimientos(req.tenantId!) }); } catch (err) { next(err); }
 });
 
-calendarioRouter.get('/:id', async (req: AuthRequest, res, next) => {
+calendarioRouter.get('/:id', requirePermission('calendario', 'view'), async (req: AuthRequest, res, next) => {
   try {
-    const o = await prisma.obligacionCalendario.findFirst({ where: { id: String(req.params.id), tenantId: req.tenantId! } });
+    const o = await obligacionEnAlcance(req);
     if (!o) return res.status(404).json({ status: 'error', message: 'Obligación no encontrada' });
     const evidencia = o.evidenciaDocumentId
       ? await prisma.document.findFirst({ where: { id: o.evidenciaDocumentId, tenantId: req.tenantId! }, select: { id: true, name: true, fileName: true, fileUrl: true, createdAt: true } })
@@ -113,8 +119,9 @@ calendarioRouter.get('/:id', async (req: AuthRequest, res, next) => {
 
 calendarioRouter.patch('/:id', requirePermission('calendario', 'create'), async (req: AuthRequest, res, next) => {
   try {
+    if (!(await obligacionEnAlcance(req))) return res.status(404).json({ status: 'error', message: 'Obligación no encontrada' });
     const body = { ...req.body };
-    if (body.clienteId !== undefined) body.clienteId = await validarClienteDelTenant(req.tenantId!, body.clienteId);
+    if (body.clienteId !== undefined) body.clienteId = await validarClienteEnAlcance(req, req.tenantId!, body.clienteId);
     const o = await actualizarObligacion(req.tenantId!, String(req.params.id), body);
     if (!o) return res.status(404).json({ status: 'error', message: 'Obligación no encontrada' });
     res.json({ status: 'ok', data: conSemaforo(o) });
@@ -126,6 +133,7 @@ calendarioRouter.patch('/:id', requirePermission('calendario', 'create'), async 
 
 calendarioRouter.post('/:id/cumplir', requirePermission('calendario', 'approve'), async (req: AuthRequest, res, next) => {
   try {
+    if (!(await obligacionEnAlcance(req))) return res.status(404).json({ status: 'error', message: 'Obligación no encontrada' });
     const r = await marcarCumplida(req.tenantId!, String(req.params.id), req.body?.evidenciaDocumentId ?? null);
     if (!r) return res.status(404).json({ status: 'error', message: 'Obligación no encontrada' });
     res.json({ status: 'ok', data: { cumplida: conSemaforo(r.cumplida), siguiente: r.siguiente ? conSemaforo(r.siguiente) : null } });
@@ -137,6 +145,7 @@ calendarioRouter.post('/:id/cumplir', requirePermission('calendario', 'approve')
 
 calendarioRouter.delete('/:id', requirePermission('calendario', 'delete'), async (req: AuthRequest, res, next) => {
   try {
+    if (!(await obligacionEnAlcance(req))) return res.status(404).json({ status: 'error', message: 'Obligación no encontrada' });
     const ok = await eliminarObligacion(req.tenantId!, String(req.params.id));
     if (!ok) return res.status(404).json({ status: 'error', message: 'Obligación no encontrada' });
     res.json({ status: 'ok' });
