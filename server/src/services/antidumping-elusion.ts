@@ -87,20 +87,26 @@ export async function detectarElusion(tenantId: string, opts: { ahora?: Date; ti
       const dias = r.expiryDate ? Math.ceil((r.expiryDate.getTime() - ahora.getTime()) / DIA) : null;
       const ref = r.resolutionNumber ?? r.expedienteUPCI ?? 's/n';
       const cotejo = r.cotejadoAt ? 'cotejada contra fuente' : 'PENDIENTE DE COTEJO contra la lista UPCI/DOF';
-      await prisma.alert.create({
-        data: {
-          tenantId, clienteId: e.clienteId, channel: 'IN_APP', type: TIPO_ALERTA_ELUSION,
-          severity: severidadPorImpacto({ tipo: TIPO_ALERTA_ELUSION, impactoMXN, diasParaVencer: dias }),
-          title: `Resolución antielusión ${ref}: ${e.fractionCode} origen ${e.pais}`,
-          content: `Operas la fracción ${e.fractionCode} con origen ${e.pais} (${e.fuentes.join(', ')}) y existe una resolución por elusión que extiende la cuota compensatoria a ese origen: ${formatCuota(r.rateType, r.rate, r.rateUnit)}${r.productDesc ? ` — ${r.productDesc}` : ''}. ${r.notes ?? ''} Resolución ${cotejo}.${impactoMXN != null ? ` Exposición estimada: $${impactoMXN.toLocaleString('es-MX')} MXN (valor operado × tasa, TC ${tc}).` : ' Sin cifra de exposición (tasa específica o sin valor operado).'} Verifica el origen real y la transformación sustancial antes del próximo pedimento.`.replace(/\s+/g, ' ').trim(),
-          actionRequired: 'Verificar origen y aplicar la cuota si procede',
-          suggestedAction: accionRevisarFraccion(e.fractionCode) as unknown as object,
-          affectedFraction: e.fractionCode, affectedOperations: e.productIds,
-          estimatedImpactMXN: impactoMXN != null ? -impactoMXN : null, impactType: 'cost',
-          dueDate: r.expiryDate, daysToDue: dias, fingerprint,
-        },
-      });
-      alertas++;
+      try {
+        await prisma.alert.create({
+          data: {
+            tenantId, clienteId: e.clienteId, channel: 'IN_APP', type: TIPO_ALERTA_ELUSION,
+            severity: severidadPorImpacto({ tipo: TIPO_ALERTA_ELUSION, impactoMXN, diasParaVencer: dias }),
+            title: `Resolución antielusión ${ref}: ${e.fractionCode} origen ${e.pais}`,
+            content: `Operas la fracción ${e.fractionCode} con origen ${e.pais} (${e.fuentes.join(', ')}) y existe una resolución por elusión que extiende la cuota compensatoria a ese origen: ${formatCuota(r.rateType, r.rate, r.rateUnit)}${r.productDesc ? ` — ${r.productDesc}` : ''}. ${r.notes ?? ''} Resolución ${cotejo}.${impactoMXN != null ? ` Exposición estimada: $${impactoMXN.toLocaleString('es-MX')} MXN (valor operado × tasa, TC ${tc}).` : ' Sin cifra de exposición (tasa específica o sin valor operado).'} Verifica el origen real y la transformación sustancial antes del próximo pedimento.`.replace(/\s+/g, ' ').trim(),
+            actionRequired: 'Verificar origen y aplicar la cuota si procede',
+            suggestedAction: accionRevisarFraccion(e.fractionCode) as unknown as object,
+            affectedFraction: e.fractionCode, affectedOperations: e.productIds,
+            estimatedImpactMXN: impactoMXN != null ? -impactoMXN : null, impactType: 'cost',
+            dueDate: r.expiryDate, daysToDue: dias, fingerprint,
+          },
+        });
+        alertas++;
+      } catch (e) {
+        // P2002 = otra réplica creó la misma alerta (fingerprint único): seguimos.
+        if ((e as { code?: string })?.code === 'P2002') { existentes++; continue; }
+        throw e;
+      }
     }
   }
   if (alertas > 0) logger.info(`Elusión: tenant ${tenantId} → ${alertas} alerta(s) nueva(s)`, { action: 'elusion_alertas', tenantId, metadata: { cruces, alertas, existentes } });

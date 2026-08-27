@@ -299,18 +299,24 @@ export async function procesarVencimientosCertificados(tenantId: string, ahora =
     const titulo = vencido
       ? `Certificado de origen vencido: ${c.proveedorNombre}`
       : `Certificado de origen de ${c.proveedorNombre} vence en ${dias} día${dias === 1 ? '' : 's'}`;
-    await prisma.alert.create({
-      data: {
-        tenantId, clienteId: c.clienteId, channel: 'IN_APP', type: TIPO_ALERTA_CERT,
-        severity: severidadPorImpacto({ tipo: TIPO_ALERTA_CERT, impactoMXN: null, diasParaVencer: dias }),
-        title: titulo,
-        content: `Certificación ${c.tratado} del proveedor ${c.proveedorNombre} (${c.proveedorPais})${c.fractionCode ? ` para la fracción ${c.fractionCode}` : ''}: vigencia hasta ${c.vigenciaHasta!.toISOString().slice(0, 10)}. Sin certificación vigente no procede el trato arancelario preferencial en las importaciones posteriores; solicita la renovación.`,
-        actionRequired: vencido ? 'Solicitar certificación renovada al proveedor' : 'Solicitar renovación antes del vencimiento',
-        suggestedAction: accionVerCertificadoProveedor(c.id) as unknown as object,
-        affectedFraction: c.fractionCode, dueDate: c.vigenciaHasta, daysToDue: dias, impactType: 'risk', fingerprint,
-      },
-    });
-    alertas++;
+    try {
+      await prisma.alert.create({
+        data: {
+          tenantId, clienteId: c.clienteId, channel: 'IN_APP', type: TIPO_ALERTA_CERT,
+          severity: severidadPorImpacto({ tipo: TIPO_ALERTA_CERT, impactoMXN: null, diasParaVencer: dias }),
+          title: titulo,
+          content: `Certificación ${c.tratado} del proveedor ${c.proveedorNombre} (${c.proveedorPais})${c.fractionCode ? ` para la fracción ${c.fractionCode}` : ''}: vigencia hasta ${c.vigenciaHasta!.toISOString().slice(0, 10)}. Sin certificación vigente no procede el trato arancelario preferencial en las importaciones posteriores; solicita la renovación.`,
+          actionRequired: vencido ? 'Solicitar certificación renovada al proveedor' : 'Solicitar renovación antes del vencimiento',
+          suggestedAction: accionVerCertificadoProveedor(c.id) as unknown as object,
+          affectedFraction: c.fractionCode, dueDate: c.vigenciaHasta, daysToDue: dias, impactType: 'risk', fingerprint,
+        },
+      });
+      alertas++;
+    } catch (e) {
+      // P2002 = otra réplica creó la misma alerta (fingerprint único): no es error, seguimos con la siguiente fila.
+      if ((e as { code?: string })?.code === 'P2002') continue;
+      throw e;
+    }
   }
   return { vencidos, alertas };
 }
