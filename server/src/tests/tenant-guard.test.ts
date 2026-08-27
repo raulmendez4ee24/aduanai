@@ -31,6 +31,14 @@ prueba('where con tenantId directo → protegido', () => {
 });
 prueba('where sin tenantId → desprotegido', () => {
   assert.ok(!whereTieneTenant({ id: 'x' }));
+  // Selectores únicos compuestos de Prisma (findUnique/upsert): el tenant va
+  // ANIDADO bajo la clave compuesta — sí acotan (falso positivo prod 27-ago:
+  // TenantRole tenantId_code ×8 al arrancar).
+  assert.ok(whereTieneTenant({ tenantId_code: { tenantId: 't1', code: 'TENANT_ADMIN' } }));
+  assert.ok(whereTieneTenant({ userId_tenantId_roleId: { userId: 'u', tenantId: 't1', roleId: 'r' } }));
+  assert.ok(whereTieneTenant({ tenantId_consultHash: { tenantId: 't1', consultHash: 'h' } }));
+  assert.ok(!whereTieneTenant({ tenantId_code: { tenantId: null, code: 'X' } }));
+  assert.ok(!whereTieneTenant({ userId_code: { userId: 'u', code: 'X' } }));
   assert.ok(!whereTieneTenant({}));
   assert.ok(!whereTieneTenant(undefined));
 });

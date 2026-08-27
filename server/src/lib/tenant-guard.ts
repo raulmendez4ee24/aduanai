@@ -64,6 +64,14 @@ export function whereTieneTenant(where: unknown): boolean {
     if (Array.isArray(v) && v.some(whereTieneTenant)) return true;
     if (v && typeof v === 'object' && whereTieneTenant(v)) return true;
   }
+  // Selectores únicos compuestos de Prisma (`tenantId_code: { tenantId, code }`,
+  // `userId_tenantId_roleId: {...}`): la clave del @@unique lleva `tenantId`
+  // como componente y el valor anidado trae el tenant real. Acotan igual que
+  // un tenantId de primer nivel (falso positivo en prod 27-ago-2026).
+  for (const [clave, v] of Object.entries(w)) {
+    if (!clave.split('_').includes('tenantId')) continue;
+    if (v && typeof v === 'object' && (v as Record<string, unknown>).tenantId != null) return true;
+  }
   return false;
 }
 
