@@ -7,6 +7,7 @@
  * pedimento-partida (idempotente por `pedimentoPartidaId`), resuelve la parte
  * (`Product`) y decide tipo/plazo según clave del pedimento y certificación.
  */
+import type { Prisma } from '@prisma/client';
 import { prisma } from '../lib/prisma';
 import { AppError } from '../middlewares/error';
 import { recordAudit } from './audit-service';
@@ -63,14 +64,16 @@ export async function certificacionAplicable(tenantId: string, clienteId: string
   return null;
 }
 
-async function resolverParte(tenantId: string, partida: { productId: string | null; descripcion: string }): Promise<string | null> {
+type Db = Prisma.TransactionClient | typeof prisma;
+
+async function resolverParte(db: Db, tenantId: string, partida: { productId: string | null; descripcion: string }): Promise<string | null> {
   if (partida.productId) {
-    const p = await prisma.product.findFirst({ where: { id: partida.productId, tenantId }, select: { id: true } });
+    const p = await db.product.findFirst({ where: { id: partida.productId, tenantId }, select: { id: true } });
     if (p) return p.id;
   }
   const desc = partida.descripcion.trim();
   if (!desc) return null;
-  const p = await prisma.product.findFirst({
+  const p = await db.product.findFirst({
     where: {
       tenantId,
       active: true,
@@ -101,7 +104,6 @@ export async function altaDesdePedimento(input: AltaDesdePedimentoInput): Promis
     throw new AppError('El pedimento persistido no trae fecha de entrada; indique fechaEntrada (fecha de pago/modulación)', 400);
   }
   const fechaEntrada = input.fechaEntrada;
-  await assertPeriodoAbierto(prisma, input.tenantId, fechaEntrada, 'dar de alta importaciones');
 
   if (input.ubicacionId) {
     const u = await prisma.ubicacion.findFirst({ where: { id: input.ubicacionId, tenantId: input.tenantId }, select: { id: true } });
@@ -117,53 +119,63 @@ export async function altaDesdePedimento(input: AltaDesdePedimentoInput): Promis
   const tc = ped.tipoCambio > 0 ? ped.tipoCambio : null;
   if (!tc) avisos.push('El pedimento no trae tipo de cambio: el valor en USD se dejó igual al valor en aduana (MXN). Corrija el TC.');
 
-  const existentesPrev = await prisma.temporaryImport.findMany({
-    where: { tenantId: input.tenantId, pedimentoPartidaId: { in: ped.partidas.map(p => p.id) } },
-    select: { id: true, pedimentoPartidaId: true },
-  });
-  const yaAltas = new Map(existentesPrev.map(e => [e.pedimentoPartidaId!, e.id]));
+  // Atómico e idempotente: todas las partidas en UNA transacción, serializada
+  // por pedimento con un advisory lock (no hay unique en pedimentoPartidaId):
+  // dos altas concurrentes del mismo pedimento se ejecutan una tras otra y la
+  // segunda ve las filas de la primera. Si una partida falla, no queda ninguna.
+  const { ids, creadas, sinParte } = await prisma.$transaction(async (tx) => {
+    await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${ped.id}))`;
+    await assertPeriodoAbierto(tx, input.tenantId, fechaEntrada, 'dar de alta importaciones');
 
-  const ids: string[] = [];
-  let creadas = 0;
-  let sinParte = 0;
-  for (const partida of ped.partidas) {
-    const previo = yaAltas.get(partida.id);
-    if (previo) { ids.push(previo); continue; }
-    const productId = await resolverParte(input.tenantId, partida);
-    if (!productId) sinParte++;
-    const valueMXN = partida.valorAduana;
-    const customsValue = tc ? valueMXN / tc : valueMXN;
-    const imp = await prisma.temporaryImport.create({
-      data: {
-        pedimento: ped.numero ?? `${ped.aduana}-${ped.patenteAduanal}-s/n`,
-        fractionCode: partida.fraccion,
-        description: partida.descripcion,
-        quantity: partida.cantidad,
-        unit: partida.unidadMedida,
-        customsValue: aDosDecimales(customsValue),
-        valueMXN,
-        originCountry: partida.pais,
-        entryDate: fechaEntrada,
-        expirationDate: vencimiento,
-        expirationMonths: plazo.meses ?? 0,
-        status: 'ACTIVE',
-        notes: plazo.aviso ? `[plazo] ${plazo.aviso}` : null,
-        tenantId: input.tenantId,
-        userId: input.userId,
-        clienteId,
-        pedimentoPartidaId: partida.id,
-        productId,
-        tipo,
-        claveDocumento: clave,
-        vidaUtilMeses: tipo === 'ACTIVO_FIJO' ? (input.vidaUtilMeses ?? null) : null,
-        ubicacionId: input.ubicacionId ?? null,
-        isDemoData: ped.isDemoData,
-      },
-      select: { id: true },
+    const existentesPrev = await tx.temporaryImport.findMany({
+      where: { tenantId: input.tenantId, pedimentoPartidaId: { in: ped.partidas.map(p => p.id) } },
+      select: { id: true, pedimentoPartidaId: true },
     });
-    ids.push(imp.id);
-    creadas++;
-  }
+    const yaAltas = new Map(existentesPrev.map(e => [e.pedimentoPartidaId!, e.id]));
+
+    const ids: string[] = [];
+    let creadas = 0;
+    let sinParte = 0;
+    for (const partida of ped.partidas) {
+      const previo = yaAltas.get(partida.id);
+      if (previo) { ids.push(previo); continue; }
+      const productId = await resolverParte(tx, input.tenantId, partida);
+      if (!productId) sinParte++;
+      const valueMXN = partida.valorAduana;
+      const customsValue = tc ? valueMXN / tc : valueMXN;
+      const imp = await tx.temporaryImport.create({
+        data: {
+          pedimento: ped.numero ?? `${ped.aduana}-${ped.patenteAduanal}-s/n`,
+          fractionCode: partida.fraccion,
+          description: partida.descripcion,
+          quantity: partida.cantidad,
+          unit: partida.unidadMedida,
+          customsValue: aDosDecimales(customsValue),
+          valueMXN,
+          originCountry: partida.pais,
+          entryDate: fechaEntrada,
+          expirationDate: vencimiento,
+          expirationMonths: plazo.meses ?? 0,
+          status: 'ACTIVE',
+          notes: plazo.aviso ? `[plazo] ${plazo.aviso}` : null,
+          tenantId: input.tenantId,
+          userId: input.userId,
+          clienteId,
+          pedimentoPartidaId: partida.id,
+          productId,
+          tipo,
+          claveDocumento: clave,
+          vidaUtilMeses: tipo === 'ACTIVO_FIJO' ? (input.vidaUtilMeses ?? null) : null,
+          ubicacionId: input.ubicacionId ?? null,
+          isDemoData: ped.isDemoData,
+        },
+        select: { id: true },
+      });
+      ids.push(imp.id);
+      creadas++;
+    }
+    return { ids, creadas, sinParte };
+  }, { maxWait: 10_000, timeout: 30_000 });
   if (sinParte > 0) avisos.push(`${sinParte} partida(s) sin número de parte en el catálogo: el control queda por fracción hasta que se ligue la parte.`);
 
   if (creadas > 0) {

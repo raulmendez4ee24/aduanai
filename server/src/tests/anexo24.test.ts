@@ -299,6 +299,27 @@ async function db() {
       assert.equal(r.creadas, 0); assert.equal(r.existentes, 2);
       assert.equal(await prisma.temporaryImport.count({ where: { tenantId: tA.id, pedimentoPartidaId: { not: null } } }), 2);
     });
+    await prueba('atómica e idempotente bajo concurrencia: dos altas simultáneas del mismo pedimento → 2 lotes en total (no 4)', async () => {
+      const ped2 = await prisma.pedimento.create({ data: {
+        numero: `26 47 3461 ${nonce.slice(-6)}9`, clave: 'IN', aduana: '470', patenteAduanal: '3461', rfcImportador: 'XAXX010101000',
+        tipoOperacion: 'IMP', regimen: 'ITE', pesoBruto: 1, pesoNeto: 1, bultos: 1, valorAduana: 200, valorComercial: 200, valorDolares: 10, tipoCambio: 20,
+        incoterm: 'FOB', transporte: 'Terrestre', tenantId: tA.id, userId: uA.id, origenArchivo: 'M3', isDemoData: true,
+        partidas: { create: [
+          { numeroPartida: 1, fraccion: '73181599', descripcion: 'Perno', cantidad: 10, unidadMedida: 'pza', valorUnitario: 10, valorAduana: 100, pais: 'USA' },
+          { numeroPartida: 2, fraccion: '72104999', descripcion: 'Placa', cantidad: 5, unidadMedida: 'kg', valorUnitario: 20, valorAduana: 100, pais: 'USA' },
+        ] },
+      } });
+      const fechaEntrada = new Date('2026-08-06T00:00:00Z');
+      const [r1, r2] = await Promise.all([
+        altaDesdePedimento({ tenantId: tA.id, userId: uA.id, pedimentoId: ped2.id, fechaEntrada }),
+        altaDesdePedimento({ tenantId: tA.id, userId: uA.id, pedimentoId: ped2.id, fechaEntrada }),
+      ]);
+      assert.equal(r1.creadas + r2.creadas, 2, `creadas ${r1.creadas}+${r2.creadas}`);
+      assert.equal(r1.existentes + r2.existentes, 2);
+      assert.deepEqual([...r1.temporaryImportIds].sort(), [...r2.temporaryImportIds].sort(), 'ambas llamadas devuelven los mismos lotes');
+      const partidaIds = (await prisma.pedimentoPartida.findMany({ where: { pedimentoId: ped2.id }, select: { id: true } })).map(p => p.id);
+      assert.equal(await prisma.temporaryImport.count({ where: { tenantId: tA.id, pedimentoPartidaId: { in: partidaIds } } }), 2);
+    });
     await prueba('alta con fecha en periodo cerrado → 409; pedimento de otro tenant → 404', async () => {
       await esperaAppError(() => altaDesdePedimento({ tenantId: tA.id, userId: uA.id, pedimentoId: ped.id, fechaEntrada: new Date('2026-06-01T00:00:00Z') }), 409, /cerrado/);
       await esperaAppError(() => altaDesdePedimento({ tenantId: tB.id, userId: uB.id, pedimentoId: ped.id, fechaEntrada: new Date('2026-08-05T00:00:00Z') }), 404);
