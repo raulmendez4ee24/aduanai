@@ -1356,6 +1356,11 @@ export const api = {
 
   /** Radar de un lote YA persistido (GET /pedimentos/radar/:loteId) — misma
    *  unión ok/error que pedimentosRadar; 404 = lote inexistente o ajeno. */
+  /** Gating del módulo beta: si el server lo tiene apagado (PEDIMENTO_READER_ENABLED),
+   *  el cliente oculta la entrada de nav/palette. Fail-closed: error ⇒ oculto. */
+  pedimentosRadarEstado: () =>
+    request<{ status: string; data: { habilitado: boolean } }>('/pedimentos/radar/estado'),
+
   pedimentosRadarLote: async (loteId: string): Promise<RadarResultado> => {
     const token = localStorage.getItem('aduanai_token');
     try {

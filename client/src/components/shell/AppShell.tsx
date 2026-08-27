@@ -17,7 +17,8 @@ import { ToastHost } from '../Toast'
 import { PilotBanner } from '../PilotBanner'
 import { DemoBanner } from '../DemoBanner'
 import { CommandPalette } from './CommandPalette'
-import { NAV_PRINCIPAL, NAV_HERRAMIENTAS, NAV_ADMIN, labelDeRuta, type NavItem } from './nav'
+import { NAV_PRINCIPAL, NAV_HERRAMIENTAS, NAV_ADMIN, labelDeRuta, filtrarPorFlags, type NavItem } from './nav'
+import { useRadarHabilitado } from '../../hooks/useRadarHabilitado'
 
 // ── Acciones contextuales del topbar ─────────────────────────────────────
 // Las páginas (cuando migren) publican sus acciones con useShellActions(<botones/>).
@@ -96,6 +97,8 @@ export function AppShell({ onLogout, userRole, userName, userEmail, tenantName }
   const [acciones, setAcciones] = useState<ReactNode>(null)
   const drawerRef = useRef<HTMLDivElement>(null)
   const esSuperAdmin = userRole === 'SUPERADMIN'
+  const radarHabilitado = useRadarHabilitado()
+  const herramientas = useMemo(() => filtrarPorFlags(NAV_HERRAMIENTAS, { radar: radarHabilitado }), [radarHabilitado])
 
   // Cmd+K / Ctrl+K abre el palette; Escape cierra drawer y palette.
   useEffect(() => {
@@ -147,7 +150,7 @@ export function AppShell({ onLogout, userRole, userName, userEmail, tenantName }
 
       {/* Resto de herramientas + admin (colapsables; nada huérfano) */}
       <div className="mt-4 flex-1 overflow-y-auto border-t border-linea pt-2" aria-label="Más herramientas">
-        <GrupoColapsable titulo="Más herramientas" items={NAV_HERRAMIENTAS} onNavegar={() => setDrawerAbierto(false)} />
+        <GrupoColapsable titulo="Más herramientas" items={herramientas} onNavegar={() => setDrawerAbierto(false)} />
         {esSuperAdmin && (
           <GrupoColapsable titulo="Administración" items={NAV_ADMIN} onNavegar={() => setDrawerAbierto(false)} />
         )}

@@ -100,16 +100,28 @@ export function labelDeRuta(pathname: string): string {
 }
 
 /** Ítems del palette: usuario + (si aplica) admin. */
-export function rutasParaPalette(esSuperAdmin: boolean): NavItem[] {
+/** Entradas gateadas por flag del server: se ocultan hasta confirmar `true`. */
+const RUTAS_GATEADAS: Record<string, 'radar'> = { '/radar': 'radar' }
+
+export interface FlagsNav { radar: boolean | null }
+
+export function filtrarPorFlags(items: NavItem[], flags: FlagsNav): NavItem[] {
+  return items.filter(i => {
+    const flag = RUTAS_GATEADAS[i.path]
+    return !flag || flags[flag] === true
+  })
+}
+
+export function rutasParaPalette(esSuperAdmin: boolean, flags: FlagsNav = { radar: true }): NavItem[] {
   const settingsExtras: NavItem[] = [
     { label: 'Configuración · Empresa', path: '/settings/empresa', icono: Building2 },
     { label: 'Configuración · Usuarios y roles', path: '/settings/users', icono: Users },
     { label: 'Configuración · Padrones', path: '/settings/padrones', icono: ListChecks },
   ]
-  return [
+  return filtrarPorFlags([
     ...NAV_PRINCIPAL,
     ...NAV_HERRAMIENTAS,
     ...settingsExtras,
     ...(esSuperAdmin ? NAV_ADMIN : []),
-  ]
+  ], flags)
 }

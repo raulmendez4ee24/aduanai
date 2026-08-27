@@ -10,6 +10,7 @@ import { useNavigate } from 'react-router-dom'
 import { Search, CornerDownLeft } from 'lucide-react'
 import { api, type FractionSearchResult } from '../../lib/api'
 import { rutasParaPalette, type NavItem } from './nav'
+import { useRadarHabilitado } from '../../hooks/useRadarHabilitado'
 
 interface CommandPaletteProps {
   abierto: boolean
@@ -30,7 +31,8 @@ export function CommandPalette({ abierto, onCerrar, esSuperAdmin }: CommandPalet
   const inputRef = useRef<HTMLInputElement>(null)
   const listaRef = useRef<HTMLUListElement>(null)
 
-  const rutas = useMemo(() => rutasParaPalette(esSuperAdmin), [esSuperAdmin])
+  const radar = useRadarHabilitado()
+  const rutas = useMemo(() => rutasParaPalette(esSuperAdmin, { radar }), [esSuperAdmin, radar])
 
   // Reset al abrir + autofocus
   useEffect(() => {

@@ -266,6 +266,12 @@ router.post('/radar', async (req: AuthRequest, res: Response) => {
  * Solo el tenant dueño ve su lote (404 para cualquier otro: no se revela
  * existencia). Lotes anteriores a la Fase A (sin loteId) no son direccionables.
  */
+/** Estado del módulo para el cliente (gating de nav/palette): el único dato es
+ *  si el beta está habilitado en este entorno. Va ANTES de /radar/:loteId. */
+router.get('/radar/estado', async (_req: AuthRequest, res: Response) => {
+  res.json({ status: 'ok', data: { habilitado: readerHabilitado() } });
+});
+
 router.get('/radar/:loteId', async (req: AuthRequest, res: Response) => {
   if (!readerHabilitado()) return res.status(403).json({ status: 'error', message: 'Lector de pedimentos deshabilitado (beta — PEDIMENTO_READER_ENABLED)' });
   const loteId = String(req.params.loteId ?? '');
