@@ -28,6 +28,9 @@ import {
   type Semaforo,
 } from '../services/clasificacion-lote';
 import { subpartidasHermanas } from '../services/subpartidas-hermanas';
+import { sinGuardaDeTenant } from '../lib/tenant-guard';
+import { enAlcance, filtroCliente } from '../lib/cliente-contexto';
+import type { Request } from 'express';
 
 let passed = 0;
 let failed = 0;
@@ -55,7 +58,8 @@ function runnerFalso(porDescripcion: (desc: string) => { payload?: Record<string
     pausaEntreFilasMs: 0,
     correrJob: async (jobId: string) => {
       deps.llamadas++;
-      const job = await prisma.classificationJob.findFirst({ where: { id: jobId }, select: { inputs: true, tenantId: true, userId: true } });
+      // El runner real también lee el job por id (cruce legítimo del worker).
+      const job = await sinGuardaDeTenant(() => prisma.classificationJob.findFirst({ where: { id: jobId }, select: { inputs: true, tenantId: true, userId: true } }));
       assert.ok(job, 'el job debe existir cuando corre el runner');
       const desc = (job!.inputs as { description: string }).description;
       const r = porDescripcion(desc);
@@ -247,6 +251,39 @@ async function main() {
       assert.equal(depsFalla.llamadas, MAX_FALLAS_CONSECUTIVAS);
       assert.equal(lote?.rojas, 6);
       assert.equal(lote?.filas.filter(f => /detenido/.test(f.error ?? '')).length, 6 - MAX_FALLAS_CONSECUTIVAS);
+    });
+
+    await test('procesarLote termina el lote con TENANT_GUARD_STRICT=1 (worker por id: bypass explícito, resto acotado)', async () => {
+      const previo = process.env.TENANT_GUARD_STRICT;
+      process.env.TENANT_GUARD_STRICT = '1';
+      try {
+        const d = runnerFalso(() => ({ payload: { fraction: { code: '7318.15.99' }, confidence: 95, alerts: [] } }));
+        const r = await importarLote({ tenantId: tenant.id, userId: user.id, nombreArchivo: 'estricto.xlsx', base64: xlsxBase64([['descripcion'], ['Tornillo de acero inoxidable M8 cabeza hexagonal']]), arrancar: false });
+        await procesarLote(r.id, d);
+        const lote = await prisma.classificationBatch.findFirst({ where: { id: r.id, tenantId: tenant.id }, include: { filas: true } });
+        assert.equal(lote?.status, 'done', `bajo guard estricto el lote debe terminar (status=${lote?.status}, error=${lote?.errorMsg})`);
+        assert.equal(lote?.procesadas, 1);
+        assert.equal(lote?.filas[0]?.semaforo, 'verde');
+      } finally {
+        if (previo === undefined) delete process.env.TENANT_GUARD_STRICT; else process.env.TENANT_GUARD_STRICT = previo;
+      }
+    });
+
+    await test('alcance por cliente: un usuario restringido al cliente A no ve el lote del cliente B (enAlcance) y el listado filtra por IN', async () => {
+      const cA = await prisma.cliente.create({ data: { tenantId: tenant.id, rfc: `LOA${nonce.toUpperCase().slice(0, 9)}`, razonSocial: 'Cliente A' } });
+      const cB = await prisma.cliente.create({ data: { tenantId: tenant.id, rfc: `LOB${nonce.toUpperCase().slice(0, 9)}`, razonSocial: 'Cliente B' } });
+      const b64 = xlsxBase64([['descripcion'], ['Válvula de bronce para agua potable']]);
+      const lA = await importarLote({ tenantId: tenant.id, userId: user.id, clienteId: cA.id, nombreArchivo: 'a.xlsx', base64: b64, arrancar: false });
+      const lB = await importarLote({ tenantId: tenant.id, userId: user.id, clienteId: cB.id, nombreArchivo: 'b.xlsx', base64: b64, arrancar: false });
+      const req = { headers: {}, query: {}, clienteIdsPermitidos: [cA.id] } as unknown as Request;
+      const filaA = await prisma.classificationBatch.findFirst({ where: { id: lA.id, tenantId: tenant.id }, select: { clienteId: true } });
+      const filaB = await prisma.classificationBatch.findFirst({ where: { id: lB.id, tenantId: tenant.id }, select: { clienteId: true } });
+      assert.equal(filaB?.clienteId, cB.id);
+      assert.equal(enAlcance(req, filaA?.clienteId), true);
+      assert.equal(enAlcance(req, filaB?.clienteId), false, 'el lote del cliente B queda fuera del alcance (la ruta responde 404)');
+      const visibles = await prisma.classificationBatch.findMany({ where: { tenantId: tenant.id, ...filtroCliente(req) }, select: { id: true } });
+      assert.ok(visibles.some(l => l.id === lA.id) && !visibles.some(l => l.id === lB.id), 'el listado con filtroCliente solo trae lotes del cliente A');
+      await prisma.cliente.deleteMany({ where: { id: { in: [cA.id, cB.id] } } });
     });
 
     await test('más de 500 filas → 400', async () => {

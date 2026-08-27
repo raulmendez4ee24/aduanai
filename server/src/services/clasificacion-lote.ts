@@ -425,10 +425,15 @@ interface PayloadJob {
  * procesadas (con semáforo) — permite reanudar tras un reinicio.
  */
 export async function procesarLote(batchId: string, deps: DependenciasLote = DEPENDENCIAS_REALES): Promise<void> {
-  const batch = await prisma.classificationBatch.findFirst({
+  // Worker de fondo: llega solo el id (importarLote lo encola; reanudarLotesInterrumpidos
+  // lo levanta al arrancar). La primera lectura resuelve el tenant y desde ahí TODO va
+  // acotado por batch.tenantId. Sin este bypass explícito, TENANT_GUARD_STRICT=1 (prod)
+  // tumbaba cada lote antes de procesar una sola fila.
+  const { sinGuardaDeTenant } = await import('../lib/tenant-guard');
+  const batch = await sinGuardaDeTenant(() => prisma.classificationBatch.findFirst({
     where: { id: batchId },
     select: { id: true, tenantId: true, userId: true, clienteId: true, status: true },
-  });
+  }));
   if (!batch) return;
   if (batch.status === 'done' || batch.status === 'failed') return;
 

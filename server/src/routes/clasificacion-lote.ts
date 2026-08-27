@@ -16,7 +16,7 @@ import { Router } from 'express';
 import { authenticate, AuthRequest } from '../middlewares/auth';
 import { requirePermission } from '../middlewares/requirePermission';
 import { prisma } from '../lib/prisma';
-import { clienteIdDe, filtroCliente, validarClienteDelTenant } from '../lib/cliente-contexto';
+import { clienteIdDe, enAlcance, filtroCliente, validarClienteDelTenant } from '../lib/cliente-contexto';
 import { getUserPermissions, hasPermission } from './../services/permissions';
 import {
   importarLote, exportarLoteXlsx, generarPlantillaXlsx, ErrorLote, limpiarFraccion,
@@ -85,7 +85,7 @@ clasificacionLoteRouter.get('/:id', requirePermission('classifier', 'view'), asy
         status: true, errorMsg: true, createdAt: true, startedAt: true, finishedAt: true, clienteId: true, userId: true,
       },
     });
-    if (!lote) return res.status(404).json({ status: 'error', message: 'Lote no encontrado.' });
+    if (!lote || !enAlcance(req, lote.clienteId)) return res.status(404).json({ status: 'error', message: 'Lote no encontrado.' });
     res.json({ status: 'ok', data: { ...lote, pendientes: lote.totalFilas - lote.procesadas } });
   } catch (err) { next(err); }
 });
@@ -93,8 +93,8 @@ clasificacionLoteRouter.get('/:id', requirePermission('classifier', 'view'), asy
 // GET /:id/filas?semaforo=
 clasificacionLoteRouter.get('/:id/filas', requirePermission('classifier', 'view'), async (req: AuthRequest, res, next) => {
   try {
-    const lote = await prisma.classificationBatch.findFirst({ where: { id: String(req.params.id), tenantId: req.tenantId! }, select: { id: true } });
-    if (!lote) return res.status(404).json({ status: 'error', message: 'Lote no encontrado.' });
+    const lote = await prisma.classificationBatch.findFirst({ where: { id: String(req.params.id), tenantId: req.tenantId! }, select: { id: true, clienteId: true } });
+    if (!lote || !enAlcance(req, lote.clienteId)) return res.status(404).json({ status: 'error', message: 'Lote no encontrado.' });
     const semaforo = typeof req.query.semaforo === 'string' ? req.query.semaforo : '';
     if (semaforo && !(SEMAFOROS as readonly string[]).includes(semaforo)) {
       return res.status(400).json({ status: 'error', message: `semaforo debe ser uno de: ${SEMAFOROS.join(', ')}` });
@@ -114,6 +114,8 @@ clasificacionLoteRouter.get('/:id/filas', requirePermission('classifier', 'view'
 // GET /:id/export.xlsx
 clasificacionLoteRouter.get('/:id/export.xlsx', requirePermission('classifier', 'view'), async (req: AuthRequest, res, next) => {
   try {
+    const lote = await prisma.classificationBatch.findFirst({ where: { id: String(req.params.id), tenantId: req.tenantId! }, select: { clienteId: true } });
+    if (!lote || !enAlcance(req, lote.clienteId)) return res.status(404).json({ status: 'error', message: 'Lote no encontrado.' });
     const r = await exportarLoteXlsx(req.tenantId!, String(req.params.id));
     if (!r) return res.status(404).json({ status: 'error', message: 'Lote no encontrado.' });
     res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
