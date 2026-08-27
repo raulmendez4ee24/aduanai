@@ -13,7 +13,9 @@ try {
 }
 
 import express from 'express';
+import { esOrigenPermitido, parsearOrigenesPermitidos } from './lib/cors-origin';
 import cors from 'cors';
+import { AppError } from './middlewares/error';
 import helmet from 'helmet';
 import morgan from 'morgan';
 import path from 'path';
@@ -107,21 +109,21 @@ const publicPath = path.join(__dirname, '..', 'public');
 app.use(express.static(publicPath));
 
 // ── CORS (API only) ──
-const allowedOrigins = [
-  'http://localhost:5173',
-  'http://localhost:5174',
-  ...(process.env.CLIENT_URL ? process.env.CLIENT_URL.split(',').map(u => u.trim()) : []),
-];
-app.use('/api', cors({
-  origin(origin, callback) {
-    if (!origin || allowedOrigins.includes(origin)) {
-      callback(null, true);
-    } else {
-      callback(new Error(`Origin ${origin} no permitido por CORS`));
-    }
-  },
-  credentials: true,
-}));
+// Same-origin (Origin.host === Host) siempre pasa: el servidor sirve el cliente
+// y el servicio responde por varios dominios. CLIENT_URL solo para cross-origin.
+const allowedOrigins = parsearOrigenesPermitidos(process.env.CLIENT_URL);
+app.use('/api', (req, res, next) => {
+  cors({
+    origin(origin, callback) {
+      if (esOrigenPermitido(origin, req.headers.host, allowedOrigins, req.protocol)) {
+        callback(null, true);
+      } else {
+        callback(new AppError(`Origin ${origin} no permitido por CORS`, 403));
+      }
+    },
+    credentials: true,
+  })(req, res, next);
+});
 
 // ── Body size limits — default 5MB; rutas que reciben docs en base64 traen su propio limit upstream ──
 app.use((req, res, next) => {
