@@ -6,7 +6,7 @@ import { AppError } from '../middlewares/error';
 import { resolverIEPS, type IEPSResuelto } from './cotizador-ieps';
 import { resolverCuotaAutomatica, type CuotaAutomatica } from './cotizador-cuotas';
 import { resolverDTAConCorpus } from './cotizador-dta';
-import type { DTAResuelto, TipoOperacionDTA } from '../lib/dta';
+import { entradaDTA, type DTAResuelto, type TipoOperacionDTA } from '../lib/dta';
 
 // ──────────────────────────────────────────────────────────────────────────
 // Pure quote calculation (testeable, sin DB ni red)
@@ -353,6 +353,14 @@ export async function calculateQuote(input: QuoteInput): Promise<QuoteResult> {
     effectiveRate: exchangeRate,
   });
 
+  // #19: último párrafo Art. 49 LFD — si el DTA al millar (fracc. I y II) es
+  // menor a la cuota fija de la fracc. III, se paga esta última. Mismo criterio
+  // que quoter-multi (antes la cotización simple AF IMMEX omitía el mínimo).
+  const cuotaMinimaDTA = entradaDTA('temporal_immex').valor;
+  const dtaMillar = round2(customsValue * exchangeRate * dtaInfo.dtaPct / 100);
+  const aplicaMinimoDTA = dtaInfo.base === 'millar' && (dtaInfo.tipo === 'general' || dtaInfo.tipo === 'activo_fijo_immex') && dtaMillar < cuotaMinimaDTA;
+  const dtaFijoMXN = dtaInfo.base === 'fija' ? dtaInfo.montoFijoMXN : aplicaMinimoDTA ? cuotaMinimaDTA : undefined;
+
   // Cálculo puro (incluye cuota compensatoria si aplica)
   const amounts = computeQuoteAmounts({
     valueUSD: customsValue,
@@ -360,7 +368,7 @@ export async function calculateQuote(input: QuoteInput): Promise<QuoteResult> {
     rates: {
       igiPct: igiRate,
       dtaPct: dtaInfo.dtaPct,
-      dtaAbsoluteMXN: dtaInfo.base === 'fija' ? dtaInfo.montoFijoMXN : undefined,
+      dtaAbsoluteMXN: dtaFijoMXN,
       iepsPct: iepsRate,
       iepsAbsoluteMXN: iepsInfo.montoEspecificoMXN > 0 ? iepsInfo.montoEspecificoMXN : undefined,
       countervailingPct: cuota.cvPct,
@@ -376,6 +384,7 @@ export async function calculateQuote(input: QuoteInput): Promise<QuoteResult> {
     if (!pref.available && pref.note && !alertas.includes(pref.note)) alertas.push(pref.note);
   }
   if (dtaInfo.aviso) alertas.push(dtaInfo.aviso);
+  if (aplicaMinimoDTA) alertas.push(`DTA: el ${dtaInfo.etiqueta} al millar ($${dtaMillar.toFixed(2)}) es menor a la cuota mínima de la fracc. III ($${cuotaMinimaDTA.toFixed(2)}); se aplica esta última (Art. 49 LFD, último párrafo).`);
   if (iepsInfo.aplica) alertas.push(iepsInfo.nota);
   for (const a of cuotaAuto?.advertencias ?? []) if (!alertas.includes(a)) alertas.push(a);
   if (cuota.cvNeedsWeight && antidumpingAplicable) {

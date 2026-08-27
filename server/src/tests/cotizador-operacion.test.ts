@@ -272,6 +272,45 @@ async function parteDB(): Promise<void> {
       assert.equal(capa('/exchange-rate/seed-history'), capa('/exchange-rate/current') + 1);
       assert.equal(capa('/exchange-rate/refresh'), capa('/exchange-rate/current') + 1);
     });
+    await prueba('#18 duplicar v1 con cadena v1→v2→v3 existente crea v4 (máximo sobre TODA la cadena, no otra "v3")', async () => {
+      const antes = (await obtenerCotizacion(tA, q1.id)).versiones.map(v => v.version);
+      assert.deepEqual(antes, [1, 2, 3]);
+      const v4 = await duplicarCotizacion(tA, q1.id, uA, { puedeAprobar: true, nombre: 'rama desde v1' });
+      assert.equal(v4.version, 4); assert.equal(v4.parentQuoteId, q1.id);
+      // Duplicar la v4 (hoja profunda de otra rama) desde la v2 → v5.
+      const v5 = await duplicarCotizacion(tA, (await obtenerCotizacion(tA, q1.id)).versiones.find(v => v.version === 2)!.id, uA, { puedeAprobar: true });
+      assert.equal(v5.version, 5);
+      const versiones = (await obtenerCotizacion(tA, q1.id)).versiones.map(v => v.version);
+      assert.deepEqual(versiones, [1, 2, 3, 4, 5], 'sin versiones repetidas en la cadena');
+    });
+    await prueba('#17 vigentes + cliente: AND de ORs — las vigentes de OTRO cliente no entran; la vencida del cliente pedido tampoco', async () => {
+      await prisma.quote.update({ where: { id: q2.id }, data: { vigenciaHasta: new Date('2020-01-01') } });
+      try {
+        const dos = await listarCotizaciones(tA, { cliente: 'Dos', vigentes: true });
+        assert.equal(dos.total, 0, 'la de "Dos" está vencida y las vigentes de "Uno" no deben colarse');
+        const uno = await listarCotizaciones(tA, { cliente: 'Uno', vigentes: true });
+        assert.ok(uno.total >= 1 && uno.filas.every(f => f.clienteId === c1.id), 'solo cotizaciones del cliente Uno');
+        const dosSinVigencia = await listarCotizaciones(tA, { cliente: 'Dos' });
+        assert.equal(dosSinVigencia.total, 1);
+        const vigentes = await listarCotizaciones(tA, { vigentes: true });
+        assert.ok(!vigentes.filas.some(f => f.id === q2.id));
+      } finally {
+        await prisma.quote.update({ where: { id: q2.id }, data: { vigenciaHasta: null } });
+      }
+    });
+    await prueba('#19 cotización simple AF IMMEX: DTA al millar menor a la cuota mínima fracc. III → se aplica $461.61 (como el multi)', async () => {
+      const { calculateQuote } = await import('../services/quoter');
+      const fx = await prisma.fraction.findFirst({ where: { code: '73181599', active: true, tariffNMF: { not: null } }, select: { code: true } });
+      if (!fx) { console.log('    (73181599 no está en el catálogo local: se omite)'); return; }
+      const chica = await calculateQuote({ fractionCode: '73181599', customsValue: 100000, origin: 'US', incoterm: 'CIF', currency: 'MXN', tipoOperacion: 'activo_fijo_immex' });
+      assert.equal(chica.breakdown.dta.amount, 461.61, `DTA 1.76 al millar de 100,000 = 176 < 461.61 → mínimo; got ${chica.breakdown.dta.amount}`);
+      assert.ok(chica.alertas.some(a => /cuota mínima de la fracc\. III/.test(a)));
+      const grande = await calculateQuote({ fractionCode: '73181599', customsValue: 1_000_000, origin: 'US', incoterm: 'CIF', currency: 'MXN', tipoOperacion: 'activo_fijo_immex' });
+      assert.equal(grande.breakdown.dta.amount, 1760);
+      assert.ok(!grande.alertas.some(a => /cuota mínima/.test(a)));
+      const general = await calculateQuote({ fractionCode: '73181599', customsValue: 10000, origin: 'US', incoterm: 'CIF', currency: 'MXN', tipoOperacion: 'general' });
+      assert.equal(general.breakdown.dta.amount, 461.61, '8 al millar de 10,000 = 80 < 461.61');
+    });
     await prueba('multi-tenant: B no ve ni duplica ni edita ni exporta cotizaciones de A', async () => {
       assert.equal((await listarCotizaciones(tB, {})).total, 1);
       await assert.rejects(obtenerCotizacion(tB, q1.id), /no encontrada/);

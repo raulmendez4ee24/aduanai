@@ -48,7 +48,8 @@ export function armarCuotaAutomatica(
   if (tasa.origen === 'exportador') {
     advertencias.push(`Cuota por exportador: ${tasa.empresa} → ${tasa.tasa} ${tasa.rateUnit} (${res}).`);
   } else if (tasa.origen === 'general') {
-    advertencias.push(opts.exportador
+    if (tasa.aviso) advertencias.push(tasa.aviso);
+    else advertencias.push(opts.exportador
       ? `Exportador "${opts.exportador}" no está en la lista de tasas por empresa de ${res}: se aplica la tasa general ${tasa.tasa} ${tasa.rateUnit}.`
       : `${res} trae tasas por exportador/productor: captura el exportador para aplicar la tasa específica; se aplica la general ${tasa.tasa} ${tasa.rateUnit}.`);
   }

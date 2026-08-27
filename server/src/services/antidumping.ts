@@ -87,11 +87,20 @@ export interface TasaResuelta {
    *  empresa no está (o no se dio nombre); general_sin_lista = la resolución
    *  no tiene tasas por empresa cargadas. */
   origen: 'exportador' | 'general' | 'general_sin_lista';
+  /** Aviso cuando el nombre engancha varias empresas o solo por fragmento
+   *  ambiguo: se aplicó la general para no atribuir la tasa de una ajena. */
+  aviso?: string;
 }
+
+const palabras = (s: string): number => s.split(' ').filter(Boolean).length;
 
 /** Elige la tasa por empresa cuando la resolución la tiene y el pedimento
  *  trae exportador; si no, la general — y lo dice. Match por nombre
- *  normalizado (igualdad o contención en ambos sentidos). */
+ *  normalizado: igualdad exacta, o inclusión (en cualquier sentido) cuando el
+ *  fragmento contenido tiene ≥2 palabras Y engancha UNA sola empresa. Un
+ *  fragmento de una palabra ("TIANJIN") o que coincida con varias filas NO
+ *  elige: se aplica la general con aviso (antes tomaba la primera fila que
+ *  lo contuviera → tasa de una empresa ajena en Cotizador y Pre-Glosa). */
 export function resolverTasaPorExportador(
   duty: { rate: number; rateUnit: string; exportadorTasas: ExportadorTasa[] | null; specificProducer: string | null },
   exportadorNombre?: string | null,
@@ -101,14 +110,19 @@ export function resolverTasaPorExportador(
     return { tasa: duty.rate, rateUnit: duty.rateUnit, empresa: null, origen: 'general_sin_lista' };
   }
   const nombre = exportadorNombre ? normalizarEmpresa(exportadorNombre) : '';
-  if (nombre.length >= 3) {
-    const hit = lista.find(e => {
-      const n = normalizarEmpresa(e.empresa);
-      return n.length >= 3 && (n === nombre || n.includes(nombre) || nombre.includes(n));
-    });
-    if (hit) return { tasa: hit.tasa, rateUnit: hit.rateUnit ?? duty.rateUnit, empresa: hit.empresa, origen: 'exportador' };
-  }
-  return { tasa: duty.rate, rateUnit: duty.rateUnit, empresa: null, origen: 'general' };
+  const general = (aviso?: string): TasaResuelta => ({ tasa: duty.rate, rateUnit: duty.rateUnit, empresa: null, origen: 'general', ...(aviso ? { aviso } : {}) });
+  if (nombre.length < 3) return general();
+  const deHit = (hit: ExportadorTasa): TasaResuelta => ({ tasa: hit.tasa, rateUnit: hit.rateUnit ?? duty.rateUnit, empresa: hit.empresa, origen: 'exportador' });
+  const normalizadas = lista.map(e => ({ e, n: normalizarEmpresa(e.empresa) })).filter(x => x.n.length >= 3);
+  const exactas = normalizadas.filter(x => x.n === nombre);
+  if (exactas.length === 1) return deHit(exactas[0]!.e);
+  if (exactas.length > 1) return general(`Exportador "${exportadorNombre}" coincide con ${exactas.length} empresas de la lista: se aplica la tasa general; revisa la resolución.`);
+  const parciales = normalizadas.filter(x => (x.n.includes(nombre) && palabras(nombre) >= 2) || (nombre.includes(x.n) && palabras(x.n) >= 2));
+  if (parciales.length === 1) return deHit(parciales[0]!.e);
+  if (parciales.length > 1) return general(`Exportador "${exportadorNombre}" coincide parcialmente con ${parciales.length} empresas de la lista (${parciales.map(x => x.e.empresa).join(', ')}): se aplica la tasa general; captura la razón social completa.`);
+  const ambiguas = normalizadas.filter(x => x.n.includes(nombre) || nombre.includes(x.n));
+  if (ambiguas.length > 0) return general(`Exportador "${exportadorNombre}" solo coincide por un fragmento con ${ambiguas.map(x => x.e.empresa).join(', ')}: se aplica la tasa general; captura la razón social completa para aplicar la tasa por empresa.`);
+  return general();
 }
 
 export async function checkAntidumpingDuty(input: AntidumpingCheckInput): Promise<AntidumpingCheckResult[]> {
@@ -360,7 +374,7 @@ export function elegirCuotaAplicable(
   else if (rateType === 'specific_USD_kg' && extra?.weightKg != null) { montoUSD = extra.weightKg * tasa.tasa; calculo = `${calculo} × ${extra.weightKg.toLocaleString('en-US')} kg = $${montoUSD.toFixed(2)} USD`; }
   else if (rateType === 'specific_USD_unit' && extra?.units != null) { montoUSD = extra.units * tasa.tasa; calculo = `${calculo} × ${extra.units.toLocaleString('en-US')} unidades = $${montoUSD.toFixed(2)} USD`; }
   if (tasa.origen === 'exportador') calculo += ` (tasa de ${tasa.empresa})`;
-  else if (tasa.origen === 'general') calculo += ' (tasa general: el exportador no tiene tasa específica)';
+  else if (tasa.origen === 'general') calculo += tasa.aviso ? ` (tasa general: ${tasa.aviso})` : ' (tasa general: el exportador no tiene tasa específica)';
   else calculo += ' (tasa general: la resolución no tiene lista por empresa cargada)';
   const cotejadoAt = extra?.cotejadoAt ?? null;
   return {

@@ -7,7 +7,7 @@
 import { strict as assert } from 'node:assert';
 import * as XLSX from 'xlsx';
 import { prisma } from '../lib/prisma';
-import { elegirCuotaAplicable, buscarCuotaAplicable, coberturaCuotas, checkAntidumpingDuty, type AntidumpingCheckResult } from '../services/antidumping';
+import { elegirCuotaAplicable, buscarCuotaAplicable, coberturaCuotas, checkAntidumpingDuty, resolverTasaPorExportador, type AntidumpingCheckResult } from '../services/antidumping';
 import { validarFilaUPCI, parsearExportadorTasas, importarUPCI, plantillaUPCIXlsx, leerFilasUPCI } from '../services/antidumping-importar';
 import { detectarElusion, exposicionDelTenant, fingerprintElusion } from '../services/antidumping-elusion';
 import { cruceCuotaExportador } from '../services/glosa-cruces';
@@ -41,6 +41,24 @@ const duty = (over: Partial<AntidumpingCheckResult['duty']> = {}): AntidumpingCh
     const c = elegirCuotaAplicable([duty({ exportadorTasas: null })], 'Zhejiang')!;
     assert.equal(c.tasa.origen, 'general_sin_lista');
     assert.equal(elegirCuotaAplicable([], 'x'), null);
+  });
+  await prueba('#21 exportador: fragmento de UNA palabra o que engancha varias filas NO elige tasa ajena → general con aviso; ≥2 palabras y hit único sí', () => {
+    const lista = [{ empresa: 'Tianjin Pipe Co., Ltd.', tasa: 5 }, { empresa: 'Tianjin Steel Group', tasa: 9 }, { empresa: 'ABC', tasa: 1 }];
+    // "TIANJIN" (1 palabra) contenido en dos filas: antes tomaba Tianjin Pipe (5 %).
+    const t = resolverTasaPorExportador({ rate: 30, rateUnit: '%', exportadorTasas: lista, specificProducer: null }, 'TIANJIN');
+    assert.equal(t.origen, 'general'); assert.equal(t.tasa, 30); assert.match(t.aviso ?? '', /fragmento|coincide/);
+    // Fila corta "ABC" contenida en cualquier exportador: NO engancha.
+    const abc = resolverTasaPorExportador({ rate: 30, rateUnit: '%', exportadorTasas: lista, specificProducer: null }, 'ABCDEF TRADING LIMITED');
+    assert.equal(abc.origen, 'general'); assert.equal(abc.tasa, 30);
+    // "TIANJIN STEEL" (2 palabras, hit único) → 9 %.
+    const ok = resolverTasaPorExportador({ rate: 30, rateUnit: '%', exportadorTasas: lista, specificProducer: null }, 'Tianjin Steel');
+    assert.equal(ok.origen, 'exportador'); assert.equal(ok.tasa, 9);
+    // Igualdad normalizada exacta siempre gana.
+    const eq = resolverTasaPorExportador({ rate: 30, rateUnit: '%', exportadorTasas: lista, specificProducer: null }, 'abc');
+    assert.equal(eq.origen, 'exportador'); assert.equal(eq.tasa, 1);
+    // El aviso llega al cálculo visible.
+    const e = elegirCuotaAplicable([duty({ exportadorTasas: lista })], 'TIANJIN', { valueUSD: 100 })!;
+    assert.equal(e.tasa.tasa, 30); assert.match(e.calculo, /fragmento|coincide/);
   });
   await prueba('fundamento: resolución, DOF, cotejo pendiente sin cotejadoAt / cotejada con él; esAntielusion por bandera o investigationType', () => {
     const p = elegirCuotaAplicable([duty()], null)!;

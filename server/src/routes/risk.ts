@@ -16,7 +16,7 @@ import { clienteIdDe, enAlcance, filtroCliente, validarClienteDelTenant, whereCo
 import crypto from 'crypto';
 import { DISCLAIMER } from '../services/risk-scorer/engine';
 import {
-  siguienteFolio, aplicarEvidencia, resultadoDesdeFila, idsEvidenciables, construirCartera,
+  conFolioAtomico, aplicarEvidencia, resultadoDesdeFila, idsEvidenciables, construirCartera,
   hashAssessment, renderDictamenHTML, type EvidenciaMap,
 } from '../services/risk-scorer/operativo';
 import { recordAudit } from '../services/audit-service';
@@ -107,12 +107,13 @@ router.post('/assess', async (req: AuthRequest, res: Response) => {
   const weights = await getWeights();
   const resultado = evaluate(signals, weights);
 
-  const saved = await prisma.riskAssessment.create({
+  // #20: folio + insert en la misma transacción bajo candado por tenant.
+  const saved = await conFolioAtomico(req.tenantId!, (folio, tx) => tx.riskAssessment.create({
     data: {
       tenantId: req.tenantId!,
       userId: req.userId!,
       clienteId,
-      folio: await siguienteFolio(req.tenantId!),
+      folio,
       operationId: operationId ?? null,
       input: JSON.parse(JSON.stringify(signals)),
       exposicion: resultado.exposicion,
@@ -124,7 +125,7 @@ router.post('/assess', async (req: AuthRequest, res: Response) => {
       pesosSnapshot: weights,
     },
     select: { id: true, folio: true },
-  });
+  }));
 
   res.json({ status: 'ok', data: { ...resultado, assessmentId: saved.id, folio: saved.folio, clienteId, operationId: operationId ?? null } });
 });

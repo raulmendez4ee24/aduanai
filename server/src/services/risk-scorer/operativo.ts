@@ -9,6 +9,7 @@
  * documento adjunto por un usuario del tenant" — el dictamen lo dice así.
  */
 import crypto from 'crypto';
+import type { Prisma } from '@prisma/client';
 import { prisma } from '../../lib/prisma';
 import type { AssessmentResultado, ChecklistResultado, FactorResultado, ReglaResultado } from './types';
 
@@ -18,17 +19,42 @@ export function formatearFolio(anio: number, seq: number): string {
   return `RS-${anio}-${String(seq).padStart(4, '0')}`;
 }
 
-/** Siguiente folio secuencial del tenant para el año dado (lee el máximo persistido). */
-export async function siguienteFolio(tenantId: string, fecha: Date = new Date()): Promise<string> {
+type Db = Prisma.TransactionClient | typeof prisma;
+
+/** Siguiente folio secuencial del tenant para el año dado (lee el máximo
+ *  persistido). #20: orden por LONGITUD y luego valor — el `orderBy folio desc`
+ *  era lexicográfico y tras RS-2026-9999 el RS-2026-10000 ordenaba antes (se
+ *  repetía). Para que sea atómico entre peticiones concurrentes, úsalo dentro
+ *  de `conFolioAtomico` (candado de aviso por tenant en la misma transacción). */
+export async function siguienteFolio(tenantId: string, fecha: Date = new Date(), db: Db = prisma): Promise<string> {
   const anio = fecha.getUTCFullYear();
   const prefijo = `RS-${anio}-`;
-  const ultimo = await prisma.riskAssessment.findFirst({
-    where: { tenantId, folio: { startsWith: prefijo } },
-    orderBy: { folio: 'desc' },
-    select: { folio: true },
-  });
-  const seq = ultimo?.folio ? Number(ultimo.folio.slice(prefijo.length)) || 0 : 0;
+  const filas = await db.$queryRaw<{ folio: string }[]>`
+    SELECT folio FROM risk_assessments
+    WHERE "tenantId" = ${tenantId} AND folio LIKE ${`${prefijo}%`}
+    ORDER BY length(folio) DESC, folio DESC
+    LIMIT 1`;
+  const ultimo = filas[0]?.folio ?? null;
+  const seq = ultimo ? Number(ultimo.slice(prefijo.length)) || 0 : 0;
   return formatearFolio(anio, seq + 1);
+}
+
+/**
+ * #20: ejecuta `fn` con el siguiente folio del tenant bajo
+ * `pg_advisory_xact_lock(hashtext('risk-folio:'+tenantId))` en UNA
+ * transacción: dos POST concurrentes serializan y jamás comparten folio (sin
+ * campo nuevo en el schema). El candado se libera al cerrar la transacción.
+ */
+export async function conFolioAtomico<T>(
+  tenantId: string,
+  fn: (folio: string, tx: Prisma.TransactionClient) => Promise<T>,
+  fecha: Date = new Date(),
+): Promise<T> {
+  return prisma.$transaction(async tx => {
+    await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${`risk-folio:${tenantId}`}))`;
+    const folio = await siguienteFolio(tenantId, fecha, tx);
+    return fn(folio, tx);
+  }, { timeout: 15_000 });
 }
 
 // ── Evidencia: declarado → verificado (sin tocar pesos) ─────────────────

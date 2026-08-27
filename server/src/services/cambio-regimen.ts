@@ -22,7 +22,10 @@
 
 import { prisma } from '../lib/prisma';
 import { AppError } from '../middlewares/error';
-import { computeQuoteAmounts, requireQuotableFraction } from './quoter';
+import { computeQuoteAmounts, requireQuotableFraction, resolveCuotaCompensatoria } from './quoter';
+import { resolverIEPS } from './cotizador-ieps';
+import { buscarCuotaAplicable } from './antidumping';
+import type { AntidumpingMatch } from './compliance-lookup';
 import { tipoCambioMXN } from './frontera-canonica';
 import { CLAVES_PEDIMENTO } from '../lib/anexo22';
 
@@ -81,8 +84,10 @@ export interface PartidaCalculo {
   valorAduanaUSD: number;
   saldoValorUSD: number;
   saldoValorMXN: number;
-  tasas: { igiPct: number; dtaPct: number; ivaPct: number; iepsPct: number };
-  montos: { igi: number; dta: number; ieps: number; iva: number; total: number };
+  tasas: { igiPct: number; dtaPct: number; ivaPct: number; iepsPct: number; cuotaCompensatoriaPct?: number };
+  montos: { igi: number; dta: number; ieps: number; iva: number; cuotaCompensatoria?: number; total: number };
+  /** #15: cuota compensatoria vigente (fracción + país de origen) aplicada al saldo, si la hay. */
+  cuotaCompensatoria?: { resolucion: string | null; tasa: number; rateType: string; rateUnit: string; origenTasa: string; calculo: string | null } | null;
   notas: string[];
 }
 
@@ -94,7 +99,7 @@ export interface CalculoExpediente {
   clavePedimento: { clave: string; descripcion: string } | null;
   tc: { valor: number; fuente: string; fecha: string | null };
   partidas: PartidaCalculo[];
-  subtotales: { saldoValorMXN: number; igi: number; dta: number; ieps: number; iva: number; contribuciones: number };
+  subtotales: { saldoValorMXN: number; igi: number; dta: number; ieps: number; iva: number; cuotaCompensatoria?: number; contribuciones: number };
   actualizacion: CampoEditable;
   recargos: CampoEditable;
   total: number;
@@ -148,7 +153,8 @@ export async function calcularCambioRegimen(tenantId: string, ids: string[], opt
   const porCode = new Map(fracciones.map(f => [f.code, f]));
 
   const esRetorno = tipo === 'RT';
-  const partidas: PartidaCalculo[] = imports.map(imp => {
+  const partidas: PartidaCalculo[] = [];
+  for (const imp of imports) {
     const notas: string[] = [];
     const code = imp.fractionCode.replace(/\./g, '');
     const fx = porCode.get(code) ?? null;
@@ -162,15 +168,50 @@ export async function calcularCambioRegimen(tenantId: string, ids: string[], opt
     if (tipo === 'A3' && imp.expirationDate.getTime() > Date.now()) notas.push('Aún dentro de plazo: valora F4/RT antes de regularizar.');
     if (imp.status === 'FULLY_DISCHARGED' || imp.status === 'REGULARIZED') notas.push(`Estado ${imp.status}: ya descargada/regularizada.`);
 
+    // #15: IEPS y cuota compensatoria SIGUEN al Cotizador (misma resolución que
+    // /api/quote): IEPSRate por categoría (fallback al legacy Fraction.iepsRate)
+    // y cuota vigente por fracción + país de origen (tasa por exportador si la
+    // resolución la trae). Ambas entran a la base del IVA (Art. 27 LIVA).
+    const iepsInfo = esRetorno ? null : await resolverIEPS({ fractionCode: code, quantity: saldoCantidad, unit: imp.unit });
+    const iepsPct = esRetorno ? 0 : iepsInfo?.aplica ? iepsInfo.pct : (fx.iepsRate ?? 0);
+    const cuotaAplicable = !esRetorno && imp.originCountry
+      ? await buscarCuotaAplicable({ fractionCode: code, countryOfOrigin: imp.originCountry, exportador: imp.supplier ?? null, valueUSD: saldoValorUSD, units: saldoCantidad })
+      : null;
+    if (!esRetorno && !imp.originCountry) notas.push('Sin país de origen registrado: no se pudo verificar cuota compensatoria; captúralo en la importación temporal.');
+    const match: AntidumpingMatch | null = cuotaAplicable ? {
+      rate: cuotaAplicable.tasa.tasa, rateType: cuotaAplicable.duty.rateType as AntidumpingMatch['rateType'], rateUnit: cuotaAplicable.tasa.rateUnit,
+      resolutionType: cuotaAplicable.duty.resolutionType, resolutionNumber: cuotaAplicable.duty.resolutionNumber, expedienteUPCI: cuotaAplicable.duty.expedienteUPCI,
+      productDesc: cuotaAplicable.duty.productDesc, type: cuotaAplicable.duty.resolutionType, decree: cuotaAplicable.duty.resolutionNumber, dofUrl: cuotaAplicable.duty.dofUrl,
+      country: cuotaAplicable.duty.countryOfOrigin, countryNormalized: cuotaAplicable.duty.countryOfOrigin, publishDate: cuotaAplicable.duty.publishDateDOF,
+      effectiveDate: cuotaAplicable.duty.effectiveDate, expiryDate: cuotaAplicable.duty.expiryDate, notes: cuotaAplicable.duty.notes,
+      matchType: 'exact', matchedFraction: cuotaAplicable.duty.fractionCode,
+    } : null;
+    const cuota = resolveCuotaCompensatoria({ antidumping: match, quantity: saldoCantidad, unit: imp.unit, effectiveRate: tc.valor });
+    if (cuotaAplicable) {
+      notas.push(`Cuota compensatoria ${cuotaAplicable.fundamento.resolucion ?? 's/n'} (${cuotaAplicable.duty.countryOfOrigin}): ${cuotaAplicable.calculo}${cuotaAplicable.fundamento.cotejo === 'pendiente' ? ' · resolución pendiente de cotejo contra DOF' : ''}.`);
+      if (cuotaAplicable.tasa.aviso) notas.push(cuotaAplicable.tasa.aviso);
+      if (cuota.cvNeedsWeight) notas.push(`CÁLCULO INCOMPLETO: la cuota es ${match!.rateType} y la partida no trae peso en kg — la cuota compensatoria queda en $0 hasta capturarlo.`);
+    }
+    if (iepsInfo?.aplica) notas.push(iepsInfo.nota);
+
     const tasas = {
       igiPct: esRetorno ? 0 : fx.tariffNMF!,
       dtaPct: esRetorno ? 0 : 0.8,
       ivaPct: esRetorno ? 0 : 16,
-      iepsPct: esRetorno ? 0 : (fx.iepsRate ?? 0),
+      iepsPct,
+      ...(cuota.cvPct > 0 ? { cuotaCompensatoriaPct: cuota.cvPct } : {}),
     };
     if (esRetorno) notas.push('Retorno (RT): no causa IGI/IVA sobre la mercancía retornada; el DTA del retorno se determina en el pedimento.');
-    const m = computeQuoteAmounts({ valueUSD: saldoValorUSD, exchangeRate: tc.valor, rates: tasas });
-    return {
+    const m = computeQuoteAmounts({
+      valueUSD: saldoValorUSD, exchangeRate: tc.valor,
+      rates: {
+        ...tasas,
+        iepsAbsoluteMXN: iepsInfo && iepsInfo.montoEspecificoMXN > 0 ? iepsInfo.montoEspecificoMXN : undefined,
+        countervailingPct: cuota.cvPct,
+        countervailingAbsoluteMXN: cuota.cvAbsoluteMXN > 0 ? cuota.cvAbsoluteMXN : undefined,
+      },
+    });
+    partidas.push({
       temporaryImportId: imp.id,
       pedimento: imp.pedimento,
       fractionCode: code,
@@ -183,10 +224,14 @@ export async function calcularCambioRegimen(tenantId: string, ids: string[], opt
       saldoValorUSD,
       saldoValorMXN: m.valueMXN,
       tasas,
-      montos: { igi: m.igi, dta: m.dta, ieps: m.ieps, iva: m.iva, total: m.totalTaxes },
+      montos: { igi: m.igi, dta: m.dta, ieps: m.ieps, iva: m.iva, ...(m.countervailingDuty > 0 ? { cuotaCompensatoria: m.countervailingDuty } : {}), total: m.totalTaxes },
+      cuotaCompensatoria: cuotaAplicable ? {
+        resolucion: cuotaAplicable.fundamento.resolucion, tasa: cuotaAplicable.tasa.tasa, rateType: cuotaAplicable.duty.rateType, rateUnit: cuotaAplicable.tasa.rateUnit,
+        origenTasa: cuotaAplicable.tasa.origen, calculo: cuota.cvCalculationLabel,
+      } : null,
       notas,
-    };
-  });
+    });
+  }
 
   const sum = (f: (p: PartidaCalculo) => number) => r2(partidas.reduce((a, p) => a + f(p), 0));
   const subtotales = {
@@ -195,6 +240,7 @@ export async function calcularCambioRegimen(tenantId: string, ids: string[], opt
     dta: sum(p => p.montos.dta),
     ieps: sum(p => p.montos.ieps),
     iva: sum(p => p.montos.iva),
+    cuotaCompensatoria: sum(p => p.montos.cuotaCompensatoria ?? 0),
     contribuciones: sum(p => p.montos.total),
   };
   const actualizacion: CampoEditable = {
@@ -279,12 +325,21 @@ export async function actualizarExpediente(tenantId: string, id: string, data: {
   if (data.estado && !(ESTADOS_EXPEDIENTE as readonly string[]).includes(data.estado)) throw new AppError('Estado inválido', 400);
   let calculo = exp.calculo as unknown as CalculoExpediente & { folio?: string };
   if (data.actualizacionMXN != null || data.recargosMXN != null) {
-    const recalculado = await calcularCambioRegimen(tenantId, exp.temporaryImportIds, {
-      tipo: exp.tipo as TipoCambio, tc: calculo.tc.valor, tcFuente: calculo.tc.fuente,
-      actualizacionMXN: data.actualizacionMXN ?? calculo.actualizacion.montoMXN,
-      recargosMXN: data.recargosMXN ?? calculo.recargos.montoMXN,
-    });
-    calculo = { ...recalculado, folio: calculo.folio };
+    if (exp.estado === 'borrador') {
+      const recalculado = await calcularCambioRegimen(tenantId, exp.temporaryImportIds, {
+        tipo: exp.tipo as TipoCambio, tc: calculo.tc.valor, tcFuente: calculo.tc.fuente,
+        actualizacionMXN: data.actualizacionMXN ?? calculo.actualizacion.montoMXN,
+        recargosMXN: data.recargosMXN ?? calculo.recargos.montoMXN,
+      });
+      calculo = { ...recalculado, folio: calculo.folio };
+    } else {
+      // #25: en `listo`/`presentado` las contribuciones quedan CONGELADAS tal
+      // como se persistieron (los saldos vivos de TemporaryImport pueden haber
+      // cambiado por descargos posteriores); solo se editan accesorios y total.
+      const actualizacion = { ...calculo.actualizacion, montoMXN: r2(Math.max(0, data.actualizacionMXN ?? calculo.actualizacion.montoMXN)) };
+      const recargos = { ...calculo.recargos, montoMXN: r2(Math.max(0, data.recargosMXN ?? calculo.recargos.montoMXN)) };
+      calculo = { ...calculo, actualizacion, recargos, total: r2(calculo.subtotales.contribuciones + actualizacion.montoMXN + recargos.montoMXN) };
+    }
   }
   return prisma.cambioRegimenExpediente.update({
     where: { id },

@@ -115,13 +115,18 @@ export function parseReferencia(texto: string): ClaveCita | null {
 // simple y el de listas.
 const SUFIJO_ART =
   String.raw`(?:-(?:[A-ZÑ]{1,2}(?![a-zñ])|(?:[Bb]is|BIS|[Tt]er|TER|[Qq]u[aá]ter|QU[AÁ]TER|[Qq]uintus|QUINTUS)))?(?:\s+(?:[Bb]is|BIS|[Tt]er|TER|[Qq]u[aá]ter|QU[AÁ]TER|[Qq]uintus|QUINTUS)(?:\s+\d+)?)?`;
-const CUERPO_OPCIONAL = String.raw`(?:\s+(?:de\s+la\s+|del\s+)?[A-Z][A-Za-z-]{1,10})?`;
+// #16: solo siglas de cuerpos normativos conocidos. Antes cualquier palabra
+// capitalizada tras el número era "cuerpo": "Art. 54 La autoridad…" → cuerpo
+// LA (respaldo falso) y "Art. 54 Establece…" → cuerpo ESTABLECE (fantasma
+// falso aunque el doc exista). `\b` evita enganchar "LA" dentro de "LAS".
+const SIGLAS_CUERPO = String.raw`(?:LA|LIVA|LIEPS|LFD|LCE|CFF|LIGIE|LISAN|LISR|LFT|LSS|LFPCA|LFDC|LFPIORPI|LAmp|RLA|RLIVA|RLIEPS|RLCE|RCFF|RGCE|TMEC|T-MEC|TLCUEM|CPTPP|CPEUM)`;
+const CUERPO_OPCIONAL = String.raw`(?:\s+(?:de\s+la\s+|del\s+)?${SIGLAS_CUERPO}\b(?![a-zñ]))?`;
 
 /** "Arts. 54 y 162 LA" / "Artículos 36, 54 y 162 de la LA": lista de artículos
  *  que comparten cuerpo. El patrón simple perdía todo ("Arts." no matchea) o
  *  perdía la cola ("Art. 54 y 162 LA" → solo "Art. 54"). */
 const PATRON_LISTA_ARTS = new RegExp(
-  String.raw`Art(?:s\.|\.|ículos?)?\s*\d+(?:\.\d+)*${SUFIJO_ART}(?:\s*(?:,|\s[ye])\s*\d+(?:\.\d+)*${SUFIJO_ART})+(?:\s+(?:de\s+la\s+|del\s+)?[A-Z][A-Za-z-]{1,10})?`,
+  String.raw`Art(?:s\.|\.|ículos?)?\s*\d+(?:\.\d+)*${SUFIJO_ART}(?:\s*(?:,|\s[ye])\s*\d+(?:\.\d+)*${SUFIJO_ART})+${CUERPO_OPCIONAL}`,
   'g'
 );
 

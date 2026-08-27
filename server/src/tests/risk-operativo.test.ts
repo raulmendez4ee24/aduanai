@@ -16,7 +16,7 @@ import { DEFAULT_WEIGHTS } from '../services/risk-scorer/rules';
 import type { Signals } from '../services/risk-scorer/types';
 import {
   aplicarEvidencia, resultadoDesdeFila, idsEvidenciables, ordenarCartera, tendenciaDe,
-  hashAssessment, siguienteFolio, formatearFolio, construirCartera, renderDictamenHTML, type FilaCartera,
+  hashAssessment, siguienteFolio, conFolioAtomico, formatearFolio, construirCartera, renderDictamenHTML, type FilaCartera,
 } from '../services/risk-scorer/operativo';
 import { enAlcance, whereConAlcance } from '../lib/cliente-contexto';
 import type { Request } from 'express';
@@ -132,6 +132,28 @@ async function parteDB() {
       assert.deepEqual([a1.folio, b1.folio, a2.folio], ['RS-2026-0001', 'RS-2026-0002', 'RS-2026-0003']);
       assert.equal(o1.folio, 'RS-2026-0001');
       assert.equal(await siguienteFolio(tenant.id, new Date('2027-01-05T00:00:00Z')), 'RS-2027-0001', 'año nuevo reinicia');
+    });
+    await prueba('#20 folio atómico: 12 creaciones CONCURRENTES no repiten folio; tras RS-2026-9999 sigue RS-2026-10000 (orden por longitud, no textual)', async () => {
+      const fecha = new Date('2026-08-27T12:00:00Z');
+      const datos = (clienteId: string) => ({
+        tenantId: tenant.id, userId: user.id, clienteId,
+        input: JSON.parse(JSON.stringify(SIGNALS)), exposicion: 10, escudoPct: 40, banda: 'AMARILLO',
+        detalle: JSON.parse(JSON.stringify(base.factores)), checklist: JSON.parse(JSON.stringify(base.checklist)),
+        rulesVersion: base.rulesVersion, pesosSnapshot: DEFAULT_WEIGHTS,
+      });
+      const creadas = await Promise.all(Array.from({ length: 12 }, () =>
+        conFolioAtomico(tenant.id, (folio, tx) => tx.riskAssessment.create({ data: { ...datos(cA.id), folio }, select: { folio: true } }), fecha),
+      ));
+      const folios = creadas.map(c => c.folio!);
+      assert.equal(new Set(folios).size, 12, `folios repetidos: ${folios.join(',')}`);
+      assert.deepEqual([...folios].sort(), Array.from({ length: 12 }, (_, i) => formatearFolio(2026, 4 + i)).sort());
+      // Orden textual: tras 9999 el viejo `orderBy folio desc` devolvía 9999 de nuevo.
+      await prisma.riskAssessment.create({ data: { ...datos(cA.id), folio: 'RS-2026-9999' } });
+      assert.equal(await siguienteFolio(tenant.id, fecha), 'RS-2026-10000');
+      const diez = await conFolioAtomico(tenant.id, (folio, tx) => tx.riskAssessment.create({ data: { ...datos(cA.id), folio }, select: { folio: true } }), fecha);
+      assert.equal(diez.folio, 'RS-2026-10000');
+      assert.equal(await siguienteFolio(tenant.id, fecha), 'RS-2026-10001');
+      await prisma.riskAssessment.deleteMany({ where: { tenantId: tenant.id, folio: { in: [...folios, 'RS-2026-9999', 'RS-2026-10000'] } } });
     });
     await prueba('cartera: ordenada por exposición, tendencia del cliente A = sube, C sin historial al final, ajeno ausente', async () => {
       const filas = await construirCartera(tenant.id, null);

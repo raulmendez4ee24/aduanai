@@ -95,7 +95,13 @@ export async function listarCotizaciones(tenantId: string, f: FiltrosLista): Pro
     if (f.hasta && !isNaN(Date.parse(f.hasta))) where.createdAt.lte = new Date(new Date(f.hasta).getTime() + 24 * 3600 * 1000 - 1);
   }
   if (f.estado) where.status = f.estado;
-  if (f.vigentes) where.OR = [...(where.OR ?? []), { vigenciaHasta: null }, { vigenciaHasta: { gte: new Date() } }];
+  // #17: `cliente` y `vigentes` son condiciones INDEPENDIENTES → AND de ORs.
+  // Antes se concatenaban en un solo OR y las vigentes de otro cliente entraban.
+  if (f.vigentes) {
+    const vigenciaOR: Prisma.QuoteWhereInput[] = [{ vigenciaHasta: null }, { vigenciaHasta: { gte: new Date() } }];
+    if (where.OR) { where.AND = [{ OR: where.OR }, { OR: vigenciaOR }]; delete where.OR; }
+    else where.OR = vigenciaOR;
+  }
 
   const [total, rows] = await Promise.all([
     prisma.quote.count({ where }),
@@ -276,6 +282,25 @@ export async function obtenerCotizacion(tenantId: string, id: string, alcance: A
   };
 }
 
+/** Recorre la cadena completa desde la raíz (BFS por parentQuoteId, mismo
+ *  criterio que `obtenerCotizacion`) y devuelve la versión máxima. */
+export async function versionMaximaDeCadena(tenantId: string, id: string): Promise<number> {
+  const raiz = await raizDe(id, tenantId);
+  const raizRow = await prisma.quote.findFirst({ where: { id: raiz, tenantId }, select: { version: true } });
+  let max = raizRow?.version ?? 0;
+  const vistos = new Set<string>([raiz]);
+  let frontera = [raiz];
+  for (let hop = 0; hop < 50 && frontera.length > 0; hop++) {
+    const hijos = await prisma.quote.findMany({
+      where: { tenantId, parentQuoteId: { in: frontera }, id: { notIn: [...vistos] } },
+      select: { id: true, version: true },
+    });
+    frontera = [];
+    for (const h of hijos) { if (vistos.has(h.id)) continue; vistos.add(h.id); frontera.push(h.id); if (h.version > max) max = h.version; }
+  }
+  return max;
+}
+
 async function raizDe(id: string, tenantId: string): Promise<string> {
   let actual = id;
   for (let hop = 0; hop < 50; hop++) {
@@ -293,8 +318,11 @@ async function raizDe(id: string, tenantId: string): Promise<string> {
 export async function duplicarCotizacion(tenantId: string, id: string, userId: string, opts: { puedeAprobar: boolean; nombre?: string | null }, alcance: AlcanceCliente = null) {
   const orig = await prisma.quote.findFirst({ where: whereIdConAlcance(alcance, { id, tenantId }), include: { items: true } });
   if (!orig) throw new AppError('Cotización no encontrada', 404);
-  const ultima = await prisma.quote.aggregate({ where: { tenantId, OR: [{ id: await raizDe(orig.id, tenantId) }, { parentQuoteId: await raizDe(orig.id, tenantId) }, { parentQuoteId: orig.id }] }, _max: { version: true } });
-  const version = Math.max(orig.version, ultima._max.version ?? 0) + 1;
+  // #18: máximo de versión sobre TODA la cadena (raíz + descendientes a
+  // cualquier profundidad). Antes solo miraba {raíz, hijos de raíz, hijos de
+  // orig}: con v1→v2→v3, duplicar v1 creaba otra "v3".
+  const maxCadena = await versionMaximaDeCadena(tenantId, orig.id);
+  const version = Math.max(orig.version, maxCadena) + 1;
   const nueva = await prisma.quote.create({
     data: {
       tenantId, userId,

@@ -25,7 +25,7 @@ import {
   ABSTENCION_CANONICA,
   type CopilotRAGResult,
 } from '../services/copilot';
-import { parseReferencia, cruzarCitas } from '../services/citas-legales';
+import { parseReferencia, cruzarCitas, extraerCitas } from '../services/citas-legales';
 import type { smartRetrieval, RetrievedDoc } from '../services/rag-search';
 
 const TEST_TENANT = 'test-frontera-fase3a';
@@ -109,6 +109,25 @@ async function main() {
     // El matcher viejo respaldaba esto por tokens débiles ("54", "la"):
     const reglaInventada = cruzarCitas('Aplica la Regla 5.4.1 RGCE 2026.', refs);
     assert.deepEqual(reglaInventada.noRespaldadas, ['Regla 5.4.1 RGCE 2026']);
+  });
+
+  await test('#16 cuerpo solo por sigla conocida: "Art. 54 La autoridad" NO es LA (sin respaldo falso) y "Art. 54 Establece" NO es cuerpo ESTABLECE (sin fantasma falso)', () => {
+    const refs = DOCS.map(d => d.reference);
+    // Antes: "La" capitalizada → cuerpo LA → {54, LA} = respaldo con cuerpo INVENTADO.
+    const la = extraerCitas('Ver Art. 54 La autoridad podrá ordenar el reconocimiento.');
+    assert.deepEqual(la.map(c => [c.texto, c.clave.cuerpo ?? null]), [['Art. 54', null]], 'la palabra "La" no es cuerpo');
+    // Sin cuerpo y con dos preceptos 54 en el corpus → ambigua (no respaldo falso a LA).
+    assert.deepEqual(cruzarCitas('Ver Art. 54 La autoridad podrá.', [...refs, 'Art. 54 LFD']).noRespaldadas, ['Art. 54']);
+    // Antes: "Establece" → cuerpo ESTABLECE → fantasma falso aunque el doc exista.
+    const est = extraerCitas('Conforme al Art. 54 Establece que la autoridad podrá.');
+    assert.deepEqual(est.map(c => [c.texto, c.clave.cuerpo ?? null]), [['Art. 54', null]]);
+    assert.deepEqual(cruzarCitas('Conforme al Art. 54 Establece que la autoridad podrá.', refs).noRespaldadas, [], 'el doc existe: sin fantasma');
+    // Con sigla real sigue funcionando (y "LAS" no engancha "LA").
+    assert.deepEqual(extraerCitas('Según el Art. 54 LA procede.')[0]!.clave.cuerpo, 'LA');
+    assert.equal(cruzarCitas('Según el Art. 54 LA procede.', refs).respaldadas.size, 1);
+    assert.deepEqual(extraerCitas('Según el Art. 54 LAS mercancías.').map(c => c.texto), ['Art. 54']);
+    assert.deepEqual(extraerCitas('Arts. 36 y 54 Las mercancías…').map(c => [c.clave.numero, c.clave.cuerpo ?? null]), [['36', null], ['54', null]]);
+    assert.deepEqual(extraerCitas('Arts. 36 y 54 LA.').map(c => c.clave.cuerpo), ['LA', 'LA']);
   });
 
   await test('matcher: el doc "GRI 1-6 LIGIE" respalda "Regla General 3", "Regla General 3 a) (RGI)" y "RGI 3" (rango)', () => {
