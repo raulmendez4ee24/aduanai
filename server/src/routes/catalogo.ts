@@ -10,7 +10,7 @@ import { Router, type NextFunction, type Response } from 'express';
 import { authenticate, type AuthRequest } from '../middlewares/auth';
 import { requirePermission } from '../middlewares/requirePermission';
 import { getUserPermissions, hasPermission } from '../services/permissions';
-import { clienteIdDe } from '../lib/cliente-contexto';
+import { clienteIdDe, enAlcance, filtroCliente, validarClienteEnAlcance } from '../lib/cliente-contexto';
 import {
   CatalogoError, listarPartes, obtenerParte, crearParte, actualizarParte, desactivarParte,
   proponerVersion, aprobarVersion, rechazarVersion, promoverDesdeClasificacion,
@@ -42,7 +42,7 @@ catalogoRouter.get('/', requirePermission('catalogo', 'view'), async (req: AuthR
   try {
     const dictamen = q(req, 'dictamen');
     const r = await listarPartes(req.tenantId!, {
-      clienteId: clienteIdDe(req),
+      ...filtroCliente(req),
       q: q(req, 'q') ?? q(req, 'search'),
       capitulo: q(req, 'capitulo'),
       dictamen: dictamen === 'con' || dictamen === 'sin' ? dictamen : undefined,
@@ -58,7 +58,7 @@ catalogoRouter.get('/', requirePermission('catalogo', 'view'), async (req: AuthR
 // GET /api/catalogo/buscar-por-descripcion?q= — el Clasificador consulta antes de correr
 catalogoRouter.get('/buscar-por-descripcion', requirePermission('catalogo', 'view'), async (req: AuthRequest, res, next) => {
   try {
-    const r = await buscarPorDescripcion(req.tenantId!, q(req, 'q') ?? '', clienteIdDe(req));
+    const r = await buscarPorDescripcion(req.tenantId!, q(req, 'q') ?? '', filtroCliente(req).clienteId);
     res.json({ status: 'ok', data: r });
   } catch (err) { manejar(err, res, next); }
 });
@@ -68,7 +68,7 @@ catalogoRouter.get('/export.xlsx', requirePermission('catalogo', 'exportData'), 
   try {
     const dictamen = q(req, 'dictamen');
     const buf = await exportarPartesXlsx(req.tenantId!, {
-      clienteId: clienteIdDe(req), q: q(req, 'q'), capitulo: q(req, 'capitulo'),
+      ...filtroCliente(req), q: q(req, 'q'), capitulo: q(req, 'capitulo'),
       dictamen: dictamen === 'con' || dictamen === 'sin' ? dictamen : undefined, usoDestino: q(req, 'usoDestino'),
     });
     const fecha = new Date().toISOString().slice(0, 10);
@@ -96,7 +96,7 @@ catalogoRouter.post('/import', requirePermission('catalogo', 'create'), async (r
     }
     const rep = await importarPartes(req.tenantId!, req.userId!, {
       archivoBase64, nombreArchivo: typeof nombreArchivo === 'string' ? nombreArchivo : undefined,
-      clienteId: clienteId ?? clienteIdDe(req),
+      clienteId: await validarClienteEnAlcance(req, req.tenantId!, clienteId ?? clienteIdDe(req)),
     }, { puedeAprobar: await puedeAprobar(req), ip: req.ip ?? null });
     res.json({ status: 'ok', data: rep });
   } catch (err) { manejar(err, res, next); }
@@ -108,7 +108,7 @@ catalogoRouter.post('/promover', requirePermission('catalogo', 'create'), async 
     const { classificationId, productCode, clienteId, unit, usoDestino, justificacion } = (req.body ?? {}) as Record<string, string | null | undefined>;
     if (!classificationId) return res.status(400).json({ status: 'error', message: 'classificationId es obligatorio' });
     const r = await promoverDesdeClasificacion(req.tenantId!, req.userId!, String(classificationId), {
-      productCode, clienteId: clienteId ?? clienteIdDe(req), unit, usoDestino, justificacion,
+      productCode, clienteId: await validarClienteEnAlcance(req, req.tenantId!, clienteId ?? clienteIdDe(req)), unit, usoDestino, justificacion,
     }, { puedeAprobar: await puedeAprobar(req), ip: req.ip ?? null });
     res.status(r.creada ? 201 : 200).json({ status: 'ok', data: r });
   } catch (err) { manejar(err, res, next); }
@@ -121,7 +121,7 @@ catalogoRouter.post('/', requirePermission('catalogo', 'create'), async (req: Au
     const p = await crearParte(req.tenantId!, req.userId!, {
       productCode: String(b.productCode ?? ''), description: String(b.description ?? ''),
       unit: typeof b.unit === 'string' ? b.unit : undefined,
-      clienteId: typeof b.clienteId === 'string' ? b.clienteId : clienteIdDe(req),
+      clienteId: await validarClienteEnAlcance(req, req.tenantId!, typeof b.clienteId === 'string' ? b.clienteId : clienteIdDe(req)),
       usoDestino: typeof b.usoDestino === 'string' ? b.usoDestino : null,
       paisOrigen: typeof b.paisOrigen === 'string' ? b.paisOrigen : null,
       noms: b.noms,
@@ -134,9 +134,16 @@ catalogoRouter.post('/', requirePermission('catalogo', 'create'), async (req: Au
 });
 
 // GET /api/catalogo/:id — ficha con historial de versiones
+/** La parte existe en el tenant Y cae en el alcance de cliente del usuario; si no, 404 (no revela existencia). */
+async function parteEnAlcance(req: AuthRequest, id: string) {
+  const p = await obtenerParte(req.tenantId!, id);
+  if (!enAlcance(req, p.clienteId)) throw new CatalogoError('NO_ENCONTRADA', 'Parte no encontrada');
+  return p;
+}
+
 catalogoRouter.get('/:id', requirePermission('catalogo', 'view'), async (req: AuthRequest, res, next) => {
   try {
-    res.json({ status: 'ok', data: await obtenerParte(req.tenantId!, String(req.params.id)) });
+    res.json({ status: 'ok', data: await parteEnAlcance(req, String(req.params.id)) });
   } catch (err) { manejar(err, res, next); }
 });
 
@@ -150,6 +157,8 @@ catalogoRouter.patch('/:id', requirePermission('catalogo', 'create'), async (req
     }
     if ('noms' in b) cambios.noms = b.noms;
     if (typeof b.active === 'boolean') cambios.active = b.active;
+    await parteEnAlcance(req, String(req.params.id));
+    if (typeof cambios.clienteId === 'string') cambios.clienteId = await validarClienteEnAlcance(req, req.tenantId!, cambios.clienteId);
     await actualizarParte(req.tenantId!, req.userId!, String(req.params.id), cambios, req.ip ?? null);
     res.json({ status: 'ok', data: await obtenerParte(req.tenantId!, String(req.params.id)) });
   } catch (err) { manejar(err, res, next); }
@@ -158,6 +167,7 @@ catalogoRouter.patch('/:id', requirePermission('catalogo', 'create'), async (req
 // DELETE /api/catalogo/:id — baja lógica (conserva expediente)
 catalogoRouter.delete('/:id', requirePermission('catalogo', 'delete'), async (req: AuthRequest, res, next) => {
   try {
+    await parteEnAlcance(req, String(req.params.id));
     await desactivarParte(req.tenantId!, req.userId!, String(req.params.id), req.ip ?? null);
     res.json({ status: 'ok' });
   } catch (err) { manejar(err, res, next); }
@@ -172,6 +182,7 @@ catalogoRouter.post('/:id/versiones', requirePermission('catalogo', 'create'), a
     if (!(FUENTES_VERSION as readonly string[]).includes(fuente)) {
       return res.status(400).json({ status: 'error', message: `fuente inválida (válidas: ${FUENTES_VERSION.join(', ')})` });
     }
+    await parteEnAlcance(req, String(req.params.id));
     const v = await proponerVersion(req.tenantId!, req.userId!, String(req.params.id), {
       fractionCode: b.fractionCode,
       nico: b.nico === undefined ? undefined : (b.nico === null ? null : String(b.nico)),
@@ -192,6 +203,7 @@ catalogoRouter.post('/:id/versiones/:v/aprobar', requirePermission('classifier',
   try {
     const version = Number(req.params.v);
     if (!Number.isInteger(version) || version < 1) return res.status(400).json({ status: 'error', message: 'Versión inválida' });
+    await parteEnAlcance(req, String(req.params.id));
     const v = await aprobarVersion(req.tenantId!, req.userId!, String(req.params.id), version, req.ip ?? null);
     res.json({ status: 'ok', data: { version: v, parte: await obtenerParte(req.tenantId!, String(req.params.id)) } });
   } catch (err) { manejar(err, res, next); }
@@ -203,6 +215,7 @@ catalogoRouter.post('/:id/versiones/:v/rechazar', requirePermission('classifier'
     const version = Number(req.params.v);
     if (!Number.isInteger(version) || version < 1) return res.status(400).json({ status: 'error', message: 'Versión inválida' });
     const motivo = typeof (req.body ?? {}).motivo === 'string' ? String(req.body.motivo) : null;
+    await parteEnAlcance(req, String(req.params.id));
     const v = await rechazarVersion(req.tenantId!, req.userId!, String(req.params.id), version, motivo, req.ip ?? null);
     res.json({ status: 'ok', data: { version: v, parte: await obtenerParte(req.tenantId!, String(req.params.id)) } });
   } catch (err) { manejar(err, res, next); }

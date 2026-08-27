@@ -154,8 +154,11 @@ async function nombresDeClientes(tenantId: string, ids: (string | null)[]): Prom
 // Listado / detalle
 // ──────────────────────────────────────────────────────────────────
 
+/** Alcance por cliente listo para el where: id concreto o `{ in: [...] }` (usuario restringido a varios). */
+export type FiltroClienteId = string | { in: string[] } | null | undefined;
+
 export interface FiltrosListado {
-  clienteId?: string | null;
+  clienteId?: FiltroClienteId;
   q?: string;
   capitulo?: string;
   dictamen?: 'con' | 'sin';
@@ -399,7 +402,7 @@ function codigoAutomatico(descripcionNormalizada: string): string {
 }
 
 /** Busca una parte del tenant (y cliente, si viene) cuya descripción normalizada sea idéntica. */
-async function parteConMismaDescripcion(tenantId: string, description: string, clienteId?: string | null) {
+async function parteConMismaDescripcion(tenantId: string, description: string, clienteId?: FiltroClienteId) {
   const norm = normalizarDescripcion(description);
   if (!norm) return null;
   const candidatas = await prisma.product.findMany({
@@ -527,7 +530,7 @@ export async function consultarCatalogoParaClasificar(
   return { reutilizar: null, sugerido, parteSinDictamen };
 }
 
-export async function buscarPorDescripcion(tenantId: string, q: string, clienteId?: string | null, limit = 10) {
+export async function buscarPorDescripcion(tenantId: string, q: string, clienteId?: FiltroClienteId, limit = 10) {
   const texto_ = (q ?? '').trim();
   if (!texto_) return { exacta: null, similares: [] as ParteResumen[] };
   const exactaRow = await parteConMismaDescripcion(tenantId, texto_, clienteId);

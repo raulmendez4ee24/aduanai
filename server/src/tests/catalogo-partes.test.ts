@@ -21,6 +21,8 @@ import {
   importarPartes, exportarPartesXlsx, CatalogoError,
 } from '../services/catalogo-partes';
 import { agruparHistorial, aciertoPorCapitulo } from '../services/historial-clasificaciones';
+import { clienteIdDe, filtroCliente, enAlcance, validarClienteEnAlcance } from '../lib/cliente-contexto';
+import type { Request } from 'express';
 
 let ok = 0;
 function check(cond: boolean, msg: string) { assert.ok(cond, msg); ok++; console.log(`  ✓ ${msg}`); }
@@ -176,6 +178,27 @@ async function main() {
     const rB = await consultarCatalogoParaClasificar(tB.id, { productCode: 'M8-INOX', description: 'Tornillo de acero inoxidable M8' });
     check(!rB.reutilizar && !rB.sugerido, 'el clasificador de B no reutiliza el catálogo de A');
     await rechaza(() => promoverDesdeClasificacion(tB.id, uB.id, cls.id, { productCode: 'X' }, { puedeAprobar: true }), 'NO_ENCONTRADA', 'tenant B no promueve clasificaciones de A');
+
+    // 11. Alcance por cliente (revisión B): usuario restringido a VARIOS clientes → clienteIdDe es null,
+    //     pero filtroCliente da { in: [...] } y el listado/búsqueda/export/detalle deben honrarlo.
+    const clienteB = await prisma.cliente.create({ data: { tenantId: tA.id, rfc: `CTB${nonce.toUpperCase().slice(0, 9)}`, razonSocial: 'Cliente B' } });
+    const clienteC = await prisma.cliente.create({ data: { tenantId: tA.id, rfc: `CTC${nonce.toUpperCase().slice(0, 9)}`, razonSocial: 'Cliente C' } });
+    const pB = await crearParte(tA.id, uA.id, { productCode: 'SOLO-B', description: 'Bomba centrifuga exclusiva del cliente B', clienteId: clienteB.id }, { puedeAprobar: false });
+    const pC = await crearParte(tA.id, uA.id, { productCode: 'SOLO-C', description: 'Bomba centrifuga exclusiva del cliente C', clienteId: clienteC.id }, { puedeAprobar: false });
+    const reqAB = { headers: {}, query: {}, clienteIdsPermitidos: [cliente.id, clienteB.id] } as unknown as Request;
+    check(clienteIdDe(reqAB) === null, 'con 2 clientes permitidos clienteIdDe es null (el bug: listados sin filtro)');
+    const lAB = await listarPartes(tA.id, { ...filtroCliente(reqAB) });
+    const idsAB = new Set(lAB.data.map(x => x.id));
+    check(idsAB.has(pB.id) && !idsAB.has(pC.id), 'listarPartes con { in: [A,B] } incluye B y excluye C');
+    const bAB = await buscarPorDescripcion(tA.id, 'bomba centrifuga exclusiva', filtroCliente(reqAB).clienteId);
+    check(bAB.similares.some(x => x.id === pB.id) && !bAB.similares.some(x => x.id === pC.id), 'buscarPorDescripcion con { in } excluye la parte del cliente C');
+    const xAB = XLSX.read(await exportarPartesXlsx(tA.id, { ...filtroCliente(reqAB) }), { type: 'buffer' });
+    const codigosX = XLSX.utils.sheet_to_json<{ productCode: string }>(xAB.Sheets[xAB.SheetNames[0]]!).map(r => r.productCode);
+    check(codigosX.includes('SOLO-B') && !codigosX.includes('SOLO-C'), 'export.xlsx con { in } excluye la parte del cliente C');
+    check(enAlcance(reqAB, pB.clienteId) && !enAlcance(reqAB, pC.clienteId), 'enAlcance: detalle de la parte C queda fuera (la ruta responde 404)');
+    await assert.rejects(() => validarClienteEnAlcance(reqAB, tA.id, clienteC.id), (e: unknown) => (e as { statusCode?: number }).statusCode === 403, 'validarClienteEnAlcance rechaza clienteId del body fuera del alcance (403)');
+    ok++; console.log('  ✓ validarClienteEnAlcance rechaza clienteId del body fuera del alcance (403)');
+    check((await validarClienteEnAlcance(reqAB, tA.id, clienteB.id)) === clienteB.id, 'validarClienteEnAlcance acepta un cliente del alcance');
   } finally {
     await prisma.productClassificationVersion.deleteMany({ where: { product: { tenantId: { in: [tA.id, tB.id] } } } }).catch(() => {});
     await prisma.product.deleteMany({ where: { tenantId: { in: [tA.id, tB.id] } } }).catch(() => {});
