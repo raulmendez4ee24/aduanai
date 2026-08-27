@@ -54,6 +54,7 @@ export const NAV_HERRAMIENTAS: NavItem[] = [
   { label: 'Verificación', path: '/verificacion', icono: BadgeCheck },
   { label: 'Novedades', path: '/updates', icono: Megaphone },
   // ── OPERACIÓN 2026-08 ── entradas nuevas (una línea por módulo)
+  { label: 'Catálogo de partes', path: '/catalogo', icono: Boxes },
 ]
 
 /** Admin (solo SUPERADMIN; grupo colapsable). */

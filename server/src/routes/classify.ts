@@ -275,6 +275,7 @@ function filtrosHistorialDe(req: AuthRequest): FiltrosHistorial {
     confianzaMax: n('confianzaMax'),
     feedback: fb === 'correct' || fb === 'incorrect' || fb === 'partial' || fb === 'sin' ? fb : undefined,
     status: s('status'),
+    ids: s('ids')?.split(',').map(x => x.trim()).filter(Boolean),
   };
 }
 

@@ -21,6 +21,8 @@ import {
 import { api } from '../lib/api'
 import type { ClassificationResult, ClassifierAlert, ClassifierAntidumpingMetadata, DatoLegal } from '../lib/api'
 import { formatFraction } from '../lib/format'
+// ── OPERACIÓN 2026-08 ── el Clasificador consulta el catálogo maestro antes de correr
+import { catalogoApi, formatearFraccion, fechaCorta } from '../lib/api/catalogo'
 import { Button, Card, Badge, Textarea, Input, SelloVerificacion, EmptyState, type EstadoSello } from '../components/ui'
 
 // ════════════════════════════════════════════════════════════════════════
@@ -220,6 +222,7 @@ export function ClassifierPage() {
   const [pais, setPais] = useState(draftInicial.pais)
   const [valor, setValor] = useState(draftInicial.valor)
   const [cantidad, setCantidad] = useState(draftInicial.cantidad)
+  const [numeroParte, setNumeroParte] = useState('')
   const [detallesAbiertos, setDetallesAbiertos] = useState(false)
   const [cargando, setCargando] = useState(false)
   const [etapa, setEtapa] = useState(0)
@@ -350,13 +353,27 @@ export function ClassifierPage() {
     inicioJob.current = Date.now()
     setCargando(true)
     try {
-      const res = await api.classifyStart(
-        q,
-        undefined,
-        pais.trim() || undefined,
-        valor ? parseFloat(valor) : undefined,
-        { declaredQuantity: cantidad ? parseFloat(cantidad) : undefined },
-      )
+      const res = await catalogoApi.clasificarConCatalogo({
+        description: q,
+        productCode: numeroParte.trim() || undefined,
+        countryOfOrigin: pais.trim() || undefined,
+        declaredValueUSD: valor ? parseFloat(valor) : undefined,
+        declaredQuantity: cantidad ? parseFloat(cantidad) : undefined,
+      })
+      // Catálogo maestro: el número de parte ya tiene clasificación vigente →
+      // el servidor NO corrió el modelo. Se muestra tal cual (consistencia =
+      // defensa legal) y se manda al catálogo para reclasificar con justificación.
+      if (res.reused === true && res.catalogo) {
+        const c = res.catalogo
+        setCargando(false)
+        setMensajes(m => [...m.filter(x => !x.esError), { rol: 'usuario', texto: q }, {
+          rol: 'sistema',
+          texto: `Ya tienes clasificada la parte ${c.productCode} en tu catálogo: ${formatearFraccion(c.fractionCode)}${c.nico ? ` NICO ${c.nico}` : ''} (v${c.version}${c.aprobadoAt ? `, aprobada el ${fechaCorta(c.aprobadoAt)}${c.aprobadoPorNombre ? ` por ${c.aprobadoPorNombre}` : ''}` : ''}). No corrí el modelo: la misma parte se declara siempre igual. Para reclasificarla, propón una nueva versión con justificación en Catálogo de partes.`,
+        }])
+        setInput('')
+        return
+      }
+      if (!res.jobId) throw new Error('El servidor no devolvió un trabajo de clasificación.')
       // Revisión 24-ago (#3): si el servidor reutilizó un job activo con OTRA
       // descripción (doble pestaña, llave perdida), la conversación muestra la
       // descripción de ESE job — jamás se asocia el resultado del producto A
@@ -380,6 +397,13 @@ export function ClassifierPage() {
         // operación nueva — no se apilan encima del resultado bueno.
         setMensajes(m => [...m.filter(x => !x.esError), { rol: 'usuario', texto: q }])
         setInput('')
+      }
+      if (res.catalogoSugerido) {
+        const c = res.catalogoSugerido
+        setMensajes(m => [...m, {
+          rol: 'sistema',
+          texto: `Esta descripción coincide con la parte ${c.productCode} de tu catálogo (${formatearFraccion(c.fractionCode)}, v${c.version}). Compara el resultado del modelo con esa clasificación vigente antes de declarar.`,
+        }])
       }
       void vigilarJob(res.jobId)
     } catch (e) {
@@ -485,10 +509,11 @@ export function ClassifierPage() {
           className="inline-flex items-center gap-1 text-13 text-tinta-suave hover:text-tinta focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-petroleo rounded-sello-sm"
         >
           <ChevronDown className={`w-3.5 h-3.5 transition-transform duration-150 ${detallesAbiertos ? 'rotate-180' : ''}`} strokeWidth={1.5} aria-hidden />
-          Detalles opcionales (país, valor, cantidad)
+          Detalles opcionales (número de parte, país, valor, cantidad)
         </button>
         {detallesAbiertos && (
-          <div className="grid grid-cols-3 gap-2">
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
+            <Input aria-label="Número de parte (catálogo)" placeholder="Núm. de parte" mono value={numeroParte} onChange={e => setNumeroParte(e.target.value)} />
             <Input aria-label="País de origen" placeholder="País (CN)" mono value={pais} onChange={e => setPais(e.target.value)} />
             <Input aria-label="Valor unitario USD" placeholder="Valor USD" mono value={valor} onChange={e => setValor(e.target.value)} />
             <Input aria-label="Cantidad declarada" placeholder="Cantidad" mono value={cantidad} onChange={e => setCantidad(e.target.value)} />

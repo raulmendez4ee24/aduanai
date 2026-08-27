@@ -20,6 +20,8 @@ export interface FiltrosHistorial {
   confianzaMax?: number;
   feedback?: 'correct' | 'incorrect' | 'partial' | 'sin';
   status?: string;
+  /** Ids concretos (el Historial agrupado pide las clasificaciones de un grupo). */
+  ids?: string[];
 }
 
 export function whereHistorial(tenantId: string, f: FiltrosHistorial): Prisma.ClassificationWhereInput {
@@ -49,6 +51,7 @@ export function whereHistorial(tenantId: string, f: FiltrosHistorial): Prisma.Cl
   if (f.feedback === 'sin') where.feedback = null;
   else if (f.feedback) where.feedback = f.feedback;
   if (f.status) where.status = f.status;
+  if (f.ids && f.ids.length > 0) where.id = { in: f.ids.slice(0, 500) };
   return where;
 }
 

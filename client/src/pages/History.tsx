@@ -1,171 +1,383 @@
+/**
+ * /historial — Historial de clasificaciones → catálogo (Ola 1, Operación 2026-08).
+ * Agrupado por producto (misma descripción normalizada) con conteo; el
+ * feedback ✓/✗ es un paso visible y OBLIGATORIO antes de "Promover a catálogo";
+ * filtros por fracción/capítulo/fecha/confianza/feedback (el cliente activo
+ * viene del selector global); export Excel; acierto del modelo por capítulo
+ * calculado del feedback real. Sistema Sello.
+ */
+import { useCallback, useEffect, useState } from 'react'
+import { Link } from 'react-router-dom'
+import { Clock, Download, ChevronLeft, ChevronRight, ChevronDown, ChevronUp, ShieldCheck, Boxes, AlertTriangle, CheckCircle2, X } from 'lucide-react'
 import { DemoTag } from '../components/DemoBanner'
-import { useState, useEffect } from 'react'
-import { api } from '../lib/api'
-import type { ClassificationRecord } from '../lib/api'
-import { Clock, Search, ChevronLeft, ChevronRight, ChevronDown, ChevronUp, ShieldCheck } from 'lucide-react'
-import { formatFraction } from '../lib/format'
-import { CONFIDENCE_LABEL, CONFIDENCE_TOOLTIP } from '../lib/confidence'
+import { Badge, Button, Card, EmptyState, Input, Select } from '../components/ui'
 import { usePermissions } from '../hooks/usePermissions'
+import { CONFIDENCE_LABEL, CONFIDENCE_TOOLTIP } from '../lib/confidence'
+import {
+  historialApi, catalogoApi, descargarArchivo, formatearFraccion, fechaCorta,
+  type FiltrosHistorial, type GrupoHistorial, type ClasificacionHistorial, type AciertoCapitulo,
+} from '../lib/api/catalogo'
 
-const GLASS = 'bg-white/70 backdrop-blur-xl border border-white/50 shadow-[0_8px_30px_rgb(0,0,0,0.04)]'
+export const GUIA_MODULO = {
+  titulo: 'Historial de clasificaciones',
+  pasos: [
+    'Las clasificaciones se agrupan por producto (misma descripción); el conteo muestra cuántas veces se consultó y si el modelo fue consistente.',
+    'Marca ✓ o ✗ en cada clasificación: es el paso obligatorio antes de promover al catálogo y es lo único que alimenta el "acierto por capítulo".',
+    'Promover a catálogo crea (o actualiza) la parte con esa fracción como versión "historial"; queda vigente si tienes permiso de aprobar, si no, propuesta.',
+    'Filtra por cliente (selector global), fracción, capítulo, fecha, confianza o feedback y exporta el resultado a Excel.',
+  ],
+}
+
+function mensajeDe(e: unknown): string { return e instanceof Error ? e.message : 'Ocurrió un error. Intenta de nuevo.' }
+
+function tonoConfianza(c: number): 'petroleo' | 'ambar' | 'carmin' | 'neutral' {
+  const pct = Math.round(c)
+  if (pct >= 75) return 'petroleo'
+  if (pct >= 50) return 'ambar'
+  return 'carmin'
+}
+
+const LIMIT = 20
 
 export function HistoryPage() {
-  const [records, setRecords] = useState<ClassificationRecord[]>([])
-  const [loading, setLoading] = useState(true)
-  const [search, setSearch] = useState('')
-  const [page, setPage] = useState(1)
-  const [total, setTotal] = useState(0)
-  const [expandedId, setExpandedId] = useState<string | null>(null)
   const { can } = usePermissions()
+  const puedeAprobar = can('classifier', 'approve')
+  const puedeExportar = can('classifier', 'exportData')
+  const puedePromover = can('catalogo', 'create')
 
-  useEffect(() => { load() }, [page, search])
+  // Filtros en UN objeto (Ola 3 → useEstadoPersistente('/historial', inicial)).
+  const [form, setForm] = useState<FiltrosHistorial>({ search: '', fractionCode: '', capitulo: '', desde: '', hasta: '', confianzaMin: '', confianzaMax: '', feedback: '', page: 1 })
+  const [grupos, setGrupos] = useState<GrupoHistorial[]>([])
+  const [total, setTotal] = useState(0)
+  const [truncado, setTruncado] = useState(false)
+  const [cargando, setCargando] = useState(true)
+  const [error, setError] = useState<string | null>(null)
+  const [aviso, setAviso] = useState<string | null>(null)
+  const [abierto, setAbierto] = useState<string | null>(null)
+  const [acierto, setAcierto] = useState<{ capitulos: AciertoCapitulo[]; totales: AciertoCapitulo; nota: string } | null>(null)
+  const [mostrarAcierto, setMostrarAcierto] = useState(false)
 
-  async function load() {
-    setLoading(true)
+  const cargar = useCallback(async () => {
+    setCargando(true)
+    setError(null)
     try {
-      const res = await api.classifyHistory(search || undefined, page)
-      setRecords(res.data)
-      setTotal(res.pagination.total)
-    } catch { setRecords([]) }
-    setLoading(false)
+      const r = await historialApi.agrupado({ ...form, limit: LIMIT })
+      setGrupos(r.data)
+      setTotal(r.pagination.total)
+      setTruncado(r.pagination.truncado)
+    } catch (e) { setError(mensajeDe(e)); setGrupos([]); setTotal(0) }
+    finally { setCargando(false) }
+  }, [form])
+
+  const cargarAcierto = useCallback(async () => {
+    try { setAcierto(await historialApi.aciertoPorCapitulo(form)) } catch { setAcierto(null) }
+  }, [form])
+
+  useEffect(() => {
+    const t = setTimeout(() => { void cargar(); void cargarAcierto() }, form.search ? 250 : 0)
+    return () => clearTimeout(t)
+  }, [cargar, cargarAcierto, form.search])
+
+  useEffect(() => {
+    const onCliente = () => setForm(f => ({ ...f, page: 1 }))
+    window.addEventListener('aduanai:cliente', onCliente)
+    return () => window.removeEventListener('aduanai:cliente', onCliente)
+  }, [])
+
+  async function exportar() {
+    try { await descargarArchivo(historialApi.exportUrl(form), `historial-clasificaciones-${new Date().toISOString().slice(0, 10)}.xlsx`) }
+    catch (e) { setError(mensajeDe(e)) }
   }
 
-  async function sendFeedback(id: string, fb: 'correct' | 'incorrect') {
-    try { await api.classifyFeedback(id, fb); load() } catch {}
-  }
-
-  async function approve(id: string) {
-    try { await api.classifyApprove(id); load() } catch (e) { alert(e instanceof Error ? e.message : 'Error') }
-  }
-
-  // confidence ya viene en 0-100 desde el backend (ver format.ts)
-  const confBadge = (c: number) => {
-    const pct = Math.round(c)
-    if (pct >= 90) return 'bg-emerald-50 text-emerald-600'
-    if (pct >= 75) return 'bg-emerald-50/50 text-emerald-500'
-    if (pct >= 50) return 'bg-amber-50 text-amber-600'
-    return 'bg-rose-50 text-rose-600'
-  }
+  const set = (k: keyof FiltrosHistorial, v: string) => setForm(f => ({ ...f, [k]: v, page: 1 }))
+  const paginas = Math.max(1, Math.ceil(total / LIMIT))
+  const hayFiltros = !!(form.search || form.fractionCode || form.capitulo || form.desde || form.hasta || form.confianzaMin !== '' || form.confianzaMax !== '' || form.feedback)
 
   return (
-    <div className="max-w-5xl mx-auto space-y-4">
-      <div className={`${GLASS} rounded-[2rem] p-6`}>
-        <div className="flex items-center justify-between mb-6">
-          <div className="flex items-center gap-2">
-            <Clock className="w-5 h-5 text-emerald-500" />
-            <h1 className="text-xl font-bold text-slate-900">Historial</h1> <DemoTag />
-          </div>
-          <span className="text-[12px] text-slate-500">{total} clasificaciones</span>
+    <div className="max-w-6xl mx-auto space-y-4 font-sello-ui">
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div className="flex items-center gap-2">
+          <Clock className="w-5 h-5 text-petroleo" strokeWidth={1.5} aria-hidden />
+          <h1 className="text-xl font-semibold text-tinta">Historial</h1> <DemoTag />
+          {!cargando && <span className="text-sm text-tinta-suave">{total} producto{total === 1 ? '' : 's'}{truncado ? ' (últimas 5,000 clasificaciones)' : ''}</span>}
         </div>
-
-        {/* Search */}
-        <div className="flex items-center gap-2 bg-white/60 border border-slate-200/50 rounded-xl px-4 py-2.5 mb-4">
-          <Search className="w-4 h-4 text-slate-400" />
-          <input type="text" value={search} onChange={e => { setSearch(e.target.value); setPage(1) }}
-            placeholder="Buscar por producto o fracción..." className="flex-1 bg-transparent text-[13px] text-slate-900 placeholder:text-slate-400 outline-none" />
+        <div className="flex items-center gap-2">
+          <Button variante="secundario" tamano="sm" onClick={() => setMostrarAcierto(v => !v)} aria-expanded={mostrarAcierto}>Acierto por capítulo</Button>
+          {puedeExportar && (
+            <Button variante="secundario" tamano="sm" onClick={exportar} disabled={total === 0}>
+              <Download className="w-4 h-4" strokeWidth={1.5} aria-hidden /> Exportar Excel
+            </Button>
+          )}
         </div>
-
-        {/* Table header */}
-        <div className="hidden md:grid grid-cols-[1fr_120px_80px_80px_100px_40px] gap-3 px-4 py-2 text-[10px] font-medium text-slate-500 uppercase tracking-wider border-b border-slate-200/50">
-          <span>Producto</span>
-          <span>Fracción</span>
-          <span title={CONFIDENCE_TOOLTIP} className="cursor-help">{CONFIDENCE_LABEL}</span>
-          <span>Feedback</span>
-          <span>Fecha</span>
-          <span></span>
-        </div>
-
-        {/* Rows */}
-        {loading ? (
-          <div className="space-y-2 mt-2">{[1,2,3,4,5].map(i => <div key={i} className="animate-pulse bg-slate-200/60 rounded-xl h-14" />)}</div>
-        ) : records.length > 0 ? (
-          <div className="mt-1">
-            {records.map(r => {
-              const isExpanded = expandedId === r.id
-              return (
-                <div key={r.id} className="border-b border-slate-100/50 last:border-b-0">
-                  <button onClick={() => setExpandedId(isExpanded ? null : r.id)}
-                    className="w-full grid grid-cols-1 md:grid-cols-[1fr_120px_80px_80px_100px_40px] gap-2 md:gap-3 px-4 py-3 hover:bg-white/40 transition-colors text-left items-center">
-                    <p className="text-[12px] text-slate-700 line-clamp-1">{r.inputDescription}</p>
-                    <span className="font-mono text-[13px] font-bold text-slate-900">{formatFraction(r.fractionCode)}</span>
-                    <span title={CONFIDENCE_TOOLTIP} className={`text-[10px] font-semibold px-2 py-0.5 rounded-full inline-block w-fit cursor-help ${confBadge(r.confidence)}`}>
-                      {Math.round(r.confidence)}%
-                    </span>
-                    <span>
-                      {r.feedback === 'correct' && <span className="text-[10px] px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-600">✓ Sí</span>}
-                      {r.feedback === 'incorrect' && <span className="text-[10px] px-2 py-0.5 rounded-full bg-rose-50 text-rose-600">✗ No</span>}
-                      {r.feedback === 'partial' && <span className="text-[10px] px-2 py-0.5 rounded-full bg-amber-50 text-amber-600">~ Parcial</span>}
-                      {!r.feedback && <span className="text-[10px] text-slate-400">—</span>}
-                    </span>
-                    <span className="text-[11px] text-slate-400">{new Date(r.createdAt).toLocaleDateString('es-MX')}</span>
-                    {isExpanded ? <ChevronUp className="w-3.5 h-3.5 text-slate-400" /> : <ChevronDown className="w-3.5 h-3.5 text-slate-400" />}
-                  </button>
-
-                  {isExpanded && (
-                    <div className="px-4 pb-4 space-y-3">
-                      <div className="bg-white/40 rounded-xl p-4">
-                        <p className="text-[11px] text-slate-500 mb-1">Descripción completa</p>
-                        <p className="text-[13px] text-slate-800">{r.inputDescription}</p>
-                      </div>
-                      <div className="grid grid-cols-3 gap-3">
-                        <div className="bg-white/40 rounded-xl p-3">
-                          <p className="text-[10px] text-slate-500">Fracción</p>
-                          <p className="font-mono text-[15px] font-bold text-slate-900">{formatFraction(r.fractionCode)}</p>
-                        </div>
-                        <div className="bg-white/40 rounded-xl p-3">
-                          <p className="text-[10px] text-slate-500 cursor-help" title={CONFIDENCE_TOOLTIP}>{CONFIDENCE_LABEL}</p>
-                          <div className="flex items-center gap-2 mt-1">
-                            <div className="flex-1 bg-slate-200/50 rounded-full h-2">
-                              <div className="bg-emerald-500 h-2 rounded-full" style={{ width: `${Math.min(100, r.confidence)}%` }} />
-                            </div>
-                            <span className="text-[12px] font-bold text-emerald-500">{Math.round(r.confidence)}%</span>
-                          </div>
-                        </div>
-                        <div className="bg-white/40 rounded-xl p-3">
-                          <p className="text-[10px] text-slate-500">Fecha</p>
-                          <p className="text-[12px] font-medium text-slate-800">{new Date(r.createdAt).toLocaleString('es-MX')}</p>
-                        </div>
-                      </div>
-                      {r.status === 'pending_approval' && (
-                        <div className="flex items-center gap-3 bg-amber-50/50 rounded-xl p-3 border border-amber-100">
-                          <ShieldCheck className="w-4 h-4 text-amber-600"/>
-                          <p className="text-[11px] text-amber-800 flex-1">Pendiente de aprobación SOD — un validador debe revisar antes de operar.</p>
-                          {can('classifier', 'approve') && (
-                            <button onClick={() => approve(r.id)} className="text-[10px] font-semibold text-white bg-emerald-600 hover:bg-emerald-700 px-3 py-1.5 rounded-full">
-                              Aprobar
-                            </button>
-                          )}
-                        </div>
-                      )}
-                      {!r.feedback && (
-                        <div className="flex items-center gap-3">
-                          <p className="text-[11px] text-slate-500">¿Resultado correcto?</p>
-                          <button onClick={() => sendFeedback(r.id, 'correct')} className="text-[10px] font-medium text-emerald-600 bg-emerald-50 px-3 py-1 rounded-full hover:bg-emerald-100">✓ Sí</button>
-                          <button onClick={() => sendFeedback(r.id, 'incorrect')} className="text-[10px] font-medium text-rose-600 bg-rose-50 px-3 py-1 rounded-full hover:bg-rose-100">✗ No</button>
-                        </div>
-                      )}
-                      {r.feedbackNote && (
-                        <div className="bg-amber-50/50 rounded-xl p-3 border border-amber-100">
-                          <p className="text-[10px] text-amber-600 font-medium">Nota: {r.feedbackNote}</p>
-                        </div>
-                      )}
-                    </div>
-                  )}
-                </div>
-              )
-            })}
-          </div>
-        ) : <p className="text-center text-[13px] text-slate-400 py-8">Sin resultados</p>}
-
-        {/* Pagination */}
-        {total > 20 && (
-          <div className="flex items-center justify-center gap-3 mt-6">
-            <button onClick={() => setPage(p => Math.max(1, p - 1))} disabled={page === 1} className="w-8 h-8 rounded-lg bg-white/60 flex items-center justify-center disabled:opacity-30 hover:bg-white/80 transition-colors"><ChevronLeft className="w-4 h-4" /></button>
-            <span className="text-[12px] text-slate-500">Página {page} de {Math.ceil(total / 20)}</span>
-            <button onClick={() => setPage(p => p + 1)} disabled={records.length < 20} className="w-8 h-8 rounded-lg bg-white/60 flex items-center justify-center disabled:opacity-30 hover:bg-white/80 transition-colors"><ChevronRight className="w-4 h-4" /></button>
-          </div>
-        )}
       </div>
+
+      {aviso && (
+        <div role="status" className="flex items-start gap-2 border border-linea bg-petroleo-suave rounded-sello px-4 py-3 text-sm text-tinta">
+          <CheckCircle2 className="w-4 h-4 text-sello mt-0.5" strokeWidth={1.5} aria-hidden />
+          <span className="flex-1">{aviso}</span>
+          <button type="button" onClick={() => setAviso(null)} aria-label="Cerrar aviso" className="text-tinta-suave hover:text-tinta"><X className="w-4 h-4" /></button>
+        </div>
+      )}
+      {error && (
+        <div role="alert" className="flex items-start gap-2 border border-carmin/30 bg-carmin-suave rounded-sello px-4 py-3 text-sm text-carmin">
+          <AlertTriangle className="w-4 h-4 mt-0.5" strokeWidth={1.5} aria-hidden />
+          <span className="flex-1">{error}</span>
+        </div>
+      )}
+
+      {mostrarAcierto && <AciertoPorCapitulo datos={acierto} />}
+
+      <Card denso>
+        <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-8 gap-2">
+          <div className="col-span-2"><Input aria-label="Buscar" placeholder="Producto o fracción" value={form.search ?? ''} onChange={e => set('search', e.target.value)} /></div>
+          <Input aria-label="Fracción" placeholder="Fracción" mono value={form.fractionCode ?? ''} onChange={e => set('fractionCode', e.target.value)} />
+          <Input aria-label="Capítulo" placeholder="Cap." mono maxLength={2} value={form.capitulo ?? ''} onChange={e => set('capitulo', e.target.value.replace(/\D/g, ''))} />
+          <Input aria-label="Desde" type="date" mono value={form.desde ?? ''} onChange={e => set('desde', e.target.value)} />
+          <Input aria-label="Hasta" type="date" mono value={form.hasta ?? ''} onChange={e => set('hasta', e.target.value)} />
+          <Input aria-label="Confianza mínima" placeholder="Conf. ≥" mono inputMode="numeric" value={String(form.confianzaMin ?? '')} onChange={e => set('confianzaMin', e.target.value.replace(/\D/g, ''))} />
+          <Select aria-label="Feedback" value={form.feedback ?? ''} onChange={e => set('feedback', e.target.value)}>
+            <option value="">Feedback: todos</option>
+            <option value="sin">Sin feedback</option>
+            <option value="correct">✓ Correcto</option>
+            <option value="incorrect">✗ Incorrecto</option>
+            <option value="partial">~ Parcial</option>
+          </Select>
+        </div>
+      </Card>
+
+      {cargando ? (
+        <div className="space-y-2" aria-busy="true">{[1, 2, 3, 4, 5].map(i => <div key={i} className="h-14 bg-papel-2 border border-linea rounded-sello" />)}</div>
+      ) : grupos.length === 0 ? (
+        <Card>
+          <EmptyState
+            icono={Clock}
+            titulo={hayFiltros ? 'Ningún producto coincide con los filtros' : 'Todavía no hay clasificaciones'}
+            descripcion={hayFiltros ? 'Ajusta o limpia los filtros.' : 'Cuando clasifiques productos aparecerán aquí agrupados por producto, listos para confirmar y promover al catálogo.'}
+          />
+        </Card>
+      ) : (
+        <div className="border border-linea rounded-sello bg-superficie divide-y divide-linea">
+          <div className="hidden md:grid grid-cols-[1fr_130px_70px_90px_110px_110px_32px] gap-3 px-4 py-2 text-13 uppercase tracking-wide font-medium text-tinta-suave">
+            <span>Producto</span>
+            <span>Fracción</span>
+            <span className="text-right">Veces</span>
+            <span title={CONFIDENCE_TOOLTIP} className="cursor-help">{CONFIDENCE_LABEL}</span>
+            <span>Feedback</span>
+            <span>Última</span>
+            <span />
+          </div>
+          {grupos.map(g => (
+            <GrupoFila
+              key={g.clave}
+              grupo={g}
+              abierto={abierto === g.clave}
+              onToggle={() => setAbierto(abierto === g.clave ? null : g.clave)}
+              puedeAprobar={puedeAprobar}
+              puedePromover={puedePromover}
+              onCambio={(msg) => { if (msg) setAviso(msg); void cargar(); void cargarAcierto() }}
+              onError={setError}
+            />
+          ))}
+        </div>
+      )}
+
+      {paginas > 1 && (
+        <div className="flex items-center justify-center gap-3">
+          <Button variante="ghost" tamano="sm" onClick={() => setForm(f => ({ ...f, page: Math.max(1, (f.page ?? 1) - 1) }))} disabled={(form.page ?? 1) <= 1} aria-label="Página anterior"><ChevronLeft className="w-4 h-4" /></Button>
+          <span className="text-sm text-tinta-suave font-sello-mono">Página {form.page} de {paginas}</span>
+          <Button variante="ghost" tamano="sm" onClick={() => setForm(f => ({ ...f, page: Math.min(paginas, (f.page ?? 1) + 1) }))} disabled={(form.page ?? 1) >= paginas} aria-label="Página siguiente"><ChevronRight className="w-4 h-4" /></Button>
+        </div>
+      )}
     </div>
+  )
+}
+
+// ──────────────────────────────────────────────────────────────────
+// Fila de grupo (producto) con sus clasificaciones
+// ──────────────────────────────────────────────────────────────────
+
+function GrupoFila({ grupo: g, abierto, onToggle, puedeAprobar, puedePromover, onCambio, onError }: {
+  grupo: GrupoHistorial; abierto: boolean; onToggle: () => void; puedeAprobar: boolean; puedePromover: boolean
+  onCambio: (msg?: string) => void; onError: (msg: string) => void
+}) {
+  const [items, setItems] = useState<ClasificacionHistorial[] | null>(null)
+  const [cargando, setCargando] = useState(false)
+  const [promoviendo, setPromoviendo] = useState(false)
+  const [codigo, setCodigo] = useState(g.enCatalogo?.productCode ?? '')
+
+  useEffect(() => {
+    if (!abierto) return
+    let vivo = true
+    setCargando(true)
+    historialApi.listar({ ids: g.ids.slice(0, 100), limit: 100 })
+      .then(r => { if (vivo) setItems(r.data) })
+      .catch(e => onError(mensajeDe(e)))
+      .finally(() => { if (vivo) setCargando(false) })
+    return () => { vivo = false }
+  }, [abierto, g.ids, onError])
+
+  async function feedback(id: string, fb: 'correct' | 'incorrect') {
+    try {
+      await historialApi.feedback(id, fb)
+      setItems(list => list ? list.map(c => c.id === id ? { ...c, feedback: fb } : c) : list)
+      onCambio()
+    } catch (e) { onError(mensajeDe(e)) }
+  }
+  async function aprobar(id: string) {
+    try { await historialApi.aprobar(id); setItems(list => list ? list.map(c => c.id === id ? { ...c, status: 'approved' } : c) : list); onCambio() }
+    catch (e) { onError(mensajeDe(e)) }
+  }
+  async function promover() {
+    if (!g.promovibleId) return
+    setPromoviendo(true)
+    try {
+      const r = await catalogoApi.promover({ classificationId: g.promovibleId, productCode: codigo.trim() || undefined })
+      const v = r.data.version
+      onCambio(
+        r.data.sinCambio
+          ? `${r.data.parte.productCode} ya tiene ${formatearFraccion(v.fractionCode)} en el catálogo (v${v.version}).`
+          : `${r.data.creada ? 'Parte creada' : 'Parte actualizada'}: ${r.data.parte.productCode} → ${formatearFraccion(v.fractionCode)} (v${v.version}, ${v.estado}).`,
+      )
+    } catch (e) { onError(mensajeDe(e)) } finally { setPromoviendo(false) }
+  }
+
+  const fb = g.feedback
+  return (
+    <div>
+      <button type="button" onClick={onToggle} aria-expanded={abierto}
+        className="w-full grid grid-cols-1 md:grid-cols-[1fr_130px_70px_90px_110px_110px_32px] gap-1 md:gap-3 px-4 py-3 text-left items-center hover:bg-papel-2/60 transition-colors duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-petroleo">
+        <span className="text-sm text-tinta line-clamp-2">
+          {g.descripcion}
+          {g.enCatalogo && <Badge tono="petroleo" className="ml-2 align-middle"><Boxes className="w-3 h-3" aria-hidden /> {g.enCatalogo.productCode}</Badge>}
+        </span>
+        <span className="font-sello-mono text-sm text-tinta">
+          {formatearFraccion(g.fraccionDominante)}
+          {!g.consistente && <span title="El modelo dio fracciones distintas para este producto"><Badge tono="ambar" className="ml-1">{g.fracciones.length} distintas</Badge></span>}
+        </span>
+        <span className="font-sello-mono text-sm text-tinta md:text-right">{g.conteo}</span>
+        <span><Badge tono={tonoConfianza(g.confianzaPromedio)}>{g.confianzaPromedio}%</Badge></span>
+        <span className="text-13 text-tinta-suave font-sello-mono">
+          {fb.correct > 0 && <span className="text-sello">✓{fb.correct} </span>}
+          {fb.incorrect > 0 && <span className="text-carmin">✗{fb.incorrect} </span>}
+          {fb.partial > 0 && <span className="text-ambar">~{fb.partial} </span>}
+          {fb.sin > 0 && <span>—{fb.sin}</span>}
+        </span>
+        <span className="font-sello-mono text-13 text-tinta-suave">{fechaCorta(g.ultimaFecha)}</span>
+        <span className="justify-self-end text-tinta-suave">{abierto ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}</span>
+      </button>
+
+      {abierto && (
+        <div className="px-4 pb-4 space-y-3 bg-papel-2/40">
+          {/* Paso 1: feedback. Paso 2: promover (solo con ✓). */}
+          <div className="flex flex-wrap items-center gap-3 border border-linea rounded-sello bg-superficie px-4 py-3">
+            <div className="flex-1 text-sm">
+              <p className="text-tinta font-medium">Promover a catálogo</p>
+              <p className="text-tinta-suave">
+                {g.promovibleId
+                  ? `Se usará la clasificación marcada ✓ (${formatearFraccion(g.fraccionDominante)}). ${g.enCatalogo ? `La parte ${g.enCatalogo.productCode} ya existe: se añade como versión.` : 'Si no das número de parte se genera uno provisional.'}`
+                  : 'Paso obligatorio: marca ✓ en una de las clasificaciones de abajo antes de promover.'}
+              </p>
+            </div>
+            {puedePromover && (
+              <>
+                <Input aria-label="Número de parte" placeholder="Número de parte" mono value={codigo} onChange={e => setCodigo(e.target.value)} disabled={!!g.enCatalogo} />
+                <Button variante="primario" tamano="sm" loading={promoviendo} disabled={!g.promovibleId} onClick={promover}>
+                  <Boxes className="w-4 h-4" strokeWidth={1.5} aria-hidden /> Promover
+                </Button>
+              </>
+            )}
+            {g.enCatalogo && <Link to={`/catalogo?parte=${g.enCatalogo.productId}`} className="text-sm text-petroleo underline-offset-2 hover:underline">Ver en catálogo</Link>}
+          </div>
+
+          {cargando && <p className="text-sm text-tinta-suave">Cargando clasificaciones…</p>}
+          {items && items.length === 0 && <p className="text-sm text-tinta-suave">No se pudieron cargar las clasificaciones de este producto.</p>}
+          {items && items.map(c => (
+            <div key={c.id} className="border border-linea rounded-sello bg-superficie px-4 py-3 text-sm space-y-2">
+              <div className="flex flex-wrap items-center gap-2">
+                <span className="font-sello-mono font-medium text-tinta">{formatearFraccion(c.fractionCode)}</span>
+                {c.fractionDescription && <span className="text-tinta-suave line-clamp-1 flex-1">{c.fractionDescription}</span>}
+                <span title={CONFIDENCE_TOOLTIP}><Badge tono={tonoConfianza(c.confidence)}>{Math.round(c.confidence)}%</Badge></span>
+                <span className="font-sello-mono text-13 text-tinta-suave">{fechaCorta(c.createdAt)}</span>
+              </div>
+              <div className="flex flex-wrap items-center gap-2">
+                <span className="text-tinta-suave">¿Resultado correcto?</span>
+                {c.feedback === 'correct' && <Badge tono="petroleo">✓ Correcto</Badge>}
+                {c.feedback === 'incorrect' && <Badge tono="carmin">✗ Incorrecto</Badge>}
+                {c.feedback === 'partial' && <Badge tono="ambar">~ Parcial</Badge>}
+                {!c.feedback && (
+                  <>
+                    <Button variante="secundario" tamano="sm" onClick={() => feedback(c.id, 'correct')}>✓ Sí</Button>
+                    <Button variante="secundario" tamano="sm" onClick={() => feedback(c.id, 'incorrect')}>✗ No</Button>
+                  </>
+                )}
+                {c.feedbackNote && <span className="text-13 text-ambar">Nota: {c.feedbackNote}</span>}
+                <span className="flex-1" />
+                {c.status === 'pending_approval' && (
+                  <span className="inline-flex items-center gap-2 text-13 text-ambar">
+                    <ShieldCheck className="w-4 h-4" strokeWidth={1.5} aria-hidden /> Pendiente de aprobación SOD
+                    {puedeAprobar && <Button variante="primario" tamano="sm" onClick={() => aprobar(c.id)}>Aprobar</Button>}
+                  </span>
+                )}
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  )
+}
+
+// ──────────────────────────────────────────────────────────────────
+// Acierto del modelo por capítulo (del feedback real)
+// ──────────────────────────────────────────────────────────────────
+
+function AciertoPorCapitulo({ datos }: { datos: { capitulos: AciertoCapitulo[]; totales: AciertoCapitulo; nota: string } | null }) {
+  if (!datos) return <Card denso><p className="text-sm text-tinta-suave">No se pudo calcular el acierto.</p></Card>
+  const conDatos = datos.capitulos.filter(c => c.conFeedback > 0)
+  return (
+    <Card denso header={
+      <div className="flex flex-wrap items-baseline justify-between gap-2">
+        <h2 className="text-base font-medium text-tinta">Acierto del modelo por capítulo</h2>
+        <span className="text-sm text-tinta-suave">
+          {datos.totales.conFeedback > 0
+            ? <>Total: <span className="font-sello-mono text-tinta">{datos.totales.acierto}%</span> sobre {datos.totales.conFeedback} con feedback de {datos.totales.total}</>
+            : 'Sin feedback todavía'}
+        </span>
+      </div>
+    }>
+      <p className="text-13 text-tinta-suave mb-3">{datos.nota}</p>
+      {conDatos.length === 0 ? (
+        <p className="text-sm text-tinta-suave">Marca ✓/✗ en las clasificaciones para que aparezca la métrica. No se calcula nada a partir de la confianza declarada por el modelo.</p>
+      ) : (
+        <div className="overflow-x-auto">
+          <table className="w-full text-sm">
+            <thead>
+              <tr className="border-b border-linea text-13 uppercase tracking-wide text-tinta-suave">
+                <th className="text-left py-2 pr-4 font-medium">Capítulo</th>
+                <th className="text-right py-2 px-2 font-medium">Acierto</th>
+                <th className="text-right py-2 px-2 font-medium">✓</th>
+                <th className="text-right py-2 px-2 font-medium">✗</th>
+                <th className="text-right py-2 px-2 font-medium">~</th>
+                <th className="text-right py-2 px-2 font-medium">Con feedback</th>
+                <th className="text-right py-2 pl-2 font-medium">Total</th>
+              </tr>
+            </thead>
+            <tbody className="font-sello-mono">
+              {conDatos.map(c => (
+                <tr key={c.capitulo} className="border-b border-linea last:border-b-0">
+                  <td className="py-2 pr-4 text-tinta">{c.capitulo}</td>
+                  <td className="py-2 px-2 text-right"><Badge tono={c.acierto !== null && c.acierto >= 75 ? 'petroleo' : c.acierto !== null && c.acierto >= 50 ? 'ambar' : 'carmin'}>{c.acierto}%</Badge></td>
+                  <td className="py-2 px-2 text-right text-sello">{c.correct}</td>
+                  <td className="py-2 px-2 text-right text-carmin">{c.incorrect}</td>
+                  <td className="py-2 px-2 text-right text-ambar">{c.partial}</td>
+                  <td className="py-2 px-2 text-right text-tinta">{c.conFeedback}</td>
+                  <td className="py-2 pl-2 text-right text-tinta-suave">{c.total}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+    </Card>
   )
 }
