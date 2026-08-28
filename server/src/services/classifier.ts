@@ -1122,7 +1122,45 @@ export async function aplicarRGI6(
     return result;
   }
 
-  // El pase corrió: veredicto escrito, con el descarte textual de la perdedora.
+  // El pase corrió. PRIMERO se aplica la ganadora (con el candado de catálogo
+  // de por medio) y solo DESPUÉS se escribe el veredicto: así el dictamen nunca
+  // dice "ganó la específica" con la fracción anterior puesta.
+  if (comparacion.estado === 'reclasificada' && comparacion.ganadora) {
+    const ganadora = comparacion.ganadora;
+    const check = await validateFraction(ganadora);
+    if (!check.valid) {
+      // Paranoia: pasoRGI6 ya validó. Si aun así no valida, se conserva la
+      // elección original y se reporta como no ejecutado (nunca a medias).
+      const motivo = `la fracción ganadora ${ganadora} no valida contra el catálogo (${check.reason})`;
+      logger.warn(`Pase RGI 6 descartado: ${motivo}`, {
+        action: 'rgi6_ganadora_invalida', entity: 'classification',
+        metadata: { ganadora, reason: check.reason },
+      });
+      result.rgi6 = {
+        ...comparacion,
+        estado: 'no_ejecutado', ejecutado: false, ganadora: null,
+        justificacion: null, descarte: null,
+        aviso: `No se pudo aplicar la comparación RGI 6: ${motivo}. Se conserva la fracción ${comparacion.residual?.codeFormatted ?? result.fraction.code} elegida por el motor.`,
+        error: motivo,
+      };
+      result.legalBasis.griApplied.push({
+        rule: 'Regla General 6 (RGI 6) — específica vs residual: NO EJECUTADA',
+        reasoning: result.rgi6.aviso,
+      });
+      return result;
+    }
+    result.fraction.code = `${ganadora.slice(0, 4)}.${ganadora.slice(4, 6)}.${ganadora.slice(6, 8)}`;
+    if (check.description) result.fraction.description = check.description;
+    result.fraction.chapter = ganadora.slice(0, 2);
+    // Los paneles legales cuelgan de la fracción: se recalculan con la nueva.
+    try {
+      result.precedents = await lookupPrecedents({ fractionCode: ganadora, chapter: ganadora.slice(0, 2), limit: 5 });
+      const lit = await hasActiveLitigation(ganadora);
+      result.litigationAlert = lit.has ? { active: true, cases: lit.precedents } : null;
+      result.precedentes = await precedentesPorFraccion(ganadora);
+    } catch { /* los paneles se omiten; la clasificación no depende de ellos */ }
+  }
+
   result.legalBasis.griApplied.push({
     rule: 'Regla General 6 (RGI 6) — específica vs residual',
     reasoning: `${comparacion.aviso} ${comparacion.justificacion ?? ''}`.trim(),
@@ -1138,23 +1176,6 @@ export async function aplicarRGI6(
         source: n.cotejo === 'pendiente' ? `${n.source} (cotejo pendiente)` : n.source,
         text: n.text,
       });
-    }
-  }
-
-  if (comparacion.estado === 'reclasificada' && comparacion.ganadora) {
-    const ganadora = comparacion.ganadora;
-    const check = await validateFraction(ganadora);
-    if (check.valid) {
-      result.fraction.code = `${ganadora.slice(0, 4)}.${ganadora.slice(4, 6)}.${ganadora.slice(6, 8)}`;
-      if (check.description) result.fraction.description = check.description;
-      result.fraction.chapter = ganadora.slice(0, 2);
-      // Los paneles legales cuelgan de la fracción: se recalculan con la nueva.
-      try {
-        result.precedents = await lookupPrecedents({ fractionCode: ganadora, chapter: ganadora.slice(0, 2), limit: 5 });
-        const lit = await hasActiveLitigation(ganadora);
-        result.litigationAlert = lit.has ? { active: true, cases: lit.precedents } : null;
-        result.precedentes = await precedentesPorFraccion(ganadora);
-      } catch { /* los paneles se omiten; la clasificación no depende de ellos */ }
     }
   }
 
