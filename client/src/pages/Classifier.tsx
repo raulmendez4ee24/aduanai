@@ -20,7 +20,7 @@ import {
 } from 'lucide-react'
 import { api } from '../lib/api'
 import type { ClassificationResult, ClassifierAlert, ClassifierAntidumpingMetadata, DatoLegal } from '../lib/api'
-import { formatFraction } from '../lib/format'
+import { formatConfidence, formatFraction } from '../lib/format'
 import { Button, Card, Badge, Textarea, Input, Select, SelloVerificacion, EmptyState, type EstadoSello } from '../components/ui'
 // Ola 1 (Operación 2026-08): uso/destino, adjuntos, hermanas y dictamen humano.
 import { apiDictamen, USOS_DESTINO, type SubpartidaHermana } from '../lib/api/clasificacion-lote'
@@ -207,6 +207,7 @@ function idUsuarioLocal(): string {
     return 'anon'
   }
 }
+const AVISO_EN_CURSO = 'Hay una clasificación en curso. En cuanto termine, vuelve a enviar tu texto: sigue en la caja y en el borrador.'
 const draftKey = () => `aduanai:classifier:draft:${idUsuarioLocal()}`
 const jobKey = () => `aduanai:classifier:job:${idUsuarioLocal()}`
 
@@ -392,7 +393,13 @@ export function ClassifierPage() {
     const miVuelta = ++vueltaSeq.current
     const vigente = () => !pollCancelado.current && vueltaSeq.current === miVuelta
     try { localStorage.setItem(jobKey(), jobId) } catch { /* best-effort */ }
-    setCargando(true)
+    // Al RETOMAR un job al montar todavía no se sabe si sigue corriendo: la
+    // llave sobrevive a los jobs terminados (por diseño, para restaurar el
+    // expediente). Marcar "cargando" antes del primer sondeo dejaba la
+    // pantalla ocupada por un job de hace días y tragaba en silencio el primer
+    // envío del usuario (P3, cuarta revisión: "mi primer texto se perdió").
+    // Con reanudación, `cargando` se enciende solo si el job sigue vivo.
+    if (!opts?.reanudando) setCargando(true)
     let intervalo = 2500
     let primeraVuelta = true
     while (vigente()) {
@@ -405,7 +412,10 @@ export function ClassifierPage() {
         const j = res.job
         if (opts?.reanudando && primeraVuelta) {
           inicioJob.current = new Date(j.createdAt).getTime()
-          if (j.description) setMensajes([{ rol: 'usuario', texto: j.description }])
+          // Nunca se REEMPLAZA la conversación: si el usuario ya escribió algo
+          // mientras la página cargaba, su texto manda (antes se perdía).
+          if (j.description) setMensajes(m => (m.length > 0 ? m : [{ rol: 'usuario', texto: j.description! }]))
+          if (j.status !== 'done' && j.status !== 'error') setCargando(true)
         }
         primeraVuelta = false
         if (j.status === 'done' && j.result) {
@@ -454,7 +464,16 @@ export function ClassifierPage() {
 
   async function clasificar() {
     const q = input.trim()
-    if (!q || cargando) return
+    if (!q) return
+    if (cargando) {
+      // Nada de tragarse el envío en silencio: se dice qué pasó y el texto se
+      // queda en la caja (y en el borrador) para reintentar.
+      setMensajes(m => (m[m.length - 1]?.texto === AVISO_EN_CURSO ? m : [...m, { rol: 'sistema', texto: AVISO_EN_CURSO }]))
+      return
+    }
+    // Cualquier sondeo en vuelo (p. ej. el que retoma un job al montar) deja de
+    // tocar la pantalla en cuanto el usuario manda texto nuevo.
+    vueltaSeq.current++
     setFeedback(null)
     inicioJob.current = Date.now()
     setCargando(true)
@@ -859,7 +878,7 @@ export function ClassifierPage() {
         {/* Detalle técnico — NUNCA número prominente: la confianza autodeclarada
             no está calibrada (los errores promedian 87.5/100). */}
         <p className="text-13 text-tinta-suave mt-1.5 leading-relaxed">
-          Confianza autodeclarada del modelo: {resultado.confidence}/100 — no calibrada; no es probabilidad de acierto.
+          Confianza autodeclarada del modelo: {formatConfidence(resultado.confidence)}/100 — no calibrada; no es probabilidad de acierto.
         </p>
       </Card>
 
