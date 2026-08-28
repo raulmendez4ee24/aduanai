@@ -247,8 +247,13 @@ export function candidataEspecifica(args: {
     const ganaPorTexto = compartidas.length >= UMBRAL_RAICES_SIN_EJE && compartidas.length > compartidasElegida.length;
     if (!aportaEje && !ganaPorTexto) continue;
 
-    const partes = [`comparte con el producto ${compartidas.length} término(s) significativo(s) (${compartidas.join(', ')})`];
-    if (ejes.length > 0) partes.push(`y su texto declara el destino "${ejes.map(e => e.etiqueta).join(' / ')}", que el usuario declaró`);
+    const partes: string[] = [];
+    if (compartidas.length > 0) {
+      partes.push(`comparte con el producto ${compartidas.length} término(s) significativo(s) (${compartidas.join(', ')})`);
+    }
+    if (ejes.length > 0) {
+      partes.push(`${partes.length > 0 ? 'y ' : ''}declara en su texto el destino "${ejes.map(e => e.etiqueta).join(' / ')}", que es el que el importador declaró`);
+    }
     candidatas.push({
       subpartida: h,
       raicesCompartidas: compartidas,
