@@ -70,7 +70,23 @@ Migración `20260827160000_fase0_cimientos_operacion` (12 tablas, 28 ALTER, 0 DR
 | `ola3/defensa-analytics-fracciones` | Vista "Defensa" (Cumplimiento+Auditoría) con certificado de integridad PDF; Analytics real (ahorro, riesgo, equipo, por cliente, export, cuadra con Historial); Fracciones ficha completa + árbol; Logística fuera del menú; Verificación: aviso de privacidad, dónde viven los datos, cifrado, camino SOC 2 | INTEGRADO (main, 27-ago) |
 | `ola3/persistencia-y-ayuda` | Estado persistente al cambiar de módulo (hook `useEstadoPersistente` aplicado a cada formulario); botón "?" por módulo con guía + captura de pantalla, auto-abierto en la primera visita | INTEGRADO (hook aplicado en 13 páginas, botón '?' en el shell, 23 capturas reales; faltan capturas de cotizador/copilot/risk/origen/expedientes/cuotas/radar/configuración) |
 
+## Repaso (revisión adversarial, 27-ago)
+
+Seis revisores en paralelo (aislamiento tenant/cliente y auth; lógica de
+funciones puras; datos legales y rendimiento) produjeron ~110 hallazgos; todos
+los P0-P2 y la mayoría de P3 quedaron corregidos en 7 ramas `fix/*`
+integradas en `main` (helpers `enAlcance`/`validarClienteEnAlcance`/
+`whereConAlcance`, candado distribuido `conCandadoJob`, claim atómico de
+lotes con heartbeat, cotejo solo por atestación explícita, plazos IMMEX AAA
+a pendiente, tolerancias etiquetadas como criterio operativo, ZIP con
+presupuesto, analytics acotado, etc.). Reportes originales:
+`scratchpad/revision-logica.md` y `revision-legal-perf.md` de la sesión.
+
+Pendientes conocidos (no bloqueantes, documentados en código):
+- `pedimento-partidas` (Anexo 24) carga todos los lotes abiertos con include.
+- Heartbeat de lotes fijo en 10 min; sin test directo de `reanudarLotesInterrumpidos`.
+- `Alert` sin `@@unique([tenantId, fingerprint])` en schema (se maneja P2002 por fila).
+
 ## Cierre
-Integración por ola (merge → tsc → suites → build), revisión adversarial
-(Codex), deploy, verificación en prod, actualización de este plan y del libro
-de estado en `COMO_FUNCIONA_ADUANAI.md`.
+Suite completa + tsc + build en verde → push → deploy Railway → verificación
+en prod (migración, rutas nuevas, guard estricto, login) → libro de estado.
