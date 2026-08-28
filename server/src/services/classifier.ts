@@ -672,6 +672,46 @@ ${allOptions}
   return { verifiedCode: suggestedCode, changed: false };
 }
 
+/**
+ * ¿Se acepta el cambio de código que propone el verificador (Mejora #4)?
+ *
+ * El verificador corre con el modelo RÁPIDO y su encargo documentado es
+ * comprobar la fracción DENTRO de la subpartida ya razonada ("Se te da …
+ * TODAS las fracciones del mismo subheading"). Como al prompt también se le
+ * añaden las subpartidas de las alternativas, en la práctica podía mover la
+ * clasificación a OTRA PARTIDA — el modelo fuerte razonaba 8544.30.99 para un
+ * arnés automotriz y el verificador lo mandaba a 8512.90.07 (partes de
+ * aparatos de alumbrado) dejando el dictamen contradiciéndose: todos los
+ * descartes escritos decían que la 85.44 era la correcta.
+ *
+ * Regla: el verificador puede corregir subpartida y fracción DENTRO de la
+ * misma partida (4 dígitos). Un salto de partida es una RE-CLASIFICACIÓN, no
+ * una verificación, y no puede decidirla el modelo rápido por encima del
+ * razonamiento escrito del fuerte: se conserva el código razonado y queda
+ * constancia en SystemLog.
+ *
+ * `CLASIFICADOR_VERIFICADOR_CAMBIA_PARTIDA=1` restaura el comportamiento
+ * anterior (el verificador puede saltar de partida) sin tocar código.
+ */
+export function aceptarCambioDelVerificador(
+  suggestedCode: string,
+  verifiedCode: string,
+  env: NodeJS.ProcessEnv = process.env,
+): { aceptar: boolean; motivo: string } {
+  const a = suggestedCode.replace(/\D/g, '');
+  const b = verifiedCode.replace(/\D/g, '');
+  if (b.length !== 8) return { aceptar: false, motivo: `el verificador emitió "${verifiedCode}", que no es una fracción de 8 dígitos` };
+  if (a.length !== 8) return { aceptar: true, motivo: 'no había código razonado válido con el que comparar' };
+  if (a.slice(0, 4) === b.slice(0, 4)) return { aceptar: true, motivo: 'mismo capítulo y partida: es una corrección de subpartida/fracción' };
+  if (env.CLASIFICADOR_VERIFICADOR_CAMBIA_PARTIDA === '1') {
+    return { aceptar: true, motivo: 'salto de partida permitido por configuración' };
+  }
+  return {
+    aceptar: false,
+    motivo: `el verificador propuso saltar de la partida ${a.slice(0, 4)} a la ${b.slice(0, 4)}; ese paso solo confirma la fracción dentro de la partida ya razonada`,
+  };
+}
+
 // ============================================
 // MAIN CLASSIFICATION FUNCTION
 // ============================================
@@ -973,7 +1013,22 @@ Responde en JSON válido.`;
     throw createNoCandidateError();
   }
 
-  if (verification.changed) {
+  const cambioDelVerificador = verification.changed
+    ? aceptarCambioDelVerificador(suggestedCode, verification.verifiedCode)
+    : { aceptar: false, motivo: '' };
+
+  if (verification.changed && !cambioDelVerificador.aceptar) {
+    logger.warn(
+      `Verificador descartado: ${cambioDelVerificador.motivo} (razonado ${suggestedCode}, propuesto ${verification.verifiedCode})`,
+      {
+        action: 'classifier_verifier_rechazado',
+        entity: 'classification',
+        metadata: { suggestedCode, verifiedCode: verification.verifiedCode, motivo: cambioDelVerificador.motivo },
+      },
+    );
+  }
+
+  if (verification.changed && cambioDelVerificador.aceptar) {
     // Update the fraction code with verified one
     const cleanCode = verification.verifiedCode.replace(/[.\-\s]/g, '');
     const formatted = `${cleanCode.slice(0, 4)}.${cleanCode.slice(4, 6)}.${cleanCode.slice(6, 8)}`;

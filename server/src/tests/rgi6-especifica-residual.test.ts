@@ -30,7 +30,7 @@ import {
   type LlmRGI6,
 } from '../services/rgi6-especifica-residual';
 import { subpartidasHermanas, type SubpartidaHermana } from '../services/subpartidas-hermanas';
-import { aplicarRGI6, depurarAlternativasContradictorias, type ClassificationResult } from '../services/classifier';
+import { aceptarCambioDelVerificador, aplicarRGI6, depurarAlternativasContradictorias, type ClassificationResult } from '../services/classifier';
 import { sinAcentos } from '../services/rgi6-terminos';
 
 let passed = 0;
@@ -354,6 +354,28 @@ async function main() {
     });
     assert.equal(r.estado, 'no_residual');
     assert.equal(llamado, false);
+  });
+
+  console.log('\n== 4b. el verificador no puede saltar de partida ==');
+
+  await test('CASO REAL: razonado 8544.30.99, verificador propone 8512.90.07 → se conserva el razonado', () => {
+    const r = aceptarCambioDelVerificador('8544.30.99', '8512.90.07');
+    assert.equal(r.aceptar, false);
+    assert.match(r.motivo, /saltar de la partida 8544 a la 8512/);
+  });
+
+  await test('corrección DENTRO de la misma partida → se acepta', () => {
+    assert.equal(aceptarCambioDelVerificador('8544.42.99', '8544.30.99').aceptar, true);
+    assert.equal(aceptarCambioDelVerificador('7318.15.01', '7318.15.99').aceptar, true);
+  });
+
+  await test('código del verificador malformado → no se acepta (el candado ya no tiene que atraparlo)', () => {
+    assert.equal(aceptarCambioDelVerificador('8544.42.99', '8544.30').aceptar, false);
+  });
+
+  await test('el salto de partida se puede reactivar por configuración', () => {
+    const r = aceptarCambioDelVerificador('8544.30.99', '8512.90.07', { CLASIFICADOR_VERIFICADOR_CAMBIA_PARTIDA: '1' } as NodeJS.ProcessEnv);
+    assert.equal(r.aceptar, true);
   });
 
   // ────────────── 5. Alternativas contradictorias ──────────────
