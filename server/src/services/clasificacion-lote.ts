@@ -333,19 +333,76 @@ export async function fraccionDeCatalogo(params: {
   tenantId: string;
   clienteId?: string | null;
   productCode?: string | null;
-}): Promise<{ productId: string; fractionCode: string | null } | null> {
+}): Promise<{ productId: string; fractionCode: string | null; nico: string | null; versionVigente: number } | null> {
   if (!params.productCode) return null;
   const p = await prisma.product.findFirst({
     where: {
       tenantId: params.tenantId,
       productCode: params.productCode,
       active: true,
-      ...(params.clienteId ? { clienteId: params.clienteId } : {}),
+      // Alcance por cliente igual que `whereAlcance` (lib/cliente-contexto):
+      // la parte del cliente del lote O la compartida del tenant (clienteId null).
+      ...(params.clienteId ? { AND: [{ OR: [{ clienteId: params.clienteId }, { clienteId: null }] }] } : {}),
       OR: [{ versionVigente: { gt: 0 } }, { fractionCode: { not: null } }],
     },
-    select: { id: true, fractionCode: true },
+    select: { id: true, fractionCode: true, nico: true, versionVigente: true },
   });
-  return p ? { productId: p.id, fractionCode: p.fractionCode } : null;
+  return p ? { productId: p.id, fractionCode: p.fractionCode, nico: p.nico, versionVigente: p.versionVigente } : null;
+}
+
+/**
+ * CIRCUITO catálogo↔lote (4ª revisión): una fila con `productCode` cuya parte
+ * ya tiene DICTAMEN VIGENTE (versión aprobada, no un `fractionCode` heredado
+ * de una carga sin aprobar) se resuelve DESDE EL CATÁLOGO — sin llamar al
+ * modelo. Es lo mismo que hace el Clasificador con una parte vigente: la misma
+ * parte se declara siempre igual.
+ */
+export function resuelveDesdeCatalogo(catalogo: { fractionCode: string | null; versionVigente: number } | null): boolean {
+  return !!catalogo && catalogo.versionVigente > 0 && !!catalogo.fractionCode;
+}
+
+/** De dónde salió la fracción de una fila procesada. */
+export type OrigenFila = 'catalogo' | 'clasificador' | 'pendiente';
+
+/**
+ * Sin columna `origen` en el schema (ver SCHEMA REQUERIDO), el origen se deriva
+ * de la huella que deja cada camino: la fila resuelta desde el catálogo tiene
+ * parte y fracción pero NUNCA jobId ni classificationId (no se corrió el
+ * modelo); la del clasificador siempre pasó por un job.
+ */
+export function origenDeFila(f: {
+  semaforo: string | null;
+  fractionCode: string | null;
+  jobId: string | null;
+  classificationId: string | null;
+  productId: string | null;
+  error: string | null;
+}): OrigenFila {
+  if (!f.semaforo) return 'pendiente';
+  if (!f.jobId && !f.classificationId && !f.error && f.productId && f.fractionCode) return 'catalogo';
+  return 'clasificador';
+}
+
+export const ETIQUETA_ORIGEN: Record<OrigenFila, string> = {
+  catalogo: 'catálogo (dictamen vigente)',
+  clasificador: 'clasificador',
+  pendiente: 'pendiente',
+};
+
+/** Cuántas filas del lote se resolvieron desde el catálogo (ahorro de llamadas al modelo). */
+export async function resumenOrigenLote(tenantId: string, batchId: string): Promise<{ desdeCatalogo: number; desdeClasificador: number; pendientes: number }> {
+  const filas = await prisma.classificationBatchRow.findMany({
+    where: { batchId, batch: { tenantId } },
+    select: { semaforo: true, fractionCode: true, jobId: true, classificationId: true, productId: true, error: true },
+  });
+  const r = { desdeCatalogo: 0, desdeClasificador: 0, pendientes: 0 };
+  for (const f of filas) {
+    const o = origenDeFila(f);
+    if (o === 'catalogo') r.desdeCatalogo++;
+    else if (o === 'clasificador') r.desdeClasificador++;
+    else r.pendientes++;
+  }
+  return r;
 }
 
 export function limpiarFraccion(code: string | null | undefined): string {
@@ -502,6 +559,23 @@ export async function procesarLote(batchId: string, deps: DependenciasLote = DEP
     }
 
     const catalogo = await fraccionDeCatalogo({ tenantId: batch.tenantId, clienteId: batch.clienteId, productCode: fila.productCode });
+
+    // ── CIRCUITO catálogo↔lote ── la parte ya tiene dictamen VIGENTE: la fila
+    // se resuelve desde el catálogo (verde) y NO se llama al modelo. Sin
+    // `confidence`: no hay número que declarar — la fracción viene de una
+    // versión aprobada por una persona, no de una estimación del modelo.
+    if (resuelveDesdeCatalogo(catalogo)) {
+      const fraccion = limpiarFraccion(catalogo!.fractionCode);
+      await registrarFila(batch.tenantId, batchId, fila.id, {
+        semaforo: 'verde',
+        fractionCode: fraccion,
+        confidence: null,
+        coincideCatalogo: true,
+        fraccionCatalogo: fraccion,
+        productId: catalogo!.productId,
+      });
+      continue;
+    }
 
     let jobId: string | null = null;
     let job: ResultadoJob;
@@ -688,7 +762,7 @@ export async function reanudarLotesInterrumpidos(deps: DependenciasLote = DEPEND
 
 export const COLUMNAS_EXPORT = [
   'Fila', 'Código', 'Descripción', 'Contexto', 'País origen', 'Valor USD', 'Uso/destino',
-  'Fracción', 'NICO', 'Confianza', 'Semáforo', 'Coincide catálogo', 'Fracción catálogo',
+  'Fracción', 'NICO', 'Origen', 'Confianza', 'Semáforo', 'Coincide catálogo', 'Fracción catálogo',
   'Alternativas descartadas', 'Revisado', 'Error',
 ] as const;
 
@@ -702,6 +776,7 @@ export interface FilaExport {
   usoDestino: string | null;
   fractionCode: string | null;
   nico: string | null;
+  origen: OrigenFila;
   confidence: number | null;
   semaforo: string | null;
   coincideCatalogo: boolean | null;
@@ -730,6 +805,7 @@ export function construirLibroExport(filas: FilaExport[]): Buffer {
       f.usoDestino ?? '',
       f.fractionCode ? formatearFraccion(f.fractionCode) : '',
       f.nico ?? '',
+      ETIQUETA_ORIGEN[f.origen],
       f.confidence ?? '',
       f.semaforo ?? 'pendiente',
       f.coincideCatalogo === null ? 'sin parte en catálogo' : f.coincideCatalogo ? 'sí' : 'no',
@@ -741,7 +817,7 @@ export function construirLibroExport(filas: FilaExport[]): Buffer {
   }
   const wb = XLSX.utils.book_new();
   const hoja = XLSX.utils.aoa_to_sheet(aoa);
-  hoja['!cols'] = [6, 14, 60, 30, 10, 10, 14, 12, 8, 10, 10, 18, 14, 50, 9, 50].map(wch => ({ wch }));
+  hoja['!cols'] = [6, 14, 60, 30, 10, 10, 14, 12, 8, 24, 10, 10, 18, 14, 50, 9, 50].map(wch => ({ wch }));
   XLSX.utils.book_append_sheet(wb, hoja, 'Resultado');
   return XLSX.write(wb, { type: 'buffer', bookType: 'xlsx' }) as Buffer;
 }
@@ -761,8 +837,19 @@ export async function exportarLoteXlsx(tenantId: string, batchId: string): Promi
     })
     : [];
   const porId = new Map(clasificaciones.map(c => [c.id, c]));
+  // NICO de las filas resueltas desde el catálogo (no pasaron por Classification).
+  const productIds = batch.filas
+    .filter(f => origenDeFila(f) === 'catalogo')
+    .map(f => f.productId)
+    .filter((x): x is string => !!x);
+  const nicoCatalogo = new Map(
+    productIds.length
+      ? (await prisma.product.findMany({ where: { id: { in: productIds }, tenantId }, select: { id: true, nico: true } })).map(p => [p.id, p.nico])
+      : [],
+  );
   const filas: FilaExport[] = batch.filas.map(f => {
     const c = f.classificationId ? porId.get(f.classificationId) : undefined;
+    const origen = origenDeFila(f);
     let nico: string | null = null;
     let alternativas = '';
     if (c) {
@@ -784,7 +871,9 @@ export async function exportarLoteXlsx(tenantId: string, batchId: string): Promi
       valorUSD: f.valorUSD,
       usoDestino: f.usoDestino,
       fractionCode: f.fractionCode,
-      nico,
+      // Fila resuelta desde el catálogo: el NICO también sale del dictamen vigente.
+      nico: nico ?? (origen === 'catalogo' ? nicoCatalogo.get(f.productId ?? '') ?? null : null),
+      origen,
       confidence: f.confidence,
       semaforo: f.semaforo,
       coincideCatalogo: f.coincideCatalogo,

@@ -22,6 +22,9 @@ import { getUserPermissions, hasPermission } from './../services/permissions';
 import {
   importarLote, exportarLoteXlsx, generarPlantillaXlsx, procesarLote, ErrorLote, limpiarFraccion,
   MAX_FILAS_LOTE, UMBRAL_CONFIANZA_ALTA, UMBRAL_CONFIANZA_MEDIA, LOTE_HEARTBEAT_VENCIDO_MS,
+  // ── CIRCUITO catálogo↔lote (4ª revisión) ── ahorro medido: filas resueltas
+  // desde un dictamen vigente, sin llamada al modelo.
+  resumenOrigenLote, origenDeFila,
 } from '../services/clasificacion-lote';
 
 export const clasificacionLoteRouter = Router();
@@ -87,7 +90,8 @@ clasificacionLoteRouter.get('/:id', requirePermission('classifier', 'view'), asy
       },
     });
     if (!lote || !enAlcance(req, lote.clienteId)) return res.status(404).json({ status: 'error', message: 'Lote no encontrado.' });
-    res.json({ status: 'ok', data: { ...lote, pendientes: lote.totalFilas - lote.procesadas } });
+    const origen = await resumenOrigenLote(req.tenantId!, lote.id);
+    res.json({ status: 'ok', data: { ...lote, pendientes: lote.totalFilas - lote.procesadas, origen } });
   } catch (err) { next(err); }
 });
 
@@ -128,7 +132,7 @@ clasificacionLoteRouter.get('/:id/filas', requirePermission('classifier', 'view'
       },
       orderBy: { numeroFila: 'asc' },
     });
-    res.json({ status: 'ok', data: filas });
+    res.json({ status: 'ok', data: filas.map(f => ({ ...f, origen: origenDeFila(f) })) });
   } catch (err) { next(err); }
 });
 
