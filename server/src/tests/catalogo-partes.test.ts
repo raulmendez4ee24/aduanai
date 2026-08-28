@@ -19,7 +19,10 @@ import {
   crearParte, listarPartes, obtenerParte, proponerVersion, aprobarVersion,
   promoverDesdeClasificacion, consultarCatalogoParaClasificar, buscarPorDescripcion,
   importarPartes, exportarPartesXlsx, CatalogoError,
+  // ── CIRCUITO catálogo↔clasificador (4ª revisión) ──
+  decidirReutilizacionClasificador, asegurarParteParaClasificar, dictamenPorCodigo,
 } from '../services/catalogo-partes';
+import { seedCircuitoCatalogoDemo } from '../services/catalogo-demo-circuito';
 import { agruparHistorial, aciertoPorCapitulo, exportarHistorialXlsx } from '../services/historial-clasificaciones';
 import { clienteIdDe, filtroCliente, enAlcance, validarClienteEnAlcance } from '../lib/cliente-contexto';
 import type { Request } from 'express';
@@ -211,6 +214,123 @@ async function main() {
     const xH = XLSX.read(await exportarHistorialXlsx(tA.id, { ...filtroCliente(reqAB) }), { type: 'buffer' });
     const descs = XLSX.utils.sheet_to_json<Record<string, string>>(xH.Sheets[xH.SheetNames[0]]!).map(r => Object.values(r).join(' '));
     check(descs.some(d => d.includes('cliente B')) && !descs.some(d => d.includes('cliente C')), 'Excel del historial con { in } excluye al cliente C');
+
+    // ──────────────────────────────────────────────────────────────────
+    // 12. CIRCUITO catálogo↔clasificador (4ª revisión)
+    //     Se ejercitan las MISMAS piezas que usa POST /api/classify, en el
+    //     mismo orden (decidir → asegurar parte → modelo → versionar). El
+    //     "modelo" es un generador inyectado que cuenta sus llamadas: la
+    //     reutilización se prueba viendo que NO se llama.
+    // ──────────────────────────────────────────────────────────────────
+    let llamadasModelo = 0;
+    const generador = async (_descripcion: string, fraccion: string, nico: string | null) => {
+      llamadasModelo++;
+      return { fraccion, nico };
+    };
+
+    /** Réplica del camino de la ruta + el runner, con el modelo inyectado. */
+    async function clasificarConCatalogo(
+      d: { productCode?: string; description: string; clienteId?: string | null; forzar?: boolean; justificacion?: string },
+      salidaModelo: { fraccion: string; nico: string | null },
+    ) {
+      const decision = await decidirReutilizacionClasificador(tA.id, d);
+      if (decision.accion !== 'clasificar') return decision;
+      let parte = decision.parteSinDictamen;
+      let creada = false;
+      if (!parte && d.productCode) {
+        const p = await asegurarParteParaClasificar(tA.id, uA.id, { productCode: d.productCode, description: d.description, clienteId: d.clienteId ?? null });
+        parte = { productId: p.productId, productCode: p.productCode };
+        creada = p.creada;
+      }
+      const salida = await generador(d.description, salidaModelo.fraccion, salidaModelo.nico);
+      const cls = await prisma.classification.create({ data: {
+        tenantId: tA.id, userId: uA.id, inputDescription: d.description, fractionCode: salida.fraccion,
+        confidence: 90, griApplied: ['1'], status: 'approved', clienteId: d.clienteId ?? null,
+        fullResponse: JSON.stringify({ fraction: { code: salida.fraccion }, nico: salida.nico ?? '' }),
+      } });
+      const version = parte
+        ? await proponerVersion(tA.id, uA.id, parte.productId, {
+          fractionCode: salida.fraccion, fuente: 'clasificador', classificationId: cls.id, justificacion: decision.justificacion,
+        })
+        : null;
+      return { accion: 'clasificar' as const, parte, creada, classificationId: cls.id, version };
+    }
+
+    const CODE = `CIRC-${nonce.toUpperCase()}`;
+    const r12a = await clasificarConCatalogo({ productCode: CODE, description: 'Arnés eléctrico de 12 circuitos para tablero automotriz' }, { fraccion: '85443099', nico: '02' });
+    check(r12a.accion === 'clasificar' && 'creada' in r12a && r12a.creada === true && r12a.parte?.productCode === CODE, 'clasificar con productCode nuevo DA DE ALTA la parte');
+    const parteCirc = await prisma.product.findFirstOrThrow({ where: { tenantId: tA.id, productCode: CODE } });
+    const d12a = await obtenerParte(tA.id, parteCirc.id);
+    check(d12a.versiones.length === 1 && d12a.versiones[0]!.estado === 'propuesta' && d12a.versiones[0]!.fuente === 'clasificador', 'el resultado queda como versión 1 PROPUESTA, fuente clasificador');
+    check(d12a.versiones[0]!.classificationId === ('classificationId' in r12a ? r12a.classificationId : null), 'la versión queda LIGADA a la Classification que la produjo');
+    check(d12a.versiones[0]!.fractionCode === '85443099' && d12a.versiones[0]!.nico === '02', 'la versión toma la fracción y el NICO del resultado de la clasificación');
+    check(d12a.versionVigente === 0 && d12a.fractionCode === null, 'la propuesta NO es dictamen: la parte sigue sin fracción vigente');
+
+    await aprobarVersion(tA.id, uA.id, parteCirc.id, 1);
+    const d12b = await obtenerParte(tA.id, parteCirc.id);
+    check(d12b.versionVigente === 1 && d12b.fractionCode === '85443099' && d12b.nico === '02', 'aprobar la propuesta la vuelve el dictamen vigente de la parte');
+
+    const antes12 = llamadasModelo;
+    const r12b = await clasificarConCatalogo({ productCode: CODE, description: 'Arnés eléctrico de 12 circuitos para tablero automotriz' }, { fraccion: '85443099', nico: '02' });
+    check(r12b.accion === 'reutilizar' && llamadasModelo === antes12, 'segunda clasificación del mismo código REUTILIZA el dictamen: 0 llamadas al modelo');
+
+    const r12c = await clasificarConCatalogo({ productCode: CODE, description: 'Arnés eléctrico de 12 circuitos para tablero automotriz', forzar: true }, { fraccion: '85443091', nico: null });
+    check(r12c.accion === 'justificacion_requerida' && llamadasModelo === antes12, 'forzar sin justificación se rechaza y tampoco llama al modelo');
+
+    const r12d = await clasificarConCatalogo(
+      { productCode: CODE, description: 'Arnés eléctrico de 12 circuitos para tablero automotriz', forzar: true, justificacion: 'Ficha técnica nueva: el arnés trae conectores de más de 1000 V' },
+      { fraccion: '85443001', nico: null },
+    );
+    check(r12d.accion === 'clasificar' && llamadasModelo === antes12 + 1, 'forzar CON justificación sí corre el modelo');
+    const d12c = await obtenerParte(tA.id, parteCirc.id);
+    const v2Circ = d12c.versiones.find(v => v.version === 2);
+    check(!!v2Circ && v2Circ.estado === 'propuesta' && !!v2Circ.justificacion && v2Circ.fractionCode === '85443001', 'la reclasificación forzada queda versionada (v2 propuesta) con su justificación');
+    check(d12c.versionVigente === 1 && d12c.fractionCode === '85443099', 'la reclasificación NO pisa la fracción vigente mientras no se apruebe');
+    await aprobarVersion(tA.id, uA.id, parteCirc.id, 2);
+    const d12d = await obtenerParte(tA.id, parteCirc.id);
+    check(d12d.versionVigente === 2 && d12d.versiones.find(v => v.version === 1)?.estado === 'reemplazada', 'aprobar la v2 desplaza la v1 a reemplazada');
+
+    // Parte compartida del tenant (clienteId null) con cliente activo: debe reutilizarse.
+    const comp = await crearParte(tA.id, uA.id, { productCode: `COMPARTIDA-${nonce.toUpperCase()}`, description: 'Sensor de presión compartido del tenant', fractionCode: '90262099' }, { puedeAprobar: true });
+    const decComp = await decidirReutilizacionClasificador(tA.id, { productCode: comp.productCode, description: 'x', clienteId: cliente.id });
+    check(decComp.accion === 'reutilizar', 'una parte SIN cliente asignado se reutiliza aunque haya cliente activo (fila compartida del tenant)');
+
+    // Número de parte que ya existe para OTRO cliente → error explícito, no P2002.
+    await rechaza(
+      () => asegurarParteParaClasificar(tA.id, uA.id, { productCode: 'SOLO-B', description: 'Intento de robar el SKU del cliente B', clienteId: clienteC.id }),
+      'PARTE_DE_OTRO_CLIENTE',
+      'un número de parte de otro cliente no se recicla: error explícito',
+    );
+
+    // 12b. por-codigo (Cotizador / Inventario)
+    const pc1 = await dictamenPorCodigo(tA.id, CODE);
+    check(pc1?.tieneDictamen === true && pc1.fractionCode === '85443001' && pc1.fractionCodeFormateada === '8544.30.01' && pc1.version === 2, 'por-codigo devuelve la fracción vigente formateada y su versión');
+    const pcSin = await dictamenPorCodigo(tA.id, 'CSV-1');
+    check(pcSin !== null && pcSin.tieneDictamen === false && pcSin.fractionCode === null, 'por-codigo con parte sin dictamen: estado vacío honesto (sin fracción)');
+    check((await dictamenPorCodigo(tB.id, CODE)) === null, 'por-codigo no cruza tenants');
+    check((await dictamenPorCodigo(tA.id, 'SOLO-C', { in: [cliente.id, clienteB.id] })) === null, 'por-codigo respeta el alcance de cliente (la parte del cliente C no se ve)');
+    check((await dictamenPorCodigo(tA.id, 'SOLO-B', { in: [cliente.id, clienteB.id] }))?.productCode === 'SOLO-B', 'por-codigo sí devuelve la parte del cliente permitido');
+
+    // 12c. Seed demo del circuito: idempotente y sin inventar fracciones
+    const clsDemo = await prisma.classification.create({ data: {
+      tenantId: tA.id, userId: uA.id, inputDescription: 'Tornillo hexagonal M5 acero al carbono (demo)',
+      fractionCode: '73181599', confidence: 88, griApplied: ['1'], feedback: 'correct', isDemoData: true,
+    } });
+    await prisma.product.createMany({ data: [
+      { tenantId: tA.id, productCode: `MP-TORN-M5`, description: 'Tornillo hexagonal M5 acero al carbono', unit: 'Pza', fractionCode: '73181599', isDemoData: true },
+      { tenantId: tA.id, productCode: `MP-DEMO-SIN-CLS-${nonce.toUpperCase()}`, description: 'Pieza plástica ABS pintada', unit: 'Pza', fractionCode: '39269099', isDemoData: true },
+    ] });
+    const demo1 = await seedCircuitoCatalogoDemo(prisma, tA.id, uA.id);
+    check(demo1.partes === 2 && demo1.totalConDictamen === 2, `seed demo deja las 2 partes demo con dictamen vigente (got ${demo1.partes}/${demo1.totalConDictamen})`);
+    check(demo1.versionesReemplazadas === 1, 'el seed deja una parte con versión reemplazada para que se vea el versionado');
+    const tornillo = await prisma.product.findFirstOrThrow({ where: { tenantId: tA.id, productCode: 'MP-TORN-M5' } });
+    const dTor = await obtenerParte(tA.id, tornillo.id);
+    check(dTor.versionVigente === 2 && dTor.fractionCode === '73181599', 'la parte con historia queda vigente en la v2 (la corregida)');
+    check(dTor.versiones.find(v => v.version === 1)?.estado === 'reemplazada' && !!dTor.versiones.find(v => v.version === 2)?.justificacion, 'la v1 queda reemplazada y la v2 trae la justificación de la reclasificación');
+    check(dTor.versiones.find(v => v.version === 2)?.classificationId === clsDemo.id, 'el dictamen demo queda ligado a una clasificación demo REAL del mismo tenant');
+    const demo2 = await seedCircuitoCatalogoDemo(prisma, tA.id, uA.id);
+    check(demo2.partes === 0 && demo2.totalConDictamen === 2, 'seed demo es idempotente: la segunda corrida no crea nada y el estado final no cambia');
+
   } finally {
     await prisma.productClassificationVersion.deleteMany({ where: { product: { tenantId: { in: [tA.id, tB.id] } } } }).catch(() => {});
     await prisma.product.deleteMany({ where: { tenantId: { in: [tA.id, tB.id] } } }).catch(() => {});

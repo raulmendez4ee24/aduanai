@@ -25,6 +25,8 @@ import {
   UMBRAL_CONFIANZA_MEDIA,
   MAX_FALLAS_CONSECUTIVAS,
   LOTE_HEARTBEAT_VENCIDO_MS,
+  // ── CIRCUITO catálogo↔lote (4ª revisión) ──
+  resumenOrigenLote, origenDeFila, ETIQUETA_ORIGEN,
   type DependenciasLote,
   type Semaforo,
 } from '../services/clasificacion-lote';
@@ -392,6 +394,65 @@ async function main() {
       );
     });
 
+
+    console.log('\n== circuito catálogo↔lote (4ª revisión) ==');
+
+    await test('fila con productCode que YA tiene dictamen vigente se resuelve desde el catálogo: verde, sin llamar al modelo, origen "catálogo"', async () => {
+      const parteVig = await prisma.product.create({
+        data: { tenantId: tenant.id, productCode: `SKU-VIG-${nonce}`, description: 'Arnés eléctrico con dictamen aprobado', unit: 'Pza', fractionCode: '85443099', nico: '02', versionVigente: 1 },
+      });
+      await prisma.productClassificationVersion.create({
+        data: { productId: parteVig.id, version: 1, fractionCode: '85443099', nico: '02', fuente: 'clasificador', estado: 'vigente', propuestoPor: user.id, aprobadoPor: user.id, aprobadoAt: new Date() },
+      });
+      const d = runnerFalso(() => ({ payload: { fraction: { code: '8544.30.99' }, confidence: 95, alerts: [] } }));
+      const r = await importarLote({
+        tenantId: tenant.id, userId: user.id, nombreArchivo: 'reutiliza.xlsx', arrancar: false,
+        base64: xlsxBase64([
+          ['codigo', 'descripcion'],
+          [`SKU-VIG-${nonce}`, 'Arnés eléctrico de 12 circuitos para tablero automotriz'],
+          ['', 'Válvula de bronce para agua potable de media pulgada'],
+        ]),
+      });
+      await procesarLote(r.id, d);
+      const lote = await prisma.classificationBatch.findFirst({ where: { id: r.id, tenantId: tenant.id }, include: { filas: { orderBy: { numeroFila: 'asc' } } } });
+      assert.equal(d.llamadas, 1, 'solo la fila SIN dictamen gasta una llamada al modelo');
+      assert.equal(lote?.status, 'done');
+      assert.deepEqual(lote?.filas.map(f => f.semaforo), ['verde', 'verde']);
+      const desdeCat = lote!.filas[0];
+      assert.equal(desdeCat.fractionCode, '85443099');
+      assert.equal(desdeCat.coincideCatalogo, true);
+      assert.equal(desdeCat.productId, parteVig.id);
+      assert.equal(desdeCat.jobId, null, 'no se encoló ningún job para esa fila');
+      assert.equal(desdeCat.classificationId, null, 'no hay Classification: no corrió el modelo');
+      assert.equal(desdeCat.confidence, null, 'sin confianza inventada: la fracción viene de una versión aprobada');
+      assert.equal(origenDeFila(desdeCat), 'catalogo');
+      assert.equal(origenDeFila(lote!.filas[1]), 'clasificador');
+
+      const resumen = await resumenOrigenLote(tenant.id, r.id);
+      assert.deepEqual(resumen, { desdeCatalogo: 1, desdeClasificador: 1, pendientes: 0 }, 'el resumen mide el ahorro');
+
+      const x = await exportarLoteXlsx(tenant.id, r.id);
+      const hoja = leerPrimeraHoja(x!.buffer);
+      const idx = (n: string) => COLUMNAS_EXPORT.indexOf(n as typeof COLUMNAS_EXPORT[number]);
+      assert.equal(hoja[1][idx('Origen')], ETIQUETA_ORIGEN.catalogo, 'el Excel dice de dónde salió la fracción');
+      assert.equal(hoja[1][idx('NICO')], '02', 'el NICO de la fila del catálogo sale del dictamen vigente');
+      assert.equal(hoja[2][idx('Origen')], ETIQUETA_ORIGEN.clasificador);
+    });
+
+    await test('parte con fractionCode pero SIN versión aprobada NO se resuelve desde el catálogo (solo compara)', async () => {
+      const d = runnerFalso(() => ({ payload: { fraction: { code: '7318.15.99' }, confidence: 95, alerts: [] } }));
+      const r = await importarLote({
+        tenantId: tenant.id, userId: user.id, nombreArchivo: 'sin-aprobar.xlsx', arrancar: false,
+        base64: xlsxBase64([['codigo', 'descripcion'], [`SKU-CAT-${nonce}`, 'Tornillo de acero inoxidable M8 cabeza hexagonal para prueba']]),
+      });
+      await procesarLote(r.id, d);
+      assert.equal(d.llamadas, 1, 'un fractionCode sin dictamen aprobado no ahorra la llamada');
+      const fila = await prisma.classificationBatchRow.findFirst({ where: { batchId: r.id } });
+      assert.ok(fila?.jobId, 'la fila sí pasó por el clasificador');
+      assert.equal(fila?.coincideCatalogo, true, 'pero sí se compara contra la fracción del catálogo');
+      assert.equal(origenDeFila(fila!), 'clasificador');
+    });
+
     console.log('\n== export xlsx ==');
 
     await test('exportarLoteXlsx trae todas las columnas y los datos de entrada + resultado', async () => {
@@ -462,6 +523,7 @@ async function main() {
     // Limpieza: todo lo que cuelga de los tenants de prueba.
     for (const t of [tenant.id, otroTenant.id]) {
       await prisma.classificationBatch.deleteMany({ where: { tenantId: t } });
+      await prisma.productClassificationVersion.deleteMany({ where: { product: { tenantId: t } } });
       await prisma.classificationJob.deleteMany({ where: { tenantId: t } });
       await prisma.classification.deleteMany({ where: { tenantId: t } });
       await prisma.product.deleteMany({ where: { tenantId: t } });
