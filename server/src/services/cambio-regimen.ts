@@ -28,6 +28,7 @@ import { buscarCuotaAplicable } from './antidumping';
 import type { AntidumpingMatch } from './compliance-lookup';
 import { tipoCambioMXN } from './frontera-canonica';
 import { CLAVES_PEDIMENTO } from '../lib/anexo22';
+import { aDecimales } from '../lib/numeros';
 
 export const TIPOS_CAMBIO = ['F4', 'F5', 'A3', 'RT'] as const;
 export type TipoCambio = (typeof TIPOS_CAMBIO)[number];
@@ -159,7 +160,10 @@ export async function calcularCambioRegimen(tenantId: string, ids: string[], opt
     const code = imp.fractionCode.replace(/\./g, '');
     const fx = porCode.get(code) ?? null;
     requireQuotableFraction(fx); // lanza 422 si la fracción no está en catálogo o no tiene NMF
-    const saldoCantidad = Math.max(0, imp.quantity - imp.quantityDischarged);
+    // Redondeo EN EL ORIGEN (cuarta revisión, P1): la resta cruda daba
+    // "451.1199999999999 Kg" en pantalla y viajaba así por la API. Misma
+    // función que el PEPS del Anexo 24 (lib/numeros) → mismo saldo en ambos.
+    const saldoCantidad = aDecimales(Math.max(0, imp.quantity - imp.quantityDischarged));
     const proporcion = imp.quantity > 0 ? saldoCantidad / imp.quantity : 0;
     const saldoValorUSD = r2(imp.customsValue * proporcion);
     if (saldoCantidad <= 0) notas.push('Sin saldo pendiente: partida informativa.');
@@ -306,7 +310,7 @@ export async function listarCandidatas(tenantId: string, f: { ids?: string[]; cl
     orderBy: { expirationDate: 'asc' }, take: 200,
     select: { id: true, pedimento: true, fractionCode: true, description: true, quantity: true, quantityDischarged: true, unit: true, customsValue: true, expirationDate: true, status: true, tipo: true, clienteId: true },
   });
-  return rows.map(r => ({ ...r, saldo: Math.max(0, r.quantity - r.quantityDischarged) }));
+  return rows.map(r => ({ ...r, saldo: aDecimales(Math.max(0, r.quantity - r.quantityDischarged)) }));
 }
 
 export async function listarExpedientes(tenantId: string, clienteId?: FiltroClienteId) {

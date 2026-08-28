@@ -23,7 +23,30 @@ export const GUIA_MODULO = {
 }
 
 const mxn = (n: number) => `$${n.toLocaleString('es-MX', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
+const usd = (n: number) => n.toLocaleString('es-MX', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
 const fecha = (iso: string) => new Date(iso).toLocaleDateString('es-MX', { year: 'numeric', month: 'short', day: 'numeric', timeZone: 'UTC' })
+
+// Decimales por unidad de medida (cuarta revisión, P1): el saldo ya viene
+// redondeado del servidor (`lib/numeros.aDecimales`), aquí solo se decide
+// CÓMO se pinta. Las piezas no llevan decimales; kilos/litros/metros llevan 3
+// (el pedimento declara peso con 3). Nunca se ocultan decimales reales: si el
+// dato trae más precisión que la unidad, se muestran hasta 6.
+const DECIMALES_UNIDAD: Record<string, number> = {
+  KG: 3, KGS: 3, KGM: 3, KILO: 3, KILOS: 3, KILOGRAMO: 3, KILOGRAMOS: 3,
+  L: 3, LT: 3, LTS: 3, LITRO: 3, LITROS: 3, M: 3, MT: 3, MTS: 3, METRO: 3, METROS: 3, M2: 3, M3: 3,
+  PZA: 0, PZAS: 0, PZ: 0, PIEZA: 0, PIEZAS: 0, PIEZ: 0, JGO: 0, JUEGO: 0, PAR: 0, PARES: 0, U: 0, UNIDAD: 0, UNIDADES: 0,
+}
+function decimalesReales(n: number): number {
+  const s = String(n)
+  if (s.includes('e') || s.includes('E')) return 6
+  return Math.min(s.split('.')[1]?.length ?? 0, 6)
+}
+function cantidad(n: number | null | undefined, unit?: string | null): string {
+  if (n == null || !Number.isFinite(n)) return '—'
+  const base = DECIMALES_UNIDAD[(unit ?? '').trim().toUpperCase()] ?? 3
+  const max = Math.max(base, decimalesReales(n))
+  return n.toLocaleString('es-MX', { minimumFractionDigits: 0, maximumFractionDigits: max })
+}
 
 interface Form { tipo: TipoCambio; seleccion: string[]; tcManual: string; actualizacionMXN: string; recargosMXN: string; notas: string }
 
@@ -131,8 +154,8 @@ export function CambioRegimenPage() {
                       <td className="py-1.5 pr-2 font-mono text-[12px]">{c.pedimento}</td>
                       <td className="py-1.5 pr-2 font-mono text-[12px]">{c.fractionCode}</td>
                       <td className="py-1.5 pr-2 text-tinta truncate max-w-[260px]">{c.description}</td>
-                      <td className="py-1.5 pr-2 text-right font-mono">{c.saldo} {c.unit}</td>
-                      <td className="py-1.5 pr-2 text-right font-mono">{c.customsValue.toLocaleString('es-MX')}</td>
+                      <td className="py-1.5 pr-2 text-right font-mono">{cantidad(c.saldo, c.unit)} {c.unit}</td>
+                      <td className="py-1.5 pr-2 text-right font-mono">{usd(c.customsValue)}</td>
                       <td className="py-1.5 pr-2">{fecha(c.expirationDate)}</td>
                       <td className="py-1.5"><Badge tono={c.tipo === 'ACTIVO_FIJO' ? 'petroleo' : 'neutral'}>{c.tipo === 'ACTIVO_FIJO' ? 'AF' : 'insumo'}</Badge></td>
                     </tr>
@@ -146,7 +169,7 @@ export function CambioRegimenPage() {
 
       {calculo && (
         <Card header={<div className="flex items-center gap-2 flex-wrap"><h2 className="font-sello-display text-base text-tinta">Cálculo por partida</h2>
-          <Badge tono="neutral">TC {calculo.tc.valor} ({calculo.tc.fuente}{calculo.tc.fecha ? `, ${calculo.tc.fecha.slice(0, 10)}` : ''})</Badge>
+          <Badge tono="neutral">TC {calculo.tc.valor.toLocaleString('es-MX', { minimumFractionDigits: 2, maximumFractionDigits: 4 })} ({calculo.tc.fuente}{calculo.tc.fecha ? `, ${calculo.tc.fecha.slice(0, 10)}` : ''})</Badge>
           {calculo.clavePedimento && <Badge tono="petroleo">Clave {calculo.clavePedimento.clave} · Anexo 22</Badge>}
           {calculo.folio && <Badge tono="petroleo">Folio {calculo.folio}</Badge>}</div>}>
           <div className="overflow-x-auto">
@@ -157,7 +180,7 @@ export function CambioRegimenPage() {
                   <Fragment key={p.temporaryImportId}>
                     <tr className="border-t border-linea">
                       <td className="py-1.5 pr-2 font-mono text-[12px]">{p.pedimento}</td><td className="py-1.5 pr-2 font-mono text-[12px]">{p.fractionCode}</td>
-                      <td className="py-1.5 pr-2 text-right font-mono">{p.saldoCantidad} {p.unit}</td><td className="py-1.5 pr-2 text-right font-mono">{mxn(p.saldoValorMXN)}</td>
+                      <td className="py-1.5 pr-2 text-right font-mono">{cantidad(p.saldoCantidad, p.unit)} {p.unit}</td><td className="py-1.5 pr-2 text-right font-mono">{mxn(p.saldoValorMXN)}</td>
                       <td className="py-1.5 pr-2 text-right font-mono">{p.tasas.igiPct}% · {mxn(p.montos.igi)}</td><td className="py-1.5 pr-2 text-right font-mono">{mxn(p.montos.dta)}</td>
                       <td className="py-1.5 pr-2 text-right font-mono">{mxn(p.montos.ieps)}</td><td className="py-1.5 pr-2 text-right font-mono">{mxn(p.montos.iva)}</td><td className="py-1.5 text-right font-mono font-semibold">{mxn(p.montos.total)}</td>
                     </tr>

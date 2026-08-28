@@ -16,10 +16,15 @@ import { AppError } from '../middlewares/error';
 import { createDischargeInTx } from './inventory-ledger';
 import { assertPeriodoAbierto } from './anexo24-cierre';
 import { whereAlcance, type AlcanceFiltro } from '../lib/cliente-contexto';
+import { aDecimales } from '../lib/numeros';
 
 const EPSILON = 1e-9;
-/** Redondeo a 6 decimales: evita que 0.3 − 0.1 persista como 0.19999999999999998 en `Discharge.quantity`. */
-const r6 = (n: number) => Math.round(n * 1e6) / 1e6;
+/**
+ * Redondeo a 6 decimales: evita que 0.3 − 0.1 persista como 0.19999999999999998
+ * en `Discharge.quantity`. Vive en `lib/numeros` (cuarta revisión, 27-ago) para
+ * que cambio de régimen redondee saldos EXACTAMENTE igual que el PEPS.
+ */
+const r6 = (n: number) => aDecimales(n, 6);
 const ABIERTAS = ['ACTIVE', 'PARTIALLY_DISCHARGED'] as const;
 
 /** Tipos de salida en lenguaje de operación → DischargeType. */

@@ -132,6 +132,32 @@ const SUFIJO = `cr-${Date.now()}`;
       assert.ok(c.advertencias.some(a => a.includes('17-A')));
     });
 
+    console.log('— saldos sin cola de flotante (cuarta revisión, P1) —');
+    await prueba('saldo con decimales: ni el cálculo ni las candidatas devuelven "451.1199999999999"', async () => {
+      // Importada 1000 Kg, descargada 548.88 en 40 descargos de 13.722 → la resta
+      // cruda arrastraba cola; el saldo real es 451.12 Kg exactos.
+      const descargadoCrudo = Array.from({ length: 40 }, () => 13.722).reduce((a, b) => a + b, 0);
+      assert.notEqual(descargadoCrudo, 548.88, 'la suma de 40 lotes sí traía cola (el escenario reproduce el bug)');
+      const tDec = await prisma.temporaryImport.create({ data: { ...base, tenantId: tenant.id, userId: user.id, pedimento: '26 47 3461 4000021', quantity: 1000, quantityDischarged: descargadoCrudo, customsValue: 10000 } });
+      try {
+        const decimales = (n: number) => String(n).split('.')[1]?.length ?? 0;
+        const c = await calcularCambioRegimen(tenant.id, [tDec.id], { tipo: 'F4', tc: 18.5 });
+        const p = c.partidas[0]!;
+        assert.equal(p.saldoCantidad, 451.12, `saldo del cálculo: ${p.saldoCantidad}`);
+        assert.ok(decimales(p.saldoCantidad) <= 6, `saldo con ${decimales(p.saldoCantidad)} decimales`);
+        const cand = (await listarCandidatas(tenant.id, { ids: [tDec.id] }))[0]!;
+        assert.equal(cand.saldo, 451.12, `saldo de candidatas: ${cand.saldo}`);
+        assert.ok(decimales(cand.saldo) <= 6, `candidata con ${decimales(cand.saldo)} decimales`);
+        // 0.1 + 0.2 por la vía real: descargar 0.1 y 0.2 de un lote de 1.
+        const tCero = await prisma.temporaryImport.create({ data: { ...base, tenantId: tenant.id, userId: user.id, pedimento: '26 47 3461 4000022', quantity: 1, quantityDischarged: 0.1 + 0.2, customsValue: 100 } });
+        const c2 = await calcularCambioRegimen(tenant.id, [tCero.id], { tipo: 'F4', tc: 18.5 });
+        assert.equal(c2.partidas[0]!.saldoCantidad, 0.7, `1 − (0.1+0.2) = ${c2.partidas[0]!.saldoCantidad}`);
+        await prisma.temporaryImport.delete({ where: { id: tCero.id } });
+      } finally {
+        await prisma.temporaryImport.deleteMany({ where: { id: tDec.id } });
+      }
+    });
+
     console.log('— guardas —');
     await prueba('rechaza importaciones de otro tenant (404 sin revelar existencia)', async () => {
       await assert.rejects(() => calcularCambioRegimen(tenant.id, [t1.id, ajena.id], { tipo: 'F4', tc: 18.5 }), (e: unknown) => (e as { statusCode?: number }).statusCode === 404);
