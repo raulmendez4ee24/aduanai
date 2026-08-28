@@ -67,7 +67,8 @@
     "test:copilot-contexto": "tsx src/tests/copilot-contexto.test.ts",
     "test:risk-operativo": "tsx src/tests/risk-operativo.test.ts",
     "test:expedientes": "tsx src/tests/expedientes-glosa.test.ts",
-    "test:rgi6": "tsx src/tests/rgi6-especifica-residual.test.ts"
+    "test:rgi6": "tsx src/tests/rgi6-especifica-residual.test.ts",
+    "test:aprobaciones-defensa": "tsx src/tests/aprobaciones-defensa.test.ts"
   },
   "license": "UNLICENSED",
   "private": true,
