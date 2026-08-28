@@ -4,7 +4,7 @@
  * secciones; cada dato con su fuente y su fecha DOF/cotejo. Sin datos falsos:
  * los bloques vacíos dicen qué fuente falta.
  */
-import { useEffect, useState, type ReactNode } from 'react'
+import { useEffect, useRef, useState, type ReactNode } from 'react'
 import { useEstadoPersistente } from '../hooks/useEstadoPersistente'
 import { Search, Package, Bell, ChevronRight, ChevronDown, AlertCircle } from 'lucide-react'
 import { api } from '../lib/api'
@@ -35,6 +35,25 @@ export function FractionsPage() {
   const [ficha, setFicha] = useState<FichaFraccion | null>(null)
   const [cargando, setCargando] = useState(false)
   const [error, setError] = useState('')
+  const inputBusqueda = useRef<HTMLInputElement>(null)
+
+  // El tutorial del módulo (botón "?") se abre solo en la primera visita y se
+  // renderiza en un portal sobre <body>. Al cerrarlo, el botón que tenía el
+  // foco se desmonta y el foco cae en <body>: el Enter ya no llegaba al
+  // buscador y había que ir al botón con el ratón (P3, cuarta revisión).
+  // Aquí el foco vuelve al input en cuanto el diálogo desaparece.
+  useEffect(() => {
+    const hayDialogo = () => !!document.querySelector('[role="dialog"]')
+    let habia = hayDialogo()
+    if (!habia) inputBusqueda.current?.focus()
+    const obs = new MutationObserver(() => {
+      const hay = hayDialogo()
+      if (habia && !hay) inputBusqueda.current?.focus()
+      habia = hay
+    })
+    obs.observe(document.body, { childList: true, subtree: true })
+    return () => obs.disconnect()
+  }, [])
 
   async function buscar() {
     const q = query.trim()
@@ -65,14 +84,16 @@ export function FractionsPage() {
           <h1 className="text-xl font-bold text-slate-900">Fracciones TIGIE</h1>
           <span className="text-[11px] text-slate-500 ml-2">{formatted} fracciones</span>
         </div>
-        <div className="flex gap-2">
+        {/* <form>: el Enter dispara la búsqueda desde cualquier punto del
+            formulario, no solo con el foco exacto en el <input>. */}
+        <form className="flex gap-2" role="search" onSubmit={e => { e.preventDefault(); void buscar() }}>
           <div className="flex-1 flex items-center gap-2 bg-white/60 border border-slate-200/50 rounded-xl px-4 py-2.5">
             <Search className="w-4 h-4 text-slate-400" />
-            <input type="text" value={query} onChange={e => setQuery(e.target.value)} onKeyDown={e => { if (e.key === 'Enter') buscar() }}
+            <input ref={inputBusqueda} type="text" enterKeyHint="search" aria-label="Buscar fracción por código o descripción" value={query} onChange={e => setQuery(e.target.value)}
               placeholder="Código (8471.30.01) o descripción…" className="flex-1 bg-transparent text-[13px] text-slate-900 placeholder:text-slate-400 outline-none" />
           </div>
-          <button onClick={buscar} disabled={buscando} className="bg-emerald-500 hover:bg-emerald-600 disabled:opacity-50 text-white text-[13px] font-medium px-5 rounded-xl">{buscando ? '…' : 'Buscar'}</button>
-        </div>
+          <button type="submit" disabled={buscando} className="bg-emerald-500 hover:bg-emerald-600 disabled:opacity-50 text-white text-[13px] font-medium px-5 rounded-xl">{buscando ? '…' : 'Buscar'}</button>
+        </form>
         {results.length > 0 && (
           <div className="mt-3 max-h-64 overflow-auto divide-y divide-slate-100 border border-slate-100 rounded-xl bg-white/60">
             {results.map(f => (
