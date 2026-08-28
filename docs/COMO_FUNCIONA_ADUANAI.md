@@ -605,3 +605,20 @@ Ejecución completa del documento "Recomendaciones módulo por módulo, con ojos
 | UX transversal | Estado persistente al cambiar de módulo (`useEstadoPersistente`, 13+ páginas); botón "?" por módulo con guía + captura real (31 capturas), auto en primera visita | — |
 
 Bugs encontrados en el repaso: Fiscal se quedaba en "Cargando…" (LLM síncrono en GET), inputs numéricos D4 reintroducidos (ActivoFijo, Cuotas), key faltante en Audit Trail, afirmación de cifrado sin artefacto — todos corregidos.
+
+## Cuarta revisión (28-ago-2026) — qué se corrigió
+
+| Hallazgo del revisor | Estado | Evidencia |
+|---|---|---|
+| P1 El motor elige la residual (8544.42.99) y no razona la 8544.30 | CERRADO | Pase determinista "RGI 6: específica vs residual" (`services/rgi6-especifica-residual.ts`) + candado del verificador rápido (saltaba de partida 8544→8512). Caso de control: ambas redacciones del arnés → **8544.30.99** con descarte escrito. Medición set 99 casos: top-1 **59.6% → 66.7%** (+7 netos; 2 regresiones documentadas: #89 cable 7413→7408, #95 pantufla 6405→6404). Docs: `docs/RGI6_ESPECIFICA_VS_RESIDUAL.md`. Interruptores: `RGI6_ESPECIFICA_VS_RESIDUAL=0`, `CLASIFICADOR_VERIFICADOR_CAMBIA_PARTIDA=1` |
+| Alternativa contradictoria (cita Nota 2 Sección XVII y sugiere 8708) | CERRADO | Filtro con constancia escrita; prompt de arneses apunta a 8544.30 |
+| P1 "confianza 9800%" en Aprobaciones | CERRADO | Una sola conversión, helper `formatConfidence` + `test:formato` 13/13 |
+| P1 Flotantes en saldos ("451.1199999999999 Kg") | CERRADO | `lib/numeros.ts` (`aDecimales`) en el origen + formato por unidad; `test:cambio-regimen` 11/11 |
+| Enter no busca en Fracciones tras cerrar el tutorial | CERRADO | form + foco devuelto al cerrar la guía |
+| Texto perdido en Clasificador (hidratación) | CERRADO | `useEstadoPersistente` no pisa lo tecleado; `test:estado-persistente` 11/11 |
+| Circuito catálogo↔clasificador (9 partes sin dictamen) | CERRADO | Clasificar con nº de parte crea/actualiza versión, aprobar la vuelve vigente, reutilización sin LLM en clasificador, lote (columna Origen + ahorro), cotizador e inventario; demo con dictámenes y una versión reemplazada; `test:catalogo` 82 |
+| Defensa dice "sin aprobación registrada" en registros approved | CERRADO | Aprobar escribe approvedById/At + AuditLog encadenado (también por la puerta vieja de Historial); histórico sin aprobador dice "aprobación anterior al registro de aprobadores (sin dato)"; `test:aprobaciones-defensa` 12/12 |
+| Bandeja demo con 42 pendientes por backfill | CERRADO | `regularizarAprobacionesSembradas` idempotente y acotada al tenant |
+| Deuda de cotejo sin gestión (36 cuotas 0 cotejadas, precedentes 0, PROSEC/Anexo 21/precios/correlativas) | PARCIAL — infraestructura CERRADA, datos PENDIENTES DE FUENTE | Tablero `/admin/cotejo` + `GET /api/admin/cotejo/estado` (mide cada bloque, envejecimiento a 90 días, fracciones más usadas del historial real), cargadores con plantillas .xlsx que exigen `cotejadoPor` + `fuenteUrl`; `test:cotejo` 71. **No se cargó ni una cuota UPCI, precedente TFJA, tasa PROSEC ni precio estimado: requieren la fuente oficial** |
+
+Suites: 58/58 verdes; tsc server+client y build limpios.
