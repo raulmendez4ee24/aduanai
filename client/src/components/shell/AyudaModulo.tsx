@@ -5,6 +5,7 @@
  * - Muestra pasos y la captura real de la pantalla si existe.
  */
 import { useEffect, useState } from 'react'
+import { createPortal } from 'react-dom'
 import { useLocation } from 'react-router-dom'
 import { HelpCircle, X } from 'lucide-react'
 import { guiaDeRuta, ayudaYaVista, marcarAyudaVista, type GuiaModulo } from '../../ayuda/guias'
@@ -50,7 +51,7 @@ export function BotonAyudaModulo() {
       >
         <HelpCircle className="w-5 h-5" strokeWidth={1.5} />
       </button>
-      {abierta && <ModalGuia guia={guia} onCerrar={cerrar} />}
+      {abierta && createPortal(<ModalGuia guia={guia} onCerrar={cerrar} />, document.body)}
     </>
   )
 }
@@ -58,7 +59,7 @@ export function BotonAyudaModulo() {
 function ModalGuia({ guia, onCerrar }: { guia: GuiaModulo; onCerrar: () => void }) {
   const [capturaOk, setCapturaOk] = useState(true)
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 print:hidden" role="dialog" aria-modal="true" aria-labelledby="ayuda-titulo">
+    <div className="fixed inset-0 z-[1000] flex items-center justify-center p-4 print:hidden" role="dialog" aria-modal="true" aria-labelledby="ayuda-titulo">
       <div className="absolute inset-0 bg-tinta/40" onClick={onCerrar} aria-hidden />
       <div className="relative w-full max-w-3xl max-h-[90vh] overflow-y-auto bg-papel border border-linea rounded-sello shadow-none">
         <div className="flex items-start gap-3 px-6 pt-5 pb-3 border-b border-linea">
