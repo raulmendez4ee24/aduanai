@@ -22,6 +22,7 @@ export const GUIA_MODULO = {
     'Reclasificar una parte con versión vigente exige justificación; la versión anterior queda como "reemplazada", nunca se borra.',
     'El Clasificador consulta este catálogo antes de correr: un número de parte con versión vigente se responde igual siempre (consistencia = defensa legal).',
     'Importa tu catálogo desde Excel/CSV (columnas productCode, description, fractionCode, nico, unit, usoDestino, paisOrigen) y expórtalo cuando quieras.',
+    'Clasificar con número de parte da de alta la parte si no existe y deja el resultado como versión propuesta; al aprobarla, el lote, el Cotizador y el Inventario reutilizan esa fracción sin volver a correr el modelo.',
   ],
 }
 
@@ -371,7 +372,7 @@ function FichaParte({ id, puedeAprobar, puedeCrear, onCerrar, onCambio }: { id: 
                     {v.aprobadoAt && <> · {v.estado === 'rechazada' ? 'Rechazó' : 'Aprobó'} {v.aprobadoPorNombre ?? 'usuario'} el <span className="font-sello-mono">{fechaCorta(v.aprobadoAt)}</span></>}
                   </p>
                   {v.justificacion && <p className="text-tinta mt-1">Justificación: {v.justificacion}</p>}
-                  {v.classificationId && <p className="text-13 text-tinta-suave mt-1 font-sello-mono">Clasificación {v.classificationId}</p>}
+                  {v.classificationId && <p className="text-13 text-tinta-suave mt-1 font-sello-mono">Clasificación que la produjo: {v.classificationId}</p>}
                 </li>
               ))}
             </ol>

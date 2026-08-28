@@ -23,6 +23,8 @@ export interface Lote {
   clienteId: string | null
   userId: string
   pendientes?: number
+  /** ── CIRCUITO catálogo↔lote ── ahorro medido: filas resueltas desde un dictamen vigente. */
+  origen?: { desdeCatalogo: number; desdeClasificador: number; pendientes: number }
 }
 
 export interface FilaLote {
@@ -45,6 +47,8 @@ export interface FilaLote {
   productId: string | null
   error: string | null
   revisado: boolean
+  /** De dónde salió la fracción de la fila (derivado en el server). */
+  origen?: 'catalogo' | 'clasificador' | 'pendiente'
 }
 
 export interface ResultadoImport {

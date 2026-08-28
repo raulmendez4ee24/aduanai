@@ -16,7 +16,7 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import {
   Send, Copy, Check, FileDown, ClipboardCheck, MessageSquareText,
-  FolderOpen, ThumbsUp, ThumbsDown, ChevronDown, Gavel,
+  FolderOpen, ThumbsUp, ThumbsDown, ChevronDown, Gavel, Boxes,
 } from 'lucide-react'
 import { api } from '../lib/api'
 import type { ClassificationResult, ClassifierAlert, ClassifierAntidumpingMetadata, DatoLegal } from '../lib/api'
@@ -30,6 +30,9 @@ import { HermanasClasificacion } from '../components/clasificador/HermanasClasif
 import type { ComparacionRGI6 } from '../lib/api/rgi6'
 // ── OPERACIÓN 2026-08 ── el Clasificador consulta el catálogo maestro antes de correr
 import { catalogoApi, formatearFraccion, fechaCorta } from '../lib/api/catalogo'
+// ── CIRCUITO catálogo↔clasificador (4ª revisión) ── el dictamen queda ligado a la parte
+import type { CatalogoHit, ParteDetalle, VersionParte } from '../lib/api/catalogo'
+import { usePermissions } from '../hooks/usePermissions'
 import type { PrecedentesPorFraccion } from '../lib/api/ola2' // ola2/copilot-risk-expedientes
 
 // ════════════════════════════════════════════════════════════════════════
@@ -235,6 +238,17 @@ export function ClassifierPage() {
   // Uso/destino explícito: viaja como useCase + importerType al clasificador.
   const [usoDestino, setUsoDestino] = useState(draftInicial.usoDestino)
   const [dictamen, setDictamen] = useState<{ estado: 'idle' | 'enviando' | 'listo' | 'existente'; msg?: string }>({ estado: 'idle' })
+  // ── CIRCUITO catálogo↔clasificador ── dónde va a quedar el dictamen de esta
+  // corrida, la ficha de esa parte una vez terminada, y el caso "ya tiene
+  // vigente" (que solo se re-clasifica con justificación).
+  const { can } = usePermissions()
+  const puedeAprobarDictamen = can('classifier', 'approve')
+  const [parteCircuito, setParteCircuito] = useState<{ productId: string; productCode: string; creada: boolean } | null>(null)
+  const [parteFicha, setParteFicha] = useState<ParteDetalle | null>(null)
+  const [aprobandoVersion, setAprobandoVersion] = useState(false)
+  const [errorCircuito, setErrorCircuito] = useState<string | null>(null)
+  const [reuso, setReuso] = useState<{ hit: CatalogoHit; descripcion: string } | null>(null)
+  const [justificacionReclasif, setJustificacionReclasif] = useState('')
   const [detallesAbiertos, setDetallesAbiertos] = useState(false)
   const [cargando, setCargando] = useState(false)
   const [etapa, setEtapa] = useState(0)
@@ -291,6 +305,86 @@ export function ClassifierPage() {
   }, [])
 
   const expediente = useMemo(() => (resultado ? mapExpediente(resultado) : null), [resultado])
+
+  // ── CIRCUITO catálogo↔clasificador ── al terminar la clasificación, la ficha
+  // de la parte trae la versión que el runner dejó PROPUESTA (fuente
+  // 'clasificador', ligada a esta Classification). Es lo que se aprueba abajo.
+  useEffect(() => {
+    if (!classificationId || !parteCircuito) { return }
+    let vivo = true
+    void (async () => {
+      try {
+        const r = await catalogoApi.obtener(parteCircuito.productId)
+        if (vivo) { setParteFicha(r.data); setErrorCircuito(null) }
+      } catch (e) {
+        if (vivo) setErrorCircuito(e instanceof Error ? e.message : 'No pude leer la parte del catálogo.')
+      }
+    })()
+    return () => { vivo = false }
+  }, [classificationId, parteCircuito])
+
+  /** Versión que esta clasificación dejó propuesta en la parte (si el runner alcanzó a crearla). */
+  const versionPropuesta: VersionParte | null =
+    parteFicha?.versiones.find(v => v.classificationId === classificationId && v.estado === 'propuesta') ?? null
+  const versionYaVigente: VersionParte | null =
+    parteFicha?.versiones.find(v => v.classificationId === classificationId && v.estado === 'vigente') ?? null
+
+  async function aprobarDictamenDeParte() {
+    if (!parteCircuito || !versionPropuesta || aprobandoVersion) return
+    setAprobandoVersion(true)
+    setErrorCircuito(null)
+    try {
+      const r = await catalogoApi.aprobarVersion(parteCircuito.productId, versionPropuesta.version)
+      setParteFicha(r.data.parte)
+      setMensajes(m => [...m, {
+        rol: 'sistema',
+        texto: `Dictamen vigente: la parte ${r.data.parte.productCode} queda en ${formatearFraccion(r.data.parte.fractionCode ?? '')}${r.data.parte.nico ? ` NICO ${r.data.parte.nico}` : ''} (v${r.data.parte.versionVigente}). A partir de ahora el Clasificador, el lote, el Cotizador y el Inventario la reutilizan sin volver a correr el modelo.`,
+      }])
+    } catch (e) {
+      setErrorCircuito(e instanceof Error ? e.message : 'No pude aprobar el dictamen.')
+    } finally {
+      setAprobandoVersion(false)
+    }
+  }
+
+  /** Re-clasificar una parte con dictamen vigente: exige justificación y queda versionada. */
+  async function reclasificarForzando() {
+    if (!reuso || cargando) return
+    const motivo = justificacionReclasif.trim()
+    if (!motivo) { setErrorCircuito('Escribe por qué hay que reclasificar esta parte: la justificación queda en el expediente.'); return }
+    setErrorCircuito(null)
+    inicioJob.current = Date.now()
+    setCargando(true)
+    try {
+      const res = await catalogoApi.clasificarConCatalogo({
+        description: reuso.descripcion,
+        productCode: reuso.hit.productCode,
+        countryOfOrigin: pais.trim() || undefined,
+        declaredValueUSD: valor ? parseFloat(valor) : undefined,
+        declaredQuantity: cantidad ? parseFloat(cantidad) : undefined,
+        useCase: usoDestino || undefined,
+        importerType: usoDestino === 'INSUMO_IMMEX' ? 'IMMEX' : usoDestino === 'VENTA_DIRECTA' ? 'DEFINITIVO' : undefined,
+        forzar: true,
+        justificacion: motivo,
+      })
+      if (!res.jobId) throw new Error('El servidor no devolvió un trabajo de clasificación.')
+      setResultado(null)
+      setClassificationId('')
+      setParteFicha(null)
+      setExpedienteNuevo(false)
+      setParteCircuito(res.parteEnCatalogo ?? null)
+      setReuso(null)
+      setJustificacionReclasif('')
+      setMensajes(m => [...m.filter(x => !x.esError), { rol: 'usuario', texto: reuso.descripcion }, {
+        rol: 'sistema',
+        texto: `Reclasificando la parte ${reuso.hit.productCode} con justificación. El resultado quedará como una versión NUEVA (propuesta) — la vigente ${formatearFraccion(reuso.hit.fractionCode)} no se toca hasta que alguien apruebe.`,
+      }])
+      void vigilarJob(res.jobId)
+    } catch (e) {
+      setCargando(false)
+      setErrorCircuito(e instanceof Error ? e.message : 'No pude reclasificar la parte.')
+    }
+  }
 
   // Sondea el job hasta que termine. Los errores de red transitorios NO matan
   // nada: el job sigue server-side y el siguiente intento lo recupera.
@@ -382,8 +476,13 @@ export function ClassifierPage() {
         setCargando(false)
         setMensajes(m => [...m.filter(x => !x.esError), { rol: 'usuario', texto: q }, {
           rol: 'sistema',
-          texto: `Ya tienes clasificada la parte ${c.productCode} en tu catálogo: ${formatearFraccion(c.fractionCode)}${c.nico ? ` NICO ${c.nico}` : ''} (v${c.version}${c.aprobadoAt ? `, aprobada el ${fechaCorta(c.aprobadoAt)}${c.aprobadoPorNombre ? ` por ${c.aprobadoPorNombre}` : ''}` : ''}). No corrí el modelo: la misma parte se declara siempre igual. Para reclasificarla, propón una nueva versión con justificación en Catálogo de partes.`,
+          texto: `Ya tienes clasificada la parte ${c.productCode} en tu catálogo: ${formatearFraccion(c.fractionCode)}${c.nico ? ` NICO ${c.nico}` : ''} (v${c.version}${c.aprobadoAt ? `, aprobada el ${fechaCorta(c.aprobadoAt)}${c.aprobadoPorNombre ? ` por ${c.aprobadoPorNombre}` : ''}` : ''}). No corrí el modelo: la misma parte se declara siempre igual. Si algo cambió, reclasifícala aquí abajo con justificación — la vigente no se toca hasta que alguien apruebe la nueva versión.`,
         }])
+        // ── CIRCUITO ── ofrece la reclasificación forzada con justificación.
+        setParteCircuito(null)
+        setParteFicha(null)
+        setErrorCircuito(null)
+        setReuso({ hit: c, descripcion: q })
         setInput('')
         return
       }
@@ -400,6 +499,12 @@ export function ClassifierPage() {
       setClassificationId('')
       setExpedienteNuevo(false)
       setDictamen({ estado: 'idle' })
+      // ── CIRCUITO ── la parte donde va a quedar el dictamen de esta corrida
+      // (creada al vuelo si el número de parte era nuevo).
+      setParteCircuito(res.parteEnCatalogo ?? null)
+      setParteFicha(null)
+      setReuso(null)
+      setErrorCircuito(null)
       const reusadoDistinto = res.reused && res.description && res.description.trim() !== q
       if (reusadoDistinto) {
         setMensajes(m => [...m.filter(x => !x.esError),
@@ -519,6 +624,83 @@ export function ClassifierPage() {
         )}
         <div ref={finConversacion} />
       </div>
+
+      {/* ── CIRCUITO catálogo↔clasificador (4ª revisión) ─────────────────────
+          Dónde queda el dictamen de esta clasificación, y la reclasificación
+          con justificación cuando la parte ya tiene una versión vigente. */}
+      {(reuso || parteCircuito || errorCircuito) && (
+        <div className="mt-3 border border-linea rounded-sello bg-superficie px-4 py-3 space-y-2">
+          <div className="flex items-center gap-2">
+            <Boxes className="w-4 h-4 text-tinta-suave" strokeWidth={1.5} aria-hidden />
+            <h3 className="text-sm font-medium text-tinta">Dictamen de la parte</h3>
+          </div>
+
+          {errorCircuito && <p role="alert" className="text-13 text-carmin">{errorCircuito}</p>}
+
+          {reuso && (
+            <div className="space-y-2">
+              <p className="text-13 text-tinta-suave">
+                <span className="font-sello-mono text-tinta">{reuso.hit.productCode}</span> tiene dictamen vigente{' '}
+                <span className="font-sello-mono text-tinta">{formatearFraccion(reuso.hit.fractionCode)}</span>
+                {reuso.hit.nico ? <span className="font-sello-mono text-tinta"> · NICO {reuso.hit.nico}</span> : null}{' '}
+                <Badge tono="petroleo">v{reuso.hit.version}</Badge>
+              </p>
+              <Textarea
+                aria-label="Justificación para reclasificar la parte"
+                placeholder="¿Por qué hay que reclasificarla? (ficha técnica nueva, cambio de material, criterio de la autoridad…)"
+                rows={2}
+                value={justificacionReclasif}
+                onChange={e => setJustificacionReclasif(e.target.value)}
+              />
+              <div className="flex flex-wrap items-center gap-2">
+                <Button variante="secundario" tamano="sm" loading={cargando} disabled={!justificacionReclasif.trim()} onClick={reclasificarForzando}>
+                  Reclasificar con justificación
+                </Button>
+                <Button variante="ghost" tamano="sm" onClick={() => navigate(`/catalogo?parte=${encodeURIComponent(reuso.hit.productId)}`)}>
+                  Ver expediente de la parte
+                </Button>
+              </div>
+              <p className="text-13 text-tinta-suave">La versión vigente no se toca: el resultado nuevo queda como propuesta hasta que alguien con permiso la apruebe.</p>
+            </div>
+          )}
+
+          {parteCircuito && !reuso && (
+            <div className="space-y-2">
+              <p className="text-13 text-tinta-suave">
+                Parte <span className="font-sello-mono text-tinta">{parteCircuito.productCode}</span>
+                {parteCircuito.creada && <Badge tono="neutral" className="ml-2 align-middle">recién dada de alta</Badge>}
+              </p>
+              {versionYaVigente ? (
+                <p className="text-13 text-tinta">
+                  Dictamen <Badge tono="petroleo">vigente v{versionYaVigente.version}</Badge>{' '}
+                  <span className="font-sello-mono">{formatearFraccion(versionYaVigente.fractionCode)}{versionYaVigente.nico ? ` · NICO ${versionYaVigente.nico}` : ''}</span>
+                </p>
+              ) : versionPropuesta ? (
+                <>
+                  <p className="text-13 text-tinta">
+                    El resultado quedó como <Badge tono="ambar">versión {versionPropuesta.version} propuesta</Badge>{' '}
+                    <span className="font-sello-mono">{formatearFraccion(versionPropuesta.fractionCode)}{versionPropuesta.nico ? ` · NICO ${versionPropuesta.nico}` : ''}</span>
+                  </p>
+                  {puedeAprobarDictamen ? (
+                    <Button variante="primario" tamano="sm" loading={aprobandoVersion} onClick={aprobarDictamenDeParte}>
+                      Aprobar como dictamen vigente
+                    </Button>
+                  ) : (
+                    <p className="text-13 text-ambar">Pendiente de aprobación: la vuelve vigente quien tenga permiso de aprobar clasificaciones.</p>
+                  )}
+                </>
+              ) : classificationId ? (
+                <p className="text-13 text-tinta-suave">Ligando el resultado a la parte…</p>
+              ) : (
+                <p className="text-13 text-tinta-suave">Al terminar, el dictamen quedará ligado a esta parte como versión propuesta.</p>
+              )}
+              <Button variante="ghost" tamano="sm" onClick={() => navigate(`/catalogo?parte=${encodeURIComponent(parteCircuito.productId)}`)}>
+                Ver expediente de la parte
+              </Button>
+            </div>
+          )}
+        </div>
+      )}
 
       {/* Input */}
       <div className="pt-3 border-t border-linea mt-3 space-y-2">

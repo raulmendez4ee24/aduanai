@@ -191,6 +191,15 @@ export function ClasificadorLotePage() {
             ? <span className="text-13 text-petroleo inline-flex items-center gap-1"><Check className="w-3.5 h-3.5" strokeWidth={1.5} aria-hidden /> coincide</span>
             : <span className="text-13 text-ambar font-sello-mono">≠ {formatFraction(f.fraccionCatalogo)}</span>,
     },
+    // ── CIRCUITO catálogo↔lote ── de dónde salió la fracción de la fila.
+    {
+      key: 'origen', header: 'Origen', render: f =>
+        f.origen === 'catalogo'
+          ? <span className="text-13 text-petroleo">catálogo (dictamen vigente)</span>
+          : f.origen === 'clasificador'
+            ? <span className="text-13 text-tinta-suave">clasificador</span>
+            : <span className="text-13 text-tinta-suave">—</span>,
+    },
     { key: 'error', header: 'Error', render: f => f.error ? <span className="text-13 text-carmin line-clamp-2 max-w-xs block" title={f.error}>{f.error}</span> : '' },
     {
       key: 'acciones', header: '', render: f => (
@@ -340,6 +349,14 @@ export function ClasificadorLotePage() {
                   </>
                 )}
               </div>
+              {/* ── CIRCUITO catálogo↔lote ── ahorro medido, no prometido. */}
+              {loteActivo.origen && loteActivo.origen.desdeCatalogo > 0 && (
+                <p className="text-13 text-tinta-suave mb-4">
+                  <span className="font-sello-mono text-tinta">{loteActivo.origen.desdeCatalogo}</span> de{' '}
+                  <span className="font-sello-mono text-tinta">{loteActivo.totalFilas}</span> fila(s) se resolvieron desde el catálogo
+                  (número de parte con dictamen vigente): esas no pasaron por el modelo.
+                </p>
+              )}
               {loteActivo.errorMsg && (
                 <p className="text-sm text-carmin bg-carmin-suave border border-carmin/25 rounded-sello-sm px-3 py-2 mb-4">{loteActivo.errorMsg}</p>
               )}
