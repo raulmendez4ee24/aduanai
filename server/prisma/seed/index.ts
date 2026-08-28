@@ -21,9 +21,10 @@ import { seedRegimesPrograms } from './regimes-programs';
 import { seedSATPadrones } from './sat-padrones';
 import { seedGlosaRiskRules } from './glosa-risk-rules';
 import { seedSyntheticHistory } from '../../src/services/exchange-rate';
-import { seedAllTenantsRoles } from '../../src/services/permissions';
+import { seedAllTenantsRoles, autoAssignTenantAdmin } from '../../src/services/permissions';
 // ── OPERACIÓN 2026-08 ── circuito catálogo↔clasificador visible en el demo.
 import { seedCircuitoCatalogoDemo } from '../../src/services/catalogo-demo-circuito';
+import { regularizarAprobacionesSembradas } from '../../src/services/aprobaciones';
 
 dotenv.config({ path: path.join(__dirname, '..', '..', '.env') });
 
@@ -182,10 +183,14 @@ async function main() {
       },
     },
   });
-  // Garantizar credenciales conocidas si el usuario ya existía
+  // Garantizar credenciales conocidas si el usuario ya existía.
+  // `role: 'ADMIN'` no es cosmético: el tenant demo tiene UN solo usuario, y si
+  // ese usuario no puede aprobar, todo lo que capture nace `pending_approval` y
+  // NADIE puede sacarlo de la bandeja (así se llenó la bandeja del demo que
+  // reportó la cuarta revisión). El dueño de la empresa demo es su admin.
   await prisma.user.updateMany({
     where: { email: 'demo@aduanai.mx' },
-    data: { password: hashedPassword, status: 'VERIFIED', emailVerified: true, active: true },
+    data: { password: hashedPassword, status: 'VERIFIED', emailVerified: true, active: true, role: 'ADMIN' },
   });
   console.log('   ✅ Tenant demo: Maquiladora Ejemplo SA de CV');
   console.log('   ✅ Login: demo@aduanai.mx / demo1234\n');
@@ -281,6 +286,9 @@ async function main() {
     where: { tenantId: DEMO_TENANT_ID, role: 'ADMIN' },
   });
   if (demoUser) {
+    // Rol granular explícito: sin un TENANT_ADMIN asignado, el permiso depende
+    // del fallback legacy y la bandeja de Aprobaciones queda sin quien apruebe.
+    await autoAssignTenantAdmin(demoUser.id, DEMO_TENANT_ID);
     await clearDemoFromTenant(prisma, DEMO_TENANT_ID);
     const loaded = await loadDemoIntoTenant(prisma, DEMO_TENANT_ID, demoUser.id, { replaceExisting: false });
     console.log(`   ✅ ${loaded.imports} imports, ${loaded.discharges} descargos, ${loaded.taxCredits} créditos,`);
@@ -291,6 +299,10 @@ async function main() {
     // vigente ligado a clasificaciones demo reales (idempotente, solo demo).
     const circuito = await seedCircuitoCatalogoDemo(prisma, DEMO_TENANT_ID, demoUser.id);
     console.log(`   ✅ Catálogo: ${circuito.totalConDictamen}/${circuito.totalPartes} partes demo con dictamen vigente (${circuito.ligadasAClasificacion} ligadas a una clasificación demo, ${circuito.sinClasificacion} desde el inventario), ${circuito.versionesReemplazadas} versión(es) reemplazada(s)\n`);
+    // Idempotente y acotado al tenant demo: devuelve a su estado sembrado los
+    // registros isDemoData que quedaron en la bandeja sin que nadie los propusiera.
+    const reg = await regularizarAprobacionesSembradas(DEMO_TENANT_ID, {});
+    console.log(`   ✅ bandeja de aprobaciones: ${reg.clasificaciones.regularizadas + reg.cotizaciones.regularizadas} sembrados regularizados, ${reg.pendientesRestantes} pendientes reales\n`);
   } else {
     console.warn('   ⚠️  No se encontró usuario admin del tenant demo\n');
   }
