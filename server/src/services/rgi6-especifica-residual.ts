@@ -323,6 +323,22 @@ RGI 6: la clasificación a nivel de subpartida se determina por el TEXTO de las 
 
 Se te dan: el producto, la subpartida/fracción que el motor eligió (residual) y una subpartida ESPECÍFICA de la misma partida. Debes decidir cuál corresponde y DEJAR POR ESCRITO el descarte de la perdedora citando su texto.
 
+CÓMO SE LEE EL TEXTO DE UNA SUBPARTIDA (lectura literal, no por analogía):
+- La construcción "A … y demás B de los tipos utilizados en …" contiene DOS
+  supuestos INDEPENDIENTES: el caso A, y además TODOS los B de ese tipo de uso.
+  El segundo miembro NO se limita a lo análogo al primero ni hereda su función.
+  Leerlo como si el segundo miembro solo cubriera variantes del primero es un
+  error de lectura, no una interpretación.
+- Criterio de este sistema para aplicar la RGI 3a por vía de la RGI 6: una
+  subpartida que describe la mercancía por su DESTINO ("de los tipos utilizados
+  en los medios de transporte", "reconocibles para naves aéreas") acota más que
+  otra que la describe por una característica constructiva compartida por casi
+  toda la partida ("provistos de piezas de conexión", "los demás conductores"),
+  porque esta última no distingue la mercancía de sus vecinas.
+- Si el producto encaja en el texto de la específica, esa gana aunque la
+  residual "también podría describirlo": la residual es el cajón de lo que NO
+  encaja en ninguna específica del mismo nivel.
+
 REGLAS:
 - Solo puedes elegir un código de 8 dígitos de la lista "CÓDIGOS ELEGIBLES". Nada de memoria.
 - Si el producto NO cumple el texto de la específica, la residual es la correcta: confírmala y explica textualmente por qué la específica no aplica.
