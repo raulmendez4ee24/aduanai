@@ -48,6 +48,9 @@ export function FractionsPage() {
     if (!habia) inputBusqueda.current?.focus()
     const obs = new MutationObserver(() => {
       const hay = hayDialogo()
+      // Mientras el diálogo está abierto manda él (nada de teclear a ciegas en
+      // el buscador que quedó detrás); al cerrarse, el foco vuelve al buscador.
+      if (hay && !habia) inputBusqueda.current?.blur()
       if (habia && !hay) inputBusqueda.current?.focus()
       habia = hay
     })
