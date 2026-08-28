@@ -26,6 +26,8 @@ import { Button, Card, Badge, Textarea, Input, Select, SelloVerificacion, EmptyS
 import { apiDictamen, USOS_DESTINO, type SubpartidaHermana } from '../lib/api/clasificacion-lote'
 import { AdjuntosClasificacion } from '../components/clasificador/AdjuntosClasificacion'
 import { HermanasClasificacion } from '../components/clasificador/HermanasClasificacion'
+// 4ª revisión (prioridad 1): veredicto RGI 6 específica-vs-residual del motor.
+import type { ComparacionRGI6 } from '../lib/api/rgi6'
 // ── OPERACIÓN 2026-08 ── el Clasificador consulta el catálogo maestro antes de correr
 import { catalogoApi, formatearFraccion, fechaCorta } from '../lib/api/catalogo'
 import type { PrecedentesPorFraccion } from '../lib/api/ola2' // ola2/copilot-risk-expedientes
@@ -698,7 +700,10 @@ export function ClassifierPage() {
 
       {/* Compara contra las hermanas (Ola 1): subpartidas de la misma partida en el catálogo */}
       <SeccionExpediente titulo="Compara contra las hermanas">
-        <HermanasClasificacion hermanas={((resultado as unknown as { hermanas?: SubpartidaHermana[] }).hermanas) ?? []} />
+        <HermanasClasificacion
+          hermanas={((resultado as unknown as { hermanas?: SubpartidaHermana[] }).hermanas) ?? []}
+          rgi6={(resultado as unknown as { rgi6?: ComparacionRGI6 }).rgi6 ?? null}
+        />
       </SeccionExpediente>
 
       {/* Adjuntos (Ola 1): ficha técnica, foto, hoja de seguridad */}
