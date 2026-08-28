@@ -352,19 +352,40 @@ export function parsearArchivo(nombreArchivo: string, contenido: string, layout:
   }
 }
 
-export async function importarPedimentos(input: ImportarInput): Promise<ImportarResultado> {
+/** Parte B: topes por archivo (el body solo limitaba 3 MB base64). */
+export const MAX_PEDIMENTOS = Number(process.env.IMPORT_MAX_PEDIMENTOS) > 0 ? Number(process.env.IMPORT_MAX_PEDIMENTOS) : 200;
+export const MAX_PARTIDAS = Number(process.env.IMPORT_MAX_PARTIDAS) > 0 ? Number(process.env.IMPORT_MAX_PARTIDAS) : 5_000;
+
+export async function importarPedimentos(input: ImportarInput, limites: { maxPedimentos?: number; maxPartidas?: number } = {}): Promise<ImportarResultado> {
   const parsed = parsearArchivo(input.nombreArchivo, input.contenido, input.layout ?? 'auto', input.columnas);
+  const maxPed = limites.maxPedimentos ?? MAX_PEDIMENTOS;
+  const maxPart = limites.maxPartidas ?? MAX_PARTIDAS;
+  if (parsed.pedimentos.length > maxPed) {
+    throw new ImportacionError(`El archivo trae ${parsed.pedimentos.length} pedimentos (máximo ${maxPed} por importación); divídelo.`, [], 400);
+  }
+  const totalPartidas = parsed.pedimentos.reduce((s, p) => s + p.partidas.length, 0);
+  if (totalPartidas > maxPart) {
+    throw new ImportacionError(`El archivo trae ${totalPartidas} partidas (máximo ${maxPart} por importación); divídelo.`, [], 400);
+  }
   const salida: ImportarResultado['pedimentos'] = [];
   let archivoHash = '';
   let layoutVersion = '';
 
+  // Prefetch de existentes en UNA consulta (antes: findFirst por pedimento).
+  const hashes = [...new Set(parsed.pedimentos.map(p => p.archivoHash))];
+  const numeros = [...new Set(parsed.pedimentos.map(p => p.numero))];
+  const existentes = parsed.pedimentos.length
+    ? await prisma.pedimento.findMany({
+        where: { tenantId: input.tenantId, archivoHash: { in: hashes }, numero: { in: numeros } },
+        select: { id: true, numero: true, clave: true, archivoHash: true, _count: { select: { partidas: true } } },
+      })
+    : [];
+  const porClave = new Map(existentes.map(e => [`${e.archivoHash}|${e.numero}`, e]));
+
   for (const ped of parsed.pedimentos) {
     archivoHash = ped.archivoHash;
     layoutVersion = ped.layoutVersion;
-    const existente = await prisma.pedimento.findFirst({
-      where: { tenantId: input.tenantId, archivoHash: ped.archivoHash, numero: ped.numero },
-      select: { id: true, numero: true, clave: true, _count: { select: { partidas: true } } },
-    });
+    const existente = porClave.get(`${ped.archivoHash}|${ped.numero}`) ?? null;
     if (existente) {
       salida.push({ id: existente.id, numero: existente.numero, clave: existente.clave, partidas: existente._count.partidas, reutilizado: true, datosNoDisponibles: ped.datosNoDisponibles });
       continue;

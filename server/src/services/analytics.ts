@@ -43,7 +43,10 @@ export interface LineaAhorro {
 }
 
 export interface AnalyticsReal {
-  filtro: { tenantId: string; clienteId: string | null; clienteIds: string[] | null; desde: string; hasta: string };
+  filtro: { tenantId: string; clienteId: string | null; clienteIds: string[] | null; desde: string; hasta: string; ventanaRecortada: boolean; maxDias: number };
+  /** true si el periodo tenía más filas que el tope cargado: los agregados del periodo son parciales (los totales globales no). */
+  truncado: boolean;
+  limite: { maxFilas: number; clasificacionesPeriodoTotal: number; cotizacionesPeriodoTotal: number };
   totales: {
     clasificaciones: number;
     cotizaciones: number;
@@ -80,25 +83,42 @@ export interface AnalyticsReal {
 const r2 = (n: number) => Math.round(n * 100) / 100;
 const iso = (d: Date) => d.toISOString();
 
-export async function calcularAnalytics(f: FiltroAnalytics): Promise<AnalyticsReal> {
+/** Parte B: ventana máxima y tope de filas cargadas a memoria por consulta. */
+export const ANALYTICS_MAX_DIAS = 730;
+export const ANALYTICS_MAX_FILAS = 20_000;
+
+export async function calcularAnalytics(f: FiltroAnalytics, limites: { maxFilas?: number } = {}): Promise<AnalyticsReal> {
+  const maxFilas = limites.maxFilas ?? ANALYTICS_MAX_FILAS;
   // Revisión C: el filtro admite `{ in: [...] }` (usuario restringido a varios clientes sin cliente activo).
   const filtroCli = f.clienteId ? { clienteId: f.clienteId } : {};
   const baseCls = { tenantId: f.tenantId, ...filtroCli };
   const baseQuote = { tenantId: f.tenantId, ...filtroCli };
-  const periodo = { gte: f.desde, lte: f.hasta };
+  // Ventana acotada a 730 días (antes hasta 3 650 con desde/hasta del usuario).
+  const hasta = f.hasta;
+  const minDesde = new Date(hasta.getTime() - ANALYTICS_MAX_DIAS * 86400000);
+  const ventanaRecortada = f.desde.getTime() < minDesde.getTime();
+  const desde = ventanaRecortada ? minDesde : f.desde;
+  const periodo = { gte: desde, lte: hasta };
 
-  const [totalCls, totalQuotes, clsPeriodo, quotesPeriodo] = await Promise.all([
+  const [totalCls, totalQuotes, clsPeriodoCount, quotesPeriodoCount, clsPeriodo, quotesPeriodo] = await Promise.all([
     prisma.classification.count({ where: baseCls }),
     prisma.quote.count({ where: baseQuote }),
+    prisma.classification.count({ where: { ...baseCls, createdAt: periodo } }),
+    prisma.quote.count({ where: { ...baseQuote, createdAt: periodo } }),
     prisma.classification.findMany({
       where: { ...baseCls, createdAt: periodo },
+      orderBy: { createdAt: 'desc' },
+      take: maxFilas,
       select: { id: true, createdAt: true, fractionCode: true, inputCountryOfOrigin: true, inputDeclaredValueUSD: true, userId: true, feedback: true },
     }),
     prisma.quote.findMany({
       where: { ...baseQuote, createdAt: periodo },
+      orderBy: { createdAt: 'desc' },
+      take: maxFilas,
       select: { id: true, createdAt: true, origin: true, items: { select: { id: true, fractionCode: true, countryOfOrigin: true, customsValueUSD: true, igiRate: true } } },
     }),
   ]);
+  const truncado = clsPeriodoCount > clsPeriodo.length || quotesPeriodoCount > quotesPeriodo.length;
 
   // ── Catálogo de tasas para las fracciones que aparecen ──
   const codes = new Set<string>();
@@ -214,8 +234,10 @@ export async function calcularAnalytics(f: FiltroAnalytics): Promise<AnalyticsRe
       tenantId: f.tenantId,
       clienteId: typeof f.clienteId === 'string' ? f.clienteId : null,
       clienteIds: typeof f.clienteId === 'object' ? f.clienteId.in : null,
-      desde: iso(f.desde), hasta: iso(f.hasta),
+      desde: iso(desde), hasta: iso(hasta), ventanaRecortada, maxDias: ANALYTICS_MAX_DIAS,
     },
+    truncado,
+    limite: { maxFilas, clasificacionesPeriodoTotal: clsPeriodoCount, cotizacionesPeriodoTotal: quotesPeriodoCount },
     totales: {
       clasificaciones: totalCls, cotizaciones: totalQuotes,
       clasificacionesPeriodo: clsPeriodo.length, cotizacionesPeriodo: quotesPeriodo.length,

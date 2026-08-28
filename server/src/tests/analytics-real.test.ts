@@ -145,6 +145,18 @@ async function main() {
       assert.equal(r.totales.clasificaciones, 0);
       assert.equal(r.totales.cotizaciones, 0);
     });
+    await caso('Parte B: ventana > 730 días se recorta (ventanaRecortada) y el tope de filas marca truncado sin tocar los totales globales', async () => {
+      const ancho = await calcularAnalytics({ ...filtro, desde: new Date(ahora.getTime() - 3650 * 86400000) });
+      assert.equal(ancho.filtro.ventanaRecortada, true);
+      assert.equal(Math.round((new Date(ancho.filtro.hasta).getTime() - new Date(ancho.filtro.desde).getTime()) / 86400000), 730);
+      assert.equal(ancho.truncado, false);
+      const corto = await calcularAnalytics(filtro, { maxFilas: 1 });
+      assert.equal(corto.truncado, true);
+      assert.equal(corto.totales.clasificaciones, todo.totales.clasificaciones, 'los totales globales salen de count(), no de las filas cargadas');
+      assert.equal(corto.totales.clasificacionesPeriodo, 1);
+      assert.ok(corto.limite.clasificacionesPeriodoTotal > 1);
+      assert.equal(todo.filtro.ventanaRecortada, false);
+    });
     await caso('la cotización sembrada se conserva con sus 2 partidas', async () => {
       assert.equal(await prisma.quoteItem.count({ where: { quoteId: quoteA.id } }), 2);
     });

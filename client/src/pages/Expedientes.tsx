@@ -136,8 +136,8 @@ export function ExpedientesPage() {
             ) : (
               <ul className="divide-y divide-linea -my-2">
                 {lista.map(op => {
-                  const total = op.documents.filter(d => d.required).length
-                  const listos = op.documents.filter(d => d.required && d.status !== 'PENDING').length
+                  const total = op.documentos.requeridos
+                  const listos = op.documentos.requeridosListos
                   const activo = op.id === id
                   return (
                     <li key={op.id}>

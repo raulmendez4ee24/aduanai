@@ -419,16 +419,35 @@ export async function descargarCredito(input: DescargoInput) {
   return { usage, credito: despues };
 }
 
-export async function reporteCreditosXlsx(tenantId: string, alcance: AlcanceCliente): Promise<Buffer> {
-  const creditos = await prisma.taxCredit.findMany({ where: { tenantId, ...whereCliente(alcance) }, include: { usages: { orderBy: { usageDate: 'asc' } } }, orderBy: { creditDate: 'asc' } });
+/** Parte B: tope de filas del export (créditos y descargos); por encima → 413. */
+export const EXPORT_MAX_FILAS = 5_000;
+
+export async function reporteCreditosXlsx(tenantId: string, alcance: AlcanceCliente, maxFilas = EXPORT_MAX_FILAS): Promise<Buffer> {
+  const where = { tenantId, ...whereCliente(alcance) };
+  const [nCreditos, nUsos] = await Promise.all([
+    prisma.taxCredit.count({ where }),
+    prisma.creditUsage.count({ where: { credit: where } }),
+  ]);
+  if (nCreditos > maxFilas || nUsos > maxFilas) {
+    throw new AppError(`El export tendría ${nCreditos} créditos y ${nUsos} descargos (máximo ${maxFilas} filas por hoja); acota por cliente o periodo.`, 413);
+  }
+  const creditos = await prisma.taxCredit.findMany({
+    where, orderBy: { creditDate: 'asc' }, take: maxFilas,
+    select: { id: true, pedimento: true, fractionCode: true, creditDate: true, dischargeDeadline: true, ivaAmount: true, iepsAmount: true, discharged: true, remaining: true, status: true, _count: { select: { usages: true } } },
+  });
+  const usosRows = await prisma.creditUsage.findMany({
+    where: { credit: where }, orderBy: { usageDate: 'asc' }, take: maxFilas,
+    select: { creditId: true, pedimentoDescargo: true, usageDate: true, ivaApplied: true, iepsApplied: true },
+  });
   const hoy = new Date();
   const filas = creditos.map((c) => ({
     Pedimento: c.pedimento, Fracción: c.fractionCode, 'Fecha crédito': c.creditDate.toISOString().slice(0, 10), 'Vence descargo': c.dischargeDeadline.toISOString().slice(0, 10),
     'Días para vencer': Math.ceil((c.dischargeDeadline.getTime() - hoy.getTime()) / DIA),
-    IVA: c.ivaAmount, IEPS: c.iepsAmount, Otorgado: c.ivaAmount + c.iepsAmount, Descargado: c.discharged, Saldo: c.remaining, Estado: c.status, Descargos: c.usages.length,
+    IVA: c.ivaAmount, IEPS: c.iepsAmount, Otorgado: c.ivaAmount + c.iepsAmount, Descargado: c.discharged, Saldo: c.remaining, Estado: c.status, Descargos: c._count.usages,
     Bucket: bucketDeAntiguedad((hoy.getTime() - c.creditDate.getTime()) / (30.4375 * DIA)),
   }));
-  const usos = creditos.flatMap((c) => c.usages.map((u) => ({ 'Crédito pedimento': c.pedimento, 'Pedimento descargo': u.pedimentoDescargo, Fecha: u.usageDate.toISOString().slice(0, 10), IVA: u.ivaApplied, IEPS: u.iepsApplied, Total: u.ivaApplied + u.iepsApplied })));
+  const pedimentoDe = new Map(creditos.map(c => [c.id, c.pedimento]));
+  const usos = usosRows.map((u) => ({ 'Crédito pedimento': pedimentoDe.get(u.creditId) ?? '', 'Pedimento descargo': u.pedimentoDescargo, Fecha: u.usageDate.toISOString().slice(0, 10), IVA: u.ivaApplied, IEPS: u.iepsApplied, Total: u.ivaApplied + u.iepsApplied }));
   const wb = XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(filas.length ? filas : [{ Pedimento: 'Sin créditos registrados' }]), 'Créditos');
   XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(usos.length ? usos : [{ 'Crédito pedimento': 'Sin descargos' }]), 'Descargos');

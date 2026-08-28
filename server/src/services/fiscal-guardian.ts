@@ -6,50 +6,25 @@ import { getAnthropicClient } from '../lib/anthropic';
 // ============================================
 
 export async function getFiscalAccount(tenantId: string) {
-  const credits = await prisma.taxCredit.findMany({
-    where: { tenantId },
-    include: { usages: true },
-  });
-
-  let totalGranted = 0;
-  let totalUsed = 0;
-  let totalPending = 0;
-  let totalIVA = 0;
-  let totalIEPS = 0;
-  let activeCount = 0;
-  let expiredCount = 0;
-
-  const byMonth = new Map<string, { granted: number; used: number; balance: number }>();
-  const byFraction = new Map<string, { granted: number; used: number; balance: number; count: number }>();
-
-  for (const c of credits) {
-    const total = c.ivaAmount + c.iepsAmount;
-    const used = c.discharged;
-    totalGranted += total;
-    totalUsed += used;
-    totalPending += c.remaining;
-    totalIVA += c.ivaAmount;
-    totalIEPS += c.iepsAmount;
-
-    if (c.status === 'ACTIVE' || c.status === 'PARTIALLY_USED') activeCount++;
-    if (c.status === 'EXPIRED') expiredCount++;
-
-    // By month
-    const monthKey = `${c.creditDate.getFullYear()}-${String(c.creditDate.getMonth() + 1).padStart(2, '0')}`;
-    const monthEntry = byMonth.get(monthKey) || { granted: 0, used: 0, balance: 0 };
-    monthEntry.granted += total;
-    monthEntry.used += used;
-    monthEntry.balance += c.remaining;
-    byMonth.set(monthKey, monthEntry);
-
-    // By fraction
-    const fracEntry = byFraction.get(c.fractionCode) || { granted: 0, used: 0, balance: 0, count: 0 };
-    fracEntry.granted += total;
-    fracEntry.used += used;
-    fracEntry.balance += c.remaining;
-    fracEntry.count++;
-    byFraction.set(c.fractionCode, fracEntry);
-  }
+  // Parte B: agregados en DB (antes: findMany + include usages y suma en JS).
+  const [tot, porEstado, porMes, porFraccion] = await Promise.all([
+    prisma.taxCredit.aggregate({ where: { tenantId }, _sum: { ivaAmount: true, iepsAmount: true, discharged: true, remaining: true }, _count: { _all: true } }),
+    prisma.taxCredit.groupBy({ by: ['status'], where: { tenantId }, _count: { _all: true } }),
+    prisma.$queryRaw<{ month: string; granted: number; used: number; balance: number }[]>`
+      SELECT to_char("creditDate", 'YYYY-MM') AS month,
+             COALESCE(SUM("ivaAmount" + "iepsAmount"), 0)::float8 AS granted,
+             COALESCE(SUM(discharged), 0)::float8 AS used,
+             COALESCE(SUM(remaining), 0)::float8 AS balance
+      FROM tax_credits WHERE "tenantId" = ${tenantId}
+      GROUP BY 1 ORDER BY 1 DESC`,
+    prisma.taxCredit.groupBy({ by: ['fractionCode'], where: { tenantId }, _sum: { ivaAmount: true, iepsAmount: true, discharged: true, remaining: true }, _count: { _all: true } }),
+  ]);
+  const totalIVA = tot._sum.ivaAmount ?? 0;
+  const totalIEPS = tot._sum.iepsAmount ?? 0;
+  const totalGranted = totalIVA + totalIEPS;
+  const totalUsed = tot._sum.discharged ?? 0;
+  const totalPending = tot._sum.remaining ?? 0;
+  const cuenta = (st: string) => porEstado.find(e => e.status === st)?._count._all ?? 0;
 
   return {
     totalGranted,
@@ -57,15 +32,13 @@ export async function getFiscalAccount(tenantId: string) {
     totalPending,
     totalIVA,
     totalIEPS,
-    activeCount,
-    expiredCount,
-    totalCredits: credits.length,
+    activeCount: cuenta('ACTIVE') + cuenta('PARTIALLY_USED'),
+    expiredCount: cuenta('EXPIRED'),
+    totalCredits: tot._count._all,
     utilizationRate: totalGranted > 0 ? (totalUsed / totalGranted) * 100 : 0,
-    byMonth: Array.from(byMonth.entries())
-      .map(([month, data]) => ({ month, ...data }))
-      .sort((a, b) => b.month.localeCompare(a.month)),
-    byFraction: Array.from(byFraction.entries())
-      .map(([fractionCode, data]) => ({ fractionCode, ...data }))
+    byMonth: porMes.map(m => ({ month: m.month, granted: Number(m.granted), used: Number(m.used), balance: Number(m.balance) })),
+    byFraction: porFraccion
+      .map(f => ({ fractionCode: f.fractionCode, granted: (f._sum.ivaAmount ?? 0) + (f._sum.iepsAmount ?? 0), used: f._sum.discharged ?? 0, balance: f._sum.remaining ?? 0, count: f._count._all }))
       .sort((a, b) => b.balance - a.balance),
   };
 }

@@ -184,13 +184,55 @@ export interface CertificadoIntegridad {
   nota: string;
 }
 
-export async function construirPaqueteAuditoria(tenantId: string, operationId: string, ahora: Date = new Date()): Promise<{ zip: Buffer; certificado: CertificadoIntegridad; nombreArchivo: string }> {
+/** Presupuesto del paquete (Parte B): sin tope, N documentos base64 de hasta
+ *  50 MB (index.ts body limit) se decodificaban y concatenaban en memoria. */
+export const ZIP_MAX_TOTAL_BYTES = 100 * 1024 * 1024;
+export const ZIP_MAX_ARCHIVO_BYTES = 50 * 1024 * 1024;
+export const ZIP_MAX_ENTRADAS = 500;
+
+export class PaqueteDemasiadoGrandeError extends Error {
+  readonly status = 413;
+  constructor(mensaje: string) { super(mensaje); this.name = 'PaqueteDemasiadoGrandeError'; }
+}
+
+/** Bytes que ocupará un documento sin decodificarlo (base64 → 3/4). */
+function bytesEstimados(d: { fileUrl: string | null; rawText: string | null }): number {
+  const m = d.fileUrl?.match(/^data:[^;]+;base64,/);
+  if (m) return Math.floor((d.fileUrl!.length - m[0].length) * 3 / 4);
+  return (d.rawText?.length ?? 0) + 512;
+}
+
+export async function construirPaqueteAuditoria(
+  tenantId: string, operationId: string, ahora: Date = new Date(),
+  limites: { maxTotalBytes?: number; maxArchivoBytes?: number; maxEntradas?: number } = {},
+): Promise<{ zip: Buffer; certificado: CertificadoIntegridad; nombreArchivo: string }> {
+  const maxTotal = limites.maxTotalBytes ?? ZIP_MAX_TOTAL_BYTES;
+  const maxArchivo = limites.maxArchivoBytes ?? ZIP_MAX_ARCHIVO_BYTES;
+  const maxEntradas = limites.maxEntradas ?? ZIP_MAX_ENTRADAS;
   const op = await prisma.operation.findFirst({
     where: { id: operationId, tenantId },
-    include: { documents: { orderBy: { createdAt: 'asc' } } },
+    select: {
+      id: true, reference: true, type: true, status: true, fractionCode: true, origin: true, customsValue: true, currency: true,
+      operationDate: true, retencionHasta: true, clienteId: true, pedimentoId: true, checklist: true, glosaDocumental: true,
+      // Solo las columnas que entran al paquete (nada de embeddings/extras).
+      documents: {
+        orderBy: { createdAt: 'asc' },
+        select: { id: true, name: true, fileName: true, type: true, docType: true, status: true, fileHash: true, verifiedAt: true, mimeType: true, fileUrl: true, rawText: true, extractedData: true },
+      },
+    },
   });
   if (!op) throw new Error('Operación no encontrada');
   const docsConContenido = op.documents.filter(d => d.status === 'UPLOADED' || d.status === 'VERIFIED');
+  if (docsConContenido.length > maxEntradas) {
+    throw new PaqueteDemasiadoGrandeError(`El paquete tendría ${docsConContenido.length} documentos (máximo ${maxEntradas}); descarga los documentos por separado.`);
+  }
+  let totalEstimado = 0;
+  for (const d of docsConContenido) {
+    const b = bytesEstimados(d);
+    if (b > maxArchivo) throw new PaqueteDemasiadoGrandeError(`El documento "${d.name}" pesa ~${(b / 1048576).toFixed(1)} MB (máximo ${maxArchivo / 1048576} MB por archivo); descárgalo por separado.`);
+    totalEstimado += b;
+    if (totalEstimado > maxTotal) throw new PaqueteDemasiadoGrandeError(`El paquete superaría ${maxTotal / 1048576} MB; descarga los documentos por separado.`);
+  }
   const checklist = (op.checklist as ChecklistExpediente | null) ?? construirChecklist(op.type, op.documents.map(d => ({ id: d.id, name: d.name, type: d.type, docType: d.docType, status: d.status })), [], ahora);
   const glosa = (op.glosaDocumental as ResultadoGlosaDocumental | null) ?? null;
   const dictamenes = await prisma.riskAssessment.findMany({ where: { tenantId, operationId }, select: { id: true, folio: true }, orderBy: { createdAt: 'asc' } });

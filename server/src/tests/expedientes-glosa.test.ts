@@ -20,7 +20,7 @@ import type { Request } from 'express';
 const reqRestringida = (clienteIds: string[] | null): Request =>
   ({ headers: {}, query: {}, clienteIdsPermitidos: clienteIds } as unknown as Request);
 import { glosarDocumentos, glosarOperacion, normalizarRfc, normalizarNombre, TOLERANCIAS_DEFAULT, type EntradaGlosaDocumental } from '../services/glosa-documental';
-import { construirChecklist, calcularRetencionHasta, FUNDAMENTO_RETENCION, INCISOS_59V, construirPaqueteAuditoria } from '../services/expediente-electronico';
+import { construirChecklist, calcularRetencionHasta, FUNDAMENTO_RETENCION, INCISOS_59V, construirPaqueteAuditoria, PaqueteDemasiadoGrandeError, ZIP_MAX_TOTAL_BYTES, ZIP_MAX_ARCHIVO_BYTES } from '../services/expediente-electronico';
 import { crearZip, listarEntradasZip, leerEntradaZip, crc32 } from '../lib/zip';
 
 const SUFIJO = `ola2exp${Date.now().toString(36)}`;
@@ -201,6 +201,15 @@ async function parteDB() {
       const factura = entradas.find(e => e.nombre.startsWith('documentos/factura-'))!;
       assert.equal(leerEntradaZip(zip, factura).toString('utf8'), '%PDF-1.4 factura');
       assert.equal(typeof cert.cadenaAuditoria.valida, 'boolean');
+    });
+    await prueba('Parte B: presupuesto del ZIP — por archivo, total y número de entradas → PaqueteDemasiadoGrandeError (413) ANTES de decodificar', async () => {
+      const esPaquete = (e: unknown) => e instanceof PaqueteDemasiadoGrandeError && e.status === 413;
+      await assert.rejects(construirPaqueteAuditoria(tenant.id, op.id, new Date(), { maxArchivoBytes: 4 }), esPaquete);
+      await assert.rejects(construirPaqueteAuditoria(tenant.id, op.id, new Date(), { maxTotalBytes: 100 }), esPaquete);
+      await assert.rejects(construirPaqueteAuditoria(tenant.id, op.id, new Date(), { maxEntradas: 1 }), esPaquete);
+      assert.ok(ZIP_MAX_TOTAL_BYTES === 100 * 1024 * 1024 && ZIP_MAX_ARCHIVO_BYTES <= ZIP_MAX_TOTAL_BYTES);
+      const ok = await construirPaqueteAuditoria(tenant.id, op.id, new Date(), { maxTotalBytes: 10 * 1024 * 1024 });
+      assert.ok(ok.zip.length > 0);
     });
     await prueba('otro tenant no puede generar el paquete', async () => {
       await assert.rejects(construirPaqueteAuditoria('tenant-ajeno', op.id), /no encontrada/);

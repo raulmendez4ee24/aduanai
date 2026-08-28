@@ -17,7 +17,7 @@ import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { prisma } from '../lib/prisma';
 import {
-  detectarLayout, parsearArchivo, importarPedimentos, cargarPedimento, pedimentoAInputPrevalidador, ImportacionError,
+  detectarLayout, parsearArchivo, importarPedimentos, cargarPedimento, pedimentoAInputPrevalidador, ImportacionError, MAX_PEDIMENTOS, MAX_PARTIDAS,
 } from '../services/pedimento-importer';
 import { parseDataStage, DataStageError } from '../services/pedimento-reader/datastage';
 
@@ -83,7 +83,21 @@ async function main() {
       assert.equal(ped!.pesoNeto, 0); // NO disponible — declarado, no fabricado
     });
 
-    await test('idempotente: mismo hash → mismo pedimento, sin duplicar', async () => {
+    await test('Parte B: topes MAX_PEDIMENTOS / MAX_PARTIDAS → ImportacionError 400 sin escribir nada', async () => {
+      const antes = await prisma.pedimento.count({ where: { tenantId: tenant.id } });
+      await assert.rejects(
+        importarPedimentos({ ...ctx, nombreArchivo: 'm3842004.074.txt', contenido: fixture('m3842004.074.txt') }, { maxPedimentos: 0 }),
+        (e: unknown) => e instanceof ImportacionError && e.status === 400 && /pedimentos/.test(e.message),
+      );
+      await assert.rejects(
+        importarPedimentos({ ...ctx, nombreArchivo: 'm3842004.074.txt', contenido: fixture('m3842004.074.txt') }, { maxPartidas: 0 }),
+        (e: unknown) => e instanceof ImportacionError && e.status === 400 && /partidas/.test(e.message),
+      );
+      assert.equal(await prisma.pedimento.count({ where: { tenantId: tenant.id } }), antes);
+      assert.ok(MAX_PEDIMENTOS > 0 && MAX_PARTIDAS > 0);
+    });
+
+    await test('idempotente: mismo hash → mismo pedimento, sin duplicar (prefetch por archivoHash + numero in)', async () => {
       const r = await importarPedimentos({ ...ctx, nombreArchivo: 'm3842004.074.txt', contenido: fixture('m3842004.074.txt') });
       assert.equal(r.pedimentos[0]!.id, idPrimero);
       assert.equal(r.pedimentos[0]!.reutilizado, true);

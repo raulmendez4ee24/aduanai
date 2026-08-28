@@ -86,9 +86,10 @@ export interface OperacionExpediente {
 export interface OperacionLista {
   id: string; reference: string; type: string; status: string; fractionCode: string | null; origin: string | null; customsValue: number | null; currency: string | null;
   createdAt: string; operationDate: string | null; retencionHasta: string | null; clienteId: string | null; completeness: number;
-  documents: { id: string; type: string; docType: string | null; status: string; required: boolean }[]; glosaDocumental: { consistente: boolean | null; errores: number } | null
+  /** Conteos agregados (el listado ya no trae documentos anidados por fila). */
+  documentos: { total: number; requeridos: number; requeridosListos: number }; glosaDocumental: { consistente: boolean | null; errores: number } | null
 }
-export const expedientesList = (status?: string) => request<{ status: string; data: OperacionLista[] }>(`/operations${status ? `?status=${status}` : ''}`)
+export const expedientesList = (status?: string) => request<{ status: string; data: OperacionLista[]; paginacion: { limit: number; siguienteCursor: string | null } }>(`/operations${status ? `?status=${status}` : ''}`)
 export const expedienteDetalle = (id: string) => request<{ status: string; data: OperacionExpediente }>(`/operations/${id}`)
 export const expedienteCrear = (body: { reference: string; type: string; description?: string; fractionCode?: string; origin?: string; customsValue?: number; customsBroker?: string; operationDate?: string }) =>
   request<{ status: string; data: { id: string } }>('/operations', { method: 'POST', body: JSON.stringify(body) })

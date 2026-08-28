@@ -20,6 +20,7 @@ import {
   conciliacionAXlsx, reporteCreditosXlsx,
 } from '../services/fiscal-certificacion';
 import type { OfficialRate } from '../services/exchange-rate';
+import { getFiscalAccount } from '../services/fiscal-guardian';
 
 let passed = 0; let failed = 0;
 async function test(name: string, fn: () => void | Promise<void>): Promise<void> {
@@ -219,6 +220,15 @@ async function main(): Promise<void> {
       assert.equal(conc.creditos.descargadoEnPeriodo, 1200);
       assert.equal(conc.creditos.saldoAlCierre, 0);
       assert.ok((await reporteCreditosXlsx(tenant.id, cliente.id)).length > 1000);
+      // Parte B: tope de filas del export → 413; estado de cuenta agregado en DB cuadra con las filas.
+      await assert.rejects(reporteCreditosXlsx(tenant.id, cliente.id, 0), (e: unknown) => (e as { statusCode?: number }).statusCode === 413);
+      const cuenta = await getFiscalAccount(tenant.id);
+      const agg = await prisma.taxCredit.aggregate({ where: { tenantId: tenant.id }, _sum: { ivaAmount: true, iepsAmount: true, discharged: true, remaining: true }, _count: { _all: true } });
+      assert.equal(cuenta.totalCredits, agg._count._all);
+      assert.equal(Math.round(cuenta.totalGranted * 100), Math.round(((agg._sum.ivaAmount ?? 0) + (agg._sum.iepsAmount ?? 0)) * 100));
+      assert.equal(Math.round(cuenta.totalUsed * 100), Math.round((agg._sum.discharged ?? 0) * 100));
+      assert.equal(Math.round(cuenta.byMonth.reduce((a, m) => a + m.granted, 0) * 100), Math.round(cuenta.totalGranted * 100));
+      assert.equal(cuenta.byFraction.reduce((a, f) => a + f.count, 0), cuenta.totalCredits);
     });
 
     await test('simulador contra DB con TC inyectado y sin importaciones → estado vacío honesto', async () => {

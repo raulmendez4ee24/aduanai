@@ -9,7 +9,7 @@ import { extractDocument } from '../services/document-extractor';
 import { recordAudit } from '../services/audit-service';
 import { glosarOperacion, TOLERANCIAS_DEFAULT, type ToleranciasGlosa } from '../services/glosa-documental';
 import {
-  construirChecklist, calcularRetencionHasta, construirPaqueteAuditoria, FUNDAMENTO_RETENCION, RETENCION_ANIOS,
+  construirChecklist, calcularRetencionHasta, construirPaqueteAuditoria, PaqueteDemasiadoGrandeError, FUNDAMENTO_RETENCION, RETENCION_ANIOS,
   type ChecklistExpediente,
 } from '../services/expediente-electronico';
 
@@ -72,15 +72,44 @@ operationsRouter.get('/', authenticate, async (req: AuthRequest, res, next) => {
       where.status = status;
     }
 
+    // Parte B: listado paginado (take ≤ 100 + cursor) y SIN documentos anidados
+    // por fila: solo conteos agregados (el detalle GET /:id sí trae documentos).
+    const limit = Math.min(100, Math.max(1, Number(req.query.limit) || 50));
+    const cursor = req.query.cursor ? String(req.query.cursor) : null;
     const operations = await prisma.operation.findMany({
       where,
-      orderBy: { createdAt: 'desc' },
-      include: {
-        documents: { select: { id: true, type: true, docType: true, status: true, required: true } },
+      orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
+      take: limit + 1,
+      ...(cursor ? { cursor: { id: cursor }, skip: 1 } : {}),
+      select: {
+        id: true, tenantId: true, userId: true, clienteId: true, pedimentoId: true, reference: true, type: true, status: true,
+        fractionCode: true, origin: true, customsValue: true, currency: true, operationDate: true, retencionHasta: true,
+        completeness: true, checklist: true, glosaDocumental: true, createdAt: true, updatedAt: true,
+        _count: { select: { documents: true } },
       },
     });
-
-    res.json({ status: 'ok', data: operations.map(o => ({ ...o, glosaDocumental: o.glosaDocumental ? { consistente: (o.glosaDocumental as { consistente?: boolean }).consistente ?? null, errores: (o.glosaDocumental as { errores?: number }).errores ?? 0 } : null })) });
+    const hayMas = operations.length > limit;
+    const pagina = hayMas ? operations.slice(0, limit) : operations;
+    // Conteos de slots requeridos/listos con UN groupBy para la página (antes: N filas × documentos completos).
+    const grupos = pagina.length
+      ? await prisma.document.groupBy({ by: ['operationId', 'required', 'status'], where: { operationId: { in: pagina.map(o => o.id) } }, _count: { _all: true } })
+      : [];
+    const conteos = new Map<string, { requeridos: number; requeridosListos: number }>();
+    for (const g of grupos) {
+      if (!g.operationId) continue;
+      const c = conteos.get(g.operationId) ?? { requeridos: 0, requeridosListos: 0 };
+      if (g.required) { c.requeridos += g._count._all; if (g.status !== 'PENDING') c.requeridosListos += g._count._all; }
+      conteos.set(g.operationId, c);
+    }
+    res.json({
+      status: 'ok',
+      data: pagina.map(({ _count, ...o }) => ({
+        ...o,
+        documentos: { total: _count.documents, ...(conteos.get(o.id) ?? { requeridos: 0, requeridosListos: 0 }) },
+        glosaDocumental: o.glosaDocumental ? { consistente: (o.glosaDocumental as { consistente?: boolean }).consistente ?? null, errores: (o.glosaDocumental as { errores?: number }).errores ?? 0 } : null,
+      })),
+      paginacion: { limit, siguienteCursor: hayMas ? pagina[pagina.length - 1]!.id : null },
+    });
   } catch (err) {
     next(err);
   }
@@ -288,7 +317,13 @@ operationsRouter.get('/:id/paquete-auditoria.zip', authenticate, async (req: Aut
     const id = String(req.params.id);
     const existe = await prisma.operation.findFirst({ where: whereConAlcance(req, { id, tenantId: req.tenantId! }), select: { id: true } });
     if (!existe) return res.status(404).json({ status: 'error', message: 'Operación no encontrada' });
-    const { zip, certificado, nombreArchivo } = await construirPaqueteAuditoria(req.tenantId!, id);
+    let paquete: Awaited<ReturnType<typeof construirPaqueteAuditoria>>;
+    try { paquete = await construirPaqueteAuditoria(req.tenantId!, id); }
+    catch (e) {
+      if (e instanceof PaqueteDemasiadoGrandeError) return res.status(413).json({ status: 'error', message: e.message });
+      throw e;
+    }
+    const { zip, certificado, nombreArchivo } = paquete;
     await recordAudit({
       tenantId: req.tenantId!, userId: req.userId!, action: 'expediente.paquete_auditoria', entity: 'Operation', entityId: id,
       endpoint: req.originalUrl, method: req.method, metadata: { hashPaquete: certificado.hashPaquete, entradas: certificado.entradas.length, bytes: zip.length },
