@@ -142,15 +142,66 @@ mercancía está cubierta por una partida específica de 84-90 (la 85.44 lo es).
 la fuente de la advertencia autocontradictoria. Ahora apunta a la 8544.30 y
 prohíbe ofrecer 8708.xx en el mismo dictamen que invoca la nota.
 
-## 6. Medición
+## 6. El verificador rápido saltaba de partida
+
+Hallazgo colateral, reproducido 2/2 a temperatura 0 con el caso de control:
+el modelo fuerte razonaba 8544.30.99 y escribía todos sus descartes explicando
+que la 85.44 es la partida correcta; el verificador (Mejora #4, modelo RÁPIDO)
+devolvía **8512.90.07** —partes de aparatos de alumbrado— y ese era el código
+que salía al usuario, con el dictamen contradiciéndose consigo mismo.
+
+`aceptarCambioDelVerificador` (función pura, con test): ese paso corrige
+subpartida y fracción **dentro de la misma partida**; un salto de partida es una
+re-clasificación, no una verificación, y no la decide el modelo rápido por
+encima del razonamiento escrito del fuerte. Se conserva el código razonado y
+queda constancia en SystemLog (`classifier_verifier_rechazado`).
+`CLASIFICADOR_VERIFICADOR_CAMBIA_PARTIDA=1` restaura lo anterior.
+
+## 7. Medición
 
 `npx tsx src/tests/rgi6-disparo-baseline.ts` recorre las predicciones de la
 línea base y dice, **sin gastar una sola llamada al LLM**, en qué casos abre la
-compuerta. Los casos donde no abre son bit a bit idénticos a antes de la regla.
+compuerta. Los casos donde no abre son bit a bit idénticos a antes de la regla:
+2 de 99 (63 no residuales, 21 residuales sin candidata, 13 sin predicción).
 
-Resultados y números concretos: ver el reporte de la rama.
+Set completo (99 casos, `accuracy-direct-runner`, temperatura 0), corridas
+nuevas el 28-ago-2026 — no se reusó la línea base de julio para no comparar
+contra un modelo que pudo haber derivado:
 
-## 7. Interruptor
+| Corrida | Qué lleva | top-1 | top-3 | capítulo |
+|---|---|---|---|---|
+| A — ANTES | `main` tal cual | 59/99 = **59.6%** | 62.6% | 80.8% |
+| B — pase RGI 6 | A + compuerta + pase + prompt de arneses | 61/99 = **61.6%** | 64.6% | 83.8% |
+| C — final | B + candado del verificador (§6) | 66/99 = **66.7%** | 71.7% | 84.8% |
+
+**A → B (el pase RGI 6 solo).** 0 perdidos, 2 convertidos (#20 cámara DSLR,
+#51 torno CNC). Ninguno de los dos pasa por la compuerta, así que son varianza
+de corrida, no mérito de la regla. En los 2 casos donde la compuerta sí abrió
+(#94 calzado, #99 papel) el pase **ratificó la residual** y el código no se
+movió. Lectura honesta: **el pase no mejora ni empeora el top-1 de este set** —
+es un no-op en 97 de 99 casos por construcción determinista. Su valor está en el
+caso que el set no cubre (el arnés) y en que el descarte queda por escrito.
+Queda activado por defecto porque no hay regresión.
+
+**B → C (el candado del verificador solo).** 7 convertidos, 2 perdidos, neto
+**+5**. Los convertidos son justo saltos de partida del verificador que ahora se
+bloquean: #1 camiseta (6105→6109 recuperado), #10 corbata, #12 smartphone,
+#22 proyector, #46 amoxicilina, #50 vitamina C, #84 tubo de acero. Los dos
+perdidos son saltos de partida que ANTES corregían de verdad y ahora se
+bloquean, y hay que decirlo:
+
+- #89 "Cable de cobre desnudo, 10 AWG" — el verificador movía 7413 → 7408
+  (correcto); ahora se queda en 74130002.
+- #95 "Pantufla de tela para uso doméstico" — movía 6405 → 6404 (correcto);
+  ahora se queda en 64052099.
+
+Un candado a nivel CAPÍTULO en vez de partida no serviría: el caso de control
+salta 8544 → 8512, ambas del capítulo 85.
+
+**A → C (todo junto).** 59.6% → **66.7%** (+7 casos netos): 9 convertidos,
+2 perdidos, 57 mantenidos.
+
+## 8. Interruptores
 
 `RGI6_ESPECIFICA_VS_RESIDUAL=0` apaga el pase sin tocar el resto del motor
 (`rgi6Activo()`); el bloque `rgi6` sale con `estado: 'apagado'`.
