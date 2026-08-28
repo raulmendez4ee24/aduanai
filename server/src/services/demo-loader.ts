@@ -535,6 +535,16 @@ export async function loadDemoIntoTenant(
     console.warn('[demo-loader] No se pudieron regenerar alertas inteligentes:', e instanceof Error ? e.message : e);
   }
 
+  // ── OPERACIÓN 2026-08 ── circuito catálogo↔clasificador: las partes demo
+  // quedan con su dictamen vigente ligado a las clasificaciones demo ya
+  // cargadas arriba. Idempotente; nunca tumba la carga del demo.
+  try {
+    const { seedCircuitoCatalogoDemo } = await import('./catalogo-demo-circuito');
+    await seedCircuitoCatalogoDemo(prisma, tenantId, userId);
+  } catch (e) {
+    console.warn('[demo-loader] No se pudo cerrar el circuito de catálogo:', e instanceof Error ? e.message : e);
+  }
+
   return result;
 }
 

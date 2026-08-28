@@ -22,6 +22,8 @@ import { seedSATPadrones } from './sat-padrones';
 import { seedGlosaRiskRules } from './glosa-risk-rules';
 import { seedSyntheticHistory } from '../../src/services/exchange-rate';
 import { seedAllTenantsRoles } from '../../src/services/permissions';
+// ── OPERACIÓN 2026-08 ── circuito catálogo↔clasificador visible en el demo.
+import { seedCircuitoCatalogoDemo } from '../../src/services/catalogo-demo-circuito';
 
 dotenv.config({ path: path.join(__dirname, '..', '..', '.env') });
 
@@ -284,6 +286,11 @@ async function main() {
     console.log(`   ✅ ${loaded.imports} imports, ${loaded.discharges} descargos, ${loaded.taxCredits} créditos,`);
     console.log(`      ${loaded.guarantees} garantías, ${loaded.classifications} clasificaciones, ${loaded.quotes} quotes,`);
     console.log(`      ${loaded.operations} expedientes, ${loaded.mves} MVE, ${loaded.coves} COVE, ${loaded.loadPlans} planes carga, ${loaded.alerts} alertas\n`);
+
+    // 4.c.1 Circuito catálogo↔clasificador: las partes demo con su dictamen
+    // vigente ligado a clasificaciones demo reales (idempotente, solo demo).
+    const circuito = await seedCircuitoCatalogoDemo(prisma, DEMO_TENANT_ID, demoUser.id);
+    console.log(`   ✅ Catálogo: ${circuito.totalConDictamen}/${circuito.totalPartes} partes demo con dictamen vigente (${circuito.ligadasAClasificacion} ligadas a una clasificación demo, ${circuito.sinClasificacion} desde el inventario), ${circuito.versionesReemplazadas} versión(es) reemplazada(s)\n`);
   } else {
     console.warn('   ⚠️  No se encontró usuario admin del tenant demo\n');
   }
