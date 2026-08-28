@@ -66,7 +66,8 @@
     "test:cuotas": "tsx src/tests/cuotas-operacion.test.ts",
     "test:copilot-contexto": "tsx src/tests/copilot-contexto.test.ts",
     "test:risk-operativo": "tsx src/tests/risk-operativo.test.ts",
-    "test:expedientes": "tsx src/tests/expedientes-glosa.test.ts"
+    "test:expedientes": "tsx src/tests/expedientes-glosa.test.ts",
+    "test:rgi6": "tsx src/tests/rgi6-especifica-residual.test.ts"
   },
   "license": "UNLICENSED",
   "private": true,
