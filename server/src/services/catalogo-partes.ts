@@ -24,7 +24,8 @@ import { validarClienteDelTenant } from '../lib/cliente-contexto';
 
 export type CodigoCatalogo =
   | 'NO_ENCONTRADA' | 'JUSTIFICACION_REQUERIDA' | 'FRACCION_INVALIDA' | 'ESTADO_INVALIDO'
-  | 'SIN_CAMBIO' | 'FEEDBACK_REQUERIDO' | 'DATOS_INVALIDOS' | 'DUPLICADA' | 'CLIENTE_INVALIDO';
+  | 'SIN_CAMBIO' | 'FEEDBACK_REQUERIDO' | 'DATOS_INVALIDOS' | 'DUPLICADA' | 'CLIENTE_INVALIDO'
+  | 'PARTE_DE_OTRO_CLIENTE';
 
 export class CatalogoError extends Error {
   constructor(public readonly codigo: CodigoCatalogo, message: string) {
@@ -35,6 +36,7 @@ export class CatalogoError extends Error {
     switch (this.codigo) {
       case 'NO_ENCONTRADA': return 404;
       case 'DUPLICADA': return 409;
+      case 'PARTE_DE_OTRO_CLIENTE': return 409;
       default: return 400;
     }
   }
@@ -327,12 +329,34 @@ export interface DatosVersion {
   tigieVersion?: string | null;
 }
 
+/**
+ * NICO que dejó una clasificación: `fullResponse.nico` (el del modelo ya
+ * reconciliado contra los canónicos) o, si el modelo no eligió, el único NICO
+ * canónico de la fracción. Nunca se inventa: si hay varios candidatos y el
+ * resultado no eligió, devuelve null.
+ */
+async function nicoDeClasificacion(tenantId: string, classificationId: string): Promise<string | null> {
+  const c = await prisma.classification.findFirst({ where: { id: classificationId, tenantId }, select: { fullResponse: true } });
+  if (!c?.fullResponse) return null;
+  try {
+    const full = JSON.parse(c.fullResponse) as { nico?: string; datosCanonicos?: { nico?: { valor?: string[] } } };
+    const unico = full?.datosCanonicos?.nico?.valor;
+    const crudo = full?.nico || (Array.isArray(unico) && unico.length === 1 ? unico[0] : null);
+    return normalizarNico(crudo);
+  } catch { return null; }
+}
+
 export async function proponerVersion(tenantId: string, userId: string, productId: string, d: DatosVersion, ip?: string | null) {
   const p = await parteDelTenant(tenantId, productId);
   const fractionCode = normalizarFraccion(d.fractionCode);
   if (!fractionCode) throw new CatalogoError('FRACCION_INVALIDA', `Fracción inválida "${d.fractionCode}" (8 dígitos)`);
-  // NICO omitido (undefined) hereda el vigente; '' o null lo limpian explícitamente.
-  const nico = d.nico === undefined ? (p.versionVigente > 0 ? p.nico ?? null : null) : normalizarNico(d.nico);
+  // NICO omitido (undefined): si la versión viene de una clasificación, se toma
+  // el NICO que ESA clasificación dejó (circuito clasificador→dictamen); si no
+  // trae, hereda el vigente. '' o null lo limpian explícitamente.
+  const nicoDerivado = d.nico === undefined && d.classificationId ? await nicoDeClasificacion(tenantId, d.classificationId) : null;
+  const nico = d.nico !== undefined
+    ? normalizarNico(d.nico)
+    : nicoDerivado ?? (p.versionVigente > 0 ? p.nico ?? null : null);
   const fuente = (FUENTES_VERSION as readonly string[]).includes(d.fuente) ? d.fuente : 'manual';
   const justificacion = texto(d.justificacion) || null;
 
@@ -518,7 +542,13 @@ export async function consultarCatalogoParaClasificar(
   const code = texto(d.productCode);
   let parteSinDictamen: { productId: string; productCode: string } | null = null;
   if (code) {
-    const p = await prisma.product.findFirst({ where: { tenantId, productCode: code, active: true, ...(d.clienteId ? { clienteId: d.clienteId } : {}) } });
+    // Alcance por cliente igual que `whereAlcance` (lib/cliente-contexto): la
+    // parte del cliente activo O la compartida del tenant (clienteId null).
+    // Sin este OR, una parte sin cliente asignado NO se reutilizaba cuando el
+    // usuario tenía cliente activo y el modelo volvía a correr (circuito roto).
+    const p = await prisma.product.findFirst({
+      where: { tenantId, productCode: code, active: true, ...(d.clienteId ? { OR: [{ clienteId: d.clienteId }, { clienteId: null }] } : {}) },
+    });
     if (p) {
       const hit = await hitDe(tenantId, p);
       if (hit) return { reutilizar: hit, sugerido: null, parteSinDictamen: null };
@@ -528,6 +558,146 @@ export async function consultarCatalogoParaClasificar(
   const misma = await parteConMismaDescripcion(tenantId, d.description ?? '', d.clienteId);
   const sugerido = misma ? await hitDe(tenantId, misma) : null;
   return { reutilizar: null, sugerido, parteSinDictamen };
+}
+
+/**
+ * Decisión del Clasificador ANTES de correr el modelo (la regla, en un solo
+ * lugar, para que la ruta sea un adaptador HTTP y el test la ejerza de verdad):
+ *
+ *   - 'reutilizar'              → hay dictamen vigente y no se forzó: se responde
+ *                                 con él, sin IA y sin job.
+ *   - 'justificacion_requerida' → se forzó sobre un dictamen vigente sin decir
+ *                                 por qué. No se re-clasifica.
+ *   - 'clasificar'              → hay que correr el modelo. `parteSinDictamen`
+ *                                 dice si la parte ya existe (ahí queda la
+ *                                 versión propuesta) y `justificacion` es la que
+ *                                 acompañará a la nueva versión.
+ */
+export type DecisionClasificador =
+  | { accion: 'reutilizar'; hit: CatalogoHit }
+  | { accion: 'justificacion_requerida'; hit: CatalogoHit }
+  | {
+      accion: 'clasificar';
+      parteSinDictamen: { productId: string; productCode: string } | null;
+      sugerido: CatalogoHit | null;
+      /** Justificación de la reclasificación forzada (null si no era forzada). */
+      justificacion: string | null;
+    };
+
+export async function decidirReutilizacionClasificador(
+  tenantId: string,
+  d: { productCode?: string | null; description: string; clienteId?: string | null; forzar?: boolean; justificacion?: string | null },
+): Promise<DecisionClasificador> {
+  const cat = await consultarCatalogoParaClasificar(tenantId, {
+    productCode: d.productCode ?? null, description: d.description, clienteId: d.clienteId ?? null,
+  });
+  if (cat.reutilizar) {
+    if (d.forzar !== true) return { accion: 'reutilizar', hit: cat.reutilizar };
+    const motivo = texto(d.justificacion);
+    if (!motivo) return { accion: 'justificacion_requerida', hit: cat.reutilizar };
+    return {
+      accion: 'clasificar',
+      parteSinDictamen: { productId: cat.reutilizar.productId, productCode: cat.reutilizar.productCode },
+      sugerido: null,
+      justificacion: motivo,
+    };
+  }
+  return { accion: 'clasificar', parteSinDictamen: cat.parteSinDictamen, sugerido: cat.sugerido, justificacion: null };
+}
+
+/**
+ * CIRCUITO catálogo↔clasificador (4ª revisión): clasificar CON número de parte
+ * garantiza que la parte exista antes de correr el modelo, para que el
+ * dictamen tenga dónde quedar ligado.
+ *
+ * - Parte existente (del cliente activo o compartida) → se devuelve.
+ * - Parte existente de OTRO cliente → error explícito (el índice único es
+ *   tenant+productCode: crear otra reventaría con un P2002 ilegible).
+ * - Parte dada de baja → se reactiva y se audita (el usuario la está usando).
+ * - No existe → se crea con el código, la descripción clasificada y el cliente activo.
+ */
+export async function asegurarParteParaClasificar(
+  tenantId: string, userId: string,
+  d: { productCode: string; description: string; clienteId?: string | null; unit?: string | null; usoDestino?: string | null; paisOrigen?: string | null },
+  ip?: string | null,
+): Promise<{ productId: string; productCode: string; creada: boolean; reactivada: boolean; versionVigente: number }> {
+  const productCode = texto(d.productCode);
+  if (!productCode) throw new CatalogoError('DATOS_INVALIDOS', 'productCode es obligatorio');
+  const description = texto(d.description);
+  if (!description) throw new CatalogoError('DATOS_INVALIDOS', 'description es obligatoria');
+  const clienteId = await resolverCliente(tenantId, d.clienteId ?? null);
+
+  const existente = await prisma.product.findFirst({ where: { tenantId, productCode } });
+  if (existente) {
+    if (clienteId && existente.clienteId && existente.clienteId !== clienteId) {
+      throw new CatalogoError('PARTE_DE_OTRO_CLIENTE', `El número de parte ${productCode} ya existe en el catálogo para otro cliente. Usa un código distinto o cambia de cliente activo.`);
+    }
+    let reactivada = false;
+    if (!existente.active) {
+      await prisma.product.update({ where: { id: existente.id }, data: { active: true } });
+      reactivada = true;
+      await recordAudit({ tenantId, userId, action: 'CATALOGO_PARTE_REACTIVADA', entity: 'Product', entityId: existente.id, after: { productCode }, ipAddress: ip ?? null });
+    }
+    return { productId: existente.id, productCode: existente.productCode, creada: false, reactivada, versionVigente: existente.versionVigente };
+  }
+
+  const p = await prisma.product.create({ data: {
+    tenantId, productCode, description, unit: texto(d.unit) || 'Pza', clienteId,
+    usoDestino: normalizarUso(d.usoDestino), paisOrigen: texto(d.paisOrigen) || null,
+  } });
+  await recordAudit({ tenantId, userId, action: 'CATALOGO_PARTE_CREADA', entity: 'Product', entityId: p.id, after: { productCode, description, clienteId, origen: 'clasificador' }, ipAddress: ip ?? null });
+  return { productId: p.id, productCode: p.productCode, creada: true, reactivada: false, versionVigente: 0 };
+}
+
+/** Dictamen vigente de una parte por su número de parte — lo consumen Cotizador e Inventario. */
+export interface DictamenPorCodigo {
+  productId: string;
+  productCode: string;
+  description: string;
+  unit: string;
+  clienteId: string | null;
+  usoDestino: string | null;
+  paisOrigen: string | null;
+  /** Sólo hay dictamen cuando una versión fue APROBADA (versionVigente > 0). */
+  tieneDictamen: boolean;
+  fractionCode: string | null;
+  fractionCodeFormateada: string | null;
+  nico: string | null;
+  version: number;
+  aprobadoAt: Date | null;
+  aprobadoPorNombre: string | null;
+  propuestasPendientes: number;
+}
+
+/**
+ * Parte por número de parte, con su fracción VIGENTE si la tiene. Estado vacío
+ * honesto: la parte puede existir sin dictamen (`tieneDictamen:false`) — en ese
+ * caso no se devuelve fracción aunque `Product.fractionCode` tenga un valor
+ * heredado de una carga previa sin aprobar.
+ */
+export async function dictamenPorCodigo(
+  tenantId: string, productCode: string, alcance?: FiltroClienteId,
+): Promise<DictamenPorCodigo | null> {
+  const code = texto(productCode);
+  if (!code) return null;
+  const p = await prisma.product.findFirst({
+    where: { tenantId, productCode: code, active: true, ...(alcance ? { OR: [{ clienteId: alcance }, { clienteId: null }] } : {}) },
+  });
+  if (!p) return null;
+  const hit = await hitDe(tenantId, p);
+  const pendientes = await prisma.productClassificationVersion.count({ where: { productId: p.id, estado: 'propuesta' } });
+  return {
+    productId: p.id, productCode: p.productCode, description: p.description, unit: p.unit,
+    clienteId: p.clienteId, usoDestino: p.usoDestino, paisOrigen: p.paisOrigen,
+    tieneDictamen: !!hit,
+    fractionCode: hit?.fractionCode ?? null,
+    fractionCodeFormateada: hit ? formatearFraccion(hit.fractionCode) : null,
+    nico: hit?.nico ?? null,
+    version: hit?.version ?? 0,
+    aprobadoAt: hit?.aprobadoAt ?? null,
+    aprobadoPorNombre: hit?.aprobadoPorNombre ?? null,
+    propuestasPendientes: pendientes,
+  };
 }
 
 export async function buscarPorDescripcion(tenantId: string, q: string, clienteId?: FiltroClienteId, limit = 10) {

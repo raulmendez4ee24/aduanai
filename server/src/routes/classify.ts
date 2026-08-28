@@ -11,7 +11,7 @@ import { prisma } from '../lib/prisma';
 import { sinGuardaDeTenant } from '../lib/tenant-guard';
 import { clienteIdDe, filtroCliente, validarClienteDelTenant } from '../lib/cliente-contexto';
 // ── OPERACIÓN 2026-08 ── catálogo maestro: consultar antes de correr; historial agrupado
-import { consultarCatalogoParaClasificar } from '../services/catalogo-partes';
+import { decidirReutilizacionClasificador, asegurarParteParaClasificar, CatalogoError, USOS_DESTINO } from '../services/catalogo-partes';
 import { agruparHistorial, exportarHistorialXlsx, aciertoPorCapitulo, whereHistorial, type FiltrosHistorial } from '../services/historial-clasificaciones';
 
 export const classifyRouter = Router();
@@ -124,13 +124,15 @@ classifyRouter.post('/', authenticate, requirePermission('classifier', 'create')
     // salvo `forzar:true`, que exige `justificacion` y deja el resultado como
     // versión PROPUESTA de esa parte (nunca pisa la vigente).
     const clienteId = await validarClienteDelTenant(req.tenantId!, clienteIdDe(req));
-    const catalogo = await consultarCatalogoParaClasificar(req.tenantId!, {
+    const decision = await decidirReutilizacionClasificador(req.tenantId!, {
       productCode: typeof productCode === 'string' ? productCode : null,
       description,
       clienteId,
+      forzar: forzar === true,
+      justificacion: typeof justificacion === 'string' ? justificacion : null,
     });
-    if (catalogo.reutilizar && forzar !== true) {
-      const h = catalogo.reutilizar;
+    if (decision.accion === 'reutilizar') {
+      const h = decision.hit;
       return res.json({
         status: 'ok',
         reused: true,
@@ -142,10 +144,10 @@ classifyRouter.post('/', authenticate, requirePermission('classifier', 'create')
         message: `Ya tienes clasificada la parte ${h.productCode} (v${h.version}${h.aprobadoAt ? `, aprobada el ${h.aprobadoAt.toISOString().slice(0, 10)}` : ''}). Para reclasificarla manda forzar:true con justificación.`,
       });
     }
-    if (catalogo.reutilizar && forzar === true && !(typeof justificacion === 'string' && justificacion.trim())) {
+    if (decision.accion === 'justificacion_requerida') {
       return res.status(400).json({
         status: 'error', code: 'JUSTIFICACION_REQUERIDA',
-        message: `La parte ${catalogo.reutilizar.productCode} ya tiene la fracción ${catalogo.reutilizar.fractionCode} vigente (v${catalogo.reutilizar.version}). Reclasificar exige justificación.`,
+        message: `La parte ${decision.hit.productCode} ya tiene la fracción ${decision.hit.fractionCode} vigente (v${decision.hit.version}). Reclasificar exige justificación.`,
       });
     }
 
@@ -156,11 +158,34 @@ classifyRouter.post('/', authenticate, requirePermission('classifier', 'create')
       throw createClassifyInputError(inputValidation.reason);
     }
 
-    const parteDestino = catalogo.reutilizar
-      ? { productId: catalogo.reutilizar.productId, productCode: catalogo.reutilizar.productCode, justificacion: justificacion!.trim() }
-      : catalogo.parteSinDictamen
-        ? { productId: catalogo.parteSinDictamen.productId, productCode: catalogo.parteSinDictamen.productCode, justificacion: null }
-        : null;
+    let parteDestino = decision.parteSinDictamen
+      ? { productId: decision.parteSinDictamen.productId, productCode: decision.parteSinDictamen.productCode, justificacion: decision.justificacion }
+      : null;
+
+    // ── CIRCUITO catálogo↔clasificador (4ª revisión) ── clasificar CON número
+    // de parte que aún no está en el catálogo lo DA DE ALTA aquí (después de
+    // validar el texto: la basura no crea partes) para que el dictamen tenga
+    // dónde quedar ligado. La versión 'propuesta' la deja el runner al terminar.
+    let parteCreada = false;
+    const codigoPedido = typeof productCode === 'string' ? productCode.trim() : '';
+    if (!parteDestino && codigoPedido) {
+      try {
+        const p = await asegurarParteParaClasificar(req.tenantId!, req.userId!, {
+          productCode: codigoPedido,
+          description,
+          clienteId,
+          usoDestino: (USOS_DESTINO as readonly string[]).includes(String(useCase)) ? String(useCase) : null,
+          paisOrigen: typeof countryOfOrigin === 'string' ? countryOfOrigin : null,
+        }, req.ip ?? null);
+        parteDestino = { productId: p.productId, productCode: p.productCode, justificacion: null };
+        parteCreada = p.creada;
+      } catch (e) {
+        if (e instanceof CatalogoError) {
+          return res.status(e.http).json({ status: 'error', code: e.codigo, message: e.message });
+        }
+        throw e;
+      }
+    }
 
     const inputs: ClassificationJobInputs = {
       description,
@@ -188,7 +213,7 @@ classifyRouter.post('/', authenticate, requirePermission('classifier', 'create')
     // resultado del producto A con el texto del producto B (revisión 24-ago).
     // `catalogoSugerido`: descripción idéntica (normalizada) a una parte vigente
     // del mismo cliente — la UI la ofrece junto al resultado del modelo.
-    const s = catalogo.sugerido;
+    const s = decision.sugerido;
     res.status(202).json({
       status: 'ok', jobId, reused, description: reused ? activeDescription ?? null : null,
       catalogoSugerido: s ? {
@@ -196,7 +221,10 @@ classifyRouter.post('/', authenticate, requirePermission('classifier', 'create')
         fractionCode: s.fractionCode, nico: s.nico, version: s.version,
         aprobadoAt: s.aprobadoAt?.toISOString() ?? null, aprobadoPorNombre: s.aprobadoPorNombre,
       } : null,
-      parteEnCatalogo: parteDestino ? { productId: parteDestino.productId, productCode: parteDestino.productCode } : null,
+      // `parteEnCatalogo`: dónde va a quedar el dictamen cuando el job termine.
+      // La UI lo usa para ofrecer "aprobar como dictamen vigente" sin pedirle
+      // al usuario que busque la parte a mano.
+      parteEnCatalogo: parteDestino ? { productId: parteDestino.productId, productCode: parteDestino.productCode, creada: parteCreada } : null,
     });
   } catch (err) {
     next(err);

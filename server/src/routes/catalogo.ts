@@ -15,6 +15,7 @@ import {
   CatalogoError, listarPartes, obtenerParte, crearParte, actualizarParte, desactivarParte,
   proponerVersion, aprobarVersion, rechazarVersion, promoverDesdeClasificacion,
   buscarPorDescripcion, exportarPartesXlsx, importarPartes, USOS_DESTINO, FUENTES_VERSION, COLUMNAS_IMPORT,
+  dictamenPorCodigo,
 } from '../services/catalogo-partes';
 
 export const catalogoRouter = Router();
@@ -60,6 +61,24 @@ catalogoRouter.get('/buscar-por-descripcion', requirePermission('catalogo', 'vie
   try {
     const r = await buscarPorDescripcion(req.tenantId!, q(req, 'q') ?? '', filtroCliente(req).clienteId);
     res.json({ status: 'ok', data: r });
+  } catch (err) { manejar(err, res, next); }
+});
+
+// GET /api/catalogo/por-codigo/:productCode — fracción VIGENTE + NICO + uso/destino.
+// Lo consumen Cotizador (autocompletar fracción desde el número de parte) e
+// Inventario (partida con productId). Estado vacío honesto: 404 si la parte no
+// existe o cae fuera del alcance; 200 con `tieneDictamen:false` si existe pero
+// nadie ha aprobado una versión todavía.
+catalogoRouter.get('/por-codigo/:productCode', requirePermission('catalogo', 'view'), async (req: AuthRequest, res, next) => {
+  try {
+    const d = await dictamenPorCodigo(req.tenantId!, String(req.params.productCode), filtroCliente(req).clienteId);
+    if (!d) return res.status(404).json({ status: 'error', code: 'NO_ENCONTRADA', message: `No tienes la parte ${String(req.params.productCode)} en tu catálogo.` });
+    if (!enAlcance(req, d.clienteId)) return res.status(404).json({ status: 'error', code: 'NO_ENCONTRADA', message: `No tienes la parte ${String(req.params.productCode)} en tu catálogo.` });
+    res.json({
+      status: 'ok',
+      data: d,
+      nota: d.tieneDictamen ? null : 'La parte existe pero todavía no tiene un dictamen aprobado: la fracción hay que capturarla o clasificarla.',
+    });
   } catch (err) { manejar(err, res, next); }
 });
 
