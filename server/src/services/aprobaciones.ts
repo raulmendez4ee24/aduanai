@@ -25,6 +25,7 @@ import { prisma } from '../lib/prisma';
 import { AppError } from '../middlewares/error';
 import { recordAudit } from './audit-service';
 import { getUserPermissions, hasPermission, type ModuleName } from './permissions';
+import { formatearConfianza, montoConMoneda } from '../lib/numeros';
 
 /** Acciones que esta capa escribe en el AuditLog encadenado. */
 export const ACCION_PROPUESTA = 'APPROVAL_PROPOSED';
@@ -266,7 +267,7 @@ export async function pendientes(tenantId: string, filtroCliente: { clienteId?: 
       tipoDefensa: 'classification' as const,
       id: c.id,
       titulo: c.inputDescription.slice(0, 120),
-      detalle: `${c.fractionCode} · ${(c.fractionDescription ?? "").slice(0, 80)} · confianza ${Math.round(c.confidence * 100)}%`,
+      detalle: `${c.fractionCode} · ${(c.fractionDescription ?? "").slice(0, 80)} · confianza ${formatearConfianza(c.confidence)}`,
       fractionCode: c.fractionCode,
       clienteId: c.clienteId,
       cliente: c.clienteId ? mapC.get(c.clienteId) ?? null : null,
@@ -278,7 +279,7 @@ export async function pendientes(tenantId: string, filtroCliente: { clienteId?: 
       tipoDefensa: 'quote' as const,
       id: q.id,
       titulo: q.name ?? q.client ?? `Cotización ${q.fractionCode}`,
-      detalle: `${q.fractionCode} · ${q.customsValue.toLocaleString('es-MX')} ${q.currency} · origen ${q.origin || '—'}`,
+      detalle: `${q.fractionCode} · ${montoConMoneda(q.customsValue, q.currency)} · origen ${q.origin || '—'}`,
       fractionCode: q.fractionCode,
       clienteId: q.clienteId,
       cliente: q.clienteId ? mapC.get(q.clienteId) ?? null : null,
