@@ -7,7 +7,8 @@
 import { useEffect, useState, type ReactNode } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
 import { ShieldCheck, FileText, CheckCircle2, AlertTriangle, ExternalLink, AlertCircle } from 'lucide-react'
-import { defensaListar, defensaPaquete, abrirCertificado, type TipoDefensa, type EntidadDefensa, type PaqueteDefensa } from '../lib/api/ola3'
+import { defensaListar, abrirCertificado, type TipoDefensa, type EntidadDefensa } from '../lib/api/ola3'
+import { defensaPaquete, ETIQUETA_ESTADO, type PaqueteDefensa } from '../lib/api/defensa-aprobaciones'
 
 const GLASS = 'bg-white/70 backdrop-blur-xl border border-white/50 shadow-[0_8px_30px_rgb(0,0,0,0.04)]'
 
@@ -17,6 +18,7 @@ export const GUIA_MODULO = {
     'Elige el tipo (clasificación, cotización, operación, Pre-Glosa, Risk Scorer) y la entidad; el cliente activo filtra la lista.',
     'El paquete muestra la versión normativa usada vs la vigente hoy, las reglas que corrieron, quién aprobó y cuándo, y la bitácora encadenada con su hash.',
     '"Certificado de integridad" abre una vista imprimible (guardar como PDF) con folio, SHA-256 del paquete y URLs públicas de verificación.',
+    'Si el registro está pendiente o lo aprobó alguien, el bloque de aprobación enlaza a la bandeja de Aprobaciones (ida y vuelta).',
     'La bitácora completa de la empresa vive en Auditoría. Constancia NOM-151 vía PSC: no integrada.',
   ],
 }
@@ -140,12 +142,35 @@ function Paquete({ p }: { p: PaqueteDefensa }) {
       </Seccion>
 
       <Seccion titulo="Quién aprobó qué y cuándo" fuente={a.fuente}>
+        <p className={`text-[12px] mb-2 ${a.estado === 'aprobada' ? 'text-emerald-700' : a.estado === 'rechazada' ? 'text-rose-700' : a.estado === 'sin_flujo' ? 'text-slate-500' : 'text-amber-700'}`}>
+          <b>{ETIQUETA_ESTADO[a.estado]}.</b> {a.leyenda}
+        </p>
         <div className="grid md:grid-cols-2 gap-2 text-[11px]">
           <Dato k="Estado" v={a.status ?? <SinDato />} />
           <Dato k="Creado por" v={a.creadoPor ? `${a.creadoPor.nombre} <${a.creadoPor.email}>` : <SinDato />} />
-          <Dato k="Aprobado por" v={a.aprobadoPor ? `${a.aprobadoPor.nombre} <${a.aprobadoPor.email}>` : <SinDato texto="sin aprobación registrada" />} />
+          <Dato k="Aprobado por" v={a.aprobadoPor ? `${a.aprobadoPor.nombre} <${a.aprobadoPor.email}>` : <SinDato texto={a.aplica ? a.leyenda : 'no aplica a este tipo'} />} />
+          <Dato k="Rol del aprobador al aprobar" v={a.aprobadoPor ? (a.aprobadoPor.rol ?? <SinDato texto={a.aprobadoPor.rolFuente} />) : <SinDato />} />
           <Dato k="Fecha de aprobación" v={a.approvedAt ? `${a.approvedAt.replace('T', ' ').slice(0, 19)} UTC` : <SinDato />} />
+          <Dato k="Motivo" v={a.motivo ?? <SinDato texto="sin motivo capturado" />} />
         </div>
+        {a.decision ? (
+          <p className="text-[11px] text-slate-600 mt-2">
+            Evento de bitácora de la decisión: <b>{a.decision.action}</b> · {a.decision.createdAt.replace('T', ' ').slice(0, 19)} UTC
+            {a.decision.por ? <> · por {a.decision.por.nombre} &lt;{a.decision.por.email}&gt;</> : null}
+            {a.decision.ratificacionLegado ? ' · ratificación de un registro legado' : ''}
+            {' · '}
+            <a href={`/verify/audit/${a.decision.hash}`} target="_blank" rel="noreferrer" className="font-mono text-emerald-700 hover:underline break-all">{a.decision.hash.slice(0, 16)}…</a>
+          </p>
+        ) : a.aplica ? (
+          <p className="text-[11px] text-slate-500 mt-2 italic">Sin evento de decisión en la bitácora de esta entidad.</p>
+        ) : null}
+        {a.bandeja && (
+          <p className="text-[11px] mt-2">
+            <Link to={`${a.bandeja.ruta}?tipo=${a.bandeja.tipo}&id=${encodeURIComponent(p.entidad.id)}`} className="text-emerald-700 hover:underline">
+              Ver esta {a.bandeja.tipo} en la bandeja de Aprobaciones →
+            </Link>
+          </p>
+        )}
         {a.permisos.length > 0 && (
           <details className="mt-2 text-[11px]"><summary className="cursor-pointer text-slate-600">Cambios de roles/permisos de los involucrados ({a.permisos.length})</summary>
             <ul className="mt-1 ml-4 list-disc text-slate-600">{a.permisos.map((x, i) => <li key={i}>{x.createdAt.replace('T', ' ').slice(0, 19)} · {x.action}{x.targetUserId ? ` → ${x.targetUserId}` : ''}</li>)}</ul>

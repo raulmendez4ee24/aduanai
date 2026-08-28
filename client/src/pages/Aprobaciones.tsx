@@ -10,7 +10,9 @@ import { showToast } from '../components/Toast'
 import { usePermissions } from '../hooks/usePermissions'
 import { useClienteActivo } from '../hooks/useClienteActivo'
 import { notificarCambioAprobaciones } from '../hooks/usePendientesAprobacion'
+import { Link } from 'react-router-dom'
 import { aprobacionesApi, type PendienteAprobacion, type TipoAprobacion } from '../lib/api/clientes'
+import { rutaDefensa } from '../lib/api/defensa-aprobaciones'
 import { formatFraction } from '../lib/format'
 
 export const GUIA_MODULO = {
@@ -20,6 +22,7 @@ export const GUIA_MODULO = {
     'Quien tiene permiso de aprobar (GLOSADOR, VALIDATOR, GERENTE, administrador) revisa y aprueba o rechaza con motivo.',
     'Cada decisión queda en el audit trail encadenado con quién propuso, quién decidió y el motivo.',
     'El selector de cliente de la barra superior filtra la bandeja por RFC.',
+    '"Paquete de defensa" abre el expediente de esa entidad: versión normativa, reglas, aprobación y bitácora con hash.',
   ],
 }
 
@@ -106,6 +109,9 @@ export function AprobacionesPage() {
                       <p className="text-13 text-tinta-suave mt-1">
                         Propuso {p.propuestoPor?.name ?? '—'} · {new Date(p.createdAt).toLocaleString('es-MX', { dateStyle: 'medium', timeStyle: 'short' })}
                       </p>
+                      <Link to={rutaDefensa(p.tipo === 'clasificacion' ? 'classification' : 'quote', p.id)} className="text-13 text-petroleo underline underline-offset-2 mt-1 inline-block">
+                        Paquete de defensa →
+                      </Link>
                     </div>
                     <div className="flex gap-2 shrink-0">
                       <Button variante="secundario" tamano="sm" disabled={!puede || ocupado === p.id} onClick={() => setRechazando(p)} title={puede ? 'Rechazar con motivo' : 'Tu rol no aprueba en este módulo'}>
