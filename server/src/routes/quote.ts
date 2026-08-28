@@ -6,6 +6,7 @@ import { calculateQuote } from '../services/quoter';
 import { calculateMultiQuote, compareScenarios, type MultiQuoteInput, type ScenarioVariant } from '../services/quoter-multi';
 import { getRecentRates, seedSyntheticHistory, getOfficialRate, refreshOfficialRate } from '../services/exchange-rate';
 import { prisma } from '../lib/prisma';
+import { aprobar } from '../services/aprobaciones';
 import { clienteIdDe, filtroCliente, validarClienteDelTenant, alcanceDe, whereConAlcance } from '../lib/cliente-contexto';
 import { requireRole } from '../middlewares/auth';
 // ── OPERACIÓN 2026-08 (Ola 2 cotizador) ──
@@ -438,34 +439,20 @@ quoteRouter.post('/:id/escenarios', authenticate, requirePermission('quoter', 'c
 // POST /api/quote/:id/approve — VALIDATOR aprueba cotización creada por CLASSIFIER/CLASSIFIER
 quoteRouter.post('/:id/approve', authenticate, requirePermission('quoter', 'approve'), async (req: AuthRequest, res, next) => {
   try {
+    // Cuarta revisión (prioridad 4): igual que en /classify/:id/approve, esta
+    // puerta no dejaba evento encadenado. Delega en services/aprobaciones.
     const id = String(req.params.id);
     const existing = await prisma.quote.findFirst({
       where: whereConAlcance(req, { id, tenantId: req.tenantId! }),
+      select: { id: true },
     });
     if (!existing) return res.status(404).json({ status: 'error', message: 'Cotización no encontrada' });
-    if (existing.status === 'approved') {
-      return res.status(400).json({ status: 'error', message: 'La cotización ya está aprobada' });
-    }
-
-    const updated = await prisma.quote.update({
-      where: { id },
-      data: { status: 'approved', approvedAt: new Date(), approvedById: req.userId! },
+    const bruto = (req.body as { motivo?: unknown } | undefined)?.motivo;
+    const motivo = typeof bruto === 'string' ? bruto.slice(0, 1000) : undefined;
+    await aprobar('cotizacion', id, req.tenantId!, req.userId!, {
+      motivo, legacyRole: req.userRole, ip: req.ip ?? null, userAgent: req.headers['user-agent'] ?? null,
     });
-
-    if (existing.userId === req.userId) {
-      await prisma.permissionAuditLog.create({
-        data: {
-          tenantId: req.tenantId!,
-          userId: req.userId!,
-          action: 'SELF_APPROVAL_SOD',
-          targetUserId: existing.userId,
-          details: { module: 'quoter', resource: 'quote', resourceId: id, fractionCode: existing.fractionCode },
-          ipAddress: req.ip ?? null,
-          userAgent: req.headers['user-agent'] ?? null,
-        },
-      });
-    }
-
+    const updated = await prisma.quote.findFirst({ where: { id, tenantId: req.tenantId! } });
     res.json({ status: 'ok', data: updated });
   } catch (err) {
     next(err);

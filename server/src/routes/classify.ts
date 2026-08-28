@@ -8,6 +8,7 @@ import { verifyConsult } from '../services/traceability';
 import { reconciliarClasificacion } from '../services/clasificador-reconciliacion';
 import { createClassificationJob, JOB_RUNNING_TIMEOUT_MS, type ClassificationJobInputs } from '../services/classification-job-runner';
 import { prisma } from '../lib/prisma';
+import { aprobar } from '../services/aprobaciones';
 import { sinGuardaDeTenant } from '../lib/tenant-guard';
 import { clienteIdDe, filtroCliente, validarClienteDelTenant } from '../lib/cliente-contexto';
 // ── OPERACIÓN 2026-08 ── catálogo maestro: consultar antes de correr; historial agrupado
@@ -425,35 +426,17 @@ classifyRouter.patch('/:id/feedback', authenticate, async (req: AuthRequest, res
 // POST /api/classify/:id/approve — VALIDATOR aprueba clasificación creada por CLASSIFIER
 classifyRouter.post('/:id/approve', authenticate, requirePermission('classifier', 'approve'), async (req: AuthRequest, res, next) => {
   try {
+    // Cuarta revisión (prioridad 4): esta puerta escribía approvedById pero NO
+    // dejaba evento en el AuditLog encadenado, así que el paquete de Defensa se
+    // quedaba sin rastro de la decisión. Delega en el servicio único de
+    // aprobaciones, que escribe estado + aprobador + motivo + AuditLog.
     const id = String(req.params.id);
-    const existing = await prisma.classification.findFirst({
-      where: { id, tenantId: req.tenantId! },
+    const bruto = (req.body as { motivo?: unknown } | undefined)?.motivo;
+    const motivo = typeof bruto === 'string' ? bruto.slice(0, 1000) : undefined;
+    await aprobar('clasificacion', id, req.tenantId!, req.userId!, {
+      motivo, legacyRole: req.userRole, ip: req.ip ?? null, userAgent: req.headers['user-agent'] ?? null,
     });
-    if (!existing) return res.status(404).json({ status: 'error', message: 'Clasificación no encontrada' });
-    if (existing.status === 'approved') {
-      return res.status(400).json({ status: 'error', message: 'La clasificación ya está aprobada' });
-    }
-
-    const updated = await prisma.classification.update({
-      where: { id },
-      data: { status: 'approved', approvedAt: new Date(), approvedById: req.userId! },
-    });
-
-    // SOD: si el aprobador es el mismo que creó, dejarlo registrado en audit OEA
-    if (existing.userId === req.userId) {
-      await prisma.permissionAuditLog.create({
-        data: {
-          tenantId: req.tenantId!,
-          userId: req.userId!,
-          action: 'SELF_APPROVAL_SOD',
-          targetUserId: existing.userId,
-          details: { module: 'classifier', resource: 'classification', resourceId: id, fractionCode: existing.fractionCode },
-          ipAddress: req.ip ?? null,
-          userAgent: req.headers['user-agent'] ?? null,
-        },
-      });
-    }
-
+    const updated = await prisma.classification.findFirst({ where: { id, tenantId: req.tenantId! } });
     res.json({ status: 'ok', data: updated });
   } catch (err) {
     next(err);

@@ -7,7 +7,7 @@ import { z } from 'zod';
 import { authenticate, type AuthRequest } from '../middlewares/auth';
 import { filtroCliente } from '../lib/cliente-contexto';
 import { requirePermission } from '../middlewares/requirePermission';
-import { aprobar, rechazar, proponer, pendientes, conteoPendientes, esTipoAprobacion } from '../services/aprobaciones';
+import { aprobar, rechazar, proponer, pendientes, conteoPendientes, esTipoAprobacion, diagnosticarBandeja } from '../services/aprobaciones';
 
 export const aprobacionesRouter = Router();
 aprobacionesRouter.use(authenticate);
@@ -44,6 +44,14 @@ aprobacionesRouter.get('/conteo', requireViewBandeja(), async (req: AuthRequest,
   try {
     const data = await conteoPendientes(req.tenantId!, filtroCliente(req));
     res.json({ status: 'ok', data });
+  } catch (err) { next(err); }
+});
+
+// Por qué la bandeja tiene lo que tiene: separa lo sembrado de lo propuesto de
+// verdad y cuenta el legado `approved` sin aprobador (default del schema).
+aprobacionesRouter.get('/diagnostico', requireViewBandeja(), async (req: AuthRequest, res, next) => {
+  try {
+    res.json({ status: 'ok', data: await diagnosticarBandeja(req.tenantId!) });
   } catch (err) { next(err); }
 });
 
