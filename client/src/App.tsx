@@ -76,6 +76,7 @@ import { AdminRenovacionesPage } from './pages/Admin/AdminRenovaciones'
 import { AdminMetricasPage } from './pages/Admin/AdminMetricas'
 import { AdminDemoPage } from './pages/Admin/AdminDemo'
 import { AdminAuditPage } from './pages/Admin/AdminAudit'
+import { AdminCotejoPage } from './pages/Admin/AdminCotejo' // fix/deuda-de-cotejo
 import { CotizacionImprimirPage } from './pages/CotizacionImprimir' // Ola 2 — cotizador
 import { OnboardingWizard } from './components/OnboardingWizard'
 import { api } from './lib/api'
@@ -290,6 +291,7 @@ export function App() {
           <Route path="/admin/metricas" element={<AdminMetricasPage />} />
           <Route path="/admin/demo" element={<AdminDemoPage />} />
           <Route path="/admin/audit" element={<AdminAuditPage />} />
+          <Route path="/admin/cotejo" element={<AdminCotejoPage />} />{/* fix/deuda-de-cotejo */}
         </Route>
       </Route>
 

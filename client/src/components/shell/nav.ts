@@ -87,6 +87,8 @@ export const NAV_ADMIN: NavItem[] = [
   { label: 'Glosa (admin)', path: '/admin/glosa-simulations', icono: ClipboardCheck },
   { label: 'Demo', path: '/admin/demo', icono: Sparkles },
   { label: 'Perfiles demo', path: '/admin/demo-profiles', icono: Users },
+  // ── OPERACIÓN 2026-08 ── entradas nuevas (una línea por módulo)
+  { label: 'Deuda de cotejo', path: '/admin/cotejo', icono: ClipboardCheck },
 ]
 
 /** Rutas sin entrada de menú pero con breadcrumb (subrutas de settings, alias). */
