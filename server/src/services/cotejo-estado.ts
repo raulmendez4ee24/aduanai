@@ -25,6 +25,7 @@
 import * as fs from 'fs';
 import * as path from 'path';
 import * as XLSX from 'xlsx';
+import { Prisma } from '@prisma/client';
 import { prisma } from '../lib/prisma';
 import { whereCliente, type AlcanceCliente } from '../lib/cliente-contexto';
 import { MARCADOR_COTEJADO_POR } from './origin-reglas';
@@ -438,7 +439,7 @@ async function metricasCuotas(ahora: Date, top: FraccionUso[]): Promise<Metrica[
   const [total, cotejadas, conExportador, antielusion, ultima, masAntigua] = await Promise.all([
     prisma.antidumpingDuty.count({ where }),
     prisma.antidumpingDuty.count({ where: { ...where, cotejadoAt: { not: null } } }),
-    prisma.antidumpingDuty.count({ where: { ...where, NOT: { exportadorTasas: { equals: null } } } }),
+    prisma.antidumpingDuty.count({ where: { ...where, NOT: { exportadorTasas: { equals: Prisma.DbNull } } } }),
     prisma.antidumpingDuty.count({ where: { ...where, esAntielusion: true } }),
     prisma.antidumpingDuty.aggregate({ where: { ...where, cotejadoAt: { not: null } }, _max: { cotejadoAt: true } }),
     prisma.antidumpingDuty.aggregate({ where: { ...where, cotejadoAt: null }, _min: { createdAt: true } }),
