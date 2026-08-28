@@ -33,19 +33,40 @@ inventoryRouter.post('/imports', authenticate, requirePermission('inventory', 'a
       entryDate, expirationMonths, notes,
     } = req.body;
 
-    if (!pedimento || !fractionCode || !quantity || !unit || !customsValue || !entryDate) {
+    // ── CIRCUITO catálogo↔inventario (4ª revisión) ── la partida que trae
+    // `productId` toma la fracción del DICTAMEN VIGENTE de esa parte cuando el
+    // capturista no la escribió: una parte, una fracción, en todos los módulos.
+    // Solo con versión aprobada (versionVigente > 0); un `fractionCode` suelto
+    // en Product (carga sin aprobar) NO alcanza para dar de alta inventario.
+    let fraccionEntrada: string | undefined = typeof fractionCode === 'string' && fractionCode.trim() ? fractionCode : undefined;
+    let fraccionDelCatalogo: { productCode: string; version: number } | null = null;
+    const productIdBody = typeof req.body.productId === 'string' && req.body.productId ? req.body.productId : null;
+    if (!fraccionEntrada && productIdBody) {
+      const parte = await prisma.product.findFirst({
+        where: whereConAlcance(req, { id: productIdBody, tenantId: req.tenantId! }),
+        select: { productCode: true, fractionCode: true, versionVigente: true },
+      });
+      if (parte?.fractionCode && parte.versionVigente > 0) {
+        fraccionEntrada = parte.fractionCode;
+        fraccionDelCatalogo = { productCode: parte.productCode, version: parte.versionVigente };
+      }
+    }
+
+    if (!pedimento || !fraccionEntrada || !quantity || !unit || !customsValue || !entryDate) {
       return res.status(400).json({
         status: 'error',
-        message: 'Campos requeridos: pedimento, fractionCode, quantity, unit, customsValue, entryDate',
+        message: productIdBody && !fraccionEntrada
+          ? 'Campos requeridos: pedimento, fractionCode, quantity, unit, customsValue, entryDate. La parte enviada no tiene dictamen vigente: clasifícala o captura la fracción.'
+          : 'Campos requeridos: pedimento, fractionCode, quantity, unit, customsValue, entryDate',
       });
     }
 
     // Candado: la fracción DEBE existir y estar vigente en el catálogo. Falla cerrado.
-    const fx = await validateFraction(fractionCode);
+    const fx = await validateFraction(fraccionEntrada);
     if (!fx.valid) {
       return res.status(400).json({
         status: 'error',
-        message: `Fracción "${fractionCode}" no válida (${fx.reason}). ${FRACTION_UNVERIFIED_MESSAGE}`,
+        message: `Fracción "${fraccionEntrada}" no válida (${fx.reason}). ${FRACTION_UNVERIFIED_MESSAGE}`,
       });
     }
 
@@ -102,7 +123,12 @@ inventoryRouter.post('/imports', authenticate, requirePermission('inventory', 'a
       },
     });
 
-    res.status(201).json({ status: 'ok', data: imp, plazo: { meses: plazo.meses, vigenciaPrograma: plazo.vigenciaPrograma, fundamento: plazo.fundamento, cotejo: plazo.cotejo, aviso: plazo.aviso } });
+    res.status(201).json({
+      status: 'ok', data: imp,
+      plazo: { meses: plazo.meses, vigenciaPrograma: plazo.vigenciaPrograma, fundamento: plazo.fundamento, cotejo: plazo.cotejo, aviso: plazo.aviso },
+      // Trazabilidad honesta: si la fracción salió del catálogo, se dice de dónde.
+      fraccionDelCatalogo,
+    });
   } catch (err) {
     next(err);
   }

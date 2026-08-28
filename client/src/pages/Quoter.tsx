@@ -13,6 +13,9 @@ import { Calculator, DollarSign, AlertCircle, AlertTriangle, ShieldCheck, FileWa
 import { formatFraction } from '../lib/format'
 import { ROITile } from '../components/ROIBanner'
 import { NOMExceptionPanel } from '../components/NOMExceptionPanel'
+// ── CIRCUITO catálogo↔cotizador (4ª revisión) ── la fracción se autocompleta
+// desde el dictamen VIGENTE del número de parte; nunca se teclea dos veces.
+import { catalogoApi, formatearFraccion } from '../lib/api/catalogo'
 
 export const GUIA_MODULO = {
   titulo: 'Cotizador',
@@ -134,6 +137,11 @@ export function QuoterPage() {
   const [error, setError] = useState('')
   const [aviso, setAviso] = useState('')
   const [showScenarios, setShowScenarios] = useState(false)
+  // ── CIRCUITO catálogo↔cotizador ── número de parte por partida (no viaja a
+  // la API de cotización: solo sirve para traer la fracción vigente) y el aviso
+  // honesto de lo que pasó al buscarlo.
+  const [codigoParte, setCodigoParte] = useState<Record<string, string>>({})
+  const [avisoParte, setAvisoParte] = useState<Record<string, { texto: string; ok: boolean }>>({})
   const [catalogoDTA, setCatalogoDTA] = useState<EntradaDTA[]>([])
   const [tabuladores, setTabuladores] = useState<Tabulador[]>([])
   const [searchParams, setSearchParams] = useSearchParams()
@@ -303,6 +311,32 @@ export function QuoterPage() {
     setItems(prev => [...prev, emptyItem()])
     setRowIds(prev => [...prev, nextRowId()])
   }
+
+  /**
+   * Trae la fracción VIGENTE del número de parte y la pone en la partida.
+   * Solo autocompleta con dictamen aprobado: una parte sin dictamen deja el
+   * campo como estaba y lo dice — no se adivina una fracción.
+   */
+  async function traerFraccionDeParte(idx: number, rowId: string) {
+    const code = (codigoParte[rowId] ?? '').trim()
+    if (!code) { setAvisoParte(a => ({ ...a, [rowId]: { texto: '', ok: true } })); return }
+    try {
+      const r = await catalogoApi.porCodigo(code)
+      const d = r.data
+      if (!d.tieneDictamen || !d.fractionCode) {
+        setAvisoParte(a => ({ ...a, [rowId]: { texto: `${d.productCode} está en el catálogo pero sin dictamen aprobado — captura la fracción a mano o clasifícala.`, ok: false } }))
+        return
+      }
+      updateItem(idx, {
+        fractionCode: formatearFraccion(d.fractionCode),
+        description: items[idx]?.description?.trim() ? items[idx]!.description : d.description,
+        ...(d.paisOrigen && !items[idx]?.countryOfOrigin?.trim() ? { countryOfOrigin: d.paisOrigen } : {}),
+      })
+      setAvisoParte(a => ({ ...a, [rowId]: { texto: `Fracción vigente v${d.version} de ${d.productCode}${d.nico ? ` · NICO ${d.nico}` : ''}.`, ok: true } }))
+    } catch (e) {
+      setAvisoParte(a => ({ ...a, [rowId]: { texto: e instanceof Error ? e.message : `No encontré la parte ${code} en tu catálogo.`, ok: false } }))
+    }
+  }
   function removeItem(idx: number) {
     setItems(prev => prev.filter((_, i) => i !== idx))
     setRowIds(prev => prev.filter((_, i) => i !== idx))
@@ -399,6 +433,35 @@ export function QuoterPage() {
                 <div className="flex items-center gap-2 mb-2">
                   <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500">Partida {idx + 1}</span>
                   {items.length > 1 && <button onClick={() => removeItem(idx)} className="text-rose-500 hover:text-rose-700 ml-auto"><Trash2 className="w-3.5 h-3.5"/></button>}
+                </div>
+                {/* ── CIRCUITO catálogo↔cotizador ── número de parte → fracción vigente */}
+                <div className="mb-2">
+                  <Field label="Nº de parte (catálogo)">
+                    <div className="flex gap-1">
+                      <input
+                        autoComplete="off"
+                        name={`parte-${rowIds[idx]}`}
+                        className="w-full text-[12px] font-mono border border-slate-200 rounded-lg px-2 py-1.5"
+                        placeholder="opcional — trae la fracción vigente"
+                        value={codigoParte[rowIds[idx] ?? ''] ?? ''}
+                        onChange={e => setCodigoParte(c => ({ ...c, [rowIds[idx] ?? '']: e.target.value }))}
+                        onBlur={() => void traerFraccionDeParte(idx, rowIds[idx] ?? '')}
+                        onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); void traerFraccionDeParte(idx, rowIds[idx] ?? '') } }}
+                      />
+                      <button
+                        type="button"
+                        onClick={() => void traerFraccionDeParte(idx, rowIds[idx] ?? '')}
+                        className="text-[11px] font-medium text-emerald-600 hover:text-emerald-700 whitespace-nowrap px-2"
+                      >
+                        Traer fracción
+                      </button>
+                    </div>
+                  </Field>
+                  {avisoParte[rowIds[idx] ?? '']?.texto && (
+                    <p className={`text-[11px] mt-1 ${avisoParte[rowIds[idx] ?? '']!.ok ? 'text-slate-500' : 'text-amber-600'}`}>
+                      {avisoParte[rowIds[idx] ?? '']!.texto}
+                    </p>
+                  )}
                 </div>
                 <div className="grid grid-cols-2 md:grid-cols-6 gap-2">
                   <Field label="Fracción"><input autoComplete="off" name={`fraction-${rowIds[idx]}`} className="w-full text-[12px] font-mono border border-slate-200 rounded-lg px-2 py-1.5" placeholder="0000.00.00" value={it.fractionCode} onChange={e => updateItem(idx, { fractionCode: e.target.value })}/></Field>

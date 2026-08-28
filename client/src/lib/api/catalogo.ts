@@ -80,6 +80,29 @@ export interface CatalogoHit {
   aprobadoPorNombre: string | null
 }
 
+/**
+ * Dictamen vigente de una parte por número de parte (GET /catalogo/por-codigo/:code).
+ * Lo consumen Cotizador (autocompletar fracción) e Inventario. `tieneDictamen:false`
+ * = la parte existe pero nadie ha aprobado una versión: NO hay fracción que usar.
+ */
+export interface DictamenPorCodigo {
+  productId: string
+  productCode: string
+  description: string
+  unit: string
+  clienteId: string | null
+  usoDestino: UsoDestino | string | null
+  paisOrigen: string | null
+  tieneDictamen: boolean
+  fractionCode: string | null
+  fractionCodeFormateada: string | null
+  nico: string | null
+  version: number
+  aprobadoAt: string | null
+  aprobadoPorNombre: string | null
+  propuestasPendientes: number
+}
+
 function qs(params: Record<string, string | number | undefined | null>): string {
   const u = new URLSearchParams()
   for (const [k, v] of Object.entries(params)) {
@@ -117,6 +140,14 @@ export const catalogoApi = {
   promover: (d: { classificationId: string; productCode?: string; unit?: string; usoDestino?: string; justificacion?: string }) =>
     request<{ status: string; data: { creada: boolean; sinCambio: boolean; parte: ParteDetalle; version: VersionParte } }>('/catalogo/promover', { method: 'POST', body: JSON.stringify(d) }),
 
+  /**
+   * Fracción vigente + NICO + uso/destino de un número de parte. 404 cuando la
+   * parte no existe (o cae fuera del alcance de cliente) — el llamador debe
+   * tratarlo como "sin dictamen", nunca como error rojo.
+   */
+  porCodigo: (productCode: string) =>
+    request<{ status: string; data: DictamenPorCodigo; nota: string | null }>(`/catalogo/por-codigo/${encodeURIComponent(productCode)}`),
+
   buscarPorDescripcion: (q: string) =>
     request<{ status: string; data: { exacta: ParteResumen | null; similares: ParteResumen[] } }>(`/catalogo/buscar-por-descripcion${qs({ q })}`),
 
@@ -134,7 +165,7 @@ export const catalogoApi = {
   clasificarConCatalogo: (d: { description: string; productCode?: string; countryOfOrigin?: string; declaredValueUSD?: number; declaredQuantity?: number; useCase?: string; importerType?: string; forzar?: boolean; justificacion?: string }) =>
     request<
       | { status: string; reused: true; catalogo: CatalogoHit; message: string; jobId?: undefined }
-      | { status: string; reused: boolean; jobId: string; description: string | null; catalogoSugerido: CatalogoHit | null; parteEnCatalogo: { productId: string; productCode: string } | null; catalogo?: undefined }
+      | { status: string; reused: boolean; jobId: string; description: string | null; catalogoSugerido: CatalogoHit | null; parteEnCatalogo: { productId: string; productCode: string; creada: boolean } | null; catalogo?: undefined }
     >('/classify', { method: 'POST', body: JSON.stringify(d) }, 30000),
 }
 
