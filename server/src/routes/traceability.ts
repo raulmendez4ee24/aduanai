@@ -442,7 +442,17 @@ button { margin: 12px auto; display: block; padding: 8px 16px; font: inherit; }
 <h2>Entidad</h2><table>${filas([['Tipo', p.entidad.tipo], ['Identificador', p.entidad.id], ['Resumen', p.entidad.resumen], ['Fecha de creación (UTC)', p.entidad.fecha], ['Fracción', p.entidad.fractionCode]])}</table>
 <h2>Versiones normativas usadas</h2><table>${filas([['TIGIE', p.versiones.usadas.tigie], ['LIGIE', p.versiones.usadas.ligie], ['RGCE', p.versiones.usadas.rgce], ['Acuerdo NOMs', p.versiones.usadas.acuerdoNoms], ['T-MEC', p.versiones.usadas.tmec], ['TIGIE vigente hoy', p.versiones.vigentesHoy.tigie], ['¿Desactualizada?', p.versiones.desactualizada === null ? 'sin versión registrada' : p.versiones.desactualizada ? 'sí' : 'no']])}</table>
 <h2>Reglas que corrieron</h2><table>${filas([['Descripción', p.reglas.descripcion], ['Fuente', p.reglas.fuente]])}</table>
-<h2>Aprobaciones</h2><table>${filas([['Estado', p.aprobaciones.status], ['Creado por', p.aprobaciones.creadoPor ? `${p.aprobaciones.creadoPor.nombre} <${p.aprobaciones.creadoPor.email}>` : null], ['Aprobado por', p.aprobaciones.aprobadoPor ? `${p.aprobaciones.aprobadoPor.nombre} <${p.aprobaciones.aprobadoPor.email}>` : 'sin aprobación registrada'], ['Fecha de aprobación (UTC)', p.aprobaciones.approvedAt]])}</table>
+<h2>Aprobaciones</h2><table>${filas([
+  ['Estado', p.aprobaciones.status],
+  ['Aprobación', p.aprobaciones.leyenda],
+  ['Creado por', p.aprobaciones.creadoPor ? `${p.aprobaciones.creadoPor.nombre} <${p.aprobaciones.creadoPor.email}>` : null],
+  ['Aprobado por', p.aprobaciones.aprobadoPor ? `${p.aprobaciones.aprobadoPor.nombre} <${p.aprobaciones.aprobadoPor.email}>` : null],
+  ['Rol del aprobador al aprobar', p.aprobaciones.aprobadoPor ? (p.aprobaciones.aprobadoPor.rol ?? p.aprobaciones.aprobadoPor.rolFuente) : null],
+  ['Fecha de aprobación (UTC)', p.aprobaciones.approvedAt],
+  ['Motivo', p.aprobaciones.motivo],
+  ['Evento de bitácora de la decisión', p.aprobaciones.decision ? `${p.aprobaciones.decision.action} · ${p.aprobaciones.decision.createdAt.replace('T', ' ').slice(0, 19)}` : null],
+  ['Hash del evento (SHA-256)', p.aprobaciones.decision?.hash],
+])}</table>
 <h2>Bitácora encadenada</h2>
 <p style="font-size:12px">Cadena del tenant: <span class="${p.bitacora.cadena.valid ? 'ok' : 'bad'}">${p.bitacora.cadena.valid ? 'ÍNTEGRA' : 'ROTA'}</span> · ${p.bitacora.cadena.checkedCount} registros verificados${p.bitacora.cadena.brokenAt ? ` · ruptura en ${e(p.bitacora.cadena.brokenAt)}` : ''}</p>
 ${eventos ? `<table><tr><th style="width:30%">Fecha (UTC)</th><th style="width:40%">Acción</th><th>Hash</th></tr>${eventos}</table>` : '<p style="font-size:12px;color:#6b7280">Sin eventos de bitácora ligados a esta entidad.</p>'}

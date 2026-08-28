@@ -16,11 +16,51 @@ import crypto from 'crypto';
 import { prisma } from '../lib/prisma';
 import { verifyChain } from './audit-service';
 import { getActiveVersions, type ActiveVersions } from './traceability';
+import {
+  ACCIONES_APROBACION, ACCIONES_DECISION, ACCIONES_RECHAZO, ACCION_SEED_RESTAURADA,
+  tipoAprobacionDeDefensa, type TipoAprobacion,
+} from './aprobaciones';
 
 export const TIPOS_DEFENSA = ['classification', 'quote', 'operation', 'glosa', 'risk'] as const;
 export type TipoDefensa = typeof TIPOS_DEFENSA[number];
 
 export const NOM151_LEYENDA = 'constancia NOM-151 vía PSC: no integrada';
+
+/**
+ * Leyendas del bloque de aprobación. La del legado existe porque
+ * `Classification.status`/`Quote.status` nacen en `@default("approved")`: un
+ * registro histórico puede decir "aprobado" sin que NADIE lo haya aprobado.
+ * Decir "sin aprobación registrada" a secas ahí sería tan falso como inventar
+ * un aprobador; el texto honesto distingue el legado del hueco real.
+ */
+export const LEYENDA_APROBACION_LEGADO = 'aprobación anterior al registro de aprobadores (sin dato)';
+export const LEYENDA_APROBACION_SEMBRADA = 'registro de demostración: estado sembrado, sin revisión humana';
+export const LEYENDA_SIN_FLUJO = 'este tipo no pasa por el flujo de aprobación (la bandeja cubre clasificaciones y cotizaciones)';
+
+export type EstadoAprobacion =
+  | 'aprobada'                 // approvedById presente: hay nombre y fecha
+  | 'aprobada_sin_aprobador'   // status approved heredado del default del schema
+  | 'aprobada_sembrada'        // igual, pero el registro es isDemoData
+  | 'pendiente'
+  | 'rechazada'
+  | 'sin_flujo'                // operación / pre-glosa / risk: no hay aprobación
+  | 'desconocido';
+
+export interface PersonaDefensa { id: string; nombre: string; email: string }
+export interface PersonaConRol extends PersonaDefensa {
+  /** Roles activos del usuario en el tenant al momento de la decisión. */
+  rol: string | null;
+  rolFuente: string;
+}
+export interface DecisionAprobacion {
+  action: string;
+  createdAt: string;
+  hash: string;
+  prevHash: string | null;
+  motivo: string | null;
+  ratificacionLegado: boolean;
+  por: PersonaConRol | null;
+}
 
 export interface PaqueteDefensa {
   entidad: { tipo: TipoDefensa; id: string; resumen: string; fecha: string; clienteId: string | null; fractionCode: string | null };
@@ -33,11 +73,22 @@ export interface PaqueteDefensa {
   };
   reglas: { descripcion: string; fuente: string; datos: unknown };
   aprobaciones: {
+    /** ¿Este tipo pasa por la bandeja de Aprobaciones? */
+    aplica: boolean;
+    estado: EstadoAprobacion;
+    /** Texto honesto listo para UI y PDF; nunca "sin aprobación registrada" a secas. */
+    leyenda: string;
     status: string | null;
-    creadoPor: { id: string; nombre: string; email: string } | null;
-    aprobadoPor: { id: string; nombre: string; email: string } | null;
+    creadoPor: PersonaDefensa | null;
+    /** Solo cuando la entidad tiene `approvedById`: un rechazo NO puebla esto. */
+    aprobadoPor: PersonaConRol | null;
     approvedAt: string | null;
+    motivo: string | null;
+    /** Evento encadenado de la última decisión (aprobó / rechazó) con su hash. */
+    decision: DecisionAprobacion | null;
     permisos: { action: string; createdAt: string; targetUserId: string | null; details: unknown }[];
+    /** Ida y vuelta: ruta de la bandeja y tipo con que se aprueba esta entidad. */
+    bandeja: { ruta: string; tipo: TipoAprobacion } | null;
     fuente: string;
   };
   bitacora: {
@@ -72,10 +123,154 @@ export function hashPaquete(p: Omit<PaqueteDefensa, 'certificado'>): string {
   return sha256(stable(p));
 }
 
-async function usuario(id: string | null | undefined) {
+async function usuario(id: string | null | undefined): Promise<PersonaDefensa | null> {
   if (!id) return null;
   const u = await prisma.user.findUnique({ where: { id }, select: { id: true, name: true, email: true } });
   return u ? { id: u.id, nombre: u.name, email: u.email } : null;
+}
+
+/**
+ * Rol vigente del usuario en el tenant AL MOMENTO de la decisión (no el de hoy):
+ * `UserTenantRole` acotado por effectiveFrom/effectiveUntil. Si no hay asignación
+ * explícita, el permiso vino del rol legacy `User.role` y se dice así — no se
+ * afirma un rol que la base no respalda.
+ */
+async function personaConRol(tenantId: string, id: string | null | undefined, momento: Date | null): Promise<PersonaConRol | null> {
+  const base = await usuario(id);
+  if (!base) return null;
+  const en = momento ?? new Date();
+  const asignados = await prisma.userTenantRole.findMany({
+    where: {
+      tenantId, userId: base.id, active: true,
+      effectiveFrom: { lte: en },
+      OR: [{ effectiveUntil: null }, { effectiveUntil: { gte: en } }],
+    },
+    select: { role: { select: { code: true } } },
+  });
+  const codigos = asignados.map(a => a.role.code);
+  if (codigos.length > 0) {
+    return { ...base, rol: codigos.sort().join(' + '), rolFuente: 'UserTenantRole vigente al momento de la decisión' };
+  }
+  const legacy = await prisma.user.findUnique({ where: { id: base.id }, select: { role: true } });
+  return { ...base, rol: null, rolFuente: `sin rol explícito en el tenant; permiso por rol legacy User.role=${legacy?.role ?? '—'}` };
+}
+
+type EventoAudit = {
+  id: string; action: string; createdAt: Date; hash: string; prevHash: string | null;
+  userId: string | null; endpoint: string | null; metadata: unknown;
+};
+
+const meta = (m: unknown): Record<string, unknown> => (m && typeof m === 'object' && !Array.isArray(m) ? m as Record<string, unknown> : {});
+const fechaLegible = (d: Date) => d.toISOString().replace('T', ' ').slice(0, 19) + ' UTC';
+
+/**
+ * "Quién aprobó qué y cuándo" — con la verdad del dato, no con un hueco.
+ *
+ * El síntoma que reportó la cuarta revisión ("sin aprobación registrada" en
+ * registros `approved`) tiene su causa en `status @default("approved")`: los
+ * históricos nacen aprobados sin que nadie los apruebe. Aquí se separan los
+ * cuatro casos reales (aprobada con nombre / legado sin aprobador / sembrada /
+ * pendiente-rechazada) y se adjunta el evento encadenado de la decisión.
+ */
+async function armarBloqueAprobacion(a: {
+  tenantId: string;
+  tipo: TipoDefensa;
+  status: string | null;
+  approvedAt: Date | null;
+  approvedById: string | null;
+  aprobadoPor: PersonaConRol | null;
+  creadoPor: PersonaDefensa | null;
+  esSembrado: boolean;
+  eventos: EventoAudit[];
+  permisos: { action: string; createdAt: string; targetUserId: string | null; details: unknown }[];
+}): Promise<PaqueteDefensa['aprobaciones']> {
+  const tipoApro = tipoAprobacionDeDefensa(a.tipo);
+  const aplica = tipoApro !== null;
+
+  // Última decisión registrada en la bitácora de la entidad (vocabulario actual
+  // APPROVAL_GRANTED/APPROVAL_REJECTED y el histórico APPROVE/REJECT).
+  const decisiones = a.eventos.filter(e => e.hash && ACCIONES_DECISION.includes(e.action));
+  const ultima = decisiones.at(-1) ?? null;
+  const restaurada = a.eventos.filter(e => e.hash && e.action === ACCION_SEED_RESTAURADA).at(-1) ?? null;
+
+  let decision: DecisionAprobacion | null = null;
+  if (ultima) {
+    const m = meta(ultima.metadata);
+    decision = {
+      action: ultima.action,
+      createdAt: ultima.createdAt.toISOString(),
+      hash: ultima.hash,
+      prevHash: ultima.prevHash,
+      motivo: typeof m.motivo === 'string' && m.motivo.trim() ? m.motivo : null,
+      ratificacionLegado: m.ratificacionLegado === true,
+      por: await personaConRol(a.tenantId, ultima.userId, ultima.createdAt),
+    };
+  }
+
+  const rechazado = a.status === 'rejected';
+  const aprobado = a.status === 'approved';
+  let estado: EstadoAprobacion;
+  if (!aplica) estado = 'sin_flujo';
+  else if (aprobado && a.approvedById) estado = 'aprobada';
+  else if (aprobado && a.esSembrado) estado = 'aprobada_sembrada';
+  else if (aprobado) estado = 'aprobada_sin_aprobador';
+  else if (a.status === 'pending_approval') estado = 'pendiente';
+  else if (rechazado) estado = 'rechazada';
+  else estado = 'desconocido';
+
+  const quien = a.aprobadoPor;
+  const conMotivo = (base: string) => (decision?.motivo ? `${base} — motivo: ${decision.motivo}` : base);
+  let leyenda: string;
+  switch (estado) {
+    case 'sin_flujo':
+      leyenda = LEYENDA_SIN_FLUJO;
+      break;
+    case 'aprobada':
+      // `quien` puede ser null si el usuario aprobador ya no existe en la base:
+      // se dice con su id, nunca se rellena con un nombre inventado.
+      leyenda = conMotivo(
+        `Aprobada por ${quien ? `${quien.nombre} <${quien.email}>${quien.rol ? ` (${quien.rol})` : ''}` : `el usuario ${a.approvedById} (baja: ya no está en el directorio)`}`
+        + `${a.approvedAt ? ` el ${fechaLegible(a.approvedAt)}` : ''}`
+        + `${decision?.ratificacionLegado ? ' — ratificación de un registro legado' : ''}`,
+      );
+      break;
+    case 'aprobada_sembrada':
+      leyenda = restaurada
+        ? `${LEYENDA_APROBACION_SEMBRADA} (regularizado el ${fechaLegible(restaurada.createdAt)}, evento ${ACCION_SEED_RESTAURADA})`
+        : LEYENDA_APROBACION_SEMBRADA;
+      break;
+    case 'aprobada_sin_aprobador':
+      leyenda = LEYENDA_APROBACION_LEGADO;
+      break;
+    case 'pendiente':
+      leyenda = 'Pendiente de aprobación: espera revisión en la bandeja de Aprobaciones.';
+      break;
+    case 'rechazada':
+      leyenda = decision && ACCIONES_RECHAZO.includes(decision.action as (typeof ACCIONES_RECHAZO)[number])
+        ? conMotivo(`Rechazada por ${decision.por ? `${decision.por.nombre} <${decision.por.email}>` : 'usuario no identificado'} el ${decision.createdAt.replace('T', ' ').slice(0, 19)} UTC`)
+        : 'Rechazada; no hay evento de bitácora ligado a la entidad que lo respalde.';
+      break;
+    default:
+      leyenda = `Estado "${a.status ?? '—'}" fuera del vocabulario del flujo de aprobación.`;
+  }
+
+  return {
+    aplica,
+    estado,
+    leyenda,
+    status: a.status,
+    creadoPor: a.creadoPor,
+    // Un rechazo NO marca aprobación: approvedById queda en null y aquí también.
+    aprobadoPor: a.approvedById ? quien : null,
+    approvedAt: iso(a.approvedAt),
+    motivo: decision?.motivo ?? null,
+    decision,
+    permisos: a.permisos,
+    bandeja: tipoApro ? { ruta: '/aprobaciones', tipo: tipoApro } : null,
+    fuente: aplica
+      ? 'approvedById/approvedAt de la entidad + AuditLog encadenado (APPROVAL_GRANTED/APPROVAL_REJECTED) + UserTenantRole vigente + PermissionAuditLog'
+      : 'la entidad no tiene campos de aprobación; se reporta su estado propio',
+  };
 }
 
 export async function armarPaqueteDefensa(input: { tenantId: string; tipo: string; id: string; baseUrl: string }): Promise<PaqueteDefensa | null> {
@@ -88,6 +283,7 @@ export async function armarPaqueteDefensa(input: { tenantId: string; tipo: strin
   let reglas: PaqueteDefensa['reglas'] = { descripcion: 'Sin motor de reglas asociado a este tipo', fuente: '—', datos: null };
   let status: string | null = null, approvedAt: Date | null = null, approvedById: string | null = null, userId: string | null = null;
   let entityNames: string[] = [];
+  let esSembrado = false;
 
   if (tipo === 'classification') {
     const c = await prisma.classification.findFirst({ where: { id, tenantId } });
@@ -96,14 +292,14 @@ export async function armarPaqueteDefensa(input: { tenantId: string; tipo: strin
     entidad = { tipo, id: c.id, resumen: `${c.fractionCode} — ${c.inputDescription.slice(0, 120)}`, fecha: c.createdAt.toISOString(), clienteId: c.clienteId, fractionCode: c.fractionCode };
     usadas = { tigie: c.tigieVersion ?? consult?.tigieVersion ?? null, ligie: c.ligieVersion ?? consult?.ligieVersion ?? null, rgce: consult?.rgceVersion ?? null, acuerdoNoms: consult?.acuerdoNomsVersion ?? null, tmec: consult?.tmecVersion ?? null, consultHash: c.consultHash, consultedAt: iso(c.consultedAt ?? consult?.consultedAt) };
     reglas = { descripcion: 'Reglas Generales de Interpretación aplicadas, base legal citada y conocimiento que entró al prompt', fuente: 'Classification.griApplied/legalBasis + ClassificationConsult.knowledgeUsed/modelUsed', datos: { griApplied: c.griApplied, legalBasis: c.legalBasis, knowledgeUsed: consult?.knowledgeUsed ?? null, modelUsed: consult?.modelUsed ?? null, modelProvider: consult?.modelProvider ?? null, inputHash: consult?.inputHash ?? null, outputHash: consult?.outputHash ?? null, knowledgeBaseHash: consult?.knowledgeBaseHash ?? null, confidence: c.confidence, feedback: c.feedback } };
-    status = c.status; approvedAt = c.approvedAt; approvedById = c.approvedById; userId = c.userId;
+    status = c.status; approvedAt = c.approvedAt; approvedById = c.approvedById; userId = c.userId; esSembrado = c.isDemoData;
     entityNames = ['Classification', 'classification'];
   } else if (tipo === 'quote') {
     const q = await prisma.quote.findFirst({ where: { id, tenantId }, include: { items: { select: { numeroPartida: true, fractionCode: true, countryOfOrigin: true, igiRate: true, ivaRate: true, dtaRate: true, countervailingRate: true, hasAntidumping: true, antidumpingDecree: true } } } });
     if (!q) return null;
     entidad = { tipo, id: q.id, resumen: `${q.name ?? 'Cotización'} — ${q.fractionCode} · ${q.origin} · ${q.customsValue} ${q.currency}`, fecha: q.createdAt.toISOString(), clienteId: q.clienteId, fractionCode: q.fractionCode };
     reglas = { descripcion: 'Tasas aplicadas por partida (IGI/IVA/DTA/cuota compensatoria) y tipo de cambio usado', fuente: 'QuoteItem + Quote.exchangeRate/exchangeRateDate/tcFechaDOF', datos: { partidas: q.items, exchangeRate: q.exchangeRate, exchangeRateDate: iso(q.exchangeRateDate), tcFechaDOF: iso(q.tcFechaDOF), version: q.version, vigenciaHasta: iso(q.vigenciaHasta) } };
-    status = q.status; approvedAt = q.approvedAt; approvedById = q.approvedById; userId = q.userId;
+    status = q.status; approvedAt = q.approvedAt; approvedById = q.approvedById; userId = q.userId; esSembrado = q.isDemoData;
     entityNames = ['Quote', 'quote'];
   } else if (tipo === 'operation') {
     const o = await prisma.operation.findFirst({ where: { id, tenantId }, include: { documents: { select: { id: true, type: true, status: true, createdAt: true } } } });
@@ -132,15 +328,20 @@ export async function armarPaqueteDefensa(input: { tenantId: string; tipo: strin
     getActiveVersions(),
     prisma.versionSnapshot.findMany({ where: { active: true }, orderBy: [{ type: 'asc' }, { effectiveDate: 'desc' }], select: { type: true, version: true, publishDate: true, effectiveDate: true, source: true } }),
     usuario(userId),
-    usuario(approvedById),
+    personaConRol(tenantId, approvedById, approvedAt),
     prisma.permissionAuditLog.findMany({
       where: { tenantId, OR: [{ userId: userId ?? '' }, { targetUserId: userId ?? '' }, ...(approvedById ? [{ userId: approvedById }, { targetUserId: approvedById }] : [])] },
       orderBy: { createdAt: 'desc' }, take: 20, select: { action: true, createdAt: true, targetUserId: true, details: true },
     }),
-    prisma.auditLog.findMany({ where: { tenantId, entityId: id, entity: { in: entityNames } }, orderBy: [{ createdAt: 'asc' }, { id: 'asc' }], select: { id: true, action: true, createdAt: true, hash: true, prevHash: true, userId: true, endpoint: true } }),
+    prisma.auditLog.findMany({ where: { tenantId, entityId: id, entity: { in: entityNames } }, orderBy: [{ createdAt: 'asc' }, { id: 'asc' }], select: { id: true, action: true, createdAt: true, hash: true, prevHash: true, userId: true, endpoint: true, metadata: true } }),
     verifyChain(tenantId),
     prisma.auditLog.findFirst({ where: { tenantId, hash: { not: '' } }, orderBy: [{ createdAt: 'desc' }, { id: 'desc' }], select: { hash: true } }),
   ]);
+
+  const aprobacion = await armarBloqueAprobacion({
+    tenantId, tipo, status, approvedAt, approvedById, aprobadoPor, creadoPor, esSembrado, eventos,
+    permisos: permisos.map(x => ({ action: x.action, createdAt: x.createdAt.toISOString(), targetUserId: x.targetUserId, details: x.details })),
+  });
 
   const usadasTigie = usadas.tigie;
   const sinCertificado: Omit<PaqueteDefensa, 'certificado'> = {
@@ -153,11 +354,7 @@ export async function armarPaqueteDefensa(input: { tenantId: string; tipo: strin
       desactualizada: usadasTigie ? usadasTigie !== vigentesHoy.tigie : null,
     },
     reglas,
-    aprobaciones: {
-      status, creadoPor, aprobadoPor, approvedAt: iso(approvedAt),
-      permisos: permisos.map(p => ({ action: p.action, createdAt: p.createdAt.toISOString(), targetUserId: p.targetUserId, details: p.details })),
-      fuente: 'approvedById/approvedAt de la entidad + PermissionAuditLog del tenant',
-    },
+    aprobaciones: aprobacion,
     bitacora: {
       eventos: eventos.filter(e => e.hash).map(e => ({ id: e.id, action: e.action, createdAt: e.createdAt.toISOString(), hash: e.hash, prevHash: e.prevHash, userId: e.userId, endpoint: e.endpoint })),
       cadena,
