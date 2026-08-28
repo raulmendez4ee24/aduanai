@@ -12,6 +12,7 @@ import { prisma } from '../lib/prisma';
 import { TARIFF_VERSION } from '../lib/tariff-version';
 import { TLCUEM_VIGENCIA, preferenciaAplicable } from '../lib/treaties';
 import { RETIRADAS_TIGIE } from '../lib/retiradas-tigie';
+import { TIPO_REG_ANEXO21, TIPO_REG_CORRELATIVA, MATCH_ANEXO21, MATCH_CORRELATIVA } from './cotejo-cargadores';
 
 export type EstadoBloque = 'con_datos' | 'sin_dato' | 'pendiente_de_carga';
 
@@ -66,9 +67,9 @@ export interface FichaFraccion {
     cuotasCompensatorias: Bloque<{ id: string; fractionCode: string; countryOfOrigin: string; productDesc: string | null; specificProducer: string | null; exportadorTasas: unknown; rate: number; rateUnit: string; resolutionNumber: string | null; status: string; publishDateDOF: string | null; effectiveDate: string | null; expiryDate: string | null; examenSunsetFecha: string | null; cotejadoAt: string | null; esAntielusion: boolean; dofUrl: string | null }[]>;
     noms: Bloque<{ code: string; authority: string; description: string; required: boolean; origenDato: 'fraction_regulations' | 'fractions.noms'; excepciones: { exceptionCode: string; fraccionAnexo: string; description: string; requiredDoc: string | null; legalBasis: string | null }[] }[]>;
     permisos: Bloque<{ type: string; authority: string; code: string; description: string; required: boolean; matchType: string }[]>;
-    aduanasAnexo21: Bloque<never[]>;
+    aduanasAnexo21: Bloque<{ aduanaClave: string; detalle: string; obligatoria: boolean; matchType: 'exact' | 'prefix' }[]>;
     preciosEstimados: Bloque<{ countryOfOrigin: string | null; estimatedValue: number; unit: string; decree: string | null; publishDate: string; effectiveDate: string; expiryDate: string | null; source: string }[]>;
-    correlativas: Bloque<{ tipo: 'retirada'; nota: string }[]>;
+    correlativas: Bloque<{ tipo: 'retirada' | 'correlacion'; nota: string }[]>;
   };
 }
 
@@ -90,7 +91,7 @@ export async function construirFicha(codeRaw: string): Promise<FichaFraccion | n
   if (!fr) return null;
 
   const pref = prefijos(code);
-  const [prosec, regla8, cuotas, regs, precios, ieps] = await Promise.all([
+  const [prosec, regla8, cuotas, regs, precios, ieps, aduanas21, correlacionesCargadas] = await Promise.all([
     prisma.pROSECEligibility.findMany({
       where: { active: true, OR: [{ fractionCode: code, matchType: 'exact' }, { matchType: 'prefix', fractionCode: { in: pref } }] },
       orderBy: { effectiveDate: 'desc' },
@@ -105,6 +106,24 @@ export async function construirFicha(codeRaw: string): Promise<FichaFraccion | n
     prisma.estimatedPrice.findMany({ where: { fractionCode: code, active: true }, orderBy: { effectiveDate: 'desc' } }),
     prisma.iEPSRate.findMany({
       where: { active: true, OR: [{ fractionCode: code, matchType: 'exact' }, { matchType: 'prefix', fractionCode: { in: pref } }] },
+    }),
+    // Anexo 21 y correlativas LIGIE viven (mientras no tengan tabla propia) en
+    // FractionRegulation con `type` y `matchType` propios que ningún otro
+    // consumidor consulta. Los carga services/cotejo-cargadores.ts con
+    // atestación obligatoria (cotejadoPor + fuenteUrl). Ver SCHEMA REQUERIDO.
+    prisma.fractionRegulation.findMany({
+      where: {
+        active: true, type: TIPO_REG_ANEXO21,
+        OR: [{ matchType: MATCH_ANEXO21.exact, fractionCode: code }, { matchType: MATCH_ANEXO21.prefix, fractionCode: { in: pref } }],
+      },
+      orderBy: { code: 'asc' },
+    }),
+    prisma.fractionRegulation.findMany({
+      where: {
+        active: true, type: TIPO_REG_CORRELATIVA, matchType: MATCH_CORRELATIVA,
+        OR: [{ fractionCode: code }, { code: { endsWith: `:${code}` } }],
+      },
+      orderBy: { code: 'asc' },
     }),
   ]);
 
@@ -182,9 +201,18 @@ export async function construirFicha(codeRaw: string): Promise<FichaFraccion | n
 
   // ── Correlativas: no hay tabla de correlación LIGIE 2020↔2022↔2025 cargada ──
   const retirada = RETIRADAS_TIGIE.has(code) || !fr.active;
-  const correlativas: { tipo: 'retirada'; nota: string }[] = retirada
+  const correlativas: { tipo: 'retirada' | 'correlacion'; nota: string }[] = retirada
     ? [{ tipo: 'retirada', nota: RETIRADAS_TIGIE.has(code) ? 'Fracción retirada de la TIGIE vigente (lib/retiradas-tigie.ts, cotejo contra Base Única LIGIE 2026).' : 'Fracción marcada como inactiva en el catálogo.' }]
     : [];
+  for (const c of correlacionesCargadas) correlativas.push({ tipo: 'correlacion', nota: c.description });
+
+  // ── Anexo 21: aduanas autorizadas cargadas con atestación ──
+  const aduanasAnexo21 = aduanas21.map(r => ({
+    aduanaClave: r.code,
+    detalle: r.description,
+    obligatoria: r.required,
+    matchType: (r.matchType === MATCH_ANEXO21.exact ? 'exact' : 'prefix') as 'exact' | 'prefix',
+  }));
 
   const bloque = <T>(datos: T, fuente: string, extra: Partial<Bloque<T>> = {}): Bloque<T> => {
     const vacio = datos === null || (Array.isArray(datos) && datos.length === 0);
@@ -212,13 +240,29 @@ export async function construirFicha(codeRaw: string): Promise<FichaFraccion | n
       ),
       noms: bloque(noms, 'Acuerdo de NOMs (Anexo 2.4.1) — tablas fraction_regulations + nom_exceptions; y fractions.noms del catálogo'),
       permisos: bloque(permisos, 'Acuerdos de RRNA / permisos previos SE, COFEPRIS, SEMARNAT, SADER — tabla fraction_regulations; padrones sectoriales Anexo 10 RGCE'),
-      aduanasAnexo21: { estado: 'pendiente_de_carga', fuente: 'Anexo 21 RGCE (aduanas autorizadas para tramitar el despacho de determinadas mercancías) — no cargado al producto', datos: [] },
+      aduanasAnexo21: bloque(
+        aduanasAnexo21,
+        'Anexo 21 RGCE (aduanas autorizadas para tramitar el despacho de determinadas mercancías) — tabla fraction_regulations, cargador "anexo21" con cotejadoPor + fuenteUrl obligatorios',
+        {
+          estado: 'pendiente_de_carga',
+          nota: aduanasAnexo21.length > 0
+            ? `Aduanas: ${aduanasAnexo21.map(a => a.aduanaClave).join(', ')}. ${aduanasAnexo21.some(a => a.obligatoria) ? 'Alguna es de despacho obligatorio.' : ''}`.trim()
+            : undefined,
+        },
+      ),
       preciosEstimados: bloque(
         precios.map(p => ({ countryOfOrigin: p.countryOfOrigin, estimatedValue: p.estimatedValue, unit: p.unit, decree: p.decree, publishDate: iso(p.publishDate)!, effectiveDate: iso(p.effectiveDate)!, expiryDate: iso(p.expiryDate), source: p.source })),
         'Precios estimados SHCP/SAT (Art. 84-A LA, Anexo 2 RGCE) — tabla estimated_prices',
         { fechaDOF: precios[0] ? iso(precios[0].publishDate) : null },
       ),
-      correlativas: bloque(correlativas, 'Tabla de correlación LIGIE 2020↔2022↔2025 (SNICE) — pendiente de carga; hoy solo se marca "retirada" cuando consta en lib/retiradas-tigie.ts o el catálogo la tiene inactiva', { estado: 'pendiente_de_carga' }),
+      correlativas: bloque(
+        correlativas,
+        'Tabla de correlación LIGIE 2020↔2022↔2025 (SNICE) — tabla fraction_regulations, cargador "correlativas"; además se marca "retirada" cuando consta en lib/retiradas-tigie.ts o el catálogo la tiene inactiva',
+        {
+          estado: 'pendiente_de_carga',
+          nota: correlacionesCargadas.length === 0 ? 'Ninguna correlativa cargada para esta fracción: la tabla del SNICE aún no se ha importado.' : undefined,
+        },
+      ),
     },
   };
 }
