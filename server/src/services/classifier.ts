@@ -11,6 +11,13 @@ import {
   isNoCandidateCode,
   validateClassifyInput,
 } from './classify-input';
+import { extractSearchTerms } from './rgi6-terminos';
+import {
+  compararEspecificaVsResidual,
+  filtrarAlternativasContradictorias,
+  type ComparacionRGI6,
+  type LlmRGI6,
+} from './rgi6-especifica-residual';
 import {
   lookupPrecedents,
   hasActiveLitigation,
@@ -87,6 +94,15 @@ export interface ClassificationResult {
   litigationAlert?: { active: boolean; cases: PrecedentMatch[] } | null;
   /** Ola 2: conteo honesto de criterios/tesis por fracción (con flag apagado: 0 + mensaje). */
   precedentes?: PrecedentesPorFraccion;
+  /**
+   * 4ª revisión, prioridad 1 — comparación RGI 6 "subpartida específica vs
+   * residual" dentro de la MISMA partida. Presente SIEMPRE que la fracción
+   * final salga de una residual del catálogo: dice si el pase corrió, cuál fue
+   * la ganadora, la justificación escrita y el descarte textual de la
+   * perdedora. `estado: 'no_ejecutado'` = el pase falló y se conservó la
+   * elección original (nunca se inventa el veredicto).
+   */
+  rgi6?: ComparacionRGI6;
 }
 
 export const INDUSTRIAL_SECTORS = [
@@ -128,12 +144,16 @@ El USO destinado y el SECTOR del importador pueden cambiar la clasificación. Ej
    PERO si el tornillo es identificable como parte específica de un vehículo
    (forma, dimensiones, material especial), aplica cap 87.
 
-2) CABLES Y ARNESES:
-   - Cable eléctrico genérico → 8544.42 / 8544.49
-   - Arnés automotriz importado por armadora para ensamble vehicular específico
-     → potencial 8708.99 si se identifica como parte específica del vehículo
-   Criterio: distinguir entre cable comercial vs arnés con conectores específicos
-   diseñado para una pieza automotriz identificable.
+2) CABLES Y ARNESES (juegos de cables):
+   - Cable eléctrico genérico → 8544.42 / 8544.49 según el texto de cada subpartida
+   - JUEGO DE CABLES (arnés) de los tipos utilizados en los medios de transporte
+     → 8544.30, subpartida ESPECÍFICA POR DESTINO dentro de la misma partida
+     85.44. No es la residual "los demás" de 8544.42/.49, ni el capítulo 87.
+   Criterio (Nota 2 de la Sección XVII): las partes de vehículos van a su
+   capítulo SALVO cuando son mercancía cubierta por una partida específica de
+   los capítulos 84 a 90 — la 85.44 lo es. Por eso un arnés automotriz NO se
+   reclasifica a 8708 y NO debe ofrecerse 8708.xx como alternativa en el mismo
+   dictamen que invoca esa nota: sería contradictorio.
 
 3) PLÁSTICOS PARA AUTOPARTES:
    - Pieza plástica genérica → cap 39
@@ -445,28 +465,10 @@ function formatKnowledgeForPrompt(kn: Awaited<ReturnType<typeof findRelevantKnow
 // 2ª Ola Etapa 2 (F1) — higiene de términos de búsqueda. El diagnóstico de los
 // 37 candados de la línea base mostró que "para"/"tipo" (substring) matcheaban
 // "preparaciones"/"reparación" en miles de filas y el take-30 SIN ORDEN devolvía
-// filas arbitrarias (headings ganadores absurdos: 0101 caballos, 0306 crustáceos,
-// 0407 huevos... para mouse, tornillos y escritorios).
-const SEARCH_STOPWORDS = new Set([
-  'para', 'tipo', 'tipos', 'con', 'como', 'sobre', 'hasta', 'entre', 'cada', 'desde',
-  'este', 'esta', 'estos', 'estas', 'pero', 'porque', 'cuando', 'donde', 'cual',
-  'cuales', 'producto', 'productos', 'nuevo', 'nueva', 'nuevos', 'nuevas', 'uso', 'usos',
-]);
-
-/** Términos útiles: sin puntuación, sin stopwords, sin números sueltos/medidas. */
-function extractSearchTerms(description: string): string[] {
-  return [...new Set(
-    description
-      .toLowerCase()
-      .replace(/[^a-z0-9áéíóúüñ\s-]/gi, ' ') // fuera puntuación (paréntesis, comas, %…)
-      .split(/\s+/)
-      .filter(w =>
-        w.length > 3 &&
-        !SEARCH_STOPWORDS.has(w) &&
-        !/^\d/.test(w), // fuera "250cc", "500ml", "205" — medidas no discriminan partida
-      ),
-  )];
-}
+// filas arbitrarias. La lista de stopwords y `extractSearchTerms` viven ahora en
+// services/rgi6-terminos.ts (VERBATIM, mismo comportamiento) para que el pase
+// RGI 6 específica-vs-residual use el MISMO criterio de término significativo
+// sin duplicar la lista.
 
 interface RankedFraction {
   code: string; codeFormatted: string; description: string;
@@ -1038,5 +1040,183 @@ ${chapterFractions.slice(0, 100).map(f => `- ${f.codeFormatted}: ${f.description
   // confianza baja). Falla cerrado — nunca sale un código inexistente/truncado.
   result = await enforceCatalogFraction(result, suggestedCode);
 
+  // ── RGI 6: subpartida ESPECÍFICA vs RESIDUAL (4ª revisión, prioridad 1) ──
+  // Si la fracción final es residual y en la MISMA partida hay una subpartida
+  // específica cuyo texto coincide con el producto o con el uso declarado, se
+  // compara textualmente y se deja el descarte por escrito ANTES de aceptar la
+  // residual. Falla suave: si el pase no corre, la elección original se queda.
+  result = await aplicarRGI6(result, description, options);
+
+  // Alternativas contradictorias: si el razonamiento invoca una nota de
+  // exclusión, ninguna alternativa puede vivir en el capítulo excluido.
+  result = await depurarAlternativasContradictorias(result);
+
+  return result;
+}
+
+/**
+ * Aplica el pase RGI 6 específica-vs-residual y deja constancia escrita en
+ * `legalBasis` (lo que la pantalla y el dictamen ya renderizan) además del
+ * bloque `rgi6` de la respuesta. Nunca lanza: ante cualquier fallo devuelve el
+ * resultado intacto con `rgi6.estado = 'no_ejecutado'`.
+ */
+export async function aplicarRGI6(
+  result: ClassificationResult,
+  description: string,
+  options?: ClassifyOptions,
+  /** Inyectable SOLO para tests: por defecto el pase usa el cliente del clasificador. */
+  llm?: LlmRGI6,
+): Promise<ClassificationResult> {
+  let comparacion: ComparacionRGI6;
+  try {
+    comparacion = await compararEspecificaVsResidual({
+      descripcion: description,
+      usoDestino: options?.useCase ?? null,
+      sector: options?.sector ? (SECTOR_LABELS[options.sector] ?? options.sector) : null,
+      codigoElegido: result.fraction.code,
+      llm,
+    });
+  } catch (e) {
+    // El orquestador ya atrapa el fallo del LLM; esto cubre un fallo de
+    // catálogo/DB para que el clasificador no se caiga por la comparación.
+    const msg = e instanceof Error ? e.message : String(e);
+    logger.warn(`Comparación RGI 6 no disponible: ${msg}`, {
+      action: 'rgi6_no_disponible', entity: 'classification',
+      metadata: { code: result.fraction.code, error: msg.slice(0, 300) },
+    });
+    result.rgi6 = {
+      estado: 'no_ejecutado', ejecutado: false, residual: null, candidata: null,
+      ganadora: null, justificacion: null, descarte: null, notas: [],
+      aviso: 'No se pudo ejecutar la comparación específica vs residual (el catálogo no respondió): se conserva la fracción elegida por el motor.',
+      error: msg,
+    };
+    return result;
+  }
+
+  result.rgi6 = comparacion;
+
+  result.legalBasis = {
+    griApplied: result.legalBasis?.griApplied ?? [],
+    legalNotes: result.legalBasis?.legalNotes ?? [],
+    discardedFractions: result.legalBasis?.discardedFractions ?? [],
+  };
+
+  // Estados sin pase: no se toca la clasificación ni se ensucia el dictamen.
+  if (comparacion.estado === 'apagado' || comparacion.estado === 'sin_catalogo' || comparacion.estado === 'no_residual') {
+    return result;
+  }
+
+  if (comparacion.estado === 'sin_candidata') {
+    result.legalBasis.griApplied.push({
+      rule: 'Regla General 6 (RGI 6) — específica vs residual',
+      reasoning: comparacion.aviso,
+    });
+    return result;
+  }
+
+  if (comparacion.estado === 'no_ejecutado') {
+    result.legalBasis.griApplied.push({
+      rule: 'Regla General 6 (RGI 6) — específica vs residual: NO EJECUTADA',
+      reasoning: `${comparacion.candidata?.motivo ?? ''} ${comparacion.aviso}`.trim(),
+    });
+    return result;
+  }
+
+  // El pase corrió: veredicto escrito, con el descarte textual de la perdedora.
+  result.legalBasis.griApplied.push({
+    rule: 'Regla General 6 (RGI 6) — específica vs residual',
+    reasoning: `${comparacion.aviso} ${comparacion.justificacion ?? ''}`.trim(),
+  });
+  const perdedora = comparacion.estado === 'reclasificada' ? comparacion.residual : comparacion.candidata;
+  if (perdedora && comparacion.descarte) {
+    result.legalBasis.discardedFractions.push({ code: perdedora.codeFormatted, reason: comparacion.descarte });
+  }
+  for (const n of comparacion.notas) {
+    const yaEsta = result.legalBasis.legalNotes.some(x => x.source === n.source);
+    if (!yaEsta) {
+      result.legalBasis.legalNotes.push({
+        source: n.cotejo === 'pendiente' ? `${n.source} (cotejo pendiente)` : n.source,
+        text: n.text,
+      });
+    }
+  }
+
+  if (comparacion.estado === 'reclasificada' && comparacion.ganadora) {
+    const ganadora = comparacion.ganadora;
+    const check = await validateFraction(ganadora);
+    if (check.valid) {
+      result.fraction.code = `${ganadora.slice(0, 4)}.${ganadora.slice(4, 6)}.${ganadora.slice(6, 8)}`;
+      if (check.description) result.fraction.description = check.description;
+      result.fraction.chapter = ganadora.slice(0, 2);
+      // Los paneles legales cuelgan de la fracción: se recalculan con la nueva.
+      try {
+        result.precedents = await lookupPrecedents({ fractionCode: ganadora, chapter: ganadora.slice(0, 2), limit: 5 });
+        const lit = await hasActiveLitigation(ganadora);
+        result.litigationAlert = lit.has ? { active: true, cases: lit.precedents } : null;
+        result.precedentes = await precedentesPorFraccion(ganadora);
+      } catch { /* los paneles se omiten; la clasificación no depende de ellos */ }
+    }
+  }
+
+  return result;
+}
+
+/** Texto donde se busca la cita de una nota de exclusión (todo el razonamiento emitido). */
+function razonamientoCompleto(result: ClassificationResult): string {
+  return [
+    ...(result.legalBasis?.griApplied ?? []).map(g => `${g.rule} ${g.reasoning}`),
+    ...(result.legalBasis?.legalNotes ?? []).map(n => `${n.source} ${n.text}`),
+    // Observado en vivo: el modelo cita la nota DENTRO del descarte de la
+    // fracción de cap 87 ("Descartado porque la Nota 2 de la Sección XVII…").
+    ...(result.legalBasis?.discardedFractions ?? []).map(d => `${d.code} ${d.reason}`),
+    ...(result.griApplied ?? []),
+    result.explanation?.technical ?? '',
+    result.useBasedAnalysis?.criterion ?? '',
+    result.useBasedAnalysis?.recommendation ?? '',
+  ].join(' \n');
+}
+
+/**
+ * Coherencia del dictamen: si el razonamiento cita una nota de exclusión (p. ej.
+ * la Nota 2 de la Sección XVII, que mantiene en su capítulo las partes cubiertas
+ * por una partida específica de los capítulos 84 a 90), no puede a la vez
+ * ofrecer alternativas del capítulo excluido. Sin la nota en el corpus NO se
+ * filtra: queda dicho en `legalBasis`.
+ */
+export async function depurarAlternativasContradictorias(result: ClassificationResult): Promise<ClassificationResult> {
+  try {
+    const filtrado = await filtrarAlternativasContradictorias({
+      alternativas: result.alternatives ?? [],
+      codigoFinal: result.fraction.code,
+      razonamiento: razonamientoCompleto(result),
+    });
+    result.legalBasis = {
+      griApplied: result.legalBasis?.griApplied ?? [],
+      legalNotes: result.legalBasis?.legalNotes ?? [],
+      discardedFractions: result.legalBasis?.discardedFractions ?? [],
+    };
+    if (filtrado.descartadas.length > 0) {
+      result.alternatives = filtrado.alternativas;
+      result.legalBasis.discardedFractions.push(...filtrado.descartadas);
+    }
+    // La dualidad material-vs-uso puede apuntar al capítulo excluido aunque no
+    // haya ninguna ALTERNATIVA ahí: sostenerla es la misma contradicción en
+    // otro campo de la pantalla ("alternativa por uso: 8708.99.XX").
+    const capUso = (result.useBasedAnalysis?.byUse?.code ?? '').replace(/\D/g, '').slice(0, 2);
+    if (result.useBasedAnalysis && capUso && filtrado.capitulosExcluidos.includes(capUso)) {
+      result.legalBasis.discardedFractions.push({
+        code: result.useBasedAnalysis.byUse.code,
+        reason: `Análisis por uso retirado: apunta al capítulo ${capUso}, excluido por la ${filtrado.notasAplicadas.map(n => n.replace(/ LIGIE$/, '')).join(' y ')} que el propio razonamiento invoca (cotejo pendiente).`,
+      });
+      result.useBasedAnalysis = null;
+    }
+    for (const aviso of filtrado.avisos) {
+      result.legalBasis.discardedFractions.push({ code: '—', reason: aviso });
+    }
+  } catch (e) {
+    logger.warn(`No se pudo depurar alternativas contradictorias: ${e instanceof Error ? e.message : String(e)}`, {
+      action: 'rgi6_alternativas_no_depuradas', entity: 'classification',
+    });
+  }
   return result;
 }
