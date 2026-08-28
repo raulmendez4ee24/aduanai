@@ -3,8 +3,9 @@
  *
  * Dos pecados que la revisión encontró en pantalla:
  *
- * 1. Flotantes crudos en saldos: `1000 - 549.88` en IEEE-754 da
- *    `450.11999999999995` y la UI pintaba "451.1199999999999 Kg". El redondeo
+ * 1. Flotantes crudos en saldos: sumar diez lotes de 45.112 da
+ *    `451.1200000000001` en IEEE-754 y restar `1055.18 - 1000` da
+ *    `55.180000000000064`; así se pintaban en pantalla. El redondeo
  *    NO se hace al pintar: se hace EN EL ORIGEN (la resta/suma que produce el
  *    saldo), para que el número que viaja por la API y el que se guarda sean
  *    el mismo que el usuario ve. `aDecimales` es el mismo `r6` que ya usaba
