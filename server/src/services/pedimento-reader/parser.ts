@@ -119,9 +119,27 @@ export function parseArchivoM(nombreArchivo: string, contenido: string): Archivo
   const errores: string[] = [];
   const advertencias: string[] = [];
 
+  // El nombre canónico es `mppppnnn.ddd`. Muchos sistemas entregan el archivo
+  // con `.txt` añadido (o el usuario lo guarda así desde el correo): se acepta
+  // y se avisa. Se hace AQUÍ para que todas las puertas (radar, importador,
+  // pre-validador) se comporten igual — antes el importador lo toleraba y el
+  // radar no, con el mismo archivo (28-ago-2026).
+  let nombre = nombreArchivo.trim();
+  if (/\.txt$/i.test(nombre)) {
+    nombre = nombre.replace(/\.txt$/i, '');
+    advertencias.push(`El nombre entregado ("${nombreArchivo.trim()}") trae ".txt" añadido; el nombre canónico de la spec es "${nombre}" (criterios 801.2). Se aceptó.`);
+  }
+
   // La spec exige separador line feed (control-J). Un \r final por línea (CRLF
   // de tránsito por Windows) se tolera con advertencia explícita — no en silencio.
   let texto = contenido;
+  // BOM UTF-8: Excel y varios editores de Windows lo escriben al guardar. Sin
+  // quitarlo, el primer registro se lee como "\uFEFF500" y el archivo moría con
+  // "tipo de registro desconocido" — un mensaje que no ayuda a nadie.
+  if (texto.charCodeAt(0) === 0xfeff) {
+    advertencias.push('El archivo trae BOM UTF-8 al inicio (lo añaden Excel y algunos editores de Windows); la spec pide ASCII plano. Se ignoró para el parseo.');
+    texto = texto.slice(1);
+  }
   if (texto.includes('\r')) {
     advertencias.push('El archivo contiene retornos de carro (CRLF); la spec v9.0 indica separador line feed. Se normalizó para el parseo.');
     texto = texto.replace(/\r/g, '');
@@ -135,7 +153,11 @@ export function parseArchivoM(nombreArchivo: string, contenido: string): Archivo
   for (let i = 0; i < lineasRaw.length; i++) {
     const linea = i + 1;
     const cruda = lineasRaw[i]!;
-    if (cruda.trim() === '') { errores.push(`L${linea}: línea vacía intermedia (la spec no la contempla)`); continue; }
+    if (cruda.trim() === '') {
+      const donde = linea === 1 ? 'al inicio del archivo' : 'intermedia';
+      errores.push(`L${linea}: línea vacía ${donde} (la spec no la contempla; el primer registro debe ser el 500)`);
+      continue;
+    }
     const campos = cruda.split('|');
     const tipoStr = campos[0]!;
     const tipo = Number(tipoStr);
@@ -205,7 +227,7 @@ export function parseArchivoM(nombreArchivo: string, contenido: string): Archivo
   if (!NOMBRE_ARCHIVO_REGEX.test(nombre801)) {
     throw new ArchivoMError(`801.2 "${nombre801}" no cumple el formato mppppnnn.ddd (criterios 801.2)`);
   }
-  if (nombre801.toLowerCase() !== nombreArchivo.trim().toLowerCase()) {
+  if (nombre801.toLowerCase() !== nombre.toLowerCase()) {
     throw new ArchivoMError(`el nombre del archivo ("${nombreArchivo}") no coincide con 801.2 ("${nombre801}") — pasa el archivo con su nombre original`);
   }
   const patenteNombre = nombre801.slice(1, 5);

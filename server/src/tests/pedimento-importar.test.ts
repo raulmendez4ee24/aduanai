@@ -20,6 +20,7 @@ import {
   detectarLayout, parsearArchivo, importarPedimentos, cargarPedimento, pedimentoAInputPrevalidador, ImportacionError, MAX_PEDIMENTOS, MAX_PARTIDAS,
 } from '../services/pedimento-importer';
 import { parseDataStage, DataStageError } from '../services/pedimento-reader/datastage';
+import { parseArchivoM } from '../services/pedimento-reader/parser';
 
 let passed = 0, failed = 0;
 async function test(name: string, fn: () => Promise<void> | void) {
@@ -41,6 +42,47 @@ async function main() {
   const ctx = { tenantId: tenant.id, userId: user.id, clienteId: null };
 
   try {
+
+    // ── Robustez del nombre y del encabezado (28-ago-2026) ───────────────
+    // Al documentar la spec para generar archivos de prueba salió que el MISMO
+    // archivo entraba por el importador y lo rechazaba el radar (sufijo .txt),
+    // y que uno guardado desde Excel moría con "tipo de registro desconocido"
+    // por el BOM. El fixture es el ejemplo mínimo de dos partidas.
+    const fixtureM3 = readFileSync(join(__dirname, 'fixtures', 'm3456001.245'), 'utf8');
+
+    await test('fixture de referencia: 2 partidas con sus adjuntos y cero advertencias', () => {
+      const a = parseArchivoM('m3456001.245', fixtureM3);
+      assert.equal(a.advertenciasIntegridad.length, 0);
+      assert.deepEqual(a.pedimentos[0]!.partidas.map(p => p.r551.campos[2]), ['85443099', '73181599']);
+      assert.equal(a.pedimentos[0]!.partidas[0]!.contribuciones.length, 1);
+    });
+
+    await test('nombre con .txt añadido: se acepta con aviso (todas las puertas igual)', () => {
+      const a = parseArchivoM('m3456001.245.txt', fixtureM3);
+      assert.equal(a.pedimentos.length, 1);
+      assert.equal(a.archivo.nombre, 'm3456001.245');
+      assert.ok(a.advertenciasIntegridad.some(x => x.includes('.txt')));
+    });
+
+    await test('BOM UTF-8 al inicio: se ignora con aviso, no mata el archivo', () => {
+      const a = parseArchivoM('m3456001.245', '\uFEFF' + fixtureM3);
+      assert.equal(a.pedimentos.length, 1);
+      assert.ok(a.advertenciasIntegridad.some(x => x.includes('BOM')));
+    });
+
+    await test('nombre distinto del 801.2 sigue siendo rechazo', () => {
+      assert.throws(() => parseArchivoM('pedimento.txt', fixtureM3), /no coincide con 801\.2/);
+    });
+
+    await test('línea vacía al inicio: el mensaje dice dónde está', () => {
+      try {
+        parseArchivoM('m3456001.245', '\n' + fixtureM3);
+        assert.fail('debió rechazar');
+      } catch (e) {
+        assert.match((e as { detalles: string[] }).detalles[0]!, /L1: línea vacía al inicio/);
+      }
+    });
+
     await test('detectarLayout: 500| → M3, encabezados → DATASTAGE, otro → DESCONOCIDO', () => {
       assert.equal(detectarLayout(fixture('m3842004.074.txt')), 'M3');
       assert.equal(detectarLayout(DS_CSV), 'DATASTAGE');
@@ -218,7 +260,8 @@ async function main() {
     await prisma.tenant.delete({ where: { id: tenant.id } });
     await prisma.$disconnect();
   }
-  console.log(`\n${passed} pasaron, ${failed} fallaron`);
+  
+console.log(`\n${passed} pasaron, ${failed} fallaron`);
   process.exit(failed > 0 ? 1 : 0);
 }
 
