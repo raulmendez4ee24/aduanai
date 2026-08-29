@@ -47,5 +47,38 @@ test('Error normal (no APIError) → null', () => {
   assert.equal(tipoDeErrorAnthropic(new Error('Your credit balance is too low')), null);
 });
 
+// ── El job asíncrono también debe decir la verdad (28-ago-2026) ──────────
+// Prod se quedó sin crédito y el usuario leía "error interno del servicio,
+// intenta de nuevo": el detector existía pero solo lo usaba la ruta síncrona.
+import { mapearErrorDeJob } from '../services/classification-job-runner';
+
+test('job: crédito agotado → IA_NO_DISPONIBLE, mensaje honesto y NO retriable', () => {
+  const e = apiError(400, 'Your credit balance is too low to access the Anthropic API.');
+  const r = mapearErrorDeJob(e);
+  assert.equal(r.code, 'IA_NO_DISPONIBLE');
+  assert.equal(r.retriable, false);
+  assert.match(r.message, /cr[eé]dito/i);
+  assert.doesNotMatch(r.message, /error interno/i);
+});
+
+test('job: rate limit → IA_NO_DISPONIBLE y SÍ retriable', () => {
+  const r = mapearErrorDeJob(apiError(429, 'rate_limit_error'));
+  assert.equal(r.code, 'IA_NO_DISPONIBLE');
+  assert.equal(r.retriable, true);
+});
+
+test('job: 4xx de validación sigue siendo VALIDACION no retriable', () => {
+  const e = Object.assign(new Error('La descripción es insuficiente'), { statusCode: 422 });
+  const r = mapearErrorDeJob(e);
+  assert.equal(r.code, 'VALIDACION');
+  assert.equal(r.retriable, false);
+});
+
+test('job: error desconocido sigue siendo ERROR_INTERNO retriable', () => {
+  const r = mapearErrorDeJob(new Error('boom'));
+  assert.equal(r.code, 'ERROR_INTERNO');
+  assert.equal(r.retriable, true);
+});
+
 console.log(`\n  ${passed} passed, ${failed} failed`);
 process.exit(failed > 0 ? 1 : 0);

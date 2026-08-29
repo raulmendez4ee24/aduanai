@@ -19,7 +19,7 @@ export class AppError extends Error {
 // (nunca un 500 genérico ni una clasificación inventada) y se dispara alerta:
 // SystemLog CRITICAL + SystemIncident, con throttle para no crear un incidente
 // por request durante una caída sostenida.
-const MENSAJE_IA: Record<TipoErrorAnthropic, string> = {
+export const MENSAJE_IA: Record<TipoErrorAnthropic, string> = {
   credito:
     'El servicio de IA no está disponible: el crédito de la API de Anthropic se agotó. ' +
     'El equipo ya fue alertado. Tu solicitud NO fue procesada; inténtalo más tarde.',
@@ -31,7 +31,7 @@ const MENSAJE_IA: Record<TipoErrorAnthropic, string> = {
 const ALERTA_CADA_MS = 15 * 60 * 1000;
 const ultimaAlertaIA: Record<TipoErrorAnthropic, number> = { credito: 0, cuota: 0 };
 
-async function alertarSinCapacidadIA(tipo: TipoErrorAnthropic, err: Error, endpoint: string): Promise<void> {
+export async function alertarSinCapacidadIA(tipo: TipoErrorAnthropic, err: Error, endpoint: string): Promise<void> {
   const ahora = Date.now();
   if (ahora - ultimaAlertaIA[tipo] < ALERTA_CADA_MS) return;
   ultimaAlertaIA[tipo] = ahora;

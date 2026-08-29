@@ -14,6 +14,8 @@
  * interrumpidos al arrancar (recoverInterruptedClassificationJobs), no los
  * finge vivos.
  */
+import { tipoDeErrorAnthropic } from '../lib/anthropic';
+import { MENSAJE_IA, alertarSinCapacidadIA } from '../middlewares/error';
 import { prisma } from '../lib/prisma';
 import { sinGuardaDeTenant } from '../lib/tenant-guard';
 import { classifyProduct, type IndustrialSector, type ImporterType } from './classifier';
@@ -45,7 +47,7 @@ export interface ClassificationJobInputs {
 }
 
 export interface ClassificationJobError {
-  code: 'VALIDACION' | 'ERROR_INTERNO' | 'INTERRUMPIDO' | 'TIMEOUT';
+  code: 'VALIDACION' | 'ERROR_INTERNO' | 'INTERRUMPIDO' | 'TIMEOUT' | 'IA_NO_DISPONIBLE';
   message: string;
   retriable: boolean;
 }
@@ -128,6 +130,39 @@ export async function createClassificationJob(params: {
 }
 
 /** Ejecuta el pipeline completo de un job y persiste resultado o error. */
+/**
+ * Traduce el error del pipeline al error que ve el usuario en el job.
+ *
+ * El caso que motivó extraerla (28-ago-2026): con la clasificación ya
+ * asíncrona, un 400 "credit balance is too low" de Anthropic caía en el
+ * genérico ERROR_INTERNO con retriable:true — el usuario leía "error interno
+ * del servicio, intenta de nuevo" y reintentaba para siempre contra una cuenta
+ * sin crédito. La ruta síncrona sí lo decía (middlewares/error.ts): aquí se
+ * usa el MISMO mensaje y el mismo detector.
+ *  - crédito agotado ⇒ NO retriable (reintentar no lo arregla; lo arregla facturación).
+ *  - rate limit/cuota ⇒ sí retriable (se resuelve en minutos).
+ * Pura y exportada para poder probarla sin DB ni LLM.
+ */
+export function mapearErrorDeJob(err: unknown): ClassificationJobError {
+  const tipoIA = tipoDeErrorAnthropic(err);
+  if (tipoIA) {
+    return { code: 'IA_NO_DISPONIBLE', message: MENSAJE_IA[tipoIA], retriable: tipoIA === 'cuota' };
+  }
+  const statusCode = (err as { statusCode?: number }).statusCode;
+  if (statusCode !== undefined && statusCode < 500) {
+    return {
+      code: 'VALIDACION',
+      message: err instanceof Error ? err.message : 'La descripción no pudo clasificarse.',
+      retriable: false,
+    };
+  }
+  return {
+    code: 'ERROR_INTERNO',
+    message: 'La clasificación falló por un error interno del servicio. Intenta de nuevo.',
+    retriable: true,
+  };
+}
+
 export async function runClassificationJob(jobId: string): Promise<void> {
   // Runner de sistema: el id viene del propio create (no de un usuario) → cruce deliberado.
   const job = await sinGuardaDeTenant(() => prisma.classificationJob.findUnique({ where: { id: jobId } }));
@@ -312,19 +347,15 @@ export async function runClassificationJob(jobId: string): Promise<void> {
     }
   } catch (err) {
     console.error(`[classification-job] pipeline falló (job ${jobId}):`, err);
-    const statusCode = (err as { statusCode?: number }).statusCode;
-    const jobError: ClassificationJobError =
-      statusCode !== undefined && statusCode < 500
-        ? {
-            code: 'VALIDACION',
-            message: err instanceof Error ? err.message : 'La descripción no pudo clasificarse.',
-            retriable: false,
-          }
-        : {
-            code: 'ERROR_INTERNO',
-            message: 'La clasificación falló por un error interno del servicio. Intenta de nuevo.',
-            retriable: true,
-          };
+    const jobError = mapearErrorDeJob(err);
+    if (jobError.code === 'IA_NO_DISPONIBLE') {
+      // Mismo rastro que la ruta síncrona: SystemLog CRITICAL + incidente con throttle.
+      void alertarSinCapacidadIA(
+        tipoDeErrorAnthropic(err)!,
+        err instanceof Error ? err : new Error(String(err)),
+        'classification-job-runner',
+      ).catch(e => console.error('[classification-job] no pude registrar la alerta de IA:', e instanceof Error ? e.message : e));
+    }
     await prisma.classificationJob.updateMany({
       where: { id: jobId, status: { in: ACTIVE_STATUSES } },
       data: { status: 'error', finishedAt: new Date(), error: jobError as unknown as object },
