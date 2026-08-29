@@ -13,6 +13,9 @@ export interface GuiaModulo {
   titulo: string
   resumen: string
   pasos: string[]
+  /** Párrafo opcional "por qué importa": el contexto que el usuario nuevo no
+   *  tiene y sin el cual los pasos no se entienden. */
+  porQue?: string
   /** Ruta de la captura en /public/ayuda; opcional si aún no existe. */
   captura?: string
 }
@@ -55,8 +58,23 @@ export const GUIAS: Record<string, GuiaModulo> = {
     ['Cada obligación tiene fecha límite, responsable y qué pasa si no se cumple.', 'Márcala cumplida con evidencia; las recurrentes se regeneran solas.']),
   '/copilot': G('copilot', 'Copilot legal', 'Respuestas fundamentadas en tu biblioteca legal, en el contexto de tu cliente.',
     ['Pregunta en lenguaje natural; cada cita se cruza contra el corpus (modo estricto).', 'Si el corpus no respalda una cita, el Copilot se abstiene: nunca verás una cita inventada.']),
-  '/risk-scorer': G('risk', 'Risk Scorer', 'Exposición vs escudo con reglas deterministas y fundamento.',
-    ['Responde las señales; sube el documento que respalda cada una para pasar de "declarado" a "verificado".', 'El score queda por cliente con historial; exporta el dictamen PDF con folio.', 'Modo cartera: tus clientes ordenados por exposición.']),
+  '/risk-scorer': {
+    slug: 'risk',
+    titulo: 'Risk Scorer',
+    resumen: 'Mide por separado cuánto te expone una operación y cuánta evidencia la respalda. No es una opinión: son 26 reglas deterministas, cada una con su artículo, su cita textual y su fecha de cotejo.',
+    porQue: 'Desde la reforma aduanera (DOF 19-11-2025) el Art. 54 de la Ley Aduanera ya no tiene excluyentes de responsabilidad: desapareció el listado de casos en que el agente aduanal "no responde", y el mismo artículo le exige asegurarse de que el importador cuenta con los documentos que acreditan el cumplimiento. En la práctica eso significa que tu única defensa es la evidencia documental. Este módulo es el mapa de esa evidencia: te dice dónde estás expuesto y qué parte de esa exposición ya está respaldada por documentos, antes de firmar.',
+    pasos: [
+      'Elige el sujeto: agente aduanal (quien responde por el Art. 54) o agencia. Captura la operación: fracción, país de origen, RFC del importador, pedimento, valor y padrones sectoriales activos.',
+      'Responde las señales de cada bloque (valor y pago, cliente y padrones, expediente, tiempos, NOMs, documentos). Toda respuesta nace marcada "declarado por ti": vale para calcular, no para defenderte.',
+      'Sube el documento que respalda una señal y ésa pasa a "verificado por el sistema". Eso es lo que sube tu escudo — lo que cuenta es la evidencia, no la respuesta.',
+      'Lee el resultado en dos números que nunca se mezclan: exposición (0-100, qué tan expuesta está la operación) y escudo (0-100, qué porcentaje de esa exposición está respaldado), con su banda de verde a rojo crítico.',
+      'Revisa la sección "No evaluadas": las señales que el motor no pudo calcular se listan aparte con el motivo (dato faltante, dataset vencido). Nunca se cuentan como cumplidas por omisión.',
+      'Cada regla trae su fundamento citable — artículo, cita textual y fecha de cotejo — y las que aún no tienen fuente cotejada lo dicen en la propia fila.',
+      'Exporta el dictamen en PDF con folio (RS-2026-0001) y hash verificable, y archívalo al expediente 59-V de la operación.',
+      'Modo cartera (para el gerente): tus clientes ordenados por exposición, con su último score y su historial, para decidir a quién le firmas y a quién le pides papeles antes.',
+    ],
+    captura: '/ayuda/risk.png',
+  },
   '/expediente': G('expedientes', 'Expedientes', 'Expediente electrónico por operación (59-V / 162-VII).',
     ['Checklist a)–h) con semáforo de completitud.', 'Sube documentos: la extracción IA puebla los datos y la glosa documental cruza factura, pedimento, BL y packing.', 'Exporta el paquete de auditoría (ZIP ordenado) cuando llegue una revisión.']),
   '/cambio-regimen': G('cambio-regimen', 'Cambio de régimen', 'F4/F5, A3 o RT: el expediente armado con sus impuestos.',

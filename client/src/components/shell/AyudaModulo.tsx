@@ -67,13 +67,21 @@ function ModalGuia({ guia, onCerrar }: { guia: GuiaModulo; onCerrar: () => void 
             <p className="text-[11px] uppercase tracking-[0.15em] text-tinta-suave font-medium">¿Cómo se usa?</p>
             <h2 id="ayuda-titulo" className="text-xl font-semibold text-tinta">{guia.titulo}</h2>
             <p className="text-sm text-tinta-suave mt-1">{guia.resumen}</p>
+            {guia.porQue && (
+              <p className="text-sm text-tinta mt-3 border-l-2 border-petroleo pl-3 leading-relaxed">
+                <span className="text-[11px] uppercase tracking-[0.15em] text-tinta-suave font-medium block mb-1">Por qué importa</span>
+                {guia.porQue}
+              </p>
+            )}
           </div>
           <button type="button" onClick={onCerrar} aria-label="Cerrar" className="ml-auto p-1.5 text-tinta-suave hover:text-tinta rounded-sello-sm">
             <X className="w-5 h-5" strokeWidth={1.5} />
           </button>
         </div>
         <div className="grid grid-cols-1 md:grid-cols-5 gap-6 px-6 py-5">
-          <ol className="md:col-span-2 space-y-3 text-sm text-tinta">
+          {/* Guías largas (con "por qué importa" o muchos pasos) necesitan más
+              ancho de texto que de captura. */}
+          <ol className={`${guia.porQue || guia.pasos.length > 5 ? 'md:col-span-3' : 'md:col-span-2'} space-y-3 text-sm text-tinta`}>
             {guia.pasos.map((p, i) => (
               <li key={i} className="flex gap-3">
                 <span className="shrink-0 w-6 h-6 rounded-full bg-petroleo-suave text-petroleo text-xs font-semibold flex items-center justify-center">{i + 1}</span>
@@ -81,7 +89,7 @@ function ModalGuia({ guia, onCerrar }: { guia: GuiaModulo; onCerrar: () => void 
               </li>
             ))}
           </ol>
-          <div className="md:col-span-3">
+          <div className={guia.porQue || guia.pasos.length > 5 ? 'md:col-span-2' : 'md:col-span-3'}>
             {guia.captura && capturaOk ? (
               <img
                 src={guia.captura}
